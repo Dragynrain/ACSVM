@@ -18,6 +18,7 @@ pub mod error;
 pub mod graphics;
 pub mod layout;
 pub mod model;
+pub mod scene;
 pub mod text;
 
 pub use decode::{decode, Decoded};

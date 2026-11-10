@@ -8,6 +8,7 @@
 //! and are skipped.
 
 use acs_core::model::{Adventure, Destination, ThingKind};
+use acs_core::scene::{self, RoomScene};
 use acs_core::{decode, DiagnosticKind, Image, Platform};
 use std::path::{Path, PathBuf};
 
@@ -95,6 +96,53 @@ fn check_consistency(a: &Adventure, file: &str) {
     }
 }
 
+/// The room-drawing rules `acs_core::scene` relies on (format-notes,
+/// "Drawing rooms").
+fn check_scene(a: &Adventure, file: &str) {
+    for n in [scene::FLOOR_THING, scene::BORDER_THING] {
+        assert!(
+            matches!(a.things[n as usize - 1].kind, ThingKind::RoomFloor { .. }),
+            "{file}: thing {n} is not a room floor"
+        );
+    }
+    for r in &a.regions {
+        let (layout, _) = scene::region_layout(r);
+        // Rooms never overlap by more than a shared wall line.
+        for (i, (_, g)) in layout.iter().enumerate() {
+            for (_, h) in &layout[i + 1..] {
+                let ix = (g.x + g.w).min(h.x + h.w) as i32 - g.x.max(h.x) as i32;
+                let iy = (g.y + g.h).min(h.y + h.h) as i32 - g.y.max(h.y) as i32;
+                assert!(
+                    ix <= 0 || iy <= 0 || ix.min(iy) == 1,
+                    "{file}: region {} rooms overlap by {ix}x{iy}",
+                    r.number
+                );
+            }
+        }
+        for (k, _) in &layout {
+            let room = &r.rooms[*k];
+            let s = RoomScene::new(r, room);
+            // Items fall outside their room only at the stash square.
+            for &i in &s.off_room {
+                let it = &room.items[i];
+                assert_eq!((it.x, it.y), (15, 14), "{file}: region {} room {k}", r.number);
+            }
+        }
+        // Every resident of a live room stands inside it.
+        for c in r.residents.iter().filter(|c| c.in_use) {
+            if let Some(room) = r.rooms.get(c.room as usize).filter(|rm| !rm.deleted) {
+                assert!(
+                    c.x < room.width && c.y < room.height,
+                    "{file}: region {} resident {} outside room {}",
+                    r.number,
+                    c.name,
+                    c.room
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn c64_corpus_decodes_cleanly() {
     let Some(files) = adventures("c64") else {
@@ -115,6 +163,7 @@ fn c64_corpus_decodes_cleanly() {
         assert!(d.diagnostics.is_empty(), "{file}: {:#?}", d.diagnostics);
         assert_eq!(d.adventure.pictures.len(), 110);
         check_consistency(&d.adventure, &file);
+        check_scene(&d.adventure, &file);
         // The model survives a JSON round trip.
         let json = serde_json::to_string(&d.adventure).unwrap();
         let back: Adventure = serde_json::from_str(&json).unwrap();
@@ -163,6 +212,7 @@ fn pc_corpus_decodes_cleanly() {
         assert_eq!(d.errors().count(), 0, "{file}: {:#?}", d.diagnostics);
         assert_eq!(d.adventure.pictures.len(), 96);
         check_consistency(&d.adventure, &file);
+        check_scene(&d.adventure, &file);
         eprintln!(
             "ok: {file}: {} ({} warnings)",
             d.adventure.name,

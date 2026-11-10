@@ -152,6 +152,40 @@ at (15,14) as well. Meaning of the bit still unknown; it is kept as `flag`.
 - Bit 7 of a door's stored y coordinate is set on 7 of 28 doors; meaning
   unknown (kept as `unknown_y_bit7`). AcsLib masks it off.
 
+## Drawing rooms
+
+How a room looks on screen, worked out for the viewer from all 15 corpus
+adventures (14 C64 plus **PC** *Rivers of Light*; 1,405 live rooms). The code
+is `crates/acs-core/src/scene.rs`; `tests/scene.rs` covers it with synthetic
+data and `tests/corpus.rs` re-checks the counted rules on the corpus.
+
+- **Walls and floor.** A room's size includes its walls: the squares on its
+  edge show the room's wall picture (room byte 0, a picture number) and the
+  inside shows the floor.
+- **The floor is master thing 127.** In every corpus adventure thing 127 is a
+  room-floor thing named EMPTY FLOOR (picture 1) and thing 128 a room-floor
+  thing usually named ROOM BORDER. Thing 128's picture is the most common wall
+  picture in 11 of 15 adventures, so it looks like the editor's default wall
+  that a room starts with. Room-floor things are never placed as room items
+  (0 of 18,226 items in live rooms). Picture 1 is blank (all colour 0) in all
+  15 adventures, so floors are plain background in practice; the viewer still
+  draws thing 127's picture in case an adventure changed it.
+- **Stacks: the first item is on top.** Items on the same square are listed
+  top first. Of 22 items named as covers ("COVR", "HIDDEN", "SECRET") in a
+  stack, 19 come first and the other 3 come straight after other covers.
+  The original shows the top item's picture; a thing without a picture (a
+  magic spell) lets the next one show. Residents stand above everything.
+- **Things in walls.** Items on edge squares replace the wall there: 2,918
+  portals, 520 obstacles and 467 custom obstacles; no other type ever sits on
+  a wall. 116 portals are inside rooms.
+- **Region grid.** Room bytes 2-3 place the room on a region grid measured in
+  squares; the furthest corners reach x 80 and y 40. Neighbouring rooms share
+  a wall line: 1,300 pairs of rooms overlap, every one by exactly one line.
+  2,250 of 2,580 doors within a region lead to the square next to the door on
+  that grid, i.e. straight through the shared wall; the other 330 jump
+  elsewhere. When two rooms share a wall, a door drawn in one room's copy of
+  the wall must win over the other room's plain wall.
+
 ## Things
 
 - **Weight multiplier: bits 5-6 = ×1, ×-1, ×20, ×-20** (bit 5 = negative,
