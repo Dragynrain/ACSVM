@@ -1,0 +1,14 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  forbidden-files:
+    name: Forbidden-file check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-forbidden-files.sh --all

@@ -1,0 +1,39 @@
+# --- Forbidden material: disk images, adventures, archives (see CONTRIBUTING.md) ---
+# Never commit EA material or any adventure data. These patterns are enforced
+# again by scripts/check-forbidden-files.sh (pre-commit hook and CI).
+*.d64
+*.D64
+*.dsk
+*.DSK
+*.adf
+*.ADF
+*.fpy
+*.FPY
+*.hrd
+*.HRD
+*.prg
+*.PRG
+*.t64
+*.T64
+*.crt
+*.CRT
+*.zip
+*.ZIP
+
+# --- Build output ---
+/target/
+**/*.rs.bk
+
+# --- Inspector output (decoded adventure data is derived from user files) ---
+/out/
+*.acs.json
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local Claude Code settings
+.claude/settings.local.json
