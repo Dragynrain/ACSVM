@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Web build of the viewer: `trunk serve` (dev) or `trunk build --release`.
+# See scripts/web.sh.
+
+[build]
+target = "index.html"
+# Under target/ so it is ignored by git and cleaned by `cargo clean`.
+dist = "../../target/web"
+# Relative URLs, so the build works from any sub-path (e.g. GitHub Pages).
+public_url = "./"
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080
+open = false

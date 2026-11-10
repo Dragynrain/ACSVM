@@ -1,0 +1,36 @@
+[package]
+name = "acs-viewer"
+version.workspace = true
+edition.workspace = true
+# eframe/egui 0.37 need Rust 1.95; acs-core itself stays at the workspace MSRV.
+rust-version = "1.95"
+license.workspace = true
+description.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "acs-viewer"
+path = "src/main.rs"
+
+[dependencies]
+acs-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = "0.37"
+log = "0.4"
+rfd = { version = "0.18", default-features = false, features = ["xdg-portal"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+pollster = "0.4"
+png.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "Element"] }
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+
+[lints]
+workspace = true

@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The real title (with the project name) is set by the app at start-up. -->
+  <title>Adventure viewer</title>
+  <!-- Self-contained: no fonts, scripts or trackers from other hosts, and
+       connect-src 'self' means the page cannot send anything elsewhere. The
+       adventure you open is read in this tab and never uploaded. Inline
+       scripts are allowed for trunk's generated loader. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:">
+  <link data-trunk rel="rust" data-bin="acs-viewer" data-wasm-opt="2">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1b1b1b; color: #ccc;
+                 font-family: system-ui, sans-serif; }
+    canvas#viewer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  </style>
+</head>
+<body>
+  <canvas id="viewer"></canvas>
+  <div id="loading">Loading…</div>
+  <noscript>The viewer needs JavaScript and WebAssembly.</noscript>
+</body>
+</html>

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/acs-core", "crates/acs-cli"]
+members = ["crates/acs-core", "crates/acs-cli", "crates/acs-viewer"]
 
 # The project's working name lives here (description) and in README.md only.
 # Code reads it through CARGO_PKG_DESCRIPTION, so a rename touches these two places.
