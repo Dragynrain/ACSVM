@@ -1,0 +1,394 @@
+# ACSVM: Open Source Engine Design
+
+> Snapshot of the living design doc: https://claude.ai/artifact/RxNSzwZ9jfzxDfBfCHaVKD (exported 2026-11-10). Diagrams are PNG snapshots in docs/images/. Licensed CC BY 4.0.
+
+Nov 10, 2026 · @Dragyn
+
+## Summary
+
+Build an open-source player that loads existing Adventure Construction Set (ACS) adventure files and runs them faithfully, with modern display, input, saves and accessibility. The player never ships EA code, art or the built-in adventures: users point it at disk images or files they own.
+
+**In scope:** reading ACS adventure data from PC, Apple II, C64 and Amiga releases, a rules engine that matches the original's behavior, a clean renderer at any resolution, keyboard, mouse and gamepad play, save states, 1 to 4 hot-seat players, and original or HD render modes, in the browser first and on desktop too. Online co-op follows in 1.1.
+
+**Non-goals for v1:** an editor (the format layer is built so an editor can come later), online play (1.1) and running the original program code (that is an emulator's job).
+
+## Background
+
+Most of the file format is already mapped. The manual describes how the game plays but gives almost no formulas, so measuring those is most of the new work.
+
+**ACS** (Electronic Arts, 1984, designed by Stuart Smith) was released for the C64, Apple II, MS-DOS and Amiga. Players build tile-based adventures, which are worlds of regions and rooms filled with things and creatures, and then play them alone or hot-seat.
+
+**Prior art:**
+
+- [ACS Viewer](https://github.com/danlb2000/ACSViewer) by Dan Boris: a C# viewer (GPL-3.0, v2.0 from 2020) that reads PC, C64, Apple II and Amiga adventures. It includes a basic walk-through mode. Its `AcsLib` is the most complete record of the format.
+- [ACS file format draft v0.5](https://atarihq.com/danb/acs.shtml) (Boris, 2016): 21 pages covering PC and C64 offsets, text encoding, things, creatures, regions and the world map. It says itself that it is incomplete.
+- Adventure Creation Kit: a separate modern tool inspired by ACS. It does not read ACS files.
+
+**How each platform stores an adventure** (from the ACS Viewer README):
+
+| Platform | Container | Notes |
+| --- | --- | --- |
+| MS-DOS | `ADVEN.FPY` / `ADVEN.HRD` file | Reference layout for every offset in the draft |
+| C64 | Whole `.d64` disk | Same layout as PC plus a 0x200-byte header; different graphics encoding |
+| Apple II | Whole `.dsk` disk | No directory, so standard disk tools fail |
+| Amiga | `Adventure` file inside an `.adf` | ACS Viewer extracts it with the bundled UAEUNP tool |
+
+**Legal approach:** the engine reads files the user supplies. It never bundles EA's program, art or built-in adventures, and it avoids the ACS name and trademark in branding. Facts about a file format can't be copyrighted, but ACS Viewer's code is GPL-3.0. Porting that code means the engine must also be GPL-3.0, which is the recommendation here. When rules are recovered by studying the original program, a clean-room split applies: one person writes a behavior spec, and someone else implements from the spec.
+
+## What the engine must reproduce
+
+The data has a fixed, small shape that fits in well under 200 KB per adventure. The manual describes the rules that act on that data in detail, but almost never with formulas.
+
+### Data model (PC offsets, from Boris's draft)
+
+| Entity | Limit | Key fields |
+| --- | --- | --- |
+| World map | 40 x 40 tiles, 16 terrain types | Terrain passability: impassable, open, owners of a thing only, or triggers a spell |
+| Map portals | 32 | World x,y to a region, room and x,y |
+| Regions | 15 | 20-character name, up to 16 rooms, 16 resident and 8 random creatures |
+| Rooms | 16 per region | Wall picture, up to 15 x 10 squares, position, random-creature chance (value x 5%) |
+| Room items | Variable list per region | x,y (4 bits each), thing number, parameter |
+| Things | 128 in the master list | 13 types: floor, treasure, magic item, missile or melee weapon, armor, spell, portal, space, custom space, obstacle, custom obstacle, store. Weight and value with multipliers, plus per-type extended properties |
+| Creatures | 128 in the master list, 37-byte records | Constitution, Strength, Dexterity, Wisdom, Speed, Life Force, Power, Dodge, Parry, Armor, Melee, Missile, size, wealth, weapon, armor, picture, special defense, strategy |
+| Creature classes | 8 | 15-character names |
+| Pictures | PC: 96 at 16x16. C64: 110 at 8x16, the last 46 for creatures only | 2 bits per pixel, a 4-color palette per adventure chosen from 16 colors |
+| Text | Short messages plus 256-character long messages | Names in base-40 packed text (3 characters per 2 bytes), other text in single-byte ASCII |
+
+### Runtime rules
+
+**Turns and time**
+
+- Turns cycle through every player and every creature in the room. A player's movement bar starts at their Speed and drops with each step. It also drains slowly in real time while the player waits, which should be optional here.
+- Too much weight, or standing next to an aggressive unfriendly creature, shortens the bar.
+- Players exploring different regions get several turns each when their turn comes around.
+- Creatures in a room don't act until a player enters it. The player moves first, but the creature still gets its turn after the player leaves, so creatures can follow players through doors.
+- Each turn, Power drifts a little toward Wisdom. Life Force below Constitution heals on its own, about 6 times slower than with Rest. Life Force raised above Constitution by a permanent spell doesn't decay.
+- The game autosaves when a player enters or leaves a region. After a death, play resumes from the last save.
+
+**Traits and skills**
+
+| Stat | Start | Max | Effect |
+| --- | --- | --- | --- |
+| Speed | 6-7 | 15 | Squares per turn |
+| Life Force | Equal to Constitution | 63 | Hit points; above Constitution improves fighting |
+| Constitution | 10-11 | 31 | Ceiling for natural healing and Rest |
+| Power | 10-11 | 127 | Spell success, fighting, damage resistance; lowered by blows taken and spells cast |
+| Wisdom | 10-11 | 31 | Power drifts toward it; better store prices; creature intelligence |
+| Strength | 10-11 | 31 | Carry capacity |
+| Size | 10-11 | 31 | Bigger hits harder, smaller dodges and parries better; never changes |
+| Dexterity | 10-11 | 31 | Damage, critical hits, attacks per turn |
+| Melee, Dodge, Parry skills | 25-35 | 127 | Hit and defense chances; improve on success, more slowly as they rise |
+| Missile skill | 10-20 | 127 | As above. The Armor skill start is lost in the OCR |
+
+Carry capacity, where carrying more than half of it slows the character:
+
+```latex
+\text{capacity} = 100 \times \left(\text{Strength} - \frac{\text{Constitution} - \text{Life Force}}{2}\right)
+```
+
+Carried weights add up, and negative weights (a magic bag, a horse) raise effective capacity.
+
+**Combat**
+
+- Moving into a creature with a readied melee weapon starts a melee fight. Fire uses a missile weapon up to its range in squares, diagonals included. Missiles can hit anyone in the line of fire and stop at obstacles.
+- Hit chance comes from Melee or Missile skill plus the weapon's attack adjustment (-35% to +40%) and the armor's attack adjustment (-65% to +10%). Armor skill offsets the armor penalty. Defenders use Dodge against missiles and Parry against melee, which needs a readied melee weapon.
+- Damage grows with weapon Power (0-31), Size, Dexterity, Life Force above Constitution, and Power. Armor Power absorbs a share. Hits lower both Life Force and Power.
+- Each use of a weapon or armor has a 0-15% break chance. Magic defense has 4 levels; the strongest blocks non-magic weapons and halves magic ones.
+- A creature hurt by a player shifts: a friend becomes neutral, a peaceful creature turns aggressive, and a smart aggressive neutral becomes an enemy.
+- The dead drop everything they carried, except on the world map or for items set to vanish. Owner-only items such as claws can't be dropped.
+
+**Magic and things**
+
+- Spell success depends on the caster's Power against the spell's cost (0-127). No formula is given.
+- Trait spells change a trait by 1 and a skill by 5. Power and Life Force spells change by -63 to +63. Every Power change is effectively temporary.
+- Summons arrive the next turn and don't work on the world map. Banished creatures take their possessions with them.
+- Play Music offers 30 choices: 1-12 are sound effects, 13-30 are themes, and 14-17 loop until other music plays.
+- Short messages run to 3 lines and appear before their spell takes effect. Long messages run to 8 lines of 32 characters.
+- On a stacked square the top thing runs first. Activate All triggers only the spells in that stack.
+- A spell on a picked-up item acts on the picker if it targets an individual. One on an item dropped next to the dropper acts on the dropper, unless it lands on a creature.
+- A door whose destination room was deleted banishes creatures and sends players to the adventure's start.
+
+**World map, encounters and stores**
+
+- The map is 40 x 40 with a 10 x 15 view and optional wraparound. Terrain types 13-16 are always one-way doors: up to 32 doors plus 32 extra exit points.
+- Before every world-map move there's a 0-60% chance of a random encounter for that terrain. The player is pulled into an encounter area bordered by the terrain they were crossing. Rooms roll once on entry (0-75%) and place the creature only on an empty square.
+- A region holds at most 16 creatures at once. Past that, random creatures and summons don't appear. Random creatures in empty rooms are removed periodically.
+- One store per region. It sells at item value, buys back at a reduced rate, and Wisdom improves the rate. Gold always has value 1, up to 25,000 pieces.
+- Up to 4 characters. A character brought in from another adventure keeps traits and skills but loses all possessions.
+
+### Creature AI
+
+The manual spells out the AI as priority lists, which can become a small rules table in code. A creature is a **fighter** if it is Aggressive and either Brave or unwounded. It is a **slinker** if it is Peaceful, or Cautious and wounded. Slinkers never attack or cast. Each type pursues targets in the order below, but takes a less-preferred goal if it is closer.
+
+| Type | Seeks, in order | Attacks |
+| --- | --- | --- |
+| Fighter enemy | Player, aggressive friend, peaceful friend, exit, aggressive neutral or thief, peaceful neutral or thief, gold | Players and friends; neutrals and thieves in its path; never other enemies |
+| Slinker enemy | Peaceful enemy, aggressive enemy, exit, gold | Never |
+| Fighter friend | Aggressive enemy, aggressive neutral, peaceful enemy, aggressive thief, player, exit | The first four by choice, peaceful neutrals and thieves if needed; never players or friends |
+| Slinker friend | Player, exit | Never |
+| Fighter neutral | Aggressive friend or enemy, aggressive thief, peaceful friend or enemy, peaceful thief or aggressive neutral, peaceful neutral, gold, exit | Anyone; prefers players, aggressive friends, peaceful thieves, aggressive enemies |
+| Slinker neutral | Exit | Never |
+| Fighter thief | Treasure or gold, exit | Anyone in the way; goes around peaceful enemies, friends and neutrals when it can; no loyalty to other thieves |
+| Slinker thief | Treasure or gold, exit | Never |
+
+**Other AI rules:**
+
+- Wisdom above 14 means smart and below 6 means dumb. In between, the creature acts smart some of the time, more often as Wisdom rises.
+- Only smart creatures cast, and only when Power is at least Wisdom. They use the lowest-numbered fitting spell, hurtful ones on foes and helpful ones on friends. A creature's Banish removes everyone but itself. Creatures can't cast do nothing, rid room, add to room, activate all, message or music.
+- Smart creatures at "half power" (threshold not defined) use activated magic items the same way.
+- Creatures never step on spaces or obstacles. They take doors only within their own region, and only doors with no do-all, rid-room or add-to-room spell.
+- Creatures pick up gold, except friends and slinker neutrals. Only thieves take treasure, and no creature takes magic items, weapons or armor.
+- An overloaded creature drops a magic item, treasure or gold.
+- When no foe is adjacent, a creature readies a missile weapon; otherwise a melee weapon, lowest item number first. A safe fighter with a missile weapon fires at a foe goal.
+- A friend that reaches the player it was seeking drops any magic item it carries.
+- A Mimic creature copies the opponent it meets. A creature with Speed 0 doesn't show its name on its turn.
+
+The manual gives every rule's inputs but almost no formulas. Hit chance, damage, skill growth, spell success, regeneration and Power drift rates, store buyback, and AI pathfinding tie-breaks still have to be measured (see Fidelity).
+
+## Technology recommendation
+
+**Recommendation: a Rust core library plus a thin macroquad + egui front end, built for Windows, macOS, Linux and the browser (WASM).** Skip a full game engine. ACS is turn-based and tile-based, with 4-color 16x16 pictures, so the hard part is the rules, not the rendering. A heavy engine would add build weight and lock-in without making the rules any easier.
+
+The reasons:
+
+- **The core outlives any front end.** Format decoding and rules live in a `no-GUI` crate with seeded RNG and a commands-in, events-out API. The same core can drive the desktop app, a web build, a command-line trace runner for tests, and a future editor.
+- **The browser build is the best way to share it.** A user drags their own `.d64` into a web page and the file never leaves their machine. Nothing gets hosted that would invite a takedown.
+- **Rust's binary handling** (`binrw`/`nom`, bit fields, exhaustive enums) fits a byte-packed format with 13 thing types and 15 spell actions well. Determinism and test speed come almost for free.
+- **macroquad** builds natively and to WASM from one codebase with very little setup. **egui** covers inventory, character sheets, menus and debug panels without hand-building a UI toolkit.
+
+### Alternatives considered
+
+| Option | Strength | Why not first choice |
+| --- | --- | --- |
+| Godot 4 (GDScript or C#) | Strong UI, scene tools, easy path to an editor later | C# web export is not a stable target; rules in GDScript are harder to test headless. Best runner-up: put the Rust core in Godot via `gdext` if a big editor becomes the goal |
+| C# / .NET + MonoGame | ACS Viewer's code ports directly | Weaker browser story; MonoGame UI is do-it-yourself |
+| TypeScript + Canvas | Simplest web-only distribution | Weaker for native builds, gamepads and offline use; less safe for binary parsing |
+| Unity | Familiar from Salt and Cedar | License terms and heavy runtime for a 2D tile game; poor fit for an open-source project |
+| Bevy | Rust, modern ECS | The ECS adds little for a turn-based state machine; breaking API changes every release |
+
+**Supporting tools:** VICE (C64) and DOSBox-X (PC) for capturing the original's behavior, `insta` snapshot tests for decoded data, `proptest` for rules invariants, and GitHub Actions for builds and the web deploy.
+
+## Presentation and art
+
+**Recommendation: draw new art at 128 x 128 and render everything at any resolution.** The original 16 x 16 pixels (8 x 16 on the C64, with double-wide pixels) stay available as a crisp retro option. A modern look has to come from art we make ourselves.
+
+### Why 128 x 128
+
+- A room is up to 15 x 10 tiles, so a tile shows at roughly 70 px on a laptop, 100 px at 1080p, and 200 px or more on 4K. A 128 px master is sharp on laptops and at 1080p and still holds up on 4K. A 256 px set can come later if 4K looks soft.
+- 64 px is too small for the detail AI generation adds to survive. 256 px quadruples cleanup work and file size and only helps on 4K.
+- A full set of 110 tiles at 128 px is about 7 MB uncompressed and a few MB as WebP, which is fine for a browser download.
+
+### Render modes
+
+| Mode | Works on | How |
+| --- | --- | --- |
+| Original | Every adventure | Original pixels, nearest-neighbor integer scaling, original palette, optional CRT filter |
+| Smoothed | Every adventure | A pixel-art upscaler (xBRZ-style) runs on the original tiles once at load. No new art needed |
+| HD pack | Tiles the pack covers | Replacement art matched by a hash of the original tile's pixels, like emulator texture packs. Unmatched tiles fall back to Smoothed |
+| Native HD | Our own adventures | The extended adventure format stores 128 px art directly |
+
+Most fan adventures were built from the three builder sets, so the same tiles recur across many of them. An HD pack keyed by tile hash upgrades all of those while shipping only our art: the hash identifies an original tile without containing it. Each replacement is still drawn fresh from a brief of what the tile represents, never traced. A room that's half HD and half smoothed looks patchy, so the client shows a pack's coverage for each adventure and lets the player choose a mode.
+
+### Modern client in Rust
+
+- macroquad loads tiles into texture atlases: nearest-neighbor filtering for Original mode, linear filtering with mipmaps for HD.
+- Tile size is recomputed from the window size every frame: whole-number multiples in Original mode, any size in the HD modes. Resizing, fullscreen, zoom and high-DPI screens all come from that one calculation. egui scales its panels to the display's pixel ratio.
+- The layout puts the map or room in the center, with side panels for status, inventory and the message log. On narrow screens the panels collapse into drawers, and touch works on tablets.
+- The upscaled tiles from Smoothed mode are cached per adventure in the browser's IndexedDB, together with the user's loaded files.
+
+### AI art pipeline
+
+- **Generate, then hand-finish.** Generate at 1024 px, downscale to 128, then fix silhouettes, palette and readability at 64 px by hand.
+- **One style per kit.** Each starter kit gets one LoRA or reference set, a fixed palette and consistent framing. ACS tiles are front-facing icons, not top-down views.
+- **Kit size matches the original's limits:** 16 terrain tiles, up to 48 general tiles and up to 46 creature tiles. There are three kits (fantasy, spy and mystery, sci-fi) to cover the same genres.
+- **Model license.** Use models whose license allows open distribution of outputs. [FLUX.1 schnell](https://localaimaster.com/blog/local-image-model-licenses-commercial-use) is Apache 2.0. FLUX.1 dev defaults to a non-commercial license, so avoid it unless its output terms are confirmed.
+- **No original art as input.** EA tiles never go into img2img, ControlNet or LoRA training, because that would make our art derivative of theirs.
+- **Copyright on AI art.** The [US Copyright Office](https://copyright.gov/newsnet/2025/1060.html) (January 2025) found that prompt-only output isn't copyrightable, but human selection, arrangement and edits are. For an open project that's acceptable: release the kits under CC BY-SA 4.0, knowing that the hand-edited art carries the clearest protection.
+
+## Multiplayer
+
+Hot-seat play ships in 1.0 and online co-op in 1.1. Both come almost for free because the engine is turn-based and deterministic.
+
+### Hot-seat (1.0)
+
+- Up to 4 characters take turns, as in the original. The rules engine simply accepts commands from whichever player's turn it is.
+- Players can share the keyboard or each use a gamepad, since browsers typically support 4 controllers. Mouse and touch also work.
+- When players are in different regions, each gets several turns in a row and the view cuts to them, matching the original.
+- Adding a character mid-game works as in the original. A character imported from another adventure keeps traits and skills but no possessions.
+
+### Online co-op (1.1)
+
+- **Lockstep commands.** Each browser runs its own copy of the engine, and the players exchange only commands such as "move north" or "cast spell 3". The seeded randomness makes every copy compute the same result, and the trace tests that prove fidelity also prove the copies stay in sync.
+- **Relay server.** A small Rust WebSocket service (axum) joins players by room code and forwards commands. It stores nothing but the room's command log. Any small host works, including a home server behind Tailscale Funnel.
+- **Same adventure, own copies.** Each player loads their own copy of the adventure, and the game compares file hashes before starting. No game data ever crosses the network.
+- **Desync check.** Each client sends a hash of the game state every turn. On a mismatch, the room replays the command log from the last agreed turn.
+- **Reconnects.** A dropped player rejoins by replaying the room's command log.
+- **Turn timer.** The original's movement bar drains in real time. Online, the host chooses a timer: original speed, relaxed, or off.
+- **Later option:** players in different regions could take their turns at the same time, an enhanced mode beyond the original.
+
+## Architecture
+
+All the logic lives in one headless core, and every front end is a thin client of it.
+
+![Architecture: one core crate, four front ends](images/architecture.png)
+
+Data flows one way: file to layout to decoded model to rules. The rules engine never touches files or pixels. It takes commands (move, attack, use, cast) and emits events (moved, hit for 4, message shown), which renderers, tests and replays all consume the same way. Because randomness comes from a single seeded generator, any game can be replayed exactly from its seed and command log.
+
+## Components to build
+
+Eighteen pieces in total. Most are routine. The rules engine (#7), behavior capture (#13) and the original asset kits (#17) carry most of the effort. Size is relative: S is days, M is weeks, L is a month or more of part-time work.
+
+| # | Component | What it does | Size |
+| --- | --- | --- | --- |
+| 1 | Disk image readers | Raw `.d64` (whole disk, no directory needed), Apple `.dsk` with DOS 3.3 and ProDOS sector orders, Amiga `.adf` OFS file extraction (replacing UAEUNP), PC `.fpy`/`.hrd` | M |
+| 2 | Platform layouts | Offset tables per platform (C64 = PC + 0x200), Apple and Amiga layouts ported from AcsLib | M |
+| 3 | Text codecs | Base-40 packed names, single-byte ASCII, message index math | S |
+| 4 | Graphics decoders | PC 16x16 and C64 8x16 multicolor pictures, the 16-color master palette, per-adventure 4-color palettes, aspect correction | M |
+| 5 | Canonical adventure model | One platform-neutral struct tree with JSON export and import, extended to hold 128 px art (the future editor's file format) | M |
+| 6 | Inspector CLI | `acs dump game.d64` prints every region, room, thing and creature, and exports pictures as PNG. This is the first useful release | S |
+| 7 | Rules engine | Turn order, movement, encumbrance, combat, magic defense, 15 spell actions, thing triggers, stores, creature AI, random spawns, death, win | L |
+| 8 | Character system | Stat generation, skill growth, character files that carry between adventures | M |
+| 9 | Renderer | World map and room views; resizing, fullscreen, zoom and high-DPI from one tile-size calculation; smooth movement | M |
+| 10 | Modern UI | Message log instead of press-to-acknowledge, inventory and stat panels, tooltips, mouse targeting, collapsible panels on narrow screens, touch | M |
+| 11 | Input and hot-seat | Keyboard, mouse, touch and up to 4 gamepads; 1 to 4 players with per-player bindings | S |
+| 12 | Saves and replay | Save anywhere; a deterministic command log for replays, bug reports and online sync | S |
+| 13 | Behavior capture harness | Scripted VICE and DOSBox-X runs that log original outcomes for comparison | L |
+| 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
+| 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |
+| 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
+| 17 | Original asset kits | Three starter kits at 128 px (fantasy, spy and mystery, sci-fi; up to 110 tiles each), UI font, title art, two sample adventures | L |
+| 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
+
+## Fidelity and research
+
+We measure the original rather than guess at it. Each rule gets a written spec and a test that compares our engine's output with captures from the original game.
+
+**Known gaps in the format:**
+
+- Creature record bytes 0x0B and 0x0C are unknown, and the room and region byte at 0x10 is unconfirmed.
+- The draft never finishes the C64 picture encoding or the map portal table. AcsLib's source has them.
+- The Apple II and Amiga layouts exist only in AcsLib code, not in any document.
+- Music and sound data are unlocated.
+- The draft has inconsistencies to settle. Two different weight-multiplier orders are given, and the creature-limit wording conflicts.
+
+**Method for the rules:**
+
+1. **Start from the manual (done).** Its turn, combat, magic and AI rules, summarized above, are the first draft of the spec. Each formula it doesn't give becomes an open item to measure.
+2. **Build controlled test adventures.** Small adventures made in the original ACS editor (running in an emulator) each isolate one rule: one fighter against one creature, a single portal, a single spell.
+3. **Capture outcomes.** Scripted VICE runs in warp mode, driven through its remote monitor, repeat each scenario thousands of times. They log hits, damage, turn order and AI moves.
+4. **Fit the formulas.** Fit formulas to the logged distributions. Where the data stays ambiguous, a clean-room researcher reads the 6502 code and writes the answer into the spec as plain-language rules, never as code.
+5. **Lock in with golden tests.** Each spec rule gets a test: our engine's distribution must match the captured one within statistical tolerance, and fixed-seed traces must replay identically.
+
+**Behavior hints from designers:** Baber's Jadeworld notes report behavior the manual doesn't mention, which should become test cases. Speed 10 or more grants an extra melee attack at the end of a turn. Readying armor uses up the rest of the turn's moves. AI creatures will step onto spaces when a summoned creature is due to arrive there. Summoning a creature from outside the region's list can corrupt other creatures' names or crash the game. Faithful mode should match the first three; the fourth is a bug to fix.
+
+**Test corpus:** the user's own copies of the built-in adventures, plus fan adventures whose authors allow it. Disk images stay out of the repository. Tests look for them in a local folder and skip when they are missing.
+
+## Content and licensing
+
+No openly licensed ACS adventure could be found, so the project has to make its own sample content, and its own versions of anything the original program supplied. As with ScummVM, the engine is open source and players bring the game files they own.
+
+### What ships and what doesn't
+
+| Asset | Where it lives | What the project does |
+| --- | --- | --- |
+| Pictures, things, creatures, text | Inside each adventure file | Load from the user's files; never ship them |
+| Builder sets (Fantasy, Spy/Mystery, Sci-Fi starter art and lists) | ACS program disks, then copied into every adventure built from them | Never ship. Make original starter kits instead |
+| Music and sound (30 numbered choices) | Probably the ACS program, since adventures store only the number; not yet confirmed | Ship 30 original cues: 12 effects and 18 themes, 4 of them looping. Optionally read the originals from the user's own ACS disk |
+| Font, menus, title screens | ACS program | Original replacements |
+| Built-in adventures (Aventuria, Rivers of Light, Amiga's Galactic Agent) | EA product | Never ship; users load their own copies |
+| Manual | EA's copyrighted text | Paraphrase rules only, never quote or ship it |
+
+### Our own "spy"
+
+Ideas and genres are free: a trench-coat spy, a dragon, a laser pistol. The original's specific pixel art, its exact item names, and its set as a whole are not. Starter kits are drawn fresh from short written briefs ("spy, 16x16, 4 colors, trench coat and hat") rather than by looking at or tracing the original tiles. Names and stats are tuned to the kit's own design, not copied from the builder-set lists.
+
+### Existing fan adventures
+
+| Collection | Contents | Status |
+| --- | --- | --- |
+| John Baber's Jadeworld set ([Lemon64](https://www.lemon64.com/forum/viewtopic.php?t=83752), 2023 update) | 14 C64 adventures from 1992 to 2022 with designer notes, according to the September 2023 zip. A Lemon64 thread offering 13 ACS game disks is probably the same set (unconfirmed) | No license stated. Built on Jademan Comics and *Lone Wolf and Cub* characters. The zip also contains EA's ACS program disks and manual |
+| [Dan Boris's ACS page](https://atarihq.com/danb/acs.shtml) | 8 C64 adventures, including Dracula, Hobbit, Pirate Treasure and The Ruby of Tomar | No license stated; Hobbit uses Tolkien's world |
+| [Internet Archive Apple II items](https://archive.org/details/459_Adventure_Construction_Set_Data_Disk) | ACS release and a data disk | EA commercial or unknown |
+| 1980s ACS Club library | Large traded library | Mostly lost when the hosting BBS closed ([Applefritter](https://www.applefritter.com/node/22621)) |
+
+These adventures are fine as a **private test corpus** on a developer's machine, but none can ship with the engine.
+
+### Path to sample content
+
+1. **Make our own.** One small tutorial adventure and one mid-size one, with original art, text and music, released under CC BY-SA 4.0. They also serve as test fixtures.
+2. **Ask authors.** Creators can relicense adventures they made entirely themselves. That excludes ones built on builder-set art or other people's characters.
+3. **Grow a new library.** Once the engine works, invite new adventures under Creative Commons licenses, with the project's original starter kits as their base.
+
+## Licensing and repository
+
+Decided: open source under GPL-3.0-or-later. The repository stays private through Phase 0 and goes public at the Phase 0 gate, with its full history kept.
+
+### Licenses
+
+| Part | License | Why |
+| --- | --- | --- |
+| Engine code | GPL-3.0-or-later | Compatible with ACS Viewer (GPL-3.0) and the ScummVM model; keeps forks open |
+| Art, audio, sample adventures | CC BY-SA 4.0 | Share-alike for creative work |
+| Design docs and the behavior spec | CC BY 4.0 | Other projects can reuse the research |
+
+GPL still allows selling builds or separately licensed asset packs, though anyone may redistribute the code for free.
+
+### Name
+
+**ACSVM** is the working name, following the ScummVM pattern: it names what the engine is compatible with. The repository folder is `D:\projects\ACSVM`. The earlier working title, openACS, was dropped because [OpenACS](https://openacs.org/about/what-is-openacs) is an existing web toolkit, and FreeACS is likewise taken. ACSVM still puts EA's product initials in the brand, so check for clashes and decide on the final public name before the Phase 0 gate. Questwright was the runner-up. The code avoids hard-coding the name, so renaming is cheap.
+
+### Repository rules
+
+- **No EA material in the repo, ever.** That covers program disks, adventures, manual text, builder-set art and audio. Once pushed to a public repo, a file survives in clones and forks even after deletion.
+- **Guardrails come first.** A `.gitignore` for disk image extensions (`.d64`, `.dsk`, `.adf`, `.fpy`, `.hrd`, plus `.zip`, `.prg`, `.t64`, `.crt`), and a pre-commit hook and CI check that reject them. Both go in before any test file touches the machine.
+- **Research material lives outside the repo,** in `D:\projects\ACSVM-research`: the manual text, Boris's format draft, and the Jadeworld disks as a private test corpus. Tests read the corpus location from an environment variable (`ACSVM_CORPUS`) and skip when it isn't set.
+- **Clean-room record.** `docs/provenance.md` lists every outside source used (format draft, ACS Viewer, manual) and how it was used. Code ported from ACS Viewer keeps its GPL notice and credits Dan Boris.
+- **Commit history is evidence.** It is kept when the repository goes public, not squashed.
+
+### Launch sequence
+
+1. **Private (Phase 0):** guardrails, LICENSE files, CONTRIBUTING with the clean-room policy, the inspector.
+2. **Reach out:** contact Dan Boris about the project and any notes he has on the unknown bytes.
+3. **Public at the Phase 0 gate:** opened quietly, with no announcement.
+4. **Announce when the browser viewer works (Phase 1):** post on Lemon64 and AtariAge, where there's something to try.
+
+## Roadmap
+
+Ship something useful early (the inspector), then spend most of the effort on rules research and the engine, one rule at a time.
+
+![Roadmap: seven phases to 1.1](images/roadmap.png)
+
+Three tracks run side by side. Rules research (Phase 2) starts with the viewer and alternates with the engine rule by rule: specify movement, implement it, test it, then move on to combat. Art and audio for Phase 5 can start as soon as the viewer can show tiles, because they depend only on the style briefs, not on the engine. Online co-op waits until after 1.0 because it needs the engine's determinism already proven by the golden tests.
+
+## Risks and open questions
+
+| Risk | Effect | Mitigation |
+| --- | --- | --- |
+| Combat and AI formulas resist measurement | Games feel subtly wrong to people who played the original | Clean-room reading of the 6502 code; label rules as "approximated" until verified |
+| Behavior differs between platforms | One adventure plays differently on C64 and PC | Pick a reference platform per rule, record differences, offer a per-adventure option |
+| Rights holder objection | Takedown of the repository or site | Ship no EA assets, use a neutral project name, host no disk images, keep loading local only |
+| GPL-3.0 obligations from ACS Viewer code | Every downstream fork must stay GPL | Accept it (recommended), or contact Dan Boris about relicensing |
+| AI art looks generic or inconsistent | Kits feel cheap beside hand-made pixel art | One style per kit, fixed palette, hand cleanup, readability check at 64 px |
+| Image model license forbids redistribution | Art has to be redone | Use Apache-licensed models; record the model and version for every tile |
+| Mixed HD and smoothed tiles | Rooms look patchy | Coverage report per adventure; the player picks the mode |
+| Online desync | Co-op games split apart | State hash every turn, replay from the log, determinism tests in CI |
+| Sound format never found | No original music | Original cues are the default anyway; the original-audio option is a bonus |
+| Scope creep into an editor | 1.0 slips | Editor waits until after 1.0; the JSON model keeps that path open |
+
+**Open questions:**
+
+- Final public name. License is decided (GPL-3.0-or-later); ACSVM is the working name, to be confirmed before going public.
+- Reference platform for the rules: PC (best documented) or C64 (largest fan library)? The proposal is PC first, with C64 close behind.
+- Faithful mode only, or also an "enhanced" mode with tweaks such as a fixed store UI and difficulty options?
+- Is Dan Boris interested in collaborating? Any notes he kept on the unknown bytes would save time.
+- The manual's OCR text lost some numbers, such as the Armor skill starting range and several slider minimums. A check against a clean scan would fill them in. The manual is EA's copyrighted text, so the project paraphrases its rules and never ships it.
+
+## Sources
+
+- [ACS Viewer source and README](https://github.com/danlb2000/ACSViewer) (Dan Boris, GPL-3.0)
+- [Dan Boris's ACS page](https://atarihq.com/danb/acs.shtml), which links the file format draft v0.5 (November 2016), the manual and several fan adventures
+- [CRPG Addict: Revisiting Adventure Construction Set](http://crpgaddict.blogspot.com/2015/09/revisiting-adventure-construction.html), for how the game plays (stats, encumbrance, AI behaviors, interface pain points)
+
+Art and licensing: [US Copyright Office, AI report Part 2 (January 2025)](https://copyright.gov/newsnet/2025/1060.html) and [a summary of local image model licenses](https://localaimaster.com/blog/local-image-model-licenses-commercial-use). Fan adventure collections: [Lemon64 thread](https://www.lemon64.com/forum/viewtopic.php?t=83752), [Applefritter](https://www.applefritter.com/node/22621), [Internet Archive](https://archive.org/details/459_Adventure_Construction_Set_Data_Disk). Designer notes from John Baber's Jadeworld collection (local copy).
+
+Also used: the *Adventure Construction Set* manual (Electronic Arts, 1984, written by David Grady), from the user's OCR text copy. It is the main source for the runtime rules and creature AI.
