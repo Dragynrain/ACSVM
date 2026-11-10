@@ -5,9 +5,10 @@ v0.5 and ACS Viewer's AcsLib. Licensed CC BY 4.0.
 
 Evidence comes from decoding the 14 C64 Jadeworld adventures (private corpus,
 see `provenance.md`): 210 regions, 1,670 master creatures, 3,224 placed
-residents, 15,092 room items, 2,624 room doors. Counts below refer to that
-corpus. **PC findings are inferred from the shared layout and have not been
-checked against a real PC file.**
+residents, 15,092 room items, 2,624 room doors. Counts refer to that corpus
+unless marked **PC**: those come from one real PC file, EA's *Rivers of
+Light* (`ACS.FPY` from the MS-DOS release; 12 regions, 149 rooms, 3,083 room
+items, 382 doors).
 
 The code is the precise reference: `crates/acs-core/src/layout.rs` holds every
 offset, `decode.rs` every field.
@@ -27,6 +28,9 @@ offset, `decode.rs` every field.
 | Regions (0xC00 each) | 0x1D300 | 0x1D500 | |
 | Pictures | 0x28720 | 0x28920 | |
 | Palette (4 bytes) | 0x2A802 | 0x29880 | **Not** PC + 0x200 |
+
+The PC adventure in the MS-DOS release is `ACS.FPY` (229,376 bytes), next to
+the program files; it decodes with these PC offsets.
 
 **The 0x200 "header" is track 18.** A C64 adventure is written raw across the
 disk in sector order and simply skips track 18 sectors 0 and 1 (BAM and the
@@ -77,7 +81,8 @@ limited to the first 8 C64 colours, while colours 0-2 may be any of 16.
 
 PC pictures: 16 x 16, four 4-pixel columns at +0, +0x2400, +8, +0x2408, bottom
 half at +0x800, as in AcsLib (the draft lists the columns in the reverse
-order). Untested against real files.
+order). **PC**: confirmed; all 96 pictures of *Rivers of Light* come out clean
+with the palette at 0x2A802.
 
 ## Regions
 
@@ -87,14 +92,23 @@ The region header is more structured than either source says:
 | --- | --- |
 | 0x00 | Number of **live** rooms |
 | 0x01-02 | End of the room item lists, relative to the region start |
-| 0x03-04 | Heap offset of the door (portal) table |
+| 0x03-04 | Usually 0x00F0 (the door table's heap offset); **not reliable**, see below |
 | 0x05-06 | Heap offset of the 16 resident creature names |
 | 0x07-08 | Heap offset of the room item lists |
 
 "Heap" is region + 0x3F3: 16 room names (0xA0 bytes), then 8 random creature
 names (0x50), then the door table (variable), resident names (0xA0) and the
-room item lists. In all 210 regions the door table starts at heap + 0xF0, the
-names end exactly where the items begin, and the end pointer matches.
+room item lists. In all 210 C64 regions and 12 PC regions the names end
+exactly where the items begin and the end pointer matches.
+
+**The door table always starts at heap + 0xF0** and runs up to the resident
+names. Header bytes 3-4 hold 0x00F0 in all 210 C64 regions and 9 of 12 PC
+regions, but **PC** regions 1-3 of *Rivers of Light* hold 0x3B, 0xB8 and 0xE6
+there. Reading the table from those values misaligns every door (the first
+decoder did, sending doors to world map points that do not exist). Reading
+from 0xF0 gives exactly one entry per door in all three regions, and 270 of
+275 two-way doors then land next to a door leading back. What bytes 3-4 mean
+when they are not 0xF0 is open; the model keeps them as `unknown_header_03`.
 
 - AcsLib finds resident names at `region + 0x453 + (low byte of the item
   pointer)`. That equals `heap + item pointer - 0xA0` only while the pointer
@@ -122,9 +136,12 @@ at (15,14) as well. Meaning of the bit still unknown; it is kept as `flag`.
 ### Doors (the portal table)
 
 - **Room doors**: a portal item's parameter indexes the region's door table
-  (2 bytes per entry; entry 0 unused). Byte 0 = `region << 4 | room`, byte 1 =
+  (2 bytes per entry). C64 adventures leave entry 0 unused and number doors
+  from 1 (184 of 210 regions use exactly 1..n; the rest have a few free
+  entries left by deleted doors). **PC** *Rivers of Light* numbers its doors
+  from 0 and uses entry 0. Byte 0 = `region << 4 | room`, byte 1 =
   `x << 4 | y` in the destination room. Region 0 means the world map: then
-  `y | x << 4` indexes the 64-entry world map point table. Over 2,624 room
+  `y | x << 4` indexes the 64-entry world map point table. Over 2,624 C64 room
   doors, every destination region and room slot exists and the links come in
   matching pairs. One door (THE BLOOD SWORD) leads to a deleted room, which the
   manual describes as legal (players are sent back to the start).
@@ -145,6 +162,11 @@ at (15,14) as well. Meaning of the bit still unknown; it is kept as `flag`.
   AcsLib's order.
 - Picture fields are 6 bits (0-63); things never use creature pictures.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
+- **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
+  action code 15 (outside 0-14) and power 0. It is never placed; three
+  creatures carry it, and seven river terrains plus a "swimmable water" space
+  are open only to its owners. So a spell slot with code 15 serves as an
+  uncastable key item. The decoder keeps it as `invalid(15)` with a warning.
 - Theme byte (header +0x36E): 0, 1 or 2 in the corpus. Following AcsLib's
   music list it selects Endless Fantasy, Spy/Mystery or Sci-Fi. Unverified.
 
@@ -169,11 +191,14 @@ at (15,14) as well. Meaning of the bit still unknown; it is kept as `flag`.
 
 - Door y bit 7 (7 of 28 doors) and room item thing-byte bit 7 (9 items, all
   at the stash square).
-- Region bytes 0x59-0x6C: zero in all 210 regions.
+- Region bytes 0x59-0x6C: zero in all 210 C64 regions and 11 of 12 PC
+  regions. **PC** region 1 holds "EARTH VALLEY" in screen codes there, an
+  older name of that region, so possibly an editor buffer.
 - Creature bytes 0x0B, 0x0C: need a saved game or an emulator capture.
 - Retired players: AcsLib reads 26 names and 7 records per 256-byte page, which
   overruns the page; the decoder reads 25 and 6. No corpus adventure has any.
-- PC: everything is untested against real files, including the picture column
-  order and the palette address.
+- PC: only one real file so far, made by EA and possibly with an earlier
+  editor (it also contains a room named "I DONT KNOW YET"). Adventures saved
+  by the shipped PC editor may differ, e.g. in door numbering.
 - Music and sound data: still unlocated (expected in the program, not the
   adventure).

@@ -14,6 +14,8 @@ Plan: `docs/design.md`. Current phase: 0 (inspector).
   (manual OCR: paraphrase only; Boris draft; C64 corpus). `advcnst*.d64` are
   EA's program disks (advcnst2 holds EA's *Rivers of Light*): never decode them
   for analysis.
+- `corpus/pc/ACS.FPY` is EA's *Rivers of Light* from the user's own MS-DOS
+  copy: fine to decode locally, never commit anything derived from it.
 - ACS Viewer (`danlb2000/ACSViewer`, GPL-3.0) may be ported with credit
   headers. Its `RiversOfLight.hrd` test file is EA material: do not use it.
 - Record every outside source in `docs/provenance.md`, format findings in

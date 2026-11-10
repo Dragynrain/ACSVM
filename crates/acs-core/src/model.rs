@@ -532,8 +532,14 @@ pub struct Region {
     pub residents: Vec<Creature>,
     /// What the region's store sells.
     pub store: Vec<Possession>,
-    /// Door table: entry n is what a portal with parameter n leads to (entry 0 unused).
+    /// Door table: entry n is what a portal with parameter n leads to.
+    /// C64 adventures leave entry 0 unused; EA's PC Rivers of Light uses it.
     pub portal_table: Vec<[u8; 2]>,
+    /// Region header bytes 3-4 as stored (usually 0x00F0); meaning unsettled.
+    pub unknown_header_03: u16,
+    /// Region bytes 0x59..0x6D as stored. Zero in every C64 corpus region;
+    /// one PC region holds a stale region name here.
+    pub unknown_59: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

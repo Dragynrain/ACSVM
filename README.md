@@ -16,7 +16,7 @@ EA program code, art, music, manual text or adventures.
 | Platform | File | Status |
 | --- | --- | --- |
 | C64 | whole `.d64` disk image | Decodes all 14 adventures in the private test corpus with no errors |
-| PC (MS-DOS) | `ADVEN.FPY`, `ADVEN.HRD` | Covered by synthetic tests only; **not yet tested against a real PC adventure** |
+| PC (MS-DOS) | `ADVEN.FPY`, `ADVEN.HRD`, `ACS.FPY` | Decodes the one real PC adventure tested so far (EA's built-in one), plus synthetic tests |
 | Apple II, Amiga | `.dsk`, `.adf` | Not yet |
 
 ## Building

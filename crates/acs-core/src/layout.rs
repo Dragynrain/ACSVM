@@ -215,13 +215,19 @@ pub mod region {
     pub const ROOM_COUNT: usize = 0x00;
     /// u16: end of the 16 room item lists, relative to the region start.
     pub const ITEMS_END: usize = 0x01;
+    /// u16, usually 0x00F0 (the door table's heap offset), but it holds other
+    /// values in some regions of EA's PC *Rivers of Light* while the table
+    /// still starts at [`DOOR_TABLE`]. Not used to locate anything.
+    pub const HEADER_03: usize = 0x03;
     /// u16 heap offsets of the variable-length parts.
-    pub const PORTALS_PTR: usize = 0x03;
     pub const RESIDENT_NAMES_PTR: usize = 0x05;
     pub const ITEMS_PTR: usize = 0x07;
     /// 16 rooms, 5 bytes each.
     pub const ROOMS: usize = 0x09;
     pub const ROOM_LEN: usize = 5;
+    /// 20 bytes of unknown use (one PC region holds a stale region name here).
+    pub const UNKNOWN_59: usize = 0x59;
+    pub const UNKNOWN_59_LEN: usize = 0x14;
     /// Store stock: 14 bytes of possession bits.
     pub const STORE: usize = 0x6D;
     /// 8 random creatures, 37-byte records.
@@ -231,11 +237,15 @@ pub mod region {
     pub const RESIDENTS: usize = 0x1A3;
     pub const RESIDENT_COUNT: usize = 16;
     /// Start of the region heap. Fixed parts: room names (16 x 10 packed
-    /// bytes) then random creature names (8 x 10). The header pointers locate
-    /// the portal table, resident names and room item lists after them.
+    /// bytes), random creature names (8 x 10), then the door table, which
+    /// runs up to the resident names. The header pointers locate the resident
+    /// names and room item lists.
     pub const HEAP: usize = 0x3F3;
     pub const ROOM_NAMES: usize = HEAP;
     pub const RANDOM_NAMES: usize = HEAP + 0xA0;
+    /// Door table: 2 bytes per entry, indexed by a door item's parameter.
+    pub const DOOR_TABLE: usize = HEAP + 0xF0;
+    pub const DOOR_TABLE_HEAP_OFFSET: usize = 0xF0;
 }
 
 /// Bytes of a packed creature, thing or room name (15 characters).

@@ -138,7 +138,8 @@ fn sample(platform: Platform) -> Fixture {
         portals: vec![[0, 0], [0x10, 0x22]],
         // Pushes every heap pointer past 0x200, where ACS Viewer's fixed
         // resident-name offset would read the wrong bytes.
-        heap_padding: 0x150,
+        extra_door_entries: 0xA8,
+        header_03: None,
         residents: vec![(0, "GUARD", guard)],
     });
     f
@@ -521,4 +522,64 @@ fn c64_long_messages_skip_track_18() {
     let a = decode(&f.build()).unwrap().adventure;
     assert_eq!(a.long_messages[249], "AFTER THE BAM.");
     assert_eq!(a.long_messages[254], a.intro);
+}
+
+/// EA's PC Rivers of Light stores other values in region header bytes 3-4 and
+/// numbers its doors from 0. The door table must still be read from heap +
+/// 0xF0 and indexed directly by the door's parameter.
+#[test]
+fn door_table_is_fixed_and_indexed_from_zero() {
+    for p in PLATFORMS {
+        let mut f = Fixture::new(p);
+        f.header("DOORS", "", "");
+        let pal = f.l.palette;
+        f.put(pal, &[0x00, 0x06, 0x02, 0x0B]);
+        f.thing(1, "DOOR", [0x07 | 0x20, 25, 0, 0]);
+        f.region(RegionSpec {
+            name: "A",
+            rooms: vec![
+                RoomSpec {
+                    name: "WEST",
+                    w: 8,
+                    h: 8,
+                    items: vec![(7, 3, 1, 0)],
+                    ..Default::default()
+                },
+                RoomSpec {
+                    name: "EAST",
+                    w: 8,
+                    h: 8,
+                    items: vec![(0, 3, 1, 1)],
+                    ..Default::default()
+                },
+            ],
+            // Entry 0 used: door 0 (west room) leads to east room square (1,3) and back.
+            portals: vec![[0x11, 0x13], [0x10, 0x63]],
+            header_03: Some(0x00B8),
+            ..Default::default()
+        });
+        let d = decode(&f.build()).unwrap();
+        assert!(d.diagnostics.is_empty(), "{p}: {:?}", d.diagnostics);
+        let r = &d.adventure.regions[0];
+        assert_eq!(r.unknown_header_03, 0xB8);
+        assert_eq!(r.portal_table.len(), 2);
+        assert_eq!(
+            r.rooms[0].items[0].destination,
+            Some(Destination::Room {
+                region: 1,
+                room: 1,
+                x: 1,
+                y: 3
+            })
+        );
+        assert_eq!(
+            r.rooms[1].items[0].destination,
+            Some(Destination::Room {
+                region: 1,
+                room: 0,
+                x: 6,
+                y: 3
+            })
+        );
+    }
 }

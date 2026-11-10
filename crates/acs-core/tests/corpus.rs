@@ -161,6 +161,13 @@ fn pc_corpus_decodes_cleanly() {
         let img = Image::open(path, None).unwrap_or_else(|e| panic!("{file}: {e}"));
         let d = decode(&img).unwrap_or_else(|e| panic!("{file}: {e}"));
         assert_eq!(d.errors().count(), 0, "{file}: {:#?}", d.diagnostics);
+        assert_eq!(d.adventure.pictures.len(), 96);
         check_consistency(&d.adventure, &file);
+        eprintln!(
+            "ok: {file}: {} ({} warnings)",
+            d.adventure.name,
+            d.diagnostics.len()
+        );
     }
+    eprintln!("{} PC adventures decoded", files.len());
 }

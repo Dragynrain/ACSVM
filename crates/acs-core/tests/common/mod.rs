@@ -36,9 +36,11 @@ pub struct RegionSpec {
     pub name: &'static str,
     pub rooms: Vec<RoomSpec>,
     pub portals: Vec<[u8; 2]>,
-    /// Extra bytes between the fixed heap parts and the portal table, to push
-    /// the pointers past 0x1FF.
-    pub heap_padding: usize,
+    /// Extra (unused, zero) door-table entries after `portals`, to push the
+    /// heap pointers past 0x1FF.
+    pub extra_door_entries: usize,
+    /// Value for header bytes 3-4 (default 0x00F0, as the editor writes).
+    pub header_03: Option<u16>,
     /// (slot 0..16, name, record)
     pub residents: Vec<(usize, &'static str, [u8; 37])>,
 }
@@ -155,8 +157,8 @@ impl Fixture {
             );
             self.data[base + rg::ROOM_COUNT] = spec.rooms.len() as u8;
             let heap = base + rg::HEAP;
-            let portals_ptr = 0xF0 + spec.heap_padding;
-            let names_ptr = portals_ptr + spec.portals.len() * 2;
+            let table = rg::DOOR_TABLE_HEAP_OFFSET;
+            let names_ptr = table + (spec.portals.len() + spec.extra_door_entries) * 2;
             let items_ptr = names_ptr + 0xA0;
             for (i, room) in spec.rooms.iter().enumerate() {
                 let ra = base + rg::ROOMS + i * rg::ROOM_LEN;
@@ -173,7 +175,7 @@ impl Fixture {
                 self.packed(base + rg::ROOM_NAMES + i * 10, room.name);
             }
             for (k, p) in spec.portals.iter().enumerate() {
-                self.put(heap + portals_ptr + k * 2, p);
+                self.put(heap + table + k * 2, p);
             }
             for (slot, name, rec) in &spec.residents {
                 self.packed(heap + names_ptr + slot * 10, name);
@@ -192,7 +194,8 @@ impl Fixture {
             }
             let end = (cur - base) as u16;
             self.put(base + rg::ITEMS_END, &end.to_le_bytes());
-            self.put(base + rg::PORTALS_PTR, &(portals_ptr as u16).to_le_bytes());
+            let h03 = spec.header_03.unwrap_or(table as u16);
+            self.put(base + rg::HEADER_03, &h03.to_le_bytes());
             self.put(base + rg::RESIDENT_NAMES_PTR, &(names_ptr as u16).to_le_bytes());
             self.put(base + rg::ITEMS_PTR, &(items_ptr as u16).to_le_bytes());
         }

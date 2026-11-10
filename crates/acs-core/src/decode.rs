@@ -685,29 +685,34 @@ impl Decoder<'_> {
         let ptr = |s: &Self, off: usize, what| s.b.u16le(base + off, what).map(|v| v as usize);
         let room_count = self.b.u8(base + rg::ROOM_COUNT, "room count")? as usize;
         let items_end = ptr(self, rg::ITEMS_END, "items end")?;
-        let portals_ptr = ptr(self, rg::PORTALS_PTR, "portal pointer")?;
+        let header_03 = self.b.u16le(base + rg::HEADER_03, "region header 0x03")?;
         let names_ptr = ptr(self, rg::RESIDENT_NAMES_PTR, "resident name pointer")?;
         let items_ptr = ptr(self, rg::ITEMS_PTR, "item pointer")?;
         if room_count > rg::MAX_ROOMS {
             self.diags
                 .error(K::Other, &loc, format!("room count {room_count} exceeds 16"));
         }
-        if !(portals_ptr <= names_ptr
+        let table_start = rg::DOOR_TABLE_HEAP_OFFSET;
+        if !(table_start <= names_ptr
+            && (names_ptr - table_start) % 2 == 0
             && names_ptr + 0xA0 <= items_ptr
             && heap + items_ptr <= base + items_end
             && items_end <= rg::STRIDE)
         {
             return Err(Error::NotAnAdventure(format!(
-                "{loc}: heap pointers out of order (portals {portals_ptr:#x}, names {names_ptr:#x}, items {items_ptr:#x}, end {items_end:#x})"
+                "{loc}: heap pointers out of order (names {names_ptr:#x}, items {items_ptr:#x}, end {items_end:#x})"
             )));
         }
 
         let store_raw = self.b.block(base + rg::STORE, 14, "store")?;
         let store = Self::possessions(store_raw);
 
+        // The door table always starts at heap + 0xF0 and ends at the
+        // resident names. Header bytes 3-4 usually say 0xF0 too, but not
+        // always (see format-notes), so they are not trusted.
         let portal_bytes = self
             .b
-            .block(heap + portals_ptr, names_ptr - portals_ptr, "region portals")?;
+            .block(heap + table_start, names_ptr - table_start, "region door table")?;
         let portal_table: Vec<[u8; 2]> = portal_bytes.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
 
         let random_creatures = (0..rg::RANDOM_COUNT)
@@ -800,6 +805,11 @@ impl Decoder<'_> {
             residents,
             store,
             portal_table,
+            unknown_header_03: header_03,
+            unknown_59: self
+                .b
+                .block(base + rg::UNKNOWN_59, rg::UNKNOWN_59_LEN, "region bytes 0x59")?
+                .to_vec(),
         })
     }
 
