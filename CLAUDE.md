@@ -2,7 +2,7 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 0 (inspector).
+Plan: `docs/design.md`. Current phase: 1 (viewer).
 
 ## Hard rules
 
@@ -32,12 +32,16 @@ ACSVM_CORPUS='D:\projects\ACSVM-research\corpus' cargo test --test corpus -- --n
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core --target wasm32-unknown-unknown
+cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0] [--screenshot out.png]
+scripts/web.sh serve                                    # trunk dev server, :8080
+scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 ```
 
-Write CLI output for real adventures outside the repo (scratch folders):
-it is derived from EA or third-party material.
+Write CLI output and viewer screenshots for real adventures outside the repo
+(scratch folders): they are derived from EA or third-party material.
 
 ## Layout
 
@@ -47,4 +51,10 @@ it is derived from EA or third-party material.
 - `model.rs`: canonical serde model (the future editor format; bump
   `MODEL_VERSION` when meaning changes).
 - `graphics.rs`, `text.rs`, `disk.rs`, `bits.rs`: codecs and helpers.
+- `scene.rs`: what each room square shows (walls, floor = thing 127, item
+  stacks top first, residents) and the region grid. Layout only, no drawing.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
+- `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
+  `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
+  at 1.85. `tiles.rs` computes the integer tile scale from the window in
+  physical pixels each frame; `views/` holds one file per view.

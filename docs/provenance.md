@@ -13,6 +13,7 @@ Every outside source used by this project, and how it was used. Licensed CC BY 4
 | C64 colours: Philip "Pepto" Timmermann's measured PAL palette (pepto.de/projects/colorvic/2001) | Measured colour values (facts) | RGB for the 16 C64 colours | Values typed into `graphics.rs` with a citation. |
 | PC colours: standard CGA/EGA 16-colour values | Facts | RGB for the 16 PC colours | Same values as ACS Viewer. |
 | 1541 `.d64` geometry (sectors per track) | Facts, widely documented | Track/sector offsets in `disk.rs` | Written from general knowledge. |
+| Rust crates used by the viewer (eframe/egui, rfd, png, wasm-bindgen) and trunk | MIT / Apache-2.0 | GUI, file dialogs, PNG output, web build | Ordinary dependencies from crates.io. No format knowledge came from them. The room-drawing rules in `format-notes.md` come from corpus statistics only. |
 | GPL-3.0, CC BY 4.0 and CC BY-SA 4.0 texts | Their own terms | `LICENSE`, `LICENSES/` | Downloaded unchanged from gnu.org and creativecommons.org. |
 | `docs/design.md` | CC BY 4.0, project's own | Plan | Snapshot of the living design document. |
 

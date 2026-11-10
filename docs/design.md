@@ -156,6 +156,17 @@ The reasons:
 - **Rust's binary handling** (`binrw`/`nom`, bit fields, exhaustive enums) fits a byte-packed format with 13 thing types and 15 spell actions well. Determinism and test speed come almost for free.
 - **macroquad** builds natively and to WASM from one codebase with very little setup. **egui** covers inventory, character sheets, menus and debug panels without hand-building a UI toolkit.
 
+> **Update, Phase 1 (2026-11-10): the front end is eframe + egui, not macroquad.**
+> When the viewer was started, the only macroquad integration of egui
+> (`egui-macroquad` 0.17) was pinned to egui 0.31 while egui was at 0.37.
+> macroquad's web build also skips wasm-bindgen, so current Rust needs a
+> linker workaround (`--allow-undefined`), and a browser file picker would
+> need a hand-written JS plugin. eframe is egui's own native and web shell:
+> current egui, drag-and-drop and file dialogs (rfd) on both targets, and a
+> standard trunk build. Tiles are drawn as nearest-filtered egui textures.
+> Audio and gamepads will come from separate crates (e.g. kira, gilrs), which
+> both support the web. The core stays GUI-free either way.
+
 ### Alternatives considered
 
 | Option | Strength | Why not first choice |
