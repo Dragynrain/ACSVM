@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["crates/acs-core", "crates/acs-cli"]
+
+# The project's working name lives here (description) and in README.md only.
+# Code reads it through CARGO_PKG_DESCRIPTION, so a rename touches these two places.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "ACSVM: an open-source engine for Adventure Construction Set adventures"
+publish = false
+
+[workspace.dependencies]
+acs-core = { path = "crates/acs-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+png = "0.17"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
