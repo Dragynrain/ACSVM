@@ -23,8 +23,9 @@ const MARKER: u8 = 2;
 /// move-basic frames). Everything below y = 158 is the status area.
 const MAP_AREA: (usize, usize, usize, usize) = (28, 0, 240, 158);
 /// The movement bar: a vertical colour-3 bar in the bottom-left corner,
-/// 48 pixels tall when full, bottom at y = 158.
-const BAR_AREA: (usize, usize, usize, usize) = (0, 100, 28, 60);
+/// 8 pixels per point of Speed when full (48 for Speed 6), bottom at
+/// y = 158; the area reaches the top so a Speed 15 bar (120) fits.
+const BAR_AREA: (usize, usize, usize, usize) = (0, 0, 28, 159);
 const BAR_BOTTOM: usize = 158;
 const CELL: i32 = 16;
 const VIEW_X: i32 = 28;

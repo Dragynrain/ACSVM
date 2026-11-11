@@ -1,6 +1,9 @@
-# From play.vsf: inserts the scenario disk, creates a player named T and
-# stops at the first turn on the world map; saves ${OUT}/start.vsf.
-attach ${SCENARIO}
+# Start VICE with --disk SCENARIO --snapshot boot/play-nodisk.vsf: the
+# snapshot has no disk images, so restoring it keeps the scenario disk in
+# drive 8. (Attaching through the text monitor let the machine run freely
+# for a host-timed moment, so whether the disk was accepted varied.)
+# Creates a player named T and stops at the first turn on the world map;
+# saves ${OUT}/start.vsf.
 reset 8              # the drive re-reads the new disk at a fixed point
 run 5m
 joy 1 fire
@@ -19,7 +22,8 @@ run 60m              # choose a picture
 joy 1 fire
 run 4m
 joy 1 none
-run 60m              # type a name
+run 190m             # type a name (a key fed before about 183m is lost)
+shot start-name
 key T
 run 3m
 joy 1 fire

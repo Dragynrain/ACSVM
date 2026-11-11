@@ -12,3 +12,6 @@ key {F7}             # play an adventure
 run 40m
 shot play
 dump ${OUT}/play.vsf
+# Without disk images: restoring it keeps whatever disk VICE was started
+# with, so start-scenario.txt needs no attach (docs/capture.md 2.4).
+dump ${OUT}/play-nodisk.vsf nodisk

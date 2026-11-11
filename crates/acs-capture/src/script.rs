@@ -253,6 +253,13 @@ impl Session {
                 self.clock = 0;
                 Ok(format!("restored {} (pc {pc:#06x})", p.display()))
             }
+            "detach" => {
+                // VICE keeps written sectors in the drive's track buffer and
+                // writes the image file on a track change or a detach, so
+                // detach before reading a disk the program has just written.
+                let out = self.vice.text_command("detach 8").map_err(e)?;
+                Ok(format!("detached 8: {}", out.trim()))
+            }
             "attach" => {
                 let p = self.resolve(arg);
                 let out = self.vice.attach8(&p).map_err(e)?;
