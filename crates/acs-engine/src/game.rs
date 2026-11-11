@@ -5,6 +5,7 @@
 use crate::magic::{PendingSummon, Vitals};
 use crate::rng::Rng;
 use crate::{Command, Event, Location, Rules};
+use acs_core::model::ThingId;
 use acs_core::model::{Adventure, MagicDefense, Region, Room, Thing};
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +55,7 @@ pub struct PlayerSetup {
     /// Master thing numbers carried at the start, one entry per item
     /// (thing 81, Gold, goes in `gold` instead).
     #[serde(default)]
-    pub possessions: Vec<u8>,
+    pub possessions: Vec<ThingId>,
     #[serde(default)]
     pub gold: u16,
     #[serde(default = "default_trait")]
@@ -116,12 +117,12 @@ pub struct Player {
     pub turn_moves: u8,
     pub at: Location,
     /// Master thing numbers, one entry per item carried, in pick-up order.
-    pub possessions: Vec<u8>,
+    pub possessions: Vec<ThingId>,
     /// Pieces of Gold (thing 81), 0..=25,000.
     pub gold: u16,
     /// Readied weapon (melee or missile) and armor, master thing numbers.
-    pub weapon: Option<u8>,
-    pub armor: Option<u8>,
+    pub weapon: Option<ThingId>,
+    pub armor: Option<ThingId>,
     #[serde(default = "default_trait")]
     pub dexterity: u8,
     #[serde(default = "default_trait")]
@@ -148,12 +149,12 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn owns(&self, thing: u8) -> bool {
+    pub fn owns(&self, thing: ThingId) -> bool {
         self.count(thing) > 0
     }
 
     /// How many of `thing` the player owns (gold pieces for thing 81).
-    pub fn count(&self, thing: u8) -> u16 {
+    pub fn count(&self, thing: ThingId) -> u16 {
         if thing == crate::inventory::GOLD {
             self.gold
         } else {
@@ -293,7 +294,7 @@ impl Game {
     }
 
     /// Test and tool hook: gives a player a thing. Not replayed.
-    pub fn give(&mut self, player: usize, thing: u8) {
+    pub fn give(&mut self, player: usize, thing: ThingId) {
         let p = &mut self.players[player];
         if thing == crate::inventory::GOLD {
             p.gold = p.gold.saturating_add(1).min(crate::inventory::GOLD_LIMIT);
@@ -404,6 +405,11 @@ impl Game {
         self.region(region)?.residents.get(slot).filter(|c| c.in_use)
     }
 
+    /// How many creature slots a region has (16 in Classic, creatures 1.1).
+    pub fn slots(&self, region: u8) -> usize {
+        self.region(region).map_or(0, |r| r.residents.len())
+    }
+
     /// Whether a region slot holds a random creature (creatures 3.3).
     pub fn is_random(&self, region: u8, slot: usize) -> bool {
         self.random.contains(&(region, slot))
@@ -432,7 +438,7 @@ impl Game {
             .filter(|r| !r.deleted)
     }
 
-    pub(crate) fn thing(&self, number: u8) -> Option<&Thing> {
+    pub(crate) fn thing(&self, number: ThingId) -> Option<&Thing> {
         self.adv.things.get((number as usize).checked_sub(1)?)
     }
 

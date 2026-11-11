@@ -21,7 +21,9 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    region at once; past that no random creature appears and no summons are
    answered. [manual] **Engine:** the 16 slots *are* the region's
    creatures: a random creature that appears takes a free slot, one that is
-   removed frees it, so the limit is the slot count.
+   removed frees it, so the limit is the slot count. Extended adventures
+   may have more slots (`limits.residents_per_region`) and add a per-room
+   cap (`limits.creatures_per_room`); Classic is unchanged.
 2. A creature stays in its region: it takes only doors that lead somewhere in
    the same region (section 5). [manual]
 3. Creatures on the world map exist only as random encounters, which still

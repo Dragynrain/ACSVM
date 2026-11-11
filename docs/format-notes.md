@@ -191,6 +191,10 @@ a deleted item. All 110 items that fall outside their room sit at exactly
 square (15,14), off the edge of any room, so this looks like a stash square for
 things kept out of reach. The 9 items with bit 7 of the thing byte set are all
 at (15,14) as well. Meaning of the bit still unknown; it is kept as `flag`.
+The stash stays in the room's item list for now: Rid Room currently
+removes stash copies too, and moving them out would change Classic play
+before anyone knows what the original does. Extended rooms larger than
+15 x 14 will need the stash moved to its own list first.
 
 ### Doors (the portal table)
 

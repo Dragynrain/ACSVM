@@ -9,6 +9,7 @@ use crate::creatures;
 use crate::game::Game;
 use crate::inventory::{self, GOLD, PILE_LIMIT};
 use crate::{CastRefusal, Event, Location, RemovalReason, SpellSource, Stat, Who};
+use acs_core::model::ThingId;
 use acs_core::model::{
     Creature, CustomTrigger, MagicDefense, Possession, SpellAction, SpellActionKind, ThingKind,
 };
@@ -31,7 +32,7 @@ pub(crate) struct PendingSummon {
     pub room: u8,
     pub x: u8,
     pub y: u8,
-    pub creature: u8,
+    pub creature: u16,
 }
 
 /// One spell going off.
@@ -43,7 +44,7 @@ pub(crate) struct Spell {
     pub target: Who,
     pub source: SpellSource,
     /// The master thing that holds it.
-    pub thing: u8,
+    pub thing: ThingId,
     pub action: SpellAction,
     pub message: Option<String>,
     /// Where it takes effect.
@@ -70,7 +71,9 @@ pub fn acts_on_individual(kind: SpellActionKind) -> bool {
 
 /// The signed amount of a Change Power / Change Life Force parameter and
 /// whether it is temporary (3.7, 3.8).
-pub fn amount(parameter: u8) -> (i16, bool) {
+pub fn amount(parameter: u16) -> (i16, bool) {
+    // Classic packs the amount into one byte.
+    let parameter = parameter as u8;
     let n = (parameter & 0x3F) as i16;
     let n = if parameter & 0x80 != 0 { -n } else { n };
     (n, parameter & 0x40 != 0)
@@ -126,7 +129,7 @@ macro_rules! stat_field {
     };
 }
 
-pub(crate) fn add_possession(c: &mut Creature, thing: u8) {
+pub(crate) fn add_possession(c: &mut Creature, thing: ThingId) {
     if let Some(p) = c.possessions.iter_mut().find(|p| p.thing == thing) {
         p.count += 1;
     } else {
@@ -135,7 +138,7 @@ pub(crate) fn add_possession(c: &mut Creature, thing: u8) {
 }
 
 /// Removes one; clears the readied slot when the last goes. False if none.
-pub(crate) fn take_possession(c: &mut Creature, thing: u8) -> bool {
+pub(crate) fn take_possession(c: &mut Creature, thing: ThingId) -> bool {
     if thing == GOLD {
         if c.wealth == 0 {
             return false;
@@ -229,7 +232,7 @@ impl Game {
     }
 
     /// How many of `thing` an individual owns (gold in pieces).
-    pub fn owned(&self, who: Who, thing: u8) -> u16 {
+    pub fn owned(&self, who: Who, thing: ThingId) -> u16 {
         match who {
             Who::Player { player } => self.players.get(player).map_or(0, |p| p.count(thing)),
             Who::Creature { region, slot } => self
@@ -239,7 +242,7 @@ impl Game {
     }
 
     /// Adds one within the carry limits; false at the limit.
-    fn give_to(&mut self, who: Who, thing: u8) -> bool {
+    fn give_to(&mut self, who: Who, thing: ThingId) -> bool {
         if self.owned(who, thing) >= inventory::limit(thing) {
             return false;
         }
@@ -265,7 +268,7 @@ impl Game {
         true
     }
 
-    pub(crate) fn take_from(&mut self, who: Who, thing: u8) -> bool {
+    pub(crate) fn take_from(&mut self, who: Who, thing: ThingId) -> bool {
         match who {
             Who::Player { player } => self.take_one(player, thing),
             Who::Creature { region, slot } => self
@@ -330,7 +333,7 @@ impl Game {
             SummonOrBanish => self.summon(&s, p, ev),
             IncreaseMagicDefense | DecreaseMagicDefense => {
                 let now = self.stat(s.target, Stat::MagicDefense).unwrap_or(0);
-                let bound = p & 3;
+                let bound = (p & 3) as u8;
                 let to = if s.action.kind == IncreaseMagicDefense {
                     if now < bound {
                         now + 1
@@ -380,7 +383,8 @@ impl Game {
                 }
             }
             PlayMusic => ev.push(Event::Music {
-                number: p.saturating_add(1),
+                // Classic: 1..=30, from a one-byte parameter.
+                number: (p as u8).saturating_add(1),
             }),
             RidRoomOf => {
                 if let Location::Room { region, room, .. } = s.at {
@@ -437,7 +441,7 @@ impl Game {
         }
     }
 
-    fn kill_all_but(&mut self, s: &Spell, thing: u8, ev: &mut Vec<Event>) {
+    fn kill_all_but(&mut self, s: &Spell, thing: ThingId, ev: &mut Vec<Event>) {
         let victims = match s.at {
             Location::Room { region, room, .. } => self.individuals_in_room(region, room),
             Location::World { .. } => vec![s.target],
@@ -462,7 +466,7 @@ impl Game {
         }
     }
 
-    fn summon(&mut self, s: &Spell, creature: u8, ev: &mut Vec<Event>) {
+    fn summon(&mut self, s: &Spell, creature: u16, ev: &mut Vec<Event>) {
         match s.at {
             Location::Room { region, room, x, y } => self.summons.push(PendingSummon {
                 region,
@@ -498,7 +502,7 @@ impl Game {
                 continue;
             };
             c.in_use = true;
-            c.number = slot as u8 + 1;
+            c.number = slot as u16 + 1;
             c.region = s.region;
             c.room = s.room;
             c.x = x;
@@ -525,7 +529,7 @@ impl Game {
         }
     }
 
-    fn rid_room(&mut self, region: u8, room: u8, thing: u8) -> u16 {
+    fn rid_room(&mut self, region: u8, room: u8, thing: ThingId) -> u16 {
         let Some(r) = self
             .region_mut(region)
             .and_then(|reg| reg.rooms.get_mut(room as usize))
@@ -545,7 +549,7 @@ impl Game {
         let Some(r) = self.room(region, room) else {
             return;
         };
-        let below: Vec<(usize, u8, u8)> = r
+        let below: Vec<(usize, ThingId, u8)> = r
             .items
             .iter()
             .enumerate()
@@ -574,7 +578,7 @@ impl Game {
                     SpellSource::CustomObstacle,
                     SpellAction {
                         kind: action.kind,
-                        parameter,
+                        parameter: parameter.into(),
                     },
                 )),
                 ThingKind::CustomSpace {
@@ -655,7 +659,7 @@ impl Game {
     }
 
     /// Long message 1..=255 as one line (lines are split by position).
-    fn long_message(&self, number: u8) -> Option<String> {
+    fn long_message(&self, number: u16) -> Option<String> {
         let s = self.adv.long_messages.get((number as usize).checked_sub(1)?)?;
         let joined: String = s.lines().collect();
         let t = joined.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -679,7 +683,7 @@ impl Game {
     }
 
     /// Casts `thing` (a magic spell `by` owns); true if it worked (4.1).
-    pub(crate) fn cast(&mut self, by: Who, thing: u8, target: Who, ev: &mut Vec<Event>) -> bool {
+    pub(crate) fn cast(&mut self, by: Who, thing: ThingId, target: Who, ev: &mut Vec<Event>) -> bool {
         let Some(t) = self.thing(thing).cloned() else {
             return false;
         };
@@ -729,7 +733,7 @@ impl Game {
     }
 
     /// Uses `thing` (a magic item `by` owns that acts when used) (4.2).
-    pub(crate) fn use_item(&mut self, by: Who, thing: u8, target: Who, ev: &mut Vec<Event>) {
+    pub(crate) fn use_item(&mut self, by: Who, thing: ThingId, target: Who, ev: &mut Vec<Event>) {
         let Some(t) = self.thing(thing).cloned() else {
             return;
         };
@@ -763,7 +767,7 @@ impl Game {
         );
     }
 
-    fn check_cast(&self, thing: u8, target: Option<Who>, usable: bool) -> Result<Who, CastRefusal> {
+    fn check_cast(&self, thing: ThingId, target: Option<Who>, usable: bool) -> Result<Who, CastRefusal> {
         let p = self.current;
         let by = Who::Player { player: p };
         if thing == GOLD || !self.players[p].owns(thing) {
@@ -789,7 +793,7 @@ impl Game {
     }
 
     /// `Cast { thing, target }`: 4.1, 4.3.
-    pub(crate) fn cast_command(&mut self, thing: u8, target: Option<Who>, ev: &mut Vec<Event>) {
+    pub(crate) fn cast_command(&mut self, thing: ThingId, target: Option<Who>, ev: &mut Vec<Event>) {
         let p = self.current;
         match self.check_cast(thing, target, false) {
             Err(reason) => ev.push(Event::CastRefused {
@@ -807,7 +811,7 @@ impl Game {
     }
 
     /// `Use { thing, target }`: 4.2, 4.3.
-    pub(crate) fn use_command(&mut self, thing: u8, target: Option<Who>, ev: &mut Vec<Event>) {
+    pub(crate) fn use_command(&mut self, thing: ThingId, target: Option<Who>, ev: &mut Vec<Event>) {
         let p = self.current;
         match self.check_cast(thing, target, true) {
             Err(reason) => ev.push(Event::CastRefused {
@@ -868,7 +872,7 @@ impl Game {
         let Some(at) = self.location(who).filter(|_| self.alive(who)) else {
             return;
         };
-        let (mut things, gold): (Vec<u8>, u16) = match who {
+        let (mut things, gold): (Vec<ThingId>, u16) = match who {
             Who::Player { player } => {
                 let p = &self.players[player];
                 (p.possessions.clone(), p.gold)

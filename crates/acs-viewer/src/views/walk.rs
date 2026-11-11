@@ -11,7 +11,7 @@
 use super::*;
 use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
 use acs_core::scene::{self, RoomScene};
-use acs_engine::creatures::{self as cr, SLOTS};
+use acs_engine::creatures as cr;
 use acs_engine::inventory::{self, GOLD};
 use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules, Stat, Who};
 use egui::{Key, Modifiers, RichText};
@@ -41,7 +41,7 @@ pub struct Walk {
     log: Vec<(Kind, String)>,
     /// A drop waiting for its square: the next direction key (or Space for
     /// the player's own square) sends it; Escape cancels.
-    pending_drop: Option<u8>,
+    pending_drop: Option<u16>,
     /// Pieces per gold drop.
     gold_amount: u16,
     /// The current turn's bar was halved by a creature (creatures 2.6).
@@ -238,7 +238,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
             Ok(match head {
                 "wait" => Command::Wait,
                 "drop" => Command::Drop {
-                    thing: num(parts.next())? as u8,
+                    thing: num(parts.next())?,
                     dir: dir(parts.next())?,
                 },
                 "gold" => Command::DropGold {
@@ -246,14 +246,14 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     dir: dir(parts.next())?,
                 },
                 "ready" => Command::Ready {
-                    thing: num(parts.next())? as u8,
+                    thing: num(parts.next())?,
                 },
                 "cast" => Command::Cast {
-                    thing: num(parts.next())? as u8,
+                    thing: num(parts.next())?,
                     target: target(parts.next())?,
                 },
                 "use" => Command::Use {
-                    thing: num(parts.next())? as u8,
+                    thing: num(parts.next())?,
                     target: target(parts.next())?,
                 },
                 d => Command::Move {
@@ -510,7 +510,7 @@ fn target_menu(
                 ui.close();
             }
         }
-        for slot in 0..SLOTS {
+        for slot in 0..g.slots(region) {
             if let Some(c) = g.creature(region, slot).filter(|c| c.room == room) {
                 let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
                 if ui.button(name).clicked() {
@@ -526,7 +526,7 @@ fn target_menu(
 fn inventory_panel(
     ui: &mut egui::Ui,
     g: &Game,
-    pending: &mut Option<u8>,
+    pending: &mut Option<u16>,
     gold_amount: &mut u16,
     click: &mut Option<Command>,
 ) {
@@ -541,7 +541,7 @@ fn inventory_panel(
         ""
     };
     ui.label(format!("Load {load} of {cap}{state}"));
-    let name = |t: u8| {
+    let name = |t: u16| {
         a.things
             .get(t as usize - 1)
             .map(|t| t.name.trim().to_string())
@@ -649,7 +649,7 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         return;
     };
     let a = g.adventure();
-    let here: Vec<(usize, &Creature)> = (0..SLOTS)
+    let here: Vec<(usize, &Creature)> = (0..g.slots(region))
         .filter_map(|s| g.creature(region, s).map(|c| (s, c)))
         .filter(|(_, c)| c.room == room)
         .collect();

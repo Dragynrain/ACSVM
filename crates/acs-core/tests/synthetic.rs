@@ -461,6 +461,28 @@ fn check_sample(a: &Adventure, p: Platform) {
 }
 
 #[test]
+fn decoded_adventures_are_classic_and_fit_their_limits() {
+    for p in PLATFORMS {
+        let mut a = decode(&sample(p).build()).unwrap().adventure;
+        assert_eq!(a.model_version, MODEL_VERSION, "{p}");
+        assert_eq!(a.profile, acs_core::Profile::Classic, "{p}");
+        assert_eq!(a.limits, acs_core::Limits::CLASSIC, "{p}");
+        assert!(acs_core::limits::check(&a).is_empty(), "{p}");
+
+        // One region too many is reported, and Extended allows it.
+        let extra = a.regions[0].clone();
+        while a.regions.len() <= 15 {
+            a.regions.push(extra.clone());
+        }
+        let v = acs_core::limits::check(&a);
+        assert_eq!(v.len(), 1, "{p}: {v:?}");
+        assert_eq!((v[0].what.as_str(), v[0].found, v[0].limit), ("regions", 16, 15));
+        a.limits = acs_core::Limits::EXTENDED;
+        assert!(acs_core::limits::check(&a).is_empty(), "{p}");
+    }
+}
+
+#[test]
 fn json_round_trip() {
     for p in PLATFORMS {
         let a = decode(&sample(p).build()).unwrap().adventure;

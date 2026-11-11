@@ -20,43 +20,43 @@ use acs_engine::{
 };
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
-const GEM: u8 = 1; // treasure
-const AMULET: u8 = 2; // treasure, the Kill All key
-const DUST: u8 = 3; // treasure that vanishes when dropped
-const CLAW: u8 = 4; // owner-only melee weapon
-const BOLT: u8 = 33; // magic spell: Life Force -6, cost 7
-const HEAL: u8 = 34; // magic spell: Life Force +5, cost 0, disappears
-const CALL: u8 = 35; // magic spell: summon creature 5, cost 0
-const BANISH: u8 = 36; // magic spell: banish all, cost 0
-const DOOM: u8 = 37; // magic spell: kill all but owners of AMULET, cost 0
-const POTION: u8 = 40; // magic item, used: Life Force +4, disappears
-const ROD: u8 = 41; // magic item, used: Life Force -3
-const STONE: u8 = 42; // magic item, not usable
-const BOMB: u8 = 43; // magic item, dropped: Life Force -2
-const DOOR: u8 = 82; // portal, anyone
-const SONG: u8 = 83; // portal, invokes Play Music 3
-const DOALL: u8 = 84; // space, Activate All
-const LIGHT: u8 = 85; // custom space, owners of (placement), Life Force +5
-const DARK: u8 = 86; // custom space, non-owners of (placement), Do Nothing
-const TUNE: u8 = 87; // space, Play Music (stored 12 = choice 13)
-const SLOT: u8 = 88; // custom space, when dropped here, Give GEM
-const DOALL2: u8 = 89; // space, Activate All (nested)
-const STAT: u8 = 90; // custom space, Increase stat (placement)
-const LOWER: u8 = 91; // custom space, Decrease stat (placement)
-const WARD: u8 = 92; // space, raise magic defense up to 2
-const DISEASE_UP: u8 = 93; // space, Life Force +10 temporarily
-const DISEASE_DOWN: u8 = 94; // space, Life Force -10 permanently
-const GIFT: u8 = 95; // space, Give GEM
-const SCROLL: u8 = 96; // space, long message 7
-const CLEAN: u8 = 97; // space, rid room of GEM
-const CHEST: u8 = 98; // obstacle, bump: Add to Room GEM
-const IMP: u8 = 5; // master creature
+const GEM: u16 = 1; // treasure
+const AMULET: u16 = 2; // treasure, the Kill All key
+const DUST: u16 = 3; // treasure that vanishes when dropped
+const CLAW: u16 = 4; // owner-only melee weapon
+const BOLT: u16 = 33; // magic spell: Life Force -6, cost 7
+const HEAL: u16 = 34; // magic spell: Life Force +5, cost 0, disappears
+const CALL: u16 = 35; // magic spell: summon creature 5, cost 0
+const BANISH: u16 = 36; // magic spell: banish all, cost 0
+const DOOM: u16 = 37; // magic spell: kill all but owners of AMULET, cost 0
+const POTION: u16 = 40; // magic item, used: Life Force +4, disappears
+const ROD: u16 = 41; // magic item, used: Life Force -3
+const STONE: u16 = 42; // magic item, not usable
+const BOMB: u16 = 43; // magic item, dropped: Life Force -2
+const DOOR: u16 = 82; // portal, anyone
+const SONG: u16 = 83; // portal, invokes Play Music 3
+const DOALL: u16 = 84; // space, Activate All
+const LIGHT: u16 = 85; // custom space, owners of (placement), Life Force +5
+const DARK: u16 = 86; // custom space, non-owners of (placement), Do Nothing
+const TUNE: u16 = 87; // space, Play Music (stored 12 = choice 13)
+const SLOT: u16 = 88; // custom space, when dropped here, Give GEM
+const DOALL2: u16 = 89; // space, Activate All (nested)
+const STAT: u16 = 90; // custom space, Increase stat (placement)
+const LOWER: u16 = 91; // custom space, Decrease stat (placement)
+const WARD: u16 = 92; // space, raise magic defense up to 2
+const DISEASE_UP: u16 = 93; // space, Life Force +10 temporarily
+const DISEASE_DOWN: u16 = 94; // space, Life Force -10 permanently
+const GIFT: u16 = 95; // space, Give GEM
+const SCROLL: u16 = 96; // space, long message 7
+const CLEAN: u16 = 97; // space, rid room of GEM
+const CHEST: u16 = 98; // obstacle, bump: Add to Room GEM
+const IMP: u16 = 5; // master creature
 
-fn act(kind: K, parameter: u8) -> SpellAction {
+fn act(kind: K, parameter: u16) -> SpellAction {
     SpellAction { kind, parameter }
 }
 
-fn life(n: i8, temporary: bool) -> u8 {
+fn life(n: i8, temporary: bool) -> u16 {
     let mut p = n.unsigned_abs() & 0x3F;
     if n < 0 {
         p |= 0x80;
@@ -64,7 +64,7 @@ fn life(n: i8, temporary: bool) -> u8 {
     if temporary {
         p |= 0x40;
     }
-    p
+    u16::from(p)
 }
 
 fn spell(cost: u8, action: SpellAction, disappears: bool) -> ThingKind {
@@ -128,7 +128,7 @@ fn adventure(platform: Platform) -> Adventure {
                 w: 10,
                 h: 7,
                 wall: 12,
-                items: vec![(9, 3, DOOR, 1), (9, 5, SONG, 3)],
+                items: vec![(9, 3, (DOOR as u8), 1), (9, 5, (SONG as u8), 3)],
                 ..Default::default()
             },
             RoomSpec {
@@ -137,7 +137,7 @@ fn adventure(platform: Platform) -> Adventure {
                 h: 7,
                 x: 9,
                 wall: 12,
-                items: vec![(0, 3, DOOR, 2)],
+                items: vec![(0, 3, (DOOR as u8), 2)],
                 ..Default::default()
             },
         ],
@@ -162,7 +162,7 @@ fn adventure(platform: Platform) -> Adventure {
         magic: false,
     };
     set(
-        AMULET,
+        AMULET as u8,
         "AMULET",
         ThingKind::Treasure {
             picture: 5,
@@ -171,7 +171,7 @@ fn adventure(platform: Platform) -> Adventure {
         },
     );
     set(
-        DUST,
+        DUST as u8,
         "DUST",
         ThingKind::Treasure {
             picture: 5,
@@ -180,7 +180,7 @@ fn adventure(platform: Platform) -> Adventure {
         },
     );
     set(
-        CLAW,
+        CLAW as u8,
         "CLAW",
         ThingKind::MeleeWeapon {
             picture: 6,
@@ -190,36 +190,44 @@ fn adventure(platform: Platform) -> Adventure {
         },
     );
     set(
-        BOLT,
+        BOLT as u8,
         "BOLT",
         spell(7, act(K::ChangeLifeForce, life(-6, false)), false),
     );
     set(
-        HEAL,
+        HEAL as u8,
         "HEAL",
         spell(0, act(K::ChangeLifeForce, life(5, false)), true),
     );
-    set(CALL, "CALL", spell(0, act(K::SummonOrBanish, IMP), false));
-    set(BANISH, "BANISH", spell(0, act(K::SummonOrBanish, 0), false));
-    set(DOOM, "DOOM", spell(0, act(K::KillAllButOwnerOf, AMULET), false));
+    set(CALL as u8, "CALL", spell(0, act(K::SummonOrBanish, IMP), false));
+    set(BANISH as u8, "BANISH", spell(0, act(K::SummonOrBanish, 0), false));
     set(
-        POTION,
+        DOOM as u8,
+        "DOOM",
+        spell(0, act(K::KillAllButOwnerOf, AMULET), false),
+    );
+    set(
+        POTION as u8,
         "POTION",
         item(act(K::ChangeLifeForce, life(4, false)), true, false, true),
     );
     set(
-        ROD,
+        ROD as u8,
         "ROD",
         item(act(K::ChangeLifeForce, life(-3, false)), true, false, false),
     );
-    set(STONE, "STONE", item(act(K::Nothing, 0), false, false, false));
     set(
-        BOMB,
+        STONE as u8,
+        "STONE",
+        item(act(K::Nothing, 0), false, false, false),
+    );
+    set(
+        BOMB as u8,
         "BOMB",
         item(act(K::ChangeLifeForce, life(-2, false)), false, true, false),
     );
     set(
-        SONG,
+        SONG as u8,
         "SONG",
         ThingKind::Portal {
             picture: 5,
@@ -230,9 +238,9 @@ fn adventure(platform: Platform) -> Adventure {
             destroy_needed_thing: false,
         },
     );
-    set(DOALL, "DOALL", space(act(K::ActivateAll, 0)));
+    set(DOALL as u8, "DOALL", space(act(K::ActivateAll, 0)));
     set(
-        LIGHT,
+        LIGHT as u8,
         "LIGHT",
         custom(
             CustomTrigger::OpenToOwnersOf,
@@ -241,7 +249,7 @@ fn adventure(platform: Platform) -> Adventure {
         ),
     );
     set(
-        DARK,
+        DARK as u8,
         "DARK",
         custom(
             CustomTrigger::OpenToNonOwnersOf,
@@ -249,9 +257,9 @@ fn adventure(platform: Platform) -> Adventure {
             act(K::Nothing, 0),
         ),
     );
-    set(TUNE, "TUNE", space(act(K::PlayMusic, 12)));
+    set(TUNE as u8, "TUNE", space(act(K::PlayMusic, 12)));
     set(
-        SLOT,
+        SLOT as u8,
         "SLOT",
         custom(
             CustomTrigger::WhenDroppedHere,
@@ -259,9 +267,9 @@ fn adventure(platform: Platform) -> Adventure {
             act(K::Give, GEM),
         ),
     );
-    set(DOALL2, "DOALL2", space(act(K::ActivateAll, 0)));
+    set(DOALL2 as u8, "DOALL2", space(act(K::ActivateAll, 0)));
     set(
-        STAT,
+        STAT as u8,
         "STAT",
         custom(
             CustomTrigger::WhenMovedOnto,
@@ -270,7 +278,7 @@ fn adventure(platform: Platform) -> Adventure {
         ),
     );
     set(
-        LOWER,
+        LOWER as u8,
         "LOWER",
         custom(
             CustomTrigger::WhenMovedOnto,
@@ -278,22 +286,22 @@ fn adventure(platform: Platform) -> Adventure {
             act(K::DecreaseStat, 0),
         ),
     );
-    set(WARD, "WARD", space(act(K::IncreaseMagicDefense, 2)));
+    set(WARD as u8, "WARD", space(act(K::IncreaseMagicDefense, 2)));
     set(
-        DISEASE_UP,
+        DISEASE_UP as u8,
         "FEVER",
         space(act(K::ChangeLifeForce, life(10, true))),
     );
     set(
-        DISEASE_DOWN,
+        DISEASE_DOWN as u8,
         "CHILL",
         space(act(K::ChangeLifeForce, life(-10, false))),
     );
-    set(GIFT, "GIFT", space(act(K::Give, GEM)));
-    set(SCROLL, "SCROLL", space(act(K::LongMessage, 7)));
-    set(CLEAN, "CLEAN", space(act(K::RidRoomOf, GEM)));
+    set(GIFT as u8, "GIFT", space(act(K::Give, GEM)));
+    set(SCROLL as u8, "SCROLL", space(act(K::LongMessage, 7)));
+    set(CLEAN as u8, "CLEAN", space(act(K::RidRoomOf, GEM)));
     set(
-        CHEST,
+        CHEST as u8,
         "CHEST",
         ThingKind::Obstacle {
             picture: 7,
@@ -304,7 +312,7 @@ fn adventure(platform: Platform) -> Adventure {
     a
 }
 
-fn put_item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u8, parameter: u8) {
+fn put_item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u16, parameter: u8) {
     a.regions[0].rooms[room].items.insert(
         0,
         RoomItem {
@@ -329,7 +337,7 @@ fn put_creature(
     let mut c = a.regions[0].residents[0].clone();
     c.in_use = true;
     c.name = format!("C{slot}");
-    c.number = slot as u8 + 1;
+    c.number = u16::from(slot as u8 + 1);
     c.region = 1;
     c.room = 0;
     c.x = x;
@@ -382,7 +390,7 @@ fn mv(g: &mut Game, d: Dir) -> Vec<Event> {
     g.apply(Command::Move { dir: d })
 }
 
-fn stack(g: &Game, room: usize, x: u8, y: u8) -> Vec<u8> {
+fn stack(g: &Game, room: usize, x: u8, y: u8) -> Vec<u16> {
     g.adventure().regions[0].rooms[room]
         .items
         .iter()
@@ -815,7 +823,7 @@ fn activate_all_runs_the_stack_below_it() {
         // of GEM), DOALL2 (skipped), SLOT (when dropped here: skipped), TUNE.
         for t in [TUNE, SLOT, DOALL2, DARK, LIGHT, DOALL] {
             let param = if matches!(t, LIGHT | DARK | SLOT) { GEM } else { 0 };
-            put_item(&mut a, 0, 3, 2, t, param);
+            put_item(&mut a, 0, 3, 2, t, param as u8);
         }
         let mut g = start(
             a,

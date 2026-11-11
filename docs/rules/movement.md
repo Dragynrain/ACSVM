@@ -64,6 +64,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 ## 4. The world map
 
 1. The map is 40 x 40 cells; 10 x 15 are visible at once. [manual]
+   **Engine:** the size comes from the map's own tiles, so Extended
+   adventures can be larger (`acs_core::limits`).
 2. **Wraparound.** If the adventure allows it, stepping off one edge comes in
    at the opposite edge (a torus). Otherwise the edge stops the move like
    impassable terrain. [manual] 1 of 15 corpus adventures wraps. [data]
@@ -199,8 +201,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    - Which empty square: [unknown] **Engine:** roll only (`RoomEncounter`
      event); placement waits for the AI session.
    - No more than 16 creatures in a region at once; then no random creatures
-     appear. [manual] **Engine:** counts in-use residents; at 16 the roll is
-     skipped.
+     appear. [manual] **Engine:** counts in-use residents; when every slot
+     is in use (16 in Classic) the roll is skipped. Extended adventures
+     also skip it when the room already holds `creatures_per_room`.
    - Random creatures in rooms no player occupies are removed now and then.
      [manual] How often is [unknown].
 3. All rolls use the game's one seeded generator, so a game replays exactly

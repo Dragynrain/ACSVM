@@ -8,17 +8,18 @@ use crate::game::{Game, Player};
 use crate::magic::Spell;
 use crate::step::resolve_custom_space;
 use crate::{Dir, DropRefusal, Event, Location, ReadyRefusal, Slot, SpellSource, Who};
+use acs_core::model::ThingId;
 use acs_core::model::{Adventure, CustomTrigger, RoomItem, ThingKind};
 
 /// Thing 81 is Gold, counted in pieces (1.3).
-pub const GOLD: u8 = 81;
+pub const GOLD: ThingId = 81;
 /// Most gold pieces anyone may own (1.3).
 pub const GOLD_LIMIT: u16 = 25_000;
 /// Most gold one dropped pile holds: a placement parameter is a byte (5.8).
 pub const PILE_LIMIT: u16 = 255;
 
 /// How many of `thing` one individual may own (1.2-1.4).
-pub fn limit(thing: u8) -> u16 {
+pub fn limit(thing: ThingId) -> u16 {
     match thing {
         1..=32 => 3,
         GOLD => GOLD_LIMIT,
@@ -40,7 +41,7 @@ pub fn carriable(kind: &ThingKind) -> bool {
 }
 
 /// A thing's weight, multiplier applied; 0 for things without one.
-pub fn weight(adv: &Adventure, thing: u8) -> i32 {
+pub fn weight(adv: &Adventure, thing: ThingId) -> i32 {
     let Some(t) = adv.things.get((thing as usize).wrapping_sub(1)) else {
         return 0;
     };
@@ -102,7 +103,7 @@ enum Target {
 impl Game {
     /// Removes one `thing` from the player; clears a readied slot when the
     /// last copy goes (4.4). False if the player had none.
-    pub(crate) fn take_one(&mut self, p: usize, thing: u8) -> bool {
+    pub(crate) fn take_one(&mut self, p: usize, thing: ThingId) -> bool {
         let pl = &mut self.players[p];
         if thing == GOLD {
             if pl.gold == 0 {
@@ -127,7 +128,7 @@ impl Game {
     }
 
     /// `Ready { thing }` (section 4).
-    pub(crate) fn ready(&mut self, thing: u8, ev: &mut Vec<Event>) {
+    pub(crate) fn ready(&mut self, thing: ThingId, ev: &mut Vec<Event>) {
         let p = self.current;
         let refuse = |reason| Event::ReadyRefused {
             player: p,
@@ -206,7 +207,7 @@ impl Game {
         &mut self,
         at: (u8, u8, u8, u8),
         top: &Option<RoomItem>,
-        thing: u8,
+        thing: ThingId,
         ev: &mut Vec<Event>,
     ) -> bool {
         let Some(it) = top else { return false };
@@ -254,7 +255,7 @@ impl Game {
         destroy_needed_thing
     }
 
-    pub(crate) fn put_on_top(&mut self, region: u8, room: u8, x: u8, y: u8, thing: u8, parameter: u8) {
+    pub(crate) fn put_on_top(&mut self, region: u8, room: u8, x: u8, y: u8, thing: ThingId, parameter: u8) {
         if let Some(r) = self
             .region_mut(region)
             .and_then(|reg| reg.rooms.get_mut(room as usize))
@@ -275,7 +276,7 @@ impl Game {
     }
 
     /// `Drop { thing, dir }` (section 5).
-    pub(crate) fn drop_thing(&mut self, thing: u8, dir: Option<Dir>, ev: &mut Vec<Event>) {
+    pub(crate) fn drop_thing(&mut self, thing: ThingId, dir: Option<Dir>, ev: &mut Vec<Event>) {
         if thing == GOLD {
             self.drop_gold(1, dir, ev);
             return;

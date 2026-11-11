@@ -12,21 +12,21 @@ use acs_engine::{BlockReason, Command, Dir, Event, Game, Location, PlayerSetup, 
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
 // Master things used below (1-based numbers).
-const KEY: u8 = 1; // treasure
-const ROPE: u8 = 2; // treasure
-const SWIM: u8 = 3; // magic spell (key for terrain)
-const LOCKED: u8 = 4; // portal, owners of KEY, destroys it, blocked message
-const DOOR: u8 = 5; // portal, anyone, two-way
-const MAGIC_DOOR: u8 = 6; // portal, invokes spell
-const BED: u8 = 7; // space, invokes spell
-const GATE: u8 = 8; // space, owners of ROPE
-const LIGHT: u8 = 9; // custom space, open to owners of (thing at placement)
-const VEND: u8 = 10; // custom space, when moved onto, spell parameter at placement
-const WALL: u8 = 11; // obstacle, no spell
-const CHEST: u8 = 12; // obstacle, bump spell, vanishes
-const ALTAR: u8 = 13; // custom obstacle
-const SHOP: u8 = 14; // store
-const CURSE: u8 = 15; // space, non-owners of KEY
+const KEY: u16 = 1; // treasure
+const ROPE: u16 = 2; // treasure
+const SWIM: u16 = 3; // magic spell (key for terrain)
+const LOCKED: u16 = 4; // portal, owners of KEY, destroys it, blocked message
+const DOOR: u16 = 5; // portal, anyone, two-way
+const MAGIC_DOOR: u16 = 6; // portal, invokes spell
+const BED: u16 = 7; // space, invokes spell
+const GATE: u16 = 8; // space, owners of ROPE
+const LIGHT: u16 = 9; // custom space, open to owners of (thing at placement)
+const VEND: u16 = 10; // custom space, when moved onto, spell parameter at placement
+const WALL: u16 = 11; // obstacle, no spell
+const CHEST: u16 = 12; // obstacle, bump spell, vanishes
+const ALTAR: u16 = 13; // custom obstacle
+const SHOP: u16 = 14; // store
+const CURSE: u16 = 15; // space, non-owners of KEY
 
 /// Builds an adventure with one region of three rooms (one deleted):
 ///
@@ -42,7 +42,11 @@ fn fixture(platform: Platform) -> Fixture {
     f.thing(ROPE as usize, "ROPE", [0x01, 1, 1, 4]);
     f.thing(SWIM as usize, "SWIM", [0x06, 0, 0, 0]);
     // portal: p0 type 7, p1 picture | access << 6, p2 spell | destroy, p3 thing
-    f.thing(LOCKED as usize, "LOCKED DOOR", [0x07, 5 | 2 << 6, 0x80, KEY]);
+    f.thing(
+        LOCKED as usize,
+        "LOCKED DOOR",
+        [0x07, 5 | 2 << 6, 0x80, (KEY as u8)],
+    );
     f.thing_message(LOCKED as usize, 0, 1);
     f.short_message(1, "THE DOOR IS LOCKED.");
     f.thing(DOOR as usize, "DOOR", [0x27, 5, 0, 0]);
@@ -50,7 +54,7 @@ fn fixture(platform: Platform) -> Fixture {
     f.thing(BED as usize, "BED", [0x08, 6 | 1 << 6, 8, 5]);
     f.thing_message(BED as usize, 1, 2);
     f.short_message(2, "YOU FEEL RESTED.");
-    f.thing(GATE as usize, "GATE", [0x08, 6 | 2 << 6, 0, ROPE]);
+    f.thing(GATE as usize, "GATE", [0x08, 6 | 2 << 6, 0, (ROPE as u8)]);
     // custom space: thing chosen at placement (bit 7 clear), trigger 2 =
     // open to owners of, spell 12 (rid room) with fixed parameter 9.
     f.thing(LIGHT as usize, "LIGHT", [0x09, 7 | 2 << 6, 12, 9]);
@@ -58,10 +62,10 @@ fn fixture(platform: Platform) -> Fixture {
     // when moved onto, spell 13 (add to room).
     f.thing(VEND as usize, "VEND", [0x89, 7 | 1 << 6, 13, 0]);
     f.thing(WALL as usize, "PILLAR", [0x0A, 8, 0, 0]);
-    f.thing(CHEST as usize, "CHEST", [0x1A, 8 | 0x40, 13, KEY]); // vanishes, add KEY
+    f.thing(CHEST as usize, "CHEST", [0x1A, 8 | 0x40, 13, (KEY as u8)]); // vanishes, add KEY
     f.thing(ALTAR as usize, "ALTAR", [0x0B, 8, 10, 0]); // long message, per placement
     f.thing(SHOP as usize, "SHOP", [0x0C, 9, 0, 0]);
-    f.thing(CURSE as usize, "CURSE", [0x08, 6 | 3 << 6, 0, KEY]);
+    f.thing(CURSE as usize, "CURSE", [0x08, 6 | 3 << 6, 0, (KEY as u8)]);
     f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
     f.thing(128, "ROOM BORDER", [0x00, 9, 0, 0]);
 
@@ -80,22 +84,22 @@ fn fixture(platform: Platform) -> Fixture {
                 wall: 9,
                 random: 0, // set per test
                 items: vec![
-                    (7, 2, DOOR, 1),       // east wall -> CELL (1,2)
-                    (7, 3, LOCKED, 2),     // east wall -> CELL (1,3), key needed
-                    (0, 2, MAGIC_DOOR, 3), // west wall -> world map exit point
-                    (0, 3, DOOR, 4),       // west wall -> deleted room 2
-                    (2, 1, KEY, 0),
-                    (3, 1, BED, 0),
-                    (4, 1, GATE, 0),
-                    (5, 1, LIGHT, ROPE),
-                    (6, 1, VEND, 77),
-                    (3, 4, WALL, 0),
-                    (4, 4, CHEST, 0),
-                    (5, 4, ALTAR, 42),
-                    (1, 4, SHOP, 0),
-                    (2, 4, CURSE, 0),
-                    (2, 3, WALL, 0), // a pillar on top of a key: the pillar decides
-                    (2, 3, KEY, 0),
+                    (7, 2, (DOOR as u8), 1),       // east wall -> CELL (1,2)
+                    (7, 3, (LOCKED as u8), 2),     // east wall -> CELL (1,3), key needed
+                    (0, 2, (MAGIC_DOOR as u8), 3), // west wall -> world map exit point
+                    (0, 3, (DOOR as u8), 4),       // west wall -> deleted room 2
+                    (2, 1, (KEY as u8), 0),
+                    (3, 1, (BED as u8), 0),
+                    (4, 1, (GATE as u8), 0),
+                    (5, 1, (LIGHT as u8), (ROPE as u8)),
+                    (6, 1, (VEND as u8), 77),
+                    (3, 4, (WALL as u8), 0),
+                    (4, 4, (CHEST as u8), 0),
+                    (5, 4, (ALTAR as u8), 42),
+                    (1, 4, (SHOP as u8), 0),
+                    (2, 4, (CURSE as u8), 0),
+                    (2, 3, (WALL as u8), 0), // a pillar on top of a key: the pillar decides
+                    (2, 3, (KEY as u8), 0),
                 ],
                 ..Default::default()
             },
@@ -105,7 +109,7 @@ fn fixture(platform: Platform) -> Fixture {
                 h: 6,
                 x: 7,
                 wall: 9,
-                items: vec![(0, 2, DOOR, 5)], // back to HALL (6,2)
+                items: vec![(0, 2, (DOOR as u8), 5)], // back to HALL (6,2)
                 ..Default::default()
             },
             RoomSpec {
@@ -152,8 +156,8 @@ fn world(f: &mut Fixture) {
     let w = f.l.world_map;
     terrain(f, 0, 1, 1, 0); // grass, open
     terrain(f, 1, 2, 0, 0); // mountain, impassable
-    terrain(f, 2, 3, 2, SWIM); // river, owners of SWIM
-    terrain(f, 3, 4, 3, SWIM); // field, triggers SWIM's spell
+    terrain(f, 2, 3, 2, SWIM as u8); // river, owners of SWIM
+    terrain(f, 3, 4, 3, SWIM as u8); // field, triggers SWIM's spell
     terrain(f, 12, 5, 1, 0); // door terrain
     set_tile(f, 21, 20, 1);
     set_tile(f, 19, 20, 2);
@@ -340,6 +344,31 @@ fn world_map_terrain() {
             }
         ));
     });
+}
+
+#[test]
+fn extended_world_map_is_as_big_as_its_tiles() {
+    // Classic stops at column 39; an Extended map 60 wide goes on.
+    let mut a = build(&mut fixture(Platform::C64));
+    a.profile = acs_core::Profile::Extended;
+    a.limits = acs_core::Limits::EXTENDED;
+    for row in &mut a.world.tiles {
+        row.resize(60, 0);
+    }
+    a.world.tiles.resize(60, vec![0; 60]);
+    assert!(acs_core::limits::check(&a).is_empty());
+    let mut g = Game::new(a, 1, Rules::default(), PlayerSetup::default()).0;
+    g.place(0, Location::World { x: 39, y: 50 });
+    let ev = mv(&mut g, Dir::E);
+    assert!(matches!(
+        ev[0],
+        Event::Moved {
+            to: Location::World { x: 40, y: 50 },
+            ..
+        }
+    ));
+    g.place(0, Location::World { x: 59, y: 59 });
+    assert_eq!(blocked(&mv(&mut g, Dir::E)), Some(BlockReason::MapEdge));
 }
 
 #[test]
