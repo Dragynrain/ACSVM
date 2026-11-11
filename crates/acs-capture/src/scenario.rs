@@ -150,6 +150,27 @@ pub struct MoveBasic {
     pub player: Option<Player>,
     /// An obstacle (thing `OBSTACLE`, type 10) on this room square.
     pub obstacle: Option<(u8, u8)>,
+    /// Treasures of these weights (things `FIRST_WEIGHT`..), in a row east
+    /// of the room's entry square, one a square.
+    pub weights: Vec<u16>,
+}
+
+/// The first master thing slot of the weight row (carriable things must be
+/// 1-80: possessions are a bitmap over them).
+pub const FIRST_WEIGHT: u8 = 71;
+
+/// A treasure's first two property bytes for a weight: x1 up to 255, else
+/// x20 (bit 6) for multiples of 20 up to 5,100.
+pub fn weight_bytes(w: u16) -> Result<(u8, u8), String> {
+    if w <= 255 {
+        Ok((0x01, w as u8))
+    } else if w % 20 == 0 && w / 20 <= 255 {
+        Ok((0x01 | 0x40, (w / 20) as u8))
+    } else {
+        Err(format!(
+            "weight {w}: above 255 it must be a multiple of 20, at most 5,100"
+        ))
+    }
 }
 
 /// The master thing slot our obstacle takes (over the builder set's).
@@ -167,6 +188,7 @@ impl Default for MoveBasic {
             room_entry: (4, 4),
             player: None,
             obstacle: None,
+            weights: Vec::new(),
         }
     }
 }
@@ -309,10 +331,17 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     if s.obstacle.is_some() {
         f.thing(OBSTACLE as usize, "BLOCK", [0x0A, PIC_WALL as u8, 0, 0]);
     }
-    let items = s
+    let mut items = s
         .obstacle
         .map(|(x, y)| vec![(x, y, OBSTACLE, 0)])
         .unwrap_or_default();
+    // Treasures (type 1), value 1, the door picture.
+    for (i, &w) in s.weights.iter().enumerate() {
+        let n = FIRST_WEIGHT + i as u8;
+        let (b0, b1) = weight_bytes(w).expect("weight");
+        f.thing(n as usize, &format!("LOAD{}", i + 1), [b0, b1, 1, PIC_DOOR as u8]);
+        items.push((s.room_entry.0 + 1 + i as u8, s.room_entry.1, n, 1));
+    }
     // One region with one full-size room behind the map door.
     f.region(RegionSpec {
         name: "TEST REGION",
@@ -387,5 +416,27 @@ mod tests {
         assert_eq!((it.x, it.y, it.thing), (5, 4, OBSTACLE as u16));
         let t = &adv.things[OBSTACLE as usize - 1];
         assert!(matches!(t.kind, acs_core::model::ThingKind::Obstacle { .. }));
+    }
+
+    #[test]
+    fn weight_row_decodes_with_its_weights() {
+        let s = MoveBasic {
+            weights: vec![400, 100, 1],
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let room = &adv.regions[0].rooms[0];
+        let got: Vec<(u8, i32)> = room
+            .items
+            .iter()
+            .map(|it| match &adv.things[it.thing as usize - 1].kind {
+                acs_core::model::ThingKind::Treasure { carry, .. } => (it.x, carry.weight),
+                k => panic!("{k:?}"),
+            })
+            .collect();
+        assert_eq!(got, vec![(5, 400), (6, 100), (7, 1)]);
+        assert!(weight_bytes(401).is_err());
     }
 }

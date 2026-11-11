@@ -436,6 +436,92 @@ impl Runner<'_> {
     }
 }
 
+impl Runner<'_> {
+    /// The `weight` run (docs/capture.md 10.3): through the door, then one
+    /// step east onto each thing of the row; after each pick-up, the bar
+    /// right away and the next turn's full bar.
+    pub fn weight_run(&mut self, run: usize, jitter: u64, items: usize) -> Result<(), String> {
+        self.place = Place::Map;
+        self.reset(jitter)?;
+        self.wait_refill(TURN_LIMIT)?;
+        let first = self.look()?;
+        let mut k = Track {
+            frames: 0,
+            bar: first.bar,
+            refilled: false,
+        };
+        let mut steps = Vec::new();
+        // Through the door (as in the refuse cases).
+        self.joy("s")?;
+        let mut t = 0;
+        while t < TURN_LIMIT {
+            self.tick(&mut k, 20_000)?;
+            t += 20_000;
+            let f = self.s.frame().map_err(|e| e.to_string())?;
+            if observe(&f, &self.scen, Place::Map).cell.is_none()
+                && observe(&f, &self.scen, Place::Room).cell == Some(room_entry(&self.scen))
+            {
+                break;
+            }
+        }
+        self.joy("none")?;
+        self.place = Place::Room;
+        let entered = self.tick(&mut k, 300_000)?;
+        for i in 0..items {
+            // From the second thing on, first step onto the square the last
+            // one was taken from (the player stays put when taking).
+            let mut walked = None;
+            if i > 0 {
+                let from = self.look()?.cell;
+                self.joy("e")?;
+                let mut t = 0;
+                while t < TURN_LIMIT {
+                    let o = self.tick(&mut k, 20_000)?;
+                    t += 20_000;
+                    if o.cell.is_some() && o.cell != from {
+                        walked = o.cell;
+                        break;
+                    }
+                }
+                self.joy("none")?;
+                self.tick(&mut k, 300_000)?;
+            }
+            let before = self.look()?;
+            // Push east into the thing: the program shows "T takes ..." and
+            // waits for the button.
+            self.joy("e")?;
+            self.tick(&mut k, 1_000_000)?;
+            self.joy("none")?;
+            let at_message = self.tick(&mut k, 5_000_000)?;
+            let moved = at_message.cell != before.cell;
+            if !moved {
+                self.joy("fire")?;
+                self.tick(&mut k, 4_000_000)?;
+                self.joy("none")?;
+            }
+            let after = self.tick(&mut k, 2_000_000)?;
+            // Let the turn run out, then read the new turn's full bar.
+            let refill = self.wait_refill(TURN_LIMIT)?;
+            let next = self.tick(&mut k, 200_000)?;
+            steps.push(json!({
+                "item": i + 1, "walked_to": walked, "from": before.cell,
+                "moved_on_push": moved, "cell_after": after.cell,
+                "bar_before": before.bar, "bar_at_message": at_message.bar,
+                "bar_after_button": after.bar,
+                "new_turn": refill.is_some(), "next_full_bar": next.bar,
+            }));
+            if refill.is_none() {
+                // No new turn: the player can no longer move (Speed 0).
+                break;
+            }
+        }
+        self.write(json!({
+            "kind": "weight", "run": run, "jitter": jitter, "full_bar": first.bar,
+            "bar_in_room": entered.bar, "steps": steps,
+        }))
+    }
+}
+
 fn room_entry(s: &MoveBasic) -> (i32, i32) {
     (s.room_entry.0 as i32, s.room_entry.1 as i32)
 }

@@ -35,6 +35,10 @@ enum Cmd {
         /// Also put an obstacle on room square 5,4 (east of the entry).
         #[arg(long)]
         obstacle: bool,
+        /// Treasures of these weights (comma-separated) in a row east of
+        /// the room's entry square.
+        #[arg(long, value_delimiter = ',')]
+        weights: Vec<u16>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -59,6 +63,9 @@ enum Cmd {
         /// several VICE sessions.
         #[arg(long, default_value_t = 0)]
         first: usize,
+        /// weight: how many things the row holds.
+        #[arg(long, default_value_t = 9)]
+        weight_items: usize,
         /// The player's Speed, for our engine's prediction in the summary.
         #[arg(long, default_value_t = 6)]
         speed: u8,
@@ -104,6 +111,7 @@ fn main() {
             template,
             player,
             obstacle,
+            weights,
         } => {
             let template = template
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_TEMPLATE").map(PathBuf::from))
@@ -118,6 +126,7 @@ fn main() {
                     let s = scenario::MoveBasic {
                         player,
                         obstacle: obstacle.then_some((5, 4)),
+                        weights: weights.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -134,10 +143,11 @@ fn main() {
             out,
             runs,
             first,
+            weight_items,
             speed,
         } => {
             let place = match name.as_str() {
-                "move-basic" | "refuse" => experiment::Place::Map,
+                "move-basic" | "refuse" | "weight" => experiment::Place::Map,
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -162,6 +172,14 @@ fn main() {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * 7_919) % 1_000_000;
+                if name == "weight" {
+                    result = r.weight_run(run, jitter, weight_items);
+                    if result.is_err() {
+                        break 'outer;
+                    }
+                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    continue;
+                }
                 if name == "refuse" {
                     let cases = &experiment::REFUSE;
                     for (case, acts) in cases.iter() {
