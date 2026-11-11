@@ -22,7 +22,11 @@ Most of the file format is already mapped. The manual describes how the game pla
 
 - [ACS Viewer](https://github.com/danlb2000/ACSViewer) by Dan Boris: a C# viewer (GPL-3.0, v2.0 from 2020) that reads PC, C64, Apple II and Amiga adventures. It includes a basic walk-through mode. Its `AcsLib` is the most complete record of the format.
 - [ACS file format draft v0.5](https://atarihq.com/danb/acs.shtml) (Boris, 2016): 21 pages covering PC and C64 offsets, text encoding, things, creatures, regions and the world map. It says itself that it is incomplete.
-- Adventure Creation Kit: a separate modern tool inspired by ACS. It does not read ACS files.
+- Adventure Creation Kit (Chris Hopkins, 1995, freeware since about 2000): a separate tool inspired by ACS. Nothing found says it reads ACS files. [ack-rol](https://github.com/GarthsEquipmentShop/ack-rol) (2013) rebuilt *Rivers of Light* in it by hand.
+- [StefACS](https://aminet.net/package/game/demo/StefACS) by Stefano Maria Regattin (v0.04, January 2023): an early Amiga rewrite of the ACS creator in Blitz2 BASIC, made because the original needs Kickstart 1.2 or 1.3. Its page does not say it reads ACS files.
+- [AdventureConstructionSetSaveEditor](https://github.com/thiscouldbebetter/AdventureConstructionSetSaveEditor) (August 2025, work in progress): an editor for the DOS `ADVEN.HRD` file. Its license has not been checked, so nothing from it is used yet.
+
+A survey in November 2026 (GitHub, Aminet, RPG Codex, Quarter To Three, AtariAge, Lemon64, Hacker News) found no player that runs ACS files and no abandoned attempt at one. ACS Viewer's walk-around mode is the closest. Demand is small and mostly nostalgic. The clearest signals are an RPG Codex thread (2018 to 2026) whose archivist keeps hitting broken disk images and unreliable emulators and asks for a site to revive ACS, and a 2006 Quarter To Three wish for a modern ACS that publishes to the web. The risk is less overlap with another project than the pattern of earlier efforts, which stopped once the format worked and before the rules engine.
 
 **How each platform stores an adventure** (from the ACS Viewer README):
 
@@ -399,6 +403,8 @@ Three tracks run side by side. Rules research (Phase 2) starts with the viewer a
 - [ACS Viewer source and README](https://github.com/danlb2000/ACSViewer) (Dan Boris, GPL-3.0)
 - [Dan Boris's ACS page](https://atarihq.com/danb/acs.shtml), which links the file format draft v0.5 (November 2016), the manual and several fan adventures
 - [CRPG Addict: Revisiting Adventure Construction Set](http://crpgaddict.blogspot.com/2015/09/revisiting-adventure-construction.html), for how the game plays (stats, encumbrance, AI behaviors, interface pain points)
+
+Prior-art and demand survey (November 2026, read only): [StefACS on Aminet](https://aminet.net/package/game/demo/StefACS), [AdventureConstructionSetSaveEditor](https://github.com/thiscouldbebetter/AdventureConstructionSetSaveEditor), [ack-rol](https://github.com/GarthsEquipmentShop/ack-rol), [RPG Codex thread](https://rpgcodex.net/forums/threads/adventure-construction-set-acs.124401/), [Quarter To Three thread](https://forum.quartertothree.com/t/adventure-construction-set-req-user-made-adventures/30413), [Hacker News thread](https://news.ycombinator.com/item?id=46846252), [Potions for Muggles on ACK (2024)](https://potionsformuggles.blogspot.com/2024/11/adventure-creation-kit.html).
 
 Art and licensing: [US Copyright Office, AI report Part 2 (January 2025)](https://copyright.gov/newsnet/2025/1060.html) and [a summary of local image model licenses](https://localaimaster.com/blog/local-image-model-licenses-commercial-use). Fan adventure collections: [Lemon64 thread](https://www.lemon64.com/forum/viewtopic.php?t=83752), [Applefritter](https://www.applefritter.com/node/22621), [Internet Archive](https://archive.org/details/459_Adventure_Construction_Set_Data_Disk). Designer notes from John Baber's Jadeworld collection (local copy).
 
