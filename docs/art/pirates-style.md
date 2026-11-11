@@ -134,7 +134,45 @@ Lightning LoRA runs in about 15 s an image.
   change the subject line for variety, not the seed.
 - Some seeds frame the figure as a card with a white border; drop those.
 
-## 8. Consistency
+## 8. Asset list
+
+What the kit and the first adventure, *The King's Pardon*, need, by picture.
+**Kit** pictures are generic and reused by any pirate adventure; **KP**
+pictures belong to that adventure alone. About 135 pictures in all, over
+Classic's 110, so the adventure declares an Extended picture limit
+(design, Kit 4). Counts are first estimates.
+
+ACS has no room backgrounds: a room is its wall picture plus the one floor
+picture the master list allows (manual). Ground variety (sand, mud,
+flagstone) comes from spaces drawn as floor tiles and placed on the floor.
+
+| Group | Pictures | Kit | KP | Contents |
+| --- | --- | --- | --- | --- |
+| Terrain | 16 | 16 | | Deep sea, shallows, reef, reef channel, beach, jungle, cliff, swamp, volcanic rock, port town, fort, island village, wreck site, sea-cave mouth, hidden cove, open grassland |
+| Floor | 1 | 1 | | Packed sand and planks, neutral enough for every room |
+| Walls | 8 | 8 | | Ship's hull, cave rock, palisade logs, stilt hut planks and reeds, stone fort, mansion panelling, woven village wall, dressed stone |
+| Floor spaces | 8 | 8 | | Sand, mud, scorched sand, lava vent, flagstone, carpet, boardwalk, shallow water |
+| Doors | 7 | 7 | | Wooden door, fort gate, gangplank, cave passage, double door, iron vault door, trapdoor |
+| Store | 1 | 1 | | A trader's counter under an awning |
+| Set dressing | 22 | 17 | 5 | Kit: cannon, barrels, powder barrels, crate stack, chest, rigging, ship's wheel, map table, tavern table, bar counter, bookcase, nets and fish rack, dive platform, smokehouse rack, bones, coral, flagpole. KP: notice board, Vail's desk, his portrait, vault plinth, pile of signed pardons |
+| Documents | 7 | 2 | 5 | Kit: scroll, book. KP: letter of passage, ledger, governor's seal, sea log, pardon receipt (the three that open gates must look distinct) |
+| Weapons | 11 | 11 | | Cutlass, flintlock pistol, blunderbuss, musket with bayonet, officer's sabre, boarding axe, gutting knife, throwing knives, harpoon, gaff hook, halberd |
+| Armor | 4 | 4 | | Buff coat, oilskin, leather jerkin, navy coat |
+| Magic and tools | 11 | 9 | 2 | Kit: powder keg, lantern, spyglass, ship's bell, rum flask, salve jar, charm, diving helm, small boat. KP: the flat-bottomed punt, the shark-tooth charm's own look if the kit charm doesn't fit |
+| Treasures | 8 | 3 | 5 | Kit: gold pile, coin chest, crate of goods. KP: Harrow's strongbox, Quill plate, fort pay chest, drowned gold, Reef Pearl |
+| Creatures, generic | 22 | 22 | | Deckhand, gunner, boarder, rifleman, smuggler, slinker thief, navy marine, sergeant, house guard, diver, fisher, trader, tavern keeper, skeleton or drowned crew, giant crab, kraken arm, reef shark, sea serpent, leech, gull, ship's cat, parrot |
+| Creatures, named | 8 | | 8 | Meg Harrow, Jory Fenn, Abel and Cass Quill, Sabine Duroc, Hob Varrick, Governor Vail, Warden Kesi |
+| **Total** | **134** | **109** | **25** | |
+
+Outside the picture list: title art, the *Magpie* as the player's world-map
+marker (a player picture), the UI font, and later, if Extended adds scene
+pictures, an illustration for the vault reveal.
+
+Creature rules for the named eight: each needs a silhouette no generic role
+shares (section 3), and house guards must read apart from navy marines, since
+the story turns on who serves Vail.
+
+## 9. Consistency
 
 1. Pick one reference figure from a character batch: the model sheet.
 2. Make other characters from it with Qwen-Image-Edit 2511 ("same style and

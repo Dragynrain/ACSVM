@@ -284,14 +284,18 @@ Why it fits ACS:
 - **The world map is a sea chart.** Ocean and islands are terrain; ships are portals between islands; reefs are terrain that triggers a spell; shallows open only to owners of a boat (the "owners of a thing only" terrain rule).
 - **Weapons map one to one.** Cutlass and boarding axe are melee; flintlock, blunderbuss and thrown knives are missile weapons; a cannon is an obstacle that casts.
 - **Magic has a home.** Sea curses, a cursed compass, a mermaid's charm, a ghost crew. Banish and Summon fit as written.
-- **Stores are ports:** tavern, shipwright, a fence for stolen goods.
+- **Stores are ports:** a chandler, a shipwright or a fence for stolen goods, one per region ([stores](rules/stores.md)).
 - **It shows off the HD tricks:** water, sails, lanterns and fog all animate with the cheap effects above.
 
 | Group | Tiles | Contents |
 | --- | --- | --- |
-| Terrain | 16 | Deep sea, shallows, reef, beach, jungle, cliff, port town, fort, swamp, volcanic rock and others |
-| General | up to 48 | Deck planks, hull walls, rigging, barrels, chests, map table, tavern pieces, cave and temple pieces, treasure, weapons, ship's wheel |
-| Creatures | up to 46 | Crew types, navy marines, mutineers, a skeleton crew, sea serpent, giant crab, kraken arm (an obstacle that attacks), parrot (a Friend), a captain boss |
+| Terrain | 16 | Deep sea, shallows, reef, beach, jungle, cliff, port town, fort, swamp, volcanic rock, island village, wreck site, sea-cave mouth and others |
+| General | about 80 | Walls (8), floor spaces such as sand and mud (8), doors (7), set dressing, documents, weapons, armor, magic items and treasure |
+| Creatures | about 22 | Crew types, navy marines, house guards, smugglers, divers and fishers, a skeleton crew, sea serpent, giant crab, kraken arm (an obstacle that attacks), parrot (a Friend) |
+
+The full list, with what belongs to the kit and what to the first adventure, is in the [style sheet](art/pirates-style.md) section 8.
+
+**Picture budget: raised past Classic's 110.** The kit alone needs about 109 pictures and *The King's Pardon* adds about 25 of its own (eight named characters, its story documents and its hoards), about 134 in all. ACS has no room backgrounds: a room is a wall picture plus the master list's single floor picture, so walls, doors and floor spaces each cost a picture, and the original 48 general slots can't hold them. Squeezing to 110 would mean sharing pictures between things that ought to look different, such as the hoards that turn up again in the vault. More pictures cost the engine nothing (no camera, no rule change), so our adventures declare an Extended picture limit while keeping every other Classic limit. *The King's Pardon* declares 160, which leaves headroom.
 
 Island peoples need care: write them as people with their own aims, not as hazards.
 
@@ -398,7 +402,7 @@ Nineteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
 | 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |
 | 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
-| 17 | Original asset kits | Four starter kits at 128 px (pirates first, then fantasy, spy and mystery, sci-fi; up to 110 tiles each), UI font, title art, two sample adventures | L |
+| 17 | Original asset kits | Four starter kits at 128 px (pirates first, then fantasy, spy and mystery, sci-fi; about 110 tiles each, more where an adventure declares a higher picture limit), UI font, title art, two sample adventures | L |
 | 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
 | 19 | Extended format | Classic and Extended profiles, a limits block and feature list, wider typed ids, the zip bundle, one validator | M |
 
