@@ -274,6 +274,20 @@ both players; not understood. Our engine halved Speed above half the
 capacity and moved the taker onto the square; both are now as captured
 (inventory 2.1, 3.3).
 
+**Is the randomness ours to vary?** (experiment `cast`, section 10.4;
+November 2026.) Yes. A player of ours with Wisdom 20 (so Power 20, section
+8) cast our spell of cost 20 once per run, from the same first-turn
+snapshot after jitters of 0 to 150,461 instructions: 18 of 20 casts worked
+(our long message filled the screen) and 2 failed (runs 11 and 17: "A FEW
+SPARKS FIZZLE BUT TESTSPELL FAILS."), and reruns of those two failed again.
+So the jitter reaches the program's random rolls, and statistical captures
+can use it. 18 of 20 is far from our engine's guess for this case (Power /
+(Power + cost) = 50%); the cast chance capture comes next. A spell of cost
+0 worked every time it was tried. How to cast: menu, Use Power, a short
+tap of the button (a held button picks the list's first entry, NONE), down
+to the spell in "SELECT SPELL", a short tap again; a long-message spell
+asks for no target.
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -309,7 +323,12 @@ screen offers next to "create new player".
    program's own player records; meaning unknown), standing on the map
    start cell, and `scripts/start-retired.txt` picks it. Players of Speed
    1, 3, 9 and 15 made this way all loaded with their Speed (section 7).
-4. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
+4. **Power starts at Wisdom.** A retired player of ours shows Power equal
+   to its Wisdom on the profile screen once in play, whatever the record
+   says: record Power 20, Wisdom 13 showed 13; 26 and 25 showed 25; 10 and
+   20 showed 20. Every other stat showed as written (a player with a
+   different value in each). To set a player's Power, set its Wisdom.
+5. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
    (two values seen so far; identical chains write the same ones). Entering
    the room did not write to the disk.
 
@@ -373,9 +392,15 @@ In this order (planned November 2026):
    `--weights` on the scenario sets the row; each take shows a message the
    run answers with the button. A second player (Speed 10, Strength 15,
    capacity 1,500; loads 700 to 1,500) checks that the rule scales.
-4. **Is the randomness ours to vary?** Before any statistical capture: 20
-   casts from 20 jitters, to check that the outcomes vary. If they don't,
-   find another noise source first.
+4. **Is the randomness ours to vary?** Done: yes (section 7). Experiment
+   `cast`. A player of ours with Power 20 owns a spell of ours
+   (thing 80, cost 20, "display long message 1", the message being our own
+   "THE SPELL WORKED"; `--spell COST`; Power comes from Wisdom). Each run restores the first-turn snapshot, idles
+   its jitter, casts the spell from the menu (Use Power) on the world map,
+   and records a hash of the screen that follows, plus a screenshot of each
+   new kind of outcome. If 20 jitters give one outcome, the jitter doesn't
+   reach the program's random rolls and another noise source is needed
+   before casting chances can be measured.
 5. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths, drift and
    heal rates, cast chance.

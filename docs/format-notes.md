@@ -345,7 +345,10 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   change to the disk, was offered at start-up and played with its stats.
   Choosing the player clears the name's second byte (the first is already
   0 for a one-letter name), so a non-zero name marks the slot as used.
-  Slots after the first are still unchecked.
+  Slots after the first are still unchecked. Every stat byte reads as the
+  decoder says (a record with a different value in each, checked on the
+  profile screen), except that a player joining play gets Power = Wisdom,
+  so byte 5 of a retired record has no visible effect.
 
 ## Written by the program in play
 

@@ -143,7 +143,10 @@ magic item after it is used. [unknown]
    percentage rounded down and held within 5..95, rolled once. The cost
    comes off Power whether or not the spell works (not below 0).
    `SpellCast` reports the chance and the outcome. Corpus costs run 0..60,
-   median 13. [data] Needs a capture.
+   median 13. [data] On the C64 a cost 0 spell worked every time tried, and
+   Power 20 against cost 20 worked in 18 of 20 casts, far above the
+   engine's 50%; a failure shows "A FEW SPARKS FIZZLE BUT ... FAILS."
+   [capture: cast, 20 runs] The formula needs the cast chance capture.
 2. *Use Object* uses a magic item that is set to act when used; magic items
    always work. [manual] Some must be dropped instead. [manual] **Engine:**
    an item without the "used" trigger refuses (`CastRefused`, `not_usable`);
@@ -160,7 +163,10 @@ magic item after it is used. [unknown]
 
 1. **Power drifts.** Each turn an individual's Power moves a little toward
    its Wisdom. [manual] **Engine:** 1 point per turn of its own, at the end
-   of the turn. [unknown]
+   of the turn. [unknown] A player joining an adventure starts with Power
+   equal to its Wisdom, whatever its saved Power. [capture: three retired
+   players of ours, profile screen] **Engine:** not yet: a `PlayerSetup`'s
+   Power is used as given.
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
@@ -259,8 +265,9 @@ defense (none). Trait generation is a later rule set.
 
 ## Captures needed
 
-1. Cast success against Power and cost, and whether a failed cast costs
-   Power. The Power cost of using a magic item.
+1. Cast success against Power and cost (first point: Power 20, cost 20,
+   18 of 20), and whether a failed cast costs Power. The Power cost of
+   using a magic item.
 2. Power drift, temporary decay and healing rates.
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
