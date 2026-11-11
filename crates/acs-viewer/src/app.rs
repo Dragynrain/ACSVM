@@ -160,6 +160,8 @@ pub struct Startup {
     pub screenshot: Option<std::path::PathBuf>,
     /// Walk mode: seed and commands to play before showing it.
     pub walk: Option<(u64, Vec<acs_engine::Command>)>,
+    /// Walk mode: put the player here before the commands (a tool shortcut).
+    pub place: Option<acs_engine::Location>,
 }
 
 pub struct Viewer {
@@ -201,6 +203,9 @@ impl Viewer {
         }
         if let (Some(doc), Some((seed, commands))) = (&mut v.doc, start.walk) {
             let mut walk = views::walk::Walk::new(&doc.decoded.adventure, seed, Default::default());
+            if let Some(at) = start.place {
+                walk.place(at);
+            }
             for c in commands {
                 walk.apply(c);
             }

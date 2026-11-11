@@ -4,14 +4,16 @@
 //!
 //! All rules live in `acs-engine`; this view only turns keys and buttons into
 //! commands, draws where the engine says the player is, shows what it
-//! carries, and lists the engine's events in a message log.
+//! carries, and lists the engine's events in a message log. It also keeps
+//! the autosave the original makes on entering or leaving a region, so a
+//! death can be undone the original's way.
 
 use super::*;
-use acs_core::model::{Alignment, Creature, ThingKind};
+use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
 use acs_core::scene::{self, RoomScene};
 use acs_engine::creatures::{self as cr, SLOTS};
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules};
+use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules, Stat, Who};
 use egui::{Key, Modifiers, RichText};
 
 /// The world map window the original shows: 15 wide, 10 high.
@@ -30,6 +32,8 @@ enum Kind {
     Item,
     Creature,
     Foe,
+    /// A long message: the designer's text, shown in full.
+    Message,
 }
 
 pub struct Walk {
@@ -42,12 +46,16 @@ pub struct Walk {
     gold_amount: u16,
     /// The current turn's bar was halved by a creature (creatures 2.6).
     hindered: bool,
+    /// The last autosave: the game as it stood after the last region change
+    /// (or the start), what the original resumes from after a death.
+    save: Game,
 }
 
 impl Walk {
     pub fn new(adv: &Adventure, seed: u64, rules: Rules) -> Self {
         let (game, ev) = Game::new(adv.clone(), seed, rules, PlayerSetup::default());
         let mut w = Walk {
+            save: game.clone(),
             game,
             log: Vec::new(),
             pending_drop: None,
@@ -56,15 +64,45 @@ impl Walk {
         };
         w.note(format!(
             "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
-             To drop, click Drop, then a direction (Space = here, Esc = cancel)."
+             To drop, click Drop, then a direction (Space = here, Esc = cancel). \
+             Cast and Use ask for a target."
         ));
         w.record(&ev);
         w
     }
 
-    pub fn apply(&mut self, cmd: Command) {
+    /// A `Cast`/`Use` target written as creature slot `S` of region 0 (the
+    /// `--walk` form) means that slot in the current player's region.
+    pub fn apply(&mut self, mut cmd: Command) {
+        if let Command::Cast { target, .. } | Command::Use { target, .. } = &mut cmd {
+            if let Some(Who::Creature { region: r @ 0, .. }) = target {
+                *r = self.game.current_player().at.region();
+            }
+        }
         let ev = self.game.apply(cmd);
         self.record(&ev);
+        // The original autosaves on entering or leaving a region.
+        let saves = ev
+            .iter()
+            .any(|e| matches!(e, Event::EnteredRegion { .. } | Event::LeftRegion { .. }));
+        if saves && !self.game.is_over() {
+            self.save = self.game.clone();
+        }
+    }
+
+    /// Tool shortcut: the player stands at `at` (not a command, so not in
+    /// the replay log); the autosave starts from there.
+    pub fn place(&mut self, at: Location) {
+        self.game.place(self.game.current(), at);
+        self.save = self.game.clone();
+        self.note("Placed by --place (a tool shortcut, not replayed).".into());
+    }
+
+    /// Back to the last autosave (after a death, as in the original).
+    fn resume(&mut self) {
+        self.game = self.save.clone();
+        self.pending_drop = None;
+        self.note("Resumed from the last save.".into());
     }
 
     /// While a drop is pending, a direction key or Wait sends the drop.
@@ -117,10 +155,25 @@ impl Walk {
                 | Event::LeftRegion { .. }
                 | Event::EnteredWorldMap { .. }
                 | Event::SentToStart { .. } => Kind::Door,
-                Event::SpellTriggered { .. } | Event::Encounter { .. } | Event::RoomEncounter { .. } => {
-                    Kind::Spell
-                }
-                Event::CreatureConfronts { .. } | Event::CreatureRemoved { .. } => Kind::Foe,
+                Event::SpellTriggered { .. }
+                | Event::SpellCast { .. }
+                | Event::ItemUsed { .. }
+                | Event::SpellGone { .. }
+                | Event::StatChanged { .. }
+                | Event::Given { .. }
+                | Event::Music { .. }
+                | Event::RoomRidOf { .. }
+                | Event::ThingAdded { .. }
+                | Event::CreatureSummoned { .. }
+                | Event::SummonUnanswered { .. }
+                | Event::Encounter { .. }
+                | Event::RoomEncounter { .. } => Kind::Spell,
+                Event::LongMessage { .. } => Kind::Message,
+                Event::CastRefused { .. } => Kind::Block,
+                Event::CreatureConfronts { .. }
+                | Event::CreatureRemoved { .. }
+                | Event::Died { .. }
+                | Event::AllPlayersDead => Kind::Foe,
                 Event::CreatureTurn { .. }
                 | Event::CreatureMoved { .. }
                 | Event::CreatureTookDoor { .. }
@@ -163,11 +216,25 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T)");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS])");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
             let dir = |p: Option<&str>| p.map(|d| parse_dir(d).ok_or_else(bad)).transpose();
+            // me, pN (player N) or cS (creature slot S in the player's region).
+            let target = |p: Option<&str>| -> Result<Option<Who>, String> {
+                let Some(p) = p else { return Ok(None) };
+                let n = |s: &str| s.parse::<usize>().ok().filter(|&n| n > 0).ok_or_else(bad);
+                Ok(Some(match p {
+                    "me" => return Ok(None),
+                    _ if p.starts_with('p') => Who::Player { player: n(&p[1..])? - 1 },
+                    _ if p.starts_with('c') => Who::Creature {
+                        region: 0,
+                        slot: n(&p[1..])? - 1,
+                    },
+                    _ => return Err(bad()),
+                }))
+            };
             Ok(match head {
                 "wait" => Command::Wait,
                 "drop" => Command::Drop {
@@ -180,6 +247,14 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                 },
                 "ready" => Command::Ready {
                     thing: num(parts.next())? as u8,
+                },
+                "cast" => Command::Cast {
+                    thing: num(parts.next())? as u8,
+                    target: target(parts.next())?,
+                },
+                "use" => Command::Use {
+                    thing: num(parts.next())? as u8,
+                    target: target(parts.next())?,
                 },
                 d => Command::Move {
                     dir: parse_dir(d).ok_or_else(bad)?,
@@ -277,6 +352,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     let mut click: Option<Command> = None;
     let mut restart: Option<Rules> = None;
+    let mut resume = false;
     let walk = doc.walk.as_mut().unwrap();
 
     let mut show_info = doc.show_info;
@@ -289,6 +365,19 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             let p = g.current_player();
             ui.heading(&p.name);
             ui.label(place_name(g, p.at));
+            if g.is_over() || !p.alive {
+                ui.label(
+                    RichText::new("Dead. Play resumes from the last save (the last region change).")
+                        .color(Color32::from_rgb(255, 110, 110)),
+                );
+            }
+            if ui
+                .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
+                .on_hover_text("The original autosaves on entering or leaving a region.")
+                .clicked()
+            {
+                resume = true;
+            }
             let slowed = match (p.turn_moves < p.speed, walk.hindered) {
                 (true, true) => format!(" (slowed from {}, hindered)", p.speed),
                 (true, false) => format!(" (slowed from {})", p.speed),
@@ -298,6 +387,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 egui::ProgressBar::new(p.moves_left as f32 / p.turn_moves.max(1) as f32)
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
+            stats_panel(ui, g);
             inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
             creatures_panel(ui, g);
             ui.horizontal(|ui| {
@@ -330,6 +420,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             Kind::Item => t.color(Color32::from_rgb(150, 230, 140)),
                             Kind::Creature => t.color(Color32::from_rgb(235, 220, 150)),
                             Kind::Foe => t.color(Color32::from_rgb(255, 110, 110)),
+                            Kind::Message => t.italics().color(Color32::from_rgb(255, 240, 200)),
                             Kind::Note => t,
                         };
                         ui.label(t);
@@ -349,9 +440,86 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     if let Some(cmd) = click {
         walk.apply(cmd);
     }
+    if resume {
+        walk.resume();
+    }
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
     }
+}
+
+/// Life Force, Power and the other ratings spells change (magic 3, 5).
+fn stats_panel(ui: &mut egui::Ui, g: &Game) {
+    let p = g.current_player();
+    let me = Who::Player { player: g.current() };
+    let temp = g.temporary_life(me);
+    let temp = match temp {
+        0 => String::new(),
+        t => format!(" ({t:+} wearing off)"),
+    };
+    ui.add(
+        egui::ProgressBar::new(p.life_force as f32 / 63.0)
+            .fill(Color32::from_rgb(170, 40, 40))
+            .text(format!(
+                "Life Force {} (Constitution {}){temp}",
+                p.life_force, p.constitution
+            )),
+    );
+    ui.add(
+        egui::ProgressBar::new(p.power as f32 / 127.0)
+            .fill(Color32::from_rgb(60, 80, 190))
+            .text(format!("Power {} (drifts toward Wisdom {})", p.power, p.wisdom)),
+    );
+    let defense = match p.magic_defense {
+        MagicDefense::None => "none",
+        MagicDefense::NonMagicHalfDamage => "non-magic half",
+        MagicDefense::OnlyMagicDamages => "only magic hurts",
+        MagicDefense::MagicHalfDamage => "magic half",
+    };
+    ui.label(
+        RichText::new(format!(
+            "Str {} · Dex {} · Size {} · Melee {} · Missile {} · Dodge {} · Parry {} · Armor {} · magic defense {defense}",
+            p.strength, p.dexterity, p.size, p.melee, p.missile, p.dodge, p.parry, p.armor_skill
+        ))
+        .weak(),
+    );
+}
+
+/// "Cast" / "Use" with a menu of targets: the caster and everyone in the
+/// room (magic 2.4).
+fn target_menu(
+    ui: &mut egui::Ui,
+    g: &Game,
+    label: &str,
+    make: impl Fn(Option<Who>) -> Command,
+    click: &mut Option<Command>,
+) {
+    let me = Who::Player { player: g.current() };
+    ui.menu_button(label, |ui| {
+        if ui.button("yourself").clicked() {
+            *click = Some(make(None));
+            ui.close();
+        }
+        let Location::Room { region, room, .. } = g.current_player().at else {
+            return;
+        };
+        for (i, p) in g.players().iter().enumerate() {
+            let who = Who::Player { player: i };
+            if who != me && p.alive && p.at.room() == Some((region, room)) && ui.button(&p.name).clicked() {
+                *click = Some(make(Some(who)));
+                ui.close();
+            }
+        }
+        for slot in 0..SLOTS {
+            if let Some(c) = g.creature(region, slot).filter(|c| c.room == room) {
+                let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
+                if ui.button(name).clicked() {
+                    *click = Some(make(Some(Who::Creature { region, slot })));
+                    ui.close();
+                }
+            }
+        }
+    });
 }
 
 /// Load, gold and the carried things, with Ready and Drop buttons.
@@ -435,7 +603,18 @@ fn inventory_panel(
             {
                 *click = Some(Command::Ready { thing: t });
             }
-            if ui.small_button("Drop").clicked() {
+            match kind {
+                Some(ThingKind::MagicSpell { power, .. }) => {
+                    let chance = acs_engine::magic::cast_chance(p.power, *power);
+                    ui.label(RichText::new(format!("cost {power}, {chance}%")).weak());
+                    target_menu(ui, g, "Cast", |target| Command::Cast { thing: t, target }, click);
+                }
+                Some(ThingKind::MagicItem { on_use: true, .. }) => {
+                    target_menu(ui, g, "Use", |target| Command::Use { thing: t, target }, click);
+                }
+                _ => {}
+            }
+            if !matches!(kind, Some(ThingKind::MagicSpell { .. })) && ui.small_button("Drop").clicked() {
                 *pending = Some(t);
             }
         });
@@ -502,13 +681,37 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         } else {
             String::new()
         };
+        let wits = match c.wisdom {
+            w if w > 14 => "smart",
+            w if w < 6 => "dumb",
+            _ => "sometimes smart",
+        };
+        let spells = c
+            .possessions
+            .iter()
+            .filter(|p| {
+                matches!(
+                    a.things.get((p.thing as usize).wrapping_sub(1)).map(|t| &t.kind),
+                    Some(ThingKind::MagicSpell { .. })
+                )
+            })
+            .count();
+        let spells = match spells {
+            0 => String::new(),
+            1 => " · 1 spell".into(),
+            n => format!(" · {n} spells"),
+        };
+        let lf = g
+            .stat(Who::Creature { region, slot }, Stat::LifeForce)
+            .unwrap_or(0);
         ui.label(
             RichText::new(format!(
-                "    {} · speed {} · LF {}/{}{weapon}{wealth}",
+                "    {} · speed {} · LF {lf}/{} · Power {}/{} ({wits}){spells}{weapon}{wealth}",
                 personality(c),
                 cr::effective_speed(a, c),
-                c.life_force,
-                c.constitution
+                c.constitution,
+                c.power,
+                c.wisdom
             ))
             .weak(),
         );
@@ -597,5 +800,7 @@ fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u
         painter.circle_filled(at, rad + 1.0, Color32::BLACK);
         painter.circle_filled(at, rad, alignment_colour(c.strategy.alignment));
     }
-    marker(&painter, grid.cell_rect(px as u32, py as u32));
+    if g.current_player().alive {
+        marker(&painter, grid.cell_rect(px as u32, py as u32));
+    }
 }

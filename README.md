@@ -62,21 +62,28 @@ the window, with C64 pixels twice as wide as tall.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
 End, PgDn, or the numpad), and press Space to end a turn. The log on the right
 lists what the rules engine reports: steps, blocked moves with the designer's
-messages, doors, pick-ups, spells that would go off, random encounters, and
-each creature's turn. The panel shows the load against the carrying capacity
-and what the player carries; Ready readies a weapon or puts on armor, and
-Drop asks for a direction (Space drops on the player's own square, Escape
-cancels). Below it, the creatures in the room are listed with their
-personality (fighter or slinker; enemy, friend, neutral or thief), speed,
-Life Force and readied weapon; a coloured dot on each one's square shows its
-alignment (red enemy, green friend, yellow neutral, purple thief).
+messages, doors, pick-ups, spells and what they did, random encounters, and
+each creature's turn. The panel shows Life Force, Power and the other
+ratings, the load against the carrying capacity and what the player
+carries; Ready readies a weapon or puts on armor, Cast (spells, with their
+cost and chance) and Use (magic items) open a menu of targets, and Drop asks
+for a direction (Space drops on the player's own square, Escape cancels).
+Below it, the creatures in the room are listed with their personality
+(fighter or slinker; enemy, friend, neutral or thief), speed, Life Force,
+Power against Wisdom, spells and readied weapon; a coloured dot on each
+one's square shows its alignment (red enemy, green friend, yellow neutral,
+purple thief). The viewer keeps the autosave the original makes on entering
+or leaving a region; after a death, Resume from last save goes back to it.
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
 `creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
 `--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
-steps can also be `ready:T`, `drop:T[:dir]` and `gold:N[:dir]` (T is a thing
-number).
+steps can also be `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`
+and `use:T[:target]` (T is a thing number; a target is `me`, `pN` for player
+N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
+starts the walk on a room square instead of the start (a tool shortcut that
+is not part of the replayable command log).
 Keep such
 screenshots outside the repository: they show the adventure's art.
 

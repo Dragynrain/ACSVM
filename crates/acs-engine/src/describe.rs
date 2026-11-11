@@ -188,15 +188,16 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 Some(w) if w != by => format!(" on {}", name(w)),
                 _ => String::new(),
             };
-            with_message(
-                format!(
-                    "{} sets off {src} {}: {}{on}.",
-                    name(by),
-                    thing(*t),
-                    action_text(game, *action)
-                ),
-                message,
-            )
+            let line = format!(
+                "{} sets off {src} {}: {}{on}",
+                name(by),
+                thing(*t),
+                action_text(game, *action)
+            );
+            match message {
+                Some(_) => with_message(line, message),
+                None => format!("{line}."),
+            }
         }
         Event::TookDoor { player, to, .. } => {
             format!("{} goes through to {}.", who(player), place(game, to))
