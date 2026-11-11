@@ -1,0 +1,277 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The rules engine: plays a decoded [`acs_core::Adventure`].
+//!
+//! No GUI, no I/O, no clocks. A [`Game`] is built from an adventure, a seed
+//! and [`Rules`]; front ends send it [`Command`]s and get back [`Event`]s
+//! that say what happened. All randomness comes from one seeded [`Rng`], so a
+//! game replays exactly from its seed, its first player and its command log
+//! ([`Game::replay`]).
+//!
+//! Each rule is specified in `docs/rules/` before it is implemented here;
+//! the spec tags every rule as coming from the manual, from the data, or as
+//! still unknown, and says what the engine does for the unknown ones.
+//! Implemented so far: movement (`docs/rules/movement.md`).
+
+mod describe;
+mod game;
+pub mod rng;
+mod step;
+
+pub use describe::describe;
+pub use game::{Game, Player, PlayerSetup};
+pub use rng::Rng;
+
+use acs_core::model::SpellAction;
+use serde::{Deserialize, Serialize};
+
+/// Where a character stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "on", rename_all = "snake_case")]
+pub enum Location {
+    /// A world map cell, 0..40 each way.
+    World { x: u8, y: u8 },
+    /// A square in a room: `region` 1-based, `room` 0-based slot, `x`/`y`
+    /// counted from the room's top-left wall square.
+    Room { region: u8, room: u8, x: u8, y: u8 },
+}
+
+impl Location {
+    /// The region number, 0 on the world map.
+    pub fn region(&self) -> u8 {
+        match *self {
+            Location::World { .. } => 0,
+            Location::Room { region, .. } => region,
+        }
+    }
+
+    /// `(region, room)` when in a room.
+    pub fn room(&self) -> Option<(u8, u8)> {
+        match *self {
+            Location::World { .. } => None,
+            Location::Room { region, room, .. } => Some((region, room)),
+        }
+    }
+
+    pub fn xy(&self) -> (u8, u8) {
+        match *self {
+            Location::World { x, y } | Location::Room { x, y, .. } => (x, y),
+        }
+    }
+}
+
+/// One of the eight joystick directions. `y` grows downwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Dir {
+    N,
+    NE,
+    E,
+    SE,
+    S,
+    SW,
+    W,
+    NW,
+}
+
+impl Dir {
+    pub const ALL: [Dir; 8] = [Dir::N, Dir::NE, Dir::E, Dir::SE, Dir::S, Dir::SW, Dir::W, Dir::NW];
+
+    pub fn delta(self) -> (i8, i8) {
+        match self {
+            Dir::N => (0, -1),
+            Dir::NE => (1, -1),
+            Dir::E => (1, 0),
+            Dir::SE => (1, 1),
+            Dir::S => (0, 1),
+            Dir::SW => (-1, 1),
+            Dir::W => (-1, 0),
+            Dir::NW => (-1, -1),
+        }
+    }
+
+    pub fn is_diagonal(self) -> bool {
+        let (dx, dy) = self.delta();
+        dx != 0 && dy != 0
+    }
+
+    pub fn from_delta(dx: i8, dy: i8) -> Option<Dir> {
+        Dir::ALL.into_iter().find(|d| d.delta() == (dx, dy))
+    }
+}
+
+/// What a player asks for. Commands are the replay log.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "command", rename_all = "snake_case")]
+pub enum Command {
+    /// One step for the player whose turn it is.
+    Move { dir: Dir },
+    /// End the current turn now (also what a real-time drain would send).
+    Wait,
+    /// "Add Someone": a new character joins at the adventure's start.
+    AddPlayer { setup: PlayerSetup },
+}
+
+/// Choices the original leaves open or that are still unmeasured
+/// (see the "Engine:" notes in `docs/rules/movement.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rules {
+    /// Allow diagonal steps. Unknown in the original; on by default.
+    pub diagonals: bool,
+}
+
+impl Default for Rules {
+    fn default() -> Self {
+        Rules { diagonals: true }
+    }
+}
+
+/// Why a move was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum BlockReason {
+    /// The edge of a world map that does not wrap.
+    MapEdge,
+    /// Impassable terrain (0..16).
+    Terrain { terrain: u8 },
+    /// Terrain, a door or a space open only to owners of `thing`.
+    NeedsThing { thing: u8 },
+    /// A door or space closed to owners of `thing`.
+    ClosedToOwnersOf { thing: u8 },
+    /// A plain wall square.
+    Wall,
+    /// An obstacle or custom obstacle (master thing number).
+    Obstacle { thing: u8 },
+    /// A store (stores come with a later rule set).
+    Store { thing: u8 },
+    /// A diagonal step while [`Rules::diagonals`] is off.
+    Diagonal,
+    /// The movement bar is empty (Speed 0); only `Wait` helps.
+    NoMovesLeft,
+}
+
+/// What set off a spell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpellSource {
+    Terrain,
+    Portal,
+    Space,
+    CustomSpace,
+    Obstacle,
+    CustomObstacle,
+    PickedUp,
+}
+
+/// What happened. Front ends draw from these; tests compare them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+pub enum Event {
+    TurnStarted {
+        player: usize,
+        moves: u8,
+    },
+    TurnEnded {
+        player: usize,
+    },
+    PlayerAdded {
+        player: usize,
+        at: Location,
+    },
+    Moved {
+        player: usize,
+        from: Location,
+        to: Location,
+    },
+    /// The move was refused; the movement bar did not change.
+    Blocked {
+        player: usize,
+        /// The square the player tried to enter.
+        target: Location,
+        #[serde(flatten)]
+        reason: BlockReason,
+        /// The thing's blocked message, when it has one that is shown.
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        message: Option<String>,
+    },
+    /// Walked into a resident creature (combat comes later).
+    BumpedCreature {
+        player: usize,
+        region: u8,
+        room: u8,
+        /// Index into the region's resident list.
+        resident: usize,
+    },
+    PickedUp {
+        player: usize,
+        thing: u8,
+    },
+    /// A door or space destroyed the thing needed to pass.
+    ThingUsedUp {
+        player: usize,
+        thing: u8,
+    },
+    /// A disappearing obstacle was bumped and is gone.
+    ObstacleVanished {
+        at: Location,
+        thing: u8,
+    },
+    /// A spell went off. Its effect belongs to the magic rules (not yet).
+    SpellTriggered {
+        player: usize,
+        source: SpellSource,
+        /// The master thing that carries the spell.
+        thing: u8,
+        /// The action with its parameter resolved (placement parameters of
+        /// custom spaces and custom obstacles already applied).
+        action: SpellAction,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        message: Option<String>,
+    },
+    /// Took a room door (`thing` = its master thing) or a map door (`None`).
+    TookDoor {
+        player: usize,
+        from: Location,
+        to: Location,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        thing: Option<u8>,
+    },
+    EnteredRoom {
+        player: usize,
+        region: u8,
+        room: u8,
+    },
+    /// Entering or leaving a region is when the original autosaves.
+    EnteredRegion {
+        player: usize,
+        region: u8,
+    },
+    LeftRegion {
+        player: usize,
+        region: u8,
+    },
+    EnteredWorldMap {
+        player: usize,
+    },
+    /// A door into a deleted (or impossible) room put the player at the
+    /// adventure's start.
+    SentToStart {
+        player: usize,
+    },
+    /// A world map random creature appeared (roll only for now: no
+    /// encounter area, the move goes ahead).
+    Encounter {
+        player: usize,
+        /// Index into the world map's random creature list.
+        creature: usize,
+        terrain: u8,
+    },
+    /// A room's random creature appeared on entry (roll only for now).
+    RoomEncounter {
+        player: usize,
+        region: u8,
+        room: u8,
+        /// Index into the region's random creature list.
+        creature: u8,
+    },
+}

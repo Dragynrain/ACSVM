@@ -2,7 +2,9 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 1 (viewer).
+Plan: `docs/design.md`. Current phase: 2 (rules engine; movement done).
+Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data] or
+[unknown] with the engine's choice; write the spec before the code.
 
 ## Hard rules
 
@@ -31,7 +33,7 @@ cargo test                                              # no corpus needed
 ACSVM_CORPUS='D:\projects\ACSVM-research\corpus' cargo test --test corpus -- --nocapture
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
-cargo build -p acs-core --target wasm32-unknown-unknown
+cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
 cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0] [--screenshot out.png]
 scripts/web.sh serve                                    # trunk dev server, :8080
@@ -53,6 +55,10 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `graphics.rs`, `text.rs`, `disk.rs`, `bits.rs`: codecs and helpers.
 - `scene.rs`: what each room square shows (walls, floor = thing 127, item
   stacks top first, residents) and the region grid. Layout only, no drawing.
+- `crates/acs-engine`: rules, no GUI (Rust 1.85). `Game::new(adv, seed, rules,
+  player)`, `apply(Command) -> Vec<Event>`, `Game::replay`; one seeded `Rng`
+  (SplitMix64) for every roll. `step.rs` is movement; `describe` turns events
+  into log lines. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays

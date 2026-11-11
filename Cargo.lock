@@ -31,6 +31,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "acs-engine"
+version = "0.1.0"
+dependencies = [
+ "acs-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "acs-viewer"
 version = "0.1.0"
 dependencies = [

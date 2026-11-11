@@ -58,14 +58,14 @@ jobs:
       - run: cargo test --workspace
 
   wasm:
-    name: core builds for wasm32
+    name: core and engine build for wasm32
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - run: cargo build -p acs-core --target wasm32-unknown-unknown
+      - run: cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 
   web:
     name: web viewer (trunk)
