@@ -328,7 +328,8 @@ impl Game {
         };
 
         match thing.kind {
-            // 5.5 / 5.10: pick it up and step onto the square.
+            // 5.10 / inventory 2.1: take it; the character stays on its own
+            // square (captured on the C64) and the take spends one step.
             ThingKind::Treasure { .. }
             | ThingKind::MagicItem { .. }
             | ThingKind::MissileWeapon { .. }
@@ -352,7 +353,7 @@ impl Game {
                         self.remove_item(region, room, index);
                     }
                     ev.push(Event::GoldPickedUp { player: p, amount });
-                    self.move_to(p, from, to, ev);
+                    self.spend(ev);
                     return;
                 }
                 self.remove_item(region, room, index);
@@ -385,7 +386,7 @@ impl Game {
                         return;
                     }
                 }
-                self.move_to(p, from, to, ev);
+                self.spend(ev);
             }
             // Section 6.
             ThingKind::Portal {

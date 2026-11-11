@@ -55,16 +55,16 @@ pub fn weight(adv: &Adventure, thing: ThingId) -> i32 {
     }
 }
 
-/// Load against capacity, for the slowdown (3.3).
+/// Load against capacity, for the slowdown (3.3, captured on the C64): no
+/// slowdown up to half the capacity, then a straight line down to 0 at the
+/// full capacity, rounding down.
 pub fn slowed_speed(speed: u8, load: i32, capacity: i32) -> u8 {
-    if speed == 0 {
-        0
-    } else if load > capacity {
-        1
-    } else if load * 2 > capacity {
-        (speed / 2).max(1)
-    } else {
+    if load * 2 <= capacity {
         speed
+    } else if load >= capacity || capacity <= 0 {
+        0
+    } else {
+        (speed as i32 * 2 * (capacity - load) / capacity) as u8
     }
 }
 

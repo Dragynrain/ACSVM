@@ -546,7 +546,7 @@ fn one_way_door_to_the_map_and_door_to_a_deleted_room() {
 fn spaces_custom_spaces_and_pickups() {
     both(|p| {
         let mut g = game(p);
-        // Key: picked up, then the player stands there.
+        // Key: picked up; the player stays put (inventory 2.1).
         g.place(0, hall(2, 2));
         let ev = mv(&mut g, Dir::N);
         assert_eq!(
@@ -559,6 +559,8 @@ fn spaces_custom_spaces_and_pickups() {
         assert!(g.current_player().owns(KEY));
         let items = &g.adventure().regions[0].rooms[0].items;
         assert!(!items.iter().any(|i| (i.x, i.y) == (2, 1)));
+        assert_eq!(g.current_player().at, hall(2, 2));
+        assert!(matches!(mv(&mut g, Dir::N)[0], Event::Moved { .. }));
 
         // Bed: invoke-spell space, with its spell message.
         let ev = mv(&mut g, Dir::E);
@@ -642,7 +644,8 @@ fn non_owner_space_obstacles_store_and_residents() {
                 thing: KEY
             }
         );
-        assert!(matches!(ev[1], Event::Moved { .. }));
+        // The taker stays put (inventory 2.1).
+        assert!(!ev.iter().any(|e| matches!(e, Event::Moved { .. })));
 
         // Altar: custom obstacle with the placement parameter.
         g.place(0, hall(5, 3));

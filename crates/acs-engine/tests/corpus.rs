@@ -366,16 +366,17 @@ fn every_carriable_thing_can_be_picked_up() {
                     };
                     g.place(0, at(sx, sy));
                     let ev = g.apply(Command::Move { dir });
-                    let landed = g.current_player().at == at(item.x, item.y);
+                    // The taker stays on its own square (inventory 2.1).
+                    let stayed = g.current_player().at == at(sx, sy);
                     if ev.iter().any(|e| matches!(e, Event::BumpedCreature { .. })) {
                         continue;
                     }
                     match ev.first() {
-                        Some(Event::PickedUp { thing, .. }) if *thing == item.thing && landed => {
+                        Some(Event::PickedUp { thing, .. }) if *thing == item.thing && stayed => {
                             items += 1;
                             readied += ev.iter().filter(|e| matches!(e, Event::Readied { .. })).count();
                         }
-                        Some(Event::GoldPickedUp { amount, .. }) if landed => {
+                        Some(Event::GoldPickedUp { amount, .. }) if stayed => {
                             gold += 1;
                             pieces += *amount as u32;
                         }

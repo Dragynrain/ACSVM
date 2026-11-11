@@ -225,14 +225,13 @@ fn gold_piles_add_to_the_count_up_to_25000() {
         assert!(g.current_player().possessions.is_empty());
         assert!(stack(&g, 2, 2).is_empty());
 
-        // Near the cap: take what fits, leave the rest.
-        let mut g = game_with(
-            p,
-            PlayerSetup {
-                gold: 24_990,
-                ..setup()
-            },
-        );
+        // Near the cap: take what fits, leave the rest. (The gold comes
+        // after the turn started: that much is far past the capacity, which
+        // only counts from the next turn.)
+        let mut g = game(p);
+        for _ in 0..24_990 {
+            g.give(0, GOLD);
+        }
         g.place(0, hall(2, 3));
         let ev = mv(&mut g, Dir::N);
         assert_eq!(
@@ -276,7 +275,10 @@ fn picking_up_a_weapon_readies_it_and_armor_takes_the_turn() {
                 },
             ]
         );
-        // The bow replaces the sword.
+        // The taker stays put: step onto the sword's square, then take the
+        // bow, which replaces the sword.
+        assert_eq!(g.current_player().at, hall(1, 1));
+        mv(&mut g, Dir::E);
         mv(&mut g, Dir::E);
         assert_eq!(g.current_player().weapon, Some(BOW));
         // Ready the sword again: free.
@@ -348,11 +350,30 @@ fn capacity_follows_the_manual_formula() {
     let (g, _) = Game::new(a, 1, Rules { diagonals: true }, hale);
     assert_eq!(g.current_player().capacity(), 1600); // 11 + 10/2
 
-    assert_eq!(slowed_speed(15, 550, 1100), 15);
-    assert_eq!(slowed_speed(15, 551, 1100), 7);
-    assert_eq!(slowed_speed(1, 600, 1100), 1);
-    assert_eq!(slowed_speed(15, 1101, 1100), 1);
+    // A straight line from half the capacity (full Speed) to the capacity
+    // (0), rounding down: the points captured on the C64 (inventory 3.3).
+    for (speed, load, cap, want) in [
+        (15, 500, 1000, 15),
+        (15, 501, 1000, 14),
+        (15, 600, 1000, 12),
+        (15, 700, 1000, 9),
+        (15, 800, 1000, 6),
+        (15, 1000, 1000, 0),
+        (10, 750, 1500, 10),
+        (10, 751, 1500, 9),
+        (10, 900, 1500, 8),
+        (10, 1050, 1500, 6),
+        (10, 1200, 1500, 4),
+        (10, 1350, 1500, 2),
+        (10, 1500, 1500, 0),
+    ] {
+        assert_eq!(slowed_speed(speed, load, cap), want, "{speed} {load} {cap}");
+    }
+    assert_eq!(slowed_speed(15, 1101, 1100), 0);
+    assert_eq!(slowed_speed(1, 600, 1100), 0);
     assert_eq!(slowed_speed(0, 0, 1100), 0);
+    assert_eq!(slowed_speed(5, 0, 0), 5);
+    assert_eq!(slowed_speed(5, 1, 0), 0);
 }
 
 #[test]
@@ -365,15 +386,16 @@ fn weight_slows_the_next_turn_and_negative_weight_helps() {
         assert_eq!(g.current_player().load(g.adventure()), 600);
         assert_eq!(g.current_player().moves_left, 15, "this turn is not affected");
         let ev = g.apply(Command::Wait);
-        assert!(matches!(ev[1], Event::TurnStarted { moves: 7, .. }));
-        assert_eq!(g.current_player().turn_moves, 7);
+        // 15 x 2 x (1100 - 600) / 1100 = 13.6
+        assert!(matches!(ev[1], Event::TurnStarted { moves: 13, .. }));
+        assert_eq!(g.current_player().turn_moves, 13);
 
         g.give(0, BAG);
         assert_eq!(g.current_player().load(g.adventure()), -400);
         let ev = g.apply(Command::Wait);
         assert!(matches!(ev[1], Event::TurnStarted { moves: 15, .. }));
 
-        // Gold weighs too: 1 a piece.
+        // Gold weighs too: 1 a piece. Past the capacity: no moves at all.
         let g = game_with(
             p,
             PlayerSetup {
@@ -381,7 +403,7 @@ fn weight_slows_the_next_turn_and_negative_weight_helps() {
                 ..setup()
             },
         );
-        assert_eq!(g.current_player().moves_left, 1);
+        assert_eq!(g.current_player().moves_left, 0);
     });
 }
 
