@@ -423,7 +423,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
             2,
             2,
             PlayerSetup {
-                power: 20,
+                wisdom: 20, // Power starts at Wisdom (5.1)
                 life_force: 6,
                 possessions: vec![BOLT, HEAL, STONE, GEM],
                 ..setup()
@@ -479,8 +479,8 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
             panic!("{ev:?}")
         };
         assert_eq!((*chance, *cost), (74, 7));
-        // Power: 20 - 7, then 1 back toward Wisdom 11 at the end of the turn.
-        assert_eq!(g.current_player().power, 12);
+        // Power: 20 - 7, then 1 back toward Wisdom 20 at the end of the turn.
+        assert_eq!(g.current_player().power, 14);
         if *success {
             assert_eq!(lf(&g, cr(1)), 4);
         } else {
@@ -515,7 +515,7 @@ fn using_items_needs_no_power() {
             2,
             2,
             PlayerSetup {
-                power: 0,
+                wisdom: 0, // so Power 0 (5.1)
                 life_force: 5,
                 possessions: vec![POTION, ROD],
                 ..setup()
@@ -869,11 +869,12 @@ fn disease_power_drift_and_healing() {
             2,
             2,
             PlayerSetup {
-                power: 15,
                 wisdom: 11,
                 ..setup()
             },
         );
+        // Power starts at Wisdom (5.1); put it above to watch it drift.
+        g.set_power(0, 15);
         mv(&mut g, Dir::E);
         assert_eq!(lf(&g, ME), 11);
         assert_eq!(g.temporary_life(ME), 10);
@@ -1076,7 +1077,7 @@ fn magic_is_deterministic() {
                 2,
                 2,
                 PlayerSetup {
-                    power: 25,
+                    wisdom: 25, // Power starts at Wisdom (5.1)
                     life_force: 63,
                     possessions: vec![BOLT, CALL],
                     ..setup()

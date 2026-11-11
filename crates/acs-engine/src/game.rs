@@ -60,10 +60,10 @@ pub struct PlayerSetup {
     pub gold: u16,
     #[serde(default = "default_trait")]
     pub dexterity: u8,
+    /// Also the character's Power when it joins (magic 5.1, captured: the
+    /// original sets a joining player's Power to its Wisdom).
     #[serde(default = "default_trait")]
     pub wisdom: u8,
-    #[serde(default = "default_trait")]
-    pub power: u8,
     #[serde(default = "default_trait")]
     pub size: u8,
     #[serde(default = "default_skill")]
@@ -92,7 +92,6 @@ impl Default for PlayerSetup {
             gold: 0,
             dexterity: DEFAULT_TRAIT,
             wisdom: DEFAULT_TRAIT,
-            power: DEFAULT_TRAIT,
             size: DEFAULT_TRAIT,
             dodge: DEFAULT_SKILL,
             parry: DEFAULT_SKILL,
@@ -293,6 +292,11 @@ impl Game {
         self.players[player].at = at;
     }
 
+    /// Test and tool hook: sets a player's Power. Not replayed.
+    pub fn set_power(&mut self, player: usize, power: u8) {
+        self.players[player].power = power;
+    }
+
     /// Test and tool hook: gives a player a thing. Not replayed.
     pub fn give(&mut self, player: usize, thing: ThingId) {
         let p = &mut self.players[player];
@@ -329,7 +333,8 @@ impl Game {
             armor: None,
             dexterity: setup.dexterity,
             wisdom: setup.wisdom,
-            power: setup.power,
+            // Magic 5.1: a joining player's Power is its Wisdom.
+            power: setup.wisdom,
             size: setup.size,
             dodge: setup.dodge,
             parry: setup.parry,

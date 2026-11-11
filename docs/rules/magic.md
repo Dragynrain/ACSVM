@@ -165,8 +165,8 @@ magic item after it is used. [unknown]
    its Wisdom. [manual] **Engine:** 1 point per turn of its own, at the end
    of the turn. [unknown] A player joining an adventure starts with Power
    equal to its Wisdom, whatever its saved Power. [capture: three retired
-   players of ours, profile screen] **Engine:** not yet: a `PlayerSetup`'s
-   Power is used as given.
+   players of ours, profile screen] **Engine:** a joining player's Power is
+   its Wisdom; a `PlayerSetup` has no Power of its own.
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
