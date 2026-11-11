@@ -44,6 +44,7 @@ scripts/web.sh build                                    # static site in target/
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 cargo run -p acs-capture -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN  # docs/capture.md 4
+python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 ```
 
 Write CLI output and viewer screenshots for real adventures outside the repo
