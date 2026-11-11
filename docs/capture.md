@@ -137,6 +137,10 @@ acs-capture script crates/acs-capture/scripts/enter-room.txt --disk C/runs/move-
     --snapshot C/runs/move-room/start.vsf --out C/runs/move-room --var OUT=C/runs/move-room
 acs-capture run move-room --snapshot C/runs/move-room/room.vsf --disk C/runs/move-room/disk.d64 \
     --out C/runs/move-room --runs 20
+# a player of ours (section 8): Speed 15, everything else as move-basic's
+acs-capture scenario move-basic C/runs/speed-15/disk.d64 --player spd=15
+acs-capture script crates/acs-capture/scripts/start-retired.txt --disk C/runs/speed-15/disk.d64     --snapshot C/boot/play-nodisk.vsf --out C/runs/speed-15 --var OUT=C/runs/speed-15
+acs-capture run move-basic --snapshot C/runs/speed-15/start.vsf --disk C/runs/speed-15/disk.d64     --out C/runs/speed-15 --runs 20 --speed 15
 ```
 
 **Making the template** (once, by hand with `acs-capture script`): main menu
@@ -150,18 +154,21 @@ time, until "the adventure disk is ready" (about ten swaps).
 
 The scenario palette is background black, colour 1 white, colour 2 red and
 colour 3 green. Our pictures are plain: walls are white stripes, the marker
-is a solid red square, and every creature picture is a solid green square.
+is a solid red square, the second marker the top half of one, and every
+creature picture is a solid green square.
 So the player is the one 16 x 16 green box on the map.
 
 1. **The world map view** starts at x = 28 in the inner screen and is made
    of 16 x 16 cells; the status area starts at y = 158. The view scrolls to
-   keep the player centred, so the player's cell is read off the
-   **marker** cell (terrain 2 at a known map position): the player is at
-   marker + (player box - marker box) / 16.
+   keep the player centred, so the player's cell is read off a **marker**
+   cell at a known map position (terrain 2, a 16 x 16 red box, or terrain
+   3, a 16 x 8 one, whichever is in view): the player is at marker +
+   (player box - marker box) / 16.
 2. **The movement bar** is a vertical green bar at x = 4..19 whose bottom is
    y = 158. Its height in pixels is the measurement: 8 per point of Speed
-   when full (48 for Speed 6, 72 for Speed 9). A new bar is drawn over a few frames, so a reading is
-   taken only once it stops growing.
+   when full (48 for Speed 6, 120 for Speed 15). A new bar is drawn over a
+   few frames, so a reading is taken only once it stops growing. A bar that
+   grows by more than 4 pixels is a new turn's (a Speed 1 bar is 8).
 3. **Text** is read by eye from screenshots for now. Matching 8 x 8 cells
    against the program's font will come when an experiment needs it.
 
@@ -175,7 +182,8 @@ screenshots).
 ## 7. First scenarios: move-basic and move-room
 
 One player on an open field of the world map (cells 6..24 by 6..18, walled
-in, start 12,12), a marker cell at 15,14, and a map door at 12,16 (terrain
+in, start 12,12; widened to 6..34 for the Speed survey, with a second marker
+at 27,14), a marker cell at 15,14, and a map door at 12,16 (terrain
 12, door 0) into a 15 x 10 room, region 1 room 0, arriving on square 4,4.
 `move-basic` runs on the map from the first turn; `move-room` runs from a
 snapshot taken after walking south through the door. Each of 20 runs pushes
@@ -255,11 +263,10 @@ In this order (planned November 2026):
 
 1. **Players with chosen stats** (the weight slowdown needs Strength,
    Constitution and Life Force, cast chance needs Power).
-   1. *Retired records*: done for the first slot (section 8). Next: the
-      scenario writer takes a player's stats and writes the record, and
-      `start-scenario.txt` gets a variant that picks it. A second retired
-      player would show slot 2 and the page layout; not needed while one
-      player is enough.
+   1. *Retired records*: done for the first slot (section 8):
+      `acs-capture scenario ... --player key=value,...` writes one and
+      `start-retired.txt` picks it. A second retired player would show
+      slot 2 and the page layout; not needed while one player is enough.
    2. *Read the profile screen.* The 8 x 8 cells of the screen are matched
       against a glyph table taken from the program's own rendered screens
       and labelled once by eye. The table is the program's font, so it stays

@@ -27,6 +27,12 @@ const MAP_AREA: (usize, usize, usize, usize) = (28, 0, 240, 158);
 /// y = 158; the area reaches the top so a Speed 15 bar (120) fits.
 const BAR_AREA: (usize, usize, usize, usize) = (0, 0, 28, 159);
 const BAR_BOTTOM: usize = 158;
+/// A bar that grows by more than this is a new turn's bar. (The bar only
+/// shrinks within a turn; a Speed 1 bar is 8 pixels, so the step can't be 8.)
+const REFILL: usize = 4;
+/// Instructions to wait for a turn to pass: an idle Speed 15 turn lasts
+/// about 5,400 frames, some 40 million instructions.
+const TURN_LIMIT: u64 = 80_000_000;
 const CELL: i32 = 16;
 const VIEW_X: i32 = 28;
 const VIEW_Y: i32 = -1;
@@ -59,11 +65,20 @@ pub fn observe(f: &Frame, s: &MoveBasic, place: Place) -> Obs {
     let players: Vec<Box2> = blobs(f, PLAYER, MAP_AREA).into_iter().filter(square).collect();
     let cell = match place {
         Place::Map => {
-            let markers: Vec<Box2> = blobs(f, MARKER, MAP_AREA).into_iter().filter(square).collect();
-            match (players.as_slice(), markers.as_slice()) {
-                ([p], [m]) => Some((
-                    s.marker.0 as i32 + (p.x0 as i32 - m.x0 as i32) / CELL,
-                    s.marker.1 as i32 + (p.y0 as i32 - m.y0 as i32) / CELL,
+            // The full marker is a 16 x 16 box, the second a 16 x 8 one
+            // (its cell's top half); either gives the player's cell.
+            let marker = blobs(f, MARKER, MAP_AREA)
+                .into_iter()
+                .filter(|b| b.w() == 16)
+                .find_map(|b| match b.h() {
+                    16 => Some((b, s.marker)),
+                    8 => Some((b, s.marker2)),
+                    _ => None,
+                });
+            match (players.as_slice(), marker) {
+                ([p], Some((m, at))) => Some((
+                    at.0 as i32 + (p.x0 as i32 - m.x0 as i32) / CELL,
+                    at.1 as i32 + (p.y0 as i32 - m.y0 as i32) / CELL,
                 )),
                 _ => None,
             }
@@ -125,7 +140,7 @@ impl Runner<'_> {
             self.step(25_000)?;
             t += 25_000;
             let b = self.look()?.bar;
-            if b > last + 8 {
+            if b > last + REFILL {
                 // The new bar is drawn over a few frames: wait until it
                 // stops growing.
                 let mut prev = b;
@@ -150,7 +165,7 @@ impl Runner<'_> {
     pub fn direction(&mut self, run: usize, jitter: u64, dir: &str) -> Result<(), String> {
         self.reset(jitter)?;
         // Start each push at the top of a fresh turn.
-        self.wait_refill(30_000_000)?;
+        self.wait_refill(TURN_LIMIT)?;
         self.step(100_000)?;
         let before = self.look()?;
         self.joy(dir)?;
@@ -190,7 +205,7 @@ impl Runner<'_> {
     /// Holds east through one whole turn and counts the steps taken.
     pub fn steps_per_turn(&mut self, run: usize, jitter: u64) -> Result<(), String> {
         self.reset(jitter)?;
-        self.wait_refill(30_000_000)?;
+        self.wait_refill(TURN_LIMIT)?;
         let start = self.look()?;
         self.joy("e")?;
         let mut cells = vec![start.cell];
@@ -198,11 +213,11 @@ impl Runner<'_> {
         let mut last_bar = start.bar;
         let mut t = 0;
         let mut ended = false;
-        while t < 20_000_000 {
+        while t < TURN_LIMIT {
             self.step(20_000)?;
             t += 20_000;
             let o = self.look()?;
-            if o.bar > last_bar + 8 {
+            if o.bar > last_bar + REFILL {
                 ended = true;
                 break;
             }
@@ -237,16 +252,16 @@ impl Runner<'_> {
     /// drain in real time? Counted in frames.
     pub fn idle_drain(&mut self, run: usize, jitter: u64) -> Result<(), String> {
         self.reset(jitter)?;
-        self.wait_refill(30_000_000)?;
+        self.wait_refill(TURN_LIMIT)?;
         let full = self.look()?.bar;
         let mut frames = 0;
         let mut samples = vec![(0u64, full)];
         let mut last = full;
         let mut ended = false;
-        for _ in 0..2_000 {
+        for _ in 0..(TURN_LIMIT / 25_000) {
             frames += self.s.run_counting_frames(25_000).map_err(|e| e.to_string())?;
             let b = self.look()?.bar;
-            if b > last + 8 {
+            if b > last + REFILL {
                 ended = true;
                 break;
             }
@@ -264,7 +279,7 @@ impl Runner<'_> {
 }
 
 /// Reads `runs.jsonl` and distils it (docs/capture.md section 4.4).
-pub fn summarize(path: &Path) -> std::io::Result<serde_json::Value> {
+pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
     let text = std::fs::read_to_string(path)?;
     let mut dirs: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
     let mut bar_cost: BTreeMap<String, usize> = BTreeMap::new();
@@ -307,7 +322,8 @@ pub fn summarize(path: &Path) -> std::io::Result<serde_json::Value> {
     }
     drain.sort_unstable();
     Ok(json!({
-        "engine_default_rules": engine_predictions(acs_engine::Rules::default(), 6),
+        "speed": speed,
+        "engine_default_rules": engine_predictions(acs_engine::Rules::default(), speed),
         "directions": dirs,
         "bar_pixels_per_step_per_turn": bar_cost,
         "steps_per_turn": steps,

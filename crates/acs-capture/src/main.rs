@@ -27,6 +27,11 @@ enum Cmd {
         /// (default: ACSVM_CAPTURE_TEMPLATE).
         #[arg(long)]
         template: Option<PathBuf>,
+        /// Also write a retired player of ours with these stats (`key=value`
+        /// pairs over move-basic's rolled player: con, lf, str, dex, spd,
+        /// wis, pow, size, dodge, parry, melee, missile, name).
+        #[arg(long)]
+        player: Option<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -45,9 +50,17 @@ enum Cmd {
         /// Repetitions, each with a different idle start (jitter).
         #[arg(long, default_value_t = 5)]
         runs: usize,
+        /// The player's Speed, for our engine's prediction in the summary.
+        #[arg(long, default_value_t = 6)]
+        speed: u8,
     },
     /// Distil a runs.jsonl into summary.json.
-    Summarize { runs: PathBuf },
+    Summarize {
+        runs: PathBuf,
+        /// The player's Speed, for our engine's prediction.
+        #[arg(long, default_value_t = 6)]
+        speed: u8,
+    },
     /// Run a line script (see `script.rs`) against a fresh VICE.
     Script {
         /// The script file, or `-` for stdin.
@@ -76,7 +89,12 @@ enum Cmd {
 fn main() {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Scenario { name, out, template } => {
+        Cmd::Scenario {
+            name,
+            out,
+            template,
+            player,
+        } => {
             let template = template
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_TEMPLATE").map(PathBuf::from))
                 .map(|p| std::fs::read(&p).unwrap_or_else(|e| fail(&format!("{}: {e}", p.display()))));
@@ -84,7 +102,15 @@ fn main() {
                 eprintln!("note: no template; the original program will refuse this disk");
             }
             let img = match name.as_str() {
-                "move-basic" => scenario::move_basic(&scenario::MoveBasic::default(), template.as_deref()),
+                "move-basic" => {
+                    let player =
+                        player.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
+                    let s = scenario::MoveBasic {
+                        player,
+                        ..scenario::MoveBasic::default()
+                    };
+                    scenario::move_basic(&s, template.as_deref())
+                }
                 other => fail(&format!("unknown scenario {other}")),
             };
             std::fs::write(&out, &img.data).unwrap_or_else(|e| fail(&e.to_string()));
@@ -96,6 +122,7 @@ fn main() {
             disk,
             out,
             runs,
+            speed,
         } => {
             let place = match name.as_str() {
                 "move-basic" => experiment::Place::Map,
@@ -142,13 +169,13 @@ fn main() {
             if let Err(e) = result {
                 fail(&e);
             }
-            let summary = experiment::summarize(&out.join("runs.jsonl")).expect("summary");
+            let summary = experiment::summarize(&out.join("runs.jsonl"), speed).expect("summary");
             let text = serde_json::to_string_pretty(&summary).unwrap_or_default();
             std::fs::write(out.join("summary.json"), &text).expect("summary.json");
             println!("{text}");
         }
-        Cmd::Summarize { runs } => {
-            let summary = experiment::summarize(&runs).unwrap_or_else(|e| fail(&e.to_string()));
+        Cmd::Summarize { runs, speed } => {
+            let summary = experiment::summarize(&runs, speed).unwrap_or_else(|e| fail(&e.to_string()));
             println!("{}", serde_json::to_string_pretty(&summary).unwrap_or_default());
         }
         Cmd::Script {

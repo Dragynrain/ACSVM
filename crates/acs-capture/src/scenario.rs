@@ -7,7 +7,7 @@
 #[path = "../../acs-core/tests/common/mod.rs"]
 mod common;
 
-use acs_core::layout::{world_map as wm, Layout};
+use acs_core::layout::{creatures as cr, world_map as wm, Layout};
 use acs_core::{Image, Platform};
 use common::{Fixture, RegionSpec, RoomSpec};
 
@@ -22,29 +22,139 @@ pub const PIC_WALL: usize = 1;
 pub const PIC_MARKER: usize = 2;
 /// The map door: a solid colour-1 square.
 pub const PIC_DOOR: usize = 3;
+/// A second landmark: colour 2 in the top half only (a 16 x 8 box), so the
+/// observer can tell it from the first.
+pub const PIC_MARKER2: usize = 4;
+
+/// A player of our own, written as retired player 1 so the start-up screen
+/// offers it (docs/capture.md section 8). The program rolls the stats of a
+/// new player; this one has the stats we choose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Player {
+    pub name: String,
+    pub constitution: u8,
+    pub life_force: u8,
+    pub strength: u8,
+    pub dexterity: u8,
+    pub speed: u8,
+    pub wisdom: u8,
+    pub power: u8,
+    pub size: u8,
+    pub dodge: u8,
+    pub parry: u8,
+    pub melee: u8,
+    pub missile: u8,
+}
+
+impl Default for Player {
+    /// The stats the program rolled for move-basic's player.
+    fn default() -> Self {
+        Player {
+            name: "T".into(),
+            constitution: 11,
+            life_force: 11,
+            strength: 9,
+            dexterity: 13,
+            speed: 6,
+            wisdom: 13,
+            power: 13,
+            size: 9,
+            dodge: 30,
+            parry: 26,
+            melee: 31,
+            missile: 22,
+        }
+    }
+}
+
+impl Player {
+    /// Applies `key=value` pairs separated by commas (con, lf, str, dex,
+    /// spd, wis, pow, size, dodge, parry, melee, missile, name).
+    pub fn with(mut self, spec: &str) -> Result<Self, String> {
+        for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let (k, v) = kv.split_once('=').ok_or(format!("{kv}: want key=value"))?;
+            if k == "name" {
+                self.name = v.to_string();
+                continue;
+            }
+            let n: u8 = v.parse().map_err(|_| format!("{kv}: bad number"))?;
+            let (field, max) = match k {
+                "con" => (&mut self.constitution, 63),
+                "lf" => (&mut self.life_force, 63),
+                "str" => (&mut self.strength, 31),
+                "dex" => (&mut self.dexterity, 31),
+                "spd" => (&mut self.speed, 15),
+                "wis" => (&mut self.wisdom, 31),
+                "pow" => (&mut self.power, 127),
+                "size" => (&mut self.size, 31),
+                "dodge" => (&mut self.dodge, 127),
+                "parry" => (&mut self.parry, 127),
+                "melee" => (&mut self.melee, 127),
+                "missile" => (&mut self.missile, 127),
+                _ => return Err(format!("{k}: unknown stat")),
+            };
+            if n > max {
+                return Err(format!("{kv}: at most {max}"));
+            }
+            *field = n;
+        }
+        Ok(self)
+    }
+
+    /// The 37-byte record, laid out as the decoder reads creature records.
+    /// Byte 1 bit 6 is set as in the records the program wrote for its own
+    /// players (meaning unknown). The player stands on the map start cell
+    /// with nothing carried; the first master creature picture.
+    pub fn record(&self, start: (u8, u8)) -> [u8; 37] {
+        let mut r = [0u8; 37];
+        r[0x00] = self.constitution;
+        r[0x01] = 0x40 | self.strength;
+        r[0x02] = self.dexterity;
+        r[0x03] = self.life_force;
+        r[0x04] = self.speed; // alignment 0 (thief), not aggressive or brave
+        r[0x05] = self.power;
+        r[0x06] = self.dodge;
+        r[0x07] = self.parry;
+        r[0x09] = self.melee;
+        r[0x0A] = self.missile;
+        r[0x0D] = start.0;
+        r[0x0E] = start.1;
+        r[0x0F] = self.size;
+        r[0x11] = self.wisdom;
+        r[0x16] = 64 + 2;
+        r
+    }
+}
 
 /// The map cell the player starts on, and the open field around it.
 pub struct MoveBasic {
     pub start: (u8, u8),
     /// Inclusive bounds of the open field; the ring around it is wall.
     pub field: (u8, u8, u8, u8),
-    /// An open marker cell inside the field (terrain 2), always in view.
+    /// An open marker cell inside the field (terrain 2, a 16 x 16 box).
     pub marker: (u8, u8),
+    /// A second marker (terrain 3, a 16 x 8 box), so one stays in view
+    /// along a walk east of more than 12 squares.
+    pub marker2: (u8, u8),
     /// A map door (terrain 12, door 0) into region 1, room 0.
     pub door: (u8, u8),
     /// Where the door leads: a square of that room, counted from its
     /// top-left wall square.
     pub room_entry: (u8, u8),
+    /// A retired player of our own, offered at start-up.
+    pub player: Option<Player>,
 }
 
 impl Default for MoveBasic {
     fn default() -> Self {
         MoveBasic {
             start: (12, 12),
-            field: (6, 6, 24, 18),
+            field: (6, 6, 34, 18),
             marker: (15, 14),
+            marker2: (27, 14),
             door: (12, 16),
             room_entry: (4, 4),
+            player: None,
         }
     }
 }
@@ -92,6 +202,8 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     picture(&mut f, PIC_WALL, wall, wall);
     picture(&mut f, PIC_MARKER, [0xAA; 16], [0xAA; 16]);
     picture(&mut f, PIC_DOOR, [0x55; 16], [0x55; 16]);
+    let half: [u8; 16] = std::array::from_fn(|r| if r < 8 { 0xAA } else { 0x00 });
+    picture(&mut f, PIC_MARKER2, half, half);
     // Room floors show master thing 127's picture: make it the blank one.
     let floor = l.things + acs_core::layout::things::PROPS + 126 * 4 + 1;
     f.data[floor] = (f.data[floor] & 0xC0) | PIC_FLOOR as u8;
@@ -105,6 +217,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     f.put(w + wm::TERRAIN, &[0x40 | PIC_FLOOR as u8, 0]);
     f.put(w + wm::TERRAIN + 2, &[PIC_WALL as u8, 0]);
     f.put(w + wm::TERRAIN + 4, &[0x40 | PIC_MARKER as u8, 0]);
+    f.put(w + wm::TERRAIN + 6, &[0x40 | PIC_MARKER2 as u8, 0]);
     // Terrain 12 (the first of the four door terrains), open.
     f.put(w + wm::TERRAIN + 24, &[0x40 | PIC_DOOR as u8, 0]);
     f.ascii(
@@ -136,6 +249,8 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             let inside = xu >= x0 && xu <= x1 && yu >= y0 && yu <= y1;
             let t = if (xu, yu) == s.marker {
                 2u8
+            } else if (xu, yu) == s.marker2 {
+                3
             } else if (xu, yu) == s.door {
                 12
             } else if inside {
@@ -153,6 +268,16 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     }
     f.put(w + wm::START_X, &[s.start.0]);
     f.put(w + wm::START_Y, &[s.start.1]);
+    f.ascii(
+        w + wm::TERRAIN_NAMES + 3 * wm::TERRAIN_NAME_LEN,
+        "MARKER 2",
+        wm::TERRAIN_NAME_LEN,
+    );
+    if let Some(p) = &s.player {
+        let c = l.creatures;
+        f.packed(c + cr::RETIRED_NAMES, &p.name);
+        f.put(c + cr::RETIRED_RECORDS, &p.record(s.start));
+    }
     f.ascii(
         l.adventure + acs_core::layout::adventure::MAP_NAME,
         "TEST FIELD",
@@ -193,5 +318,26 @@ mod tests {
         assert_eq!((room.width, room.height), (15, 10));
         assert_eq!(adv.pictures[70].pixel(3, 9), 3);
         assert!(adv.pictures[0].is_blank());
+        assert_eq!(m.tiles[14][27], 3);
+        assert!(adv.retired_players.is_empty());
+    }
+
+    #[test]
+    fn retired_player_decodes_with_its_stats() {
+        let s = MoveBasic {
+            player: Some(Player::default().with("spd=15,str=20,pow=40").unwrap()),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let [p] = adv.retired_players.as_slice() else {
+            panic!("one retired player");
+        };
+        assert_eq!(p.name, "T");
+        assert_eq!((p.speed, p.strength, p.power, p.constitution), (15, 20, 40, 11));
+        assert_eq!((p.x, p.y, p.region), (12, 12, 0));
+        assert_eq!(p.picture, Some(64));
+        assert!(Player::default().with("spd=16").is_err());
     }
 }
