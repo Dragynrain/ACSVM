@@ -11,15 +11,33 @@ use serde::{Deserialize, Serialize};
 /// manual's normal starting range (6-7).
 pub const DEFAULT_SPEED: u8 = 7;
 
+/// Strength, Constitution and Life Force of a character made by
+/// [`PlayerSetup::default`]: the top of the manual's normal range (10-11).
+pub const DEFAULT_TRAIT: u8 = 11;
+
+fn default_trait() -> u8 {
+    DEFAULT_TRAIT
+}
+
 /// A new character. Trait generation is a later rule set; for now a player
-/// is a name, a Speed and what it carries.
+/// is a name, the traits movement and carrying need, and what it carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerSetup {
     pub name: String,
     pub speed: u8,
-    /// Master thing numbers carried at the start.
+    #[serde(default = "default_trait")]
+    pub strength: u8,
+    #[serde(default = "default_trait")]
+    pub constitution: u8,
+    /// Starts equal to Constitution for new characters (inventory 6.1).
+    #[serde(default = "default_trait")]
+    pub life_force: u8,
+    /// Master thing numbers carried at the start, one entry per item
+    /// (thing 81, Gold, goes in `gold` instead).
     #[serde(default)]
     pub possessions: Vec<u8>,
+    #[serde(default)]
+    pub gold: u16,
 }
 
 impl Default for PlayerSetup {
@@ -27,7 +45,11 @@ impl Default for PlayerSetup {
         PlayerSetup {
             name: "PLAYER 1".into(),
             speed: DEFAULT_SPEED,
+            strength: DEFAULT_TRAIT,
+            constitution: DEFAULT_TRAIT,
+            life_force: DEFAULT_TRAIT,
             possessions: Vec::new(),
+            gold: 0,
         }
     }
 }
@@ -36,16 +58,35 @@ impl Default for PlayerSetup {
 pub struct Player {
     pub name: String,
     pub speed: u8,
+    pub strength: u8,
+    pub constitution: u8,
+    pub life_force: u8,
     /// What is left of the movement bar this turn.
     pub moves_left: u8,
+    /// Where the bar started this turn (Speed after any slowdown).
+    pub turn_moves: u8,
     pub at: Location,
-    /// Master thing numbers, one entry per item carried.
+    /// Master thing numbers, one entry per item carried, in pick-up order.
     pub possessions: Vec<u8>,
+    /// Pieces of Gold (thing 81), 0..=25,000.
+    pub gold: u16,
+    /// Readied weapon (melee or missile) and armor, master thing numbers.
+    pub weapon: Option<u8>,
+    pub armor: Option<u8>,
 }
 
 impl Player {
     pub fn owns(&self, thing: u8) -> bool {
-        self.possessions.contains(&thing)
+        self.count(thing) > 0
+    }
+
+    /// How many of `thing` the player owns (gold pieces for thing 81).
+    pub fn count(&self, thing: u8) -> u16 {
+        if thing == crate::inventory::GOLD {
+            self.gold
+        } else {
+            self.possessions.iter().filter(|&&t| t == thing).count() as u16
+        }
     }
 }
 
@@ -79,12 +120,7 @@ impl Game {
         };
         let mut ev = Vec::new();
         g.add_player(first, &mut ev);
-        let p = &mut g.players[0];
-        p.moves_left = p.speed;
-        ev.push(Event::TurnStarted {
-            player: 0,
-            moves: p.speed,
-        });
+        g.start_turn(&mut ev);
         (g, ev)
     }
 
@@ -105,6 +141,9 @@ impl Game {
             Command::Wait => self.end_turn(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
+            Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
+            Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
+            Command::Ready { thing } => self.ready(thing, &mut ev),
         }
         ev
     }
@@ -143,18 +182,38 @@ impl Game {
 
     /// Test and tool hook: gives a player a thing. Not replayed.
     pub fn give(&mut self, player: usize, thing: u8) {
-        self.players[player].possessions.push(thing);
+        let p = &mut self.players[player];
+        if thing == crate::inventory::GOLD {
+            p.gold = p.gold.saturating_add(1).min(crate::inventory::GOLD_LIMIT);
+        } else {
+            p.possessions.push(thing);
+        }
     }
 
     fn add_player(&mut self, setup: PlayerSetup, ev: &mut Vec<Event>) {
         let s = self.adv.world.start;
         let at = Location::World { x: s.x, y: s.y };
+        let mut possessions = setup.possessions;
+        let mut gold = setup.gold;
+        possessions.retain(|&t| {
+            if t == crate::inventory::GOLD {
+                gold = gold.saturating_add(1);
+            }
+            t != crate::inventory::GOLD
+        });
         self.players.push(Player {
             name: setup.name,
             speed: setup.speed,
+            strength: setup.strength,
+            constitution: setup.constitution,
+            life_force: setup.life_force,
             moves_left: setup.speed,
+            turn_moves: setup.speed,
             at,
-            possessions: setup.possessions,
+            possessions,
+            gold: gold.min(crate::inventory::GOLD_LIMIT),
+            weapon: None,
+            armor: None,
         });
         ev.push(Event::PlayerAdded {
             player: self.players.len() - 1,
@@ -174,11 +233,19 @@ impl Game {
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
         ev.push(Event::TurnEnded { player: self.current });
         self.current = (self.current + 1) % self.players.len();
+        self.start_turn(ev);
+    }
+
+    /// Fills the current player's bar from Speed after any slowdown
+    /// (inventory 3.3, 3.4).
+    fn start_turn(&mut self, ev: &mut Vec<Event>) {
+        let moves = self.players[self.current].effective_speed(&self.adv);
         let p = &mut self.players[self.current];
-        p.moves_left = p.speed;
+        p.moves_left = moves;
+        p.turn_moves = moves;
         ev.push(Event::TurnStarted {
             player: self.current,
-            moves: p.speed,
+            moves,
         });
     }
 

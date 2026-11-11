@@ -3,7 +3,7 @@
 //! Plain-text lines for events, for message logs and traces.
 
 use crate::game::Game;
-use crate::{BlockReason, Event, Location, SpellSource};
+use crate::{BlockReason, DropRefusal, Event, Location, ReadyRefusal, Slot, SpellSource};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
@@ -57,6 +57,9 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 BlockReason::Store { thing: t } => format!("{} (stores come later)", thing(t)),
                 BlockReason::Diagonal => "diagonal moves are off".into(),
                 BlockReason::NoMovesLeft => "no moves left".into(),
+                BlockReason::CarryLimit { thing: t } => {
+                    format!("can't carry any more {}", thing(t))
+                }
             };
             with_message(format!("{} is blocked: {why}", who(player)), message)
         }
@@ -74,6 +77,73 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             format!("{} bumps into {name} (combat comes later).", who(player))
         }
         Event::PickedUp { player, thing: t } => format!("{} picks up {}.", who(player), thing(*t)),
+        Event::GoldPickedUp { player, amount } => {
+            format!(
+                "{} picks up {amount} {}.",
+                who(player),
+                thing(crate::inventory::GOLD)
+            )
+        }
+        Event::Readied {
+            player,
+            thing: t,
+            slot,
+        } => match slot {
+            Slot::Weapon => format!("{} readies {}.", who(player), thing(*t)),
+            Slot::Armor => format!(
+                "{} puts on {} (that takes the rest of the turn).",
+                who(player),
+                thing(*t)
+            ),
+        },
+        Event::ReadyRefused {
+            player,
+            thing: t,
+            reason,
+        } => {
+            let why = match reason {
+                ReadyRefusal::NotCarried => "not carried",
+                ReadyRefusal::NotWeaponOrArmor => "not a weapon or armor",
+            };
+            format!("{} can't ready {}: {why}.", who(player), thing(*t))
+        }
+        Event::Dropped { player, thing: t, at } => {
+            format!("{} drops {} at {}.", who(player), thing(*t), place(game, at))
+        }
+        Event::GoldDropped { player, amount, at } => match at {
+            Some(at) => format!(
+                "{} drops {amount} {} at {}.",
+                who(player),
+                thing(crate::inventory::GOLD),
+                place(game, at)
+            ),
+            None => format!(
+                "{} drops {amount} {}; it is lost on the map.",
+                who(player),
+                thing(crate::inventory::GOLD)
+            ),
+        },
+        Event::LostOnMap { player, thing: t } => {
+            format!("{} drops {}; it is lost on the map.", who(player), thing(*t))
+        }
+        Event::VanishedWhenDropped { player, thing: t } => {
+            format!("{} drops {} and it vanishes.", who(player), thing(*t))
+        }
+        Event::DropRefused {
+            player,
+            thing: t,
+            reason,
+        } => {
+            let why = match *reason {
+                DropRefusal::NotCarried => "not carried".to_string(),
+                DropRefusal::MagicSpell => "spells can't be dropped".to_string(),
+                DropRefusal::OwnerOnly => "only its owner can use it".to_string(),
+                DropRefusal::Wall => "there is a wall there".to_string(),
+                DropRefusal::Thing { thing: o } => format!("{} is in the way", thing(o)),
+                DropRefusal::BadAmount => "one pile holds 1 to 255".to_string(),
+            };
+            format!("{} can't drop {}: {why}.", who(player), thing(*t))
+        }
         Event::ThingUsedUp { player, thing: t } => {
             format!("{}'s {} is used up.", who(player), thing(*t))
         }
@@ -93,6 +163,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 SpellSource::Obstacle => "obstacle",
                 SpellSource::CustomObstacle => "obstacle",
                 SpellSource::PickedUp => "pick-up",
+                SpellSource::Dropped => "dropped",
             };
             with_message(
                 format!(

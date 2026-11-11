@@ -5,7 +5,8 @@
 //! numbers in the comments refer to it).
 
 use crate::game::Game;
-use crate::{BlockReason, Dir, Event, Location, SpellSource};
+use crate::inventory;
+use crate::{BlockReason, Dir, Event, Location, Slot, SpellSource};
 use acs_core::model::{
     Access, CustomTrigger, Destination, Passability, PlacementChoice, SpellAction, ThingKind,
 };
@@ -24,6 +25,26 @@ enum Pass {
         used_up: Option<u8>,
     },
     No(BlockReason),
+}
+
+/// Movement 5.8: a custom space's placement parameter is either the needed
+/// thing or the spell's parameter. Returns the needed thing and the action.
+pub(crate) fn resolve_custom_space(
+    choice: PlacementChoice,
+    action: SpellAction,
+    placement: u8,
+) -> (u8, SpellAction) {
+    let (needed, parameter) = match choice {
+        PlacementChoice::Thing => (placement, action.parameter),
+        PlacementChoice::SpellParameter => (action.parameter, placement),
+    };
+    (
+        needed,
+        SpellAction {
+            kind: action.kind,
+            parameter,
+        },
+    )
 }
 
 impl Game {
@@ -278,12 +299,44 @@ impl Game {
             | ThingKind::MeleeWeapon { .. }
             | ThingKind::Armor { .. }
             | ThingKind::MagicSpell { .. } => {
+                // Inventory 2.2: at the limit the move is refused.
+                let limit = inventory::limit(item.thing);
+                if self.players[p].count(item.thing) >= limit {
+                    ev.push(block(BlockReason::CarryLimit { thing: item.thing }));
+                    return;
+                }
+                if item.thing == inventory::GOLD {
+                    // Inventory 2.5: the pile holds `parameter` pieces (0 = 1).
+                    let pile = (item.parameter as u16).max(1);
+                    let amount = pile.min(limit - self.players[p].gold);
+                    self.players[p].gold += amount;
+                    if amount < pile {
+                        self.set_item_parameter(region, room, index, (pile - amount) as u8);
+                    } else {
+                        self.remove_item(region, room, index);
+                    }
+                    ev.push(Event::GoldPickedUp { player: p, amount });
+                    self.move_to(p, from, to, ev);
+                    return;
+                }
                 self.remove_item(region, room, index);
                 self.players[p].possessions.push(item.thing);
                 ev.push(Event::PickedUp {
                     player: p,
                     thing: item.thing,
                 });
+                // Inventory 2.4: picking up a weapon readies it.
+                if matches!(
+                    thing.kind,
+                    ThingKind::MeleeWeapon { .. } | ThingKind::MissileWeapon { .. }
+                ) {
+                    self.players[p].weapon = Some(item.thing);
+                    ev.push(Event::Readied {
+                        player: p,
+                        thing: item.thing,
+                        slot: Slot::Weapon,
+                    });
+                }
                 if let ThingKind::MagicItem {
                     action,
                     on_pickup: true,
@@ -330,14 +383,7 @@ impl Game {
                 destroy_needed_thing,
                 ..
             } => {
-                let (needed, parameter) = match placement_choice {
-                    PlacementChoice::Thing => (item.parameter, action.parameter),
-                    PlacementChoice::SpellParameter => (action.parameter, item.parameter),
-                };
-                let action = SpellAction {
-                    kind: action.kind,
-                    parameter,
-                };
+                let (needed, action) = resolve_custom_space(placement_choice, action, item.parameter);
                 let owns = self.players[p].owns(needed);
                 let (passes, fires, used_up) = match trigger {
                     CustomTrigger::WhenMovedOnto => (true, true, None),
@@ -439,14 +485,22 @@ impl Game {
 
     fn use_up(&mut self, p: usize, thing: Option<u8>, ev: &mut Vec<Event>) {
         let Some(thing) = thing else { return };
-        let poss = &mut self.players[p].possessions;
-        if let Some(i) = poss.iter().position(|&t| t == thing) {
-            poss.remove(i);
+        if self.take_one(p, thing) {
             ev.push(Event::ThingUsedUp { player: p, thing });
         }
     }
 
-    fn remove_item(&mut self, region: u8, room: u8, index: usize) {
+    fn set_item_parameter(&mut self, region: u8, room: u8, index: usize, parameter: u8) {
+        if let Some(it) = self
+            .region_mut(region)
+            .and_then(|reg| reg.rooms.get_mut(room as usize))
+            .and_then(|r| r.items.get_mut(index))
+        {
+            it.parameter = parameter;
+        }
+    }
+
+    pub(crate) fn remove_item(&mut self, region: u8, room: u8, index: usize) {
         if let Some(r) = self
             .region_mut(region)
             .and_then(|reg| reg.rooms.get_mut(room as usize))

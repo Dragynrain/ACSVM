@@ -11,10 +11,12 @@
 //! Each rule is specified in `docs/rules/` before it is implemented here;
 //! the spec tags every rule as coming from the manual, from the data, or as
 //! still unknown, and says what the engine does for the unknown ones.
-//! Implemented so far: movement (`docs/rules/movement.md`).
+//! Implemented so far: movement (`docs/rules/movement.md`) and inventory
+//! (`docs/rules/inventory.md`).
 
 mod describe;
 mod game;
+pub mod inventory;
 pub mod rng;
 mod step;
 
@@ -110,6 +112,21 @@ pub enum Command {
     Wait,
     /// "Add Someone": a new character joins at the adventure's start.
     AddPlayer { setup: PlayerSetup },
+    /// "Drop Object": one of `thing` onto the adjacent square in `dir`, or
+    /// the player's own square when `dir` is `None` (inventory 5).
+    Drop {
+        thing: u8,
+        #[serde(default)]
+        dir: Option<Dir>,
+    },
+    /// Drops one pile of `amount` (1..=255) gold pieces (inventory 5.8).
+    DropGold {
+        amount: u16,
+        #[serde(default)]
+        dir: Option<Dir>,
+    },
+    /// "New Weapon" / "New Armor": readies a carried weapon or armor.
+    Ready { thing: u8 },
 }
 
 /// Choices the original leaves open or that are still unmeasured
@@ -148,6 +165,45 @@ pub enum BlockReason {
     Diagonal,
     /// The movement bar is empty (Speed 0); only `Wait` helps.
     NoMovesLeft,
+    /// The top thing is carriable but the player already owns as many of it
+    /// as anyone may (inventory 2.2).
+    CarryLimit { thing: u8 },
+}
+
+/// Why a drop was refused (it costs nothing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum DropRefusal {
+    /// The player does not carry it (or not that much gold).
+    NotCarried,
+    /// Magic spells cannot be dropped.
+    MagicSpell,
+    /// A weapon or armor usable only by its owner.
+    OwnerOnly,
+    /// The target is a wall or outside the room.
+    Wall,
+    /// The target's top thing does not take drops (portal, obstacle, store).
+    Thing { thing: u8 },
+    /// A gold amount of 0 or more than one pile holds (255).
+    BadAmount,
+}
+
+/// Why `Ready` was refused (it costs nothing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum ReadyRefusal {
+    NotCarried,
+    /// Only weapons and armor can be readied.
+    NotWeaponOrArmor,
+}
+
+/// The two things an individual readies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Slot {
+    /// A melee or missile weapon.
+    Weapon,
+    Armor,
 }
 
 /// What set off a spell.
@@ -161,6 +217,8 @@ pub enum SpellSource {
     Obstacle,
     CustomObstacle,
     PickedUp,
+    /// A magic item's drop spell.
+    Dropped,
 }
 
 /// What happened. Front ends draw from these; tests compare them.
@@ -206,7 +264,54 @@ pub enum Event {
         player: usize,
         thing: u8,
     },
-    /// A door or space destroyed the thing needed to pass.
+    /// Picked up a pile of gold (thing 81).
+    GoldPickedUp {
+        player: usize,
+        amount: u16,
+    },
+    /// A weapon or armor is now readied (`Ready`, or a weapon picked up).
+    Readied {
+        player: usize,
+        thing: u8,
+        slot: Slot,
+    },
+    ReadyRefused {
+        player: usize,
+        thing: u8,
+        #[serde(flatten)]
+        reason: ReadyRefusal,
+    },
+    /// The thing now lies on top of the stack at `at`.
+    Dropped {
+        player: usize,
+        thing: u8,
+        at: Location,
+    },
+    /// A pile of gold was put down at `at`, or lost on the world map (`None`).
+    GoldDropped {
+        player: usize,
+        amount: u16,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        at: Option<Location>,
+    },
+    /// Dropped on the world map: gone from the adventure.
+    LostOnMap {
+        player: usize,
+        thing: u8,
+    },
+    /// A treasure that disappears when dropped.
+    VanishedWhenDropped {
+        player: usize,
+        thing: u8,
+    },
+    DropRefused {
+        player: usize,
+        /// Thing 81 for gold.
+        thing: u8,
+        #[serde(flatten)]
+        reason: DropRefusal,
+    },
+    /// A door, space or "when dropped here" space destroyed the needed thing.
     ThingUsedUp {
         player: usize,
         thing: u8,

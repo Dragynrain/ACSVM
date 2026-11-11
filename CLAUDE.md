@@ -2,7 +2,7 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 2 (rules engine; movement done).
+Plan: `docs/design.md`. Current phase: 2 (rules engine; movement and inventory done).
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data] or
 [unknown] with the engine's choice; write the spec before the code.
 
@@ -57,7 +57,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   stacks top first, residents) and the region grid. Layout only, no drawing.
 - `crates/acs-engine`: rules, no GUI (Rust 1.85). `Game::new(adv, seed, rules,
   player)`, `apply(Command) -> Vec<Event>`, `Game::replay`; one seeded `Rng`
-  (SplitMix64) for every roll. `step.rs` is movement; `describe` turns events
+  (SplitMix64) for every roll. `step.rs` is movement (and pick-ups),
+  `inventory.rs` carry limits, weight, Ready and Drop; `describe` turns events
   into log lines. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;

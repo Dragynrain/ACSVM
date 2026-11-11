@@ -273,7 +273,7 @@ fn players_take_turns() {
         setup: PlayerSetup {
             name: "TWO".into(),
             speed: 1,
-            possessions: vec![],
+            ..Default::default()
         },
     });
     assert!(matches!(ev[0], Event::PlayerAdded { player: 1, .. }));

@@ -47,8 +47,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    How many is not given. [unknown] **Engine:** one turn each, for now.
 7. Effective Speed is lowered by carrying too much and by standing next to an
    aggressive, unfriendly individual. [manual] By how much is not given.
-   [unknown] **Engine:** the bar starts at the full Speed; encumbrance and
-   adjacency arrive with inventory and combat (see section 9).
+   [unknown] **Engine:** the bar starts at Speed after the weight slowdown
+   ([inventory](inventory.md) 3.3); adjacency arrives with combat.
 8. Speed 0: the manual only says such a creature does not show its name on its
    turn. A character with Speed 0 cannot move. [unknown] **Engine:** its
    moves are refused (`NoMovesLeft`) and only `Wait` ends its turn.
@@ -110,7 +110,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 
    | Top thing | Move | Triggers | Source |
    | --- | --- | --- | --- |
-   | treasure, magic item, weapon, armor, magic spell | moves; the thing is picked up | a magic item's pick-up spell (later) | [manual]; spells are placed 31 times [data] |
+   | treasure, magic item, weapon, armor, magic spell | moves; the thing is picked up, or refused at the carry limit ([inventory](inventory.md) 2) | a magic item's pick-up spell | [manual]; spells are placed 31 times [data] |
    | portal | takes the door if access allows, else refused | its spell if access is "invoke spell" | [manual] |
    | space | moves if access allows, else refused | its spell if access is "invoke spell" | [manual] |
    | custom space, "when moved onto" | moves | its spell | [manual] |
@@ -140,9 +140,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    invoke a spell on bump. [data] **Engine:** a bumped obstacle with the bit
    set is removed from the square.
 10. **Picking up** happens by moving onto the thing. A character who cannot
-    carry more of a thing gets a message instead. [manual] Limits are
-    inventory rules (section 9). **Engine:** always picks up the top thing,
-    and moves onto the square.
+    carry more of a thing gets a message instead, and the move is refused.
+    [manual] Limits, gold piles and readying are [inventory](inventory.md)
+    rules (section 2).
 
 ## 6. Room doors
 
@@ -226,9 +226,9 @@ These need the AI and are listed so the movement code leaves room for them.
   resolved action and parameter. The spell rules decide the effect, including
   *Activate All Things* running the rest of the stack top to bottom, messages
   before effects, and summons arriving next turn.
-- **Inventory:** pick-up limits ("can't carry more of those"), weight and
-  capacity slowing the bar, magic items with on-pickup spells, dropping onto
-  "when dropped here" custom spaces, dropping on the map losing the thing.
+- **Inventory:** done in [inventory.md](inventory.md): pick-up limits,
+  weight and capacity slowing the bar, dropping (also onto "when dropped
+  here" custom spaces and on the map).
 - **AI:** turn order with creatures, creatures following through doors,
   creature door rules, random creature placement on an empty square and
   periodic removal, the 16-creature region limit.

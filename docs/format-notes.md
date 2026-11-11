@@ -195,6 +195,14 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   named for lightness (LIGHTFOOT, HOVERING PACE) come out negative only with
   AcsLib's order.
 - Picture fields are 6 bits (0-63); things never use creature pictures.
+- **Thing 81 is Gold** in all 15 adventures: a treasure of value 1 (weight 1
+  or 4), the only carriable thing above 80. Every other carriable thing is
+  1-80, matching the possession bitmap (2-bit counts for 1-32, one bit for
+  33-80); creatures keep gold as the wealth count, at most 3,100.
+- **Gold pile size**: the room item parameter of a placed Gold is most
+  likely the pile's size: 117 piles hold 0-51 (37 are 0). Other carriable
+  placements have parameter 1 (1,228) or 0 (93), with a handful of stray
+  values; their meaning is unknown and the engine ignores it.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
 - **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
   action code 15 (outside 0-14) and power 0. It is never placed; three
