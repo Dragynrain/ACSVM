@@ -3,7 +3,12 @@
 //! Plain-text lines for events, for message logs and traces.
 
 use crate::game::Game;
-use crate::{BlockReason, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot, SpellSource, Who};
+use crate::magic::amount;
+use crate::{
+    BlockReason, CastRefusal, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot, SpellSource,
+    Stat, Who,
+};
+use acs_core::model::{SpellAction, SpellActionKind};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
@@ -19,6 +24,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             .filter(|n| !n.is_empty())
             .unwrap_or_else(|| format!("thing {t}"))
     };
+    let name = |w: &Who| individual(game, *w);
     let with_message = |line: String, m: &Option<String>| match m {
         Some(m) => format!("{line}: \"{m}\""),
         None => line,
@@ -158,11 +164,12 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         }
         Event::ObstacleVanished { thing: t, .. } => format!("{} vanishes.", thing(*t)),
         Event::SpellTriggered {
+            by,
+            target,
             source,
             thing: t,
             action,
             message,
-            ..
         } => {
             let src = match source {
                 SpellSource::Terrain => "terrain",
@@ -171,15 +178,22 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 SpellSource::CustomSpace => "space",
                 SpellSource::Obstacle => "obstacle",
                 SpellSource::CustomObstacle => "obstacle",
-                SpellSource::PickedUp => "pick-up",
+                SpellSource::PickedUp => "picked-up",
                 SpellSource::Dropped => "dropped",
+                SpellSource::Cast => "spell",
+                SpellSource::Used => "item",
+                SpellSource::Stack => "stacked",
+            };
+            let on = match target {
+                Some(w) if w != by => format!(" on {}", name(w)),
+                _ => String::new(),
             };
             with_message(
                 format!(
-                    "Spell from {src} {}: {:?} {}",
+                    "{} sets off {src} {}: {}{on}.",
+                    name(by),
                     thing(*t),
-                    action.kind,
-                    action.parameter
+                    action_text(game, *action)
                 ),
                 message,
             )
@@ -308,6 +322,182 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             };
             format!("{} {why}.", creature(game, *region, *slot))
         }
+        Event::SpellCast {
+            by,
+            thing: t,
+            target,
+            chance,
+            cost,
+            success,
+        } => {
+            let on = if target == by {
+                String::new()
+            } else {
+                format!(" at {}", name(target))
+            };
+            let outcome = if *success { "it works" } else { "it fails" };
+            format!(
+                "{} casts {}{on} ({chance}% chance, {cost} Power): {outcome}.",
+                name(by),
+                thing(*t)
+            )
+        }
+        Event::ItemUsed { by, thing: t, target } => {
+            let on = if target == by {
+                String::new()
+            } else {
+                format!(" on {}", name(target))
+            };
+            format!("{} uses {}{on}.", name(by), thing(*t))
+        }
+        Event::CastRefused {
+            player,
+            thing: t,
+            reason,
+        } => {
+            let why = match reason {
+                CastRefusal::NotCarried => "not carried",
+                CastRefusal::NotASpell => "not a magic spell",
+                CastRefusal::NotUsable => "it does nothing when used",
+                CastRefusal::BadTarget => "that target is not here",
+            };
+            format!("{} can't use {}: {why}.", who(player), thing(*t))
+        }
+        Event::SpellGone { who: w, thing: t } => format!("{}'s {} is gone.", name(w), thing(*t)),
+        Event::StatChanged {
+            who: w,
+            stat,
+            from,
+            to,
+        } => {
+            format!("{}'s {} goes from {from} to {to}.", name(w), stat_name(*stat))
+        }
+        Event::Given {
+            who: w,
+            thing: t,
+            kept,
+        } => {
+            if *kept {
+                format!("{} receives {}.", name(w), thing(*t))
+            } else {
+                format!("{} can't carry another {}.", name(w), thing(*t))
+            }
+        }
+        Event::LongMessage { text, .. } => format!("\"{text}\""),
+        Event::Music { number } => format!("Music {number} plays."),
+        Event::RoomRidOf {
+            region,
+            room,
+            thing: t,
+            count,
+        } => format!(
+            "{count} {} vanish from {}.",
+            thing(*t),
+            room_name(game, *region, *room)
+        ),
+        Event::ThingAdded { thing: t, at } => format!("{} appears at {}.", thing(*t), place(game, at)),
+        Event::CreatureSummoned { region, slot, at, .. } => format!(
+            "{} answers the summons at {}.",
+            creature(game, *region, *slot),
+            place(game, at)
+        ),
+        Event::SummonUnanswered { creature: c } => {
+            format!("No one answers the summons for {}.", master_creature(game, *c))
+        }
+        Event::Died { who: w, left, .. } => {
+            if left.is_empty() {
+                format!("{} dies.", name(w))
+            } else {
+                let things: Vec<String> = left
+                    .iter()
+                    .map(|&(t, n)| {
+                        if t == crate::inventory::GOLD {
+                            format!("{n} {}", thing(t))
+                        } else {
+                            thing(t)
+                        }
+                    })
+                    .collect();
+                format!("{} dies, leaving {}.", name(w), things.join(", "))
+            }
+        }
+        Event::AllPlayersDead => "Everyone is dead. Resume from the last save.".into(),
+    }
+}
+
+/// A player's or creature's name.
+fn individual(game: &Game, who: Who) -> String {
+    match who {
+        Who::Player { player } => game
+            .players()
+            .get(player)
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| format!("player {}", player + 1)),
+        Who::Creature { region, slot } => creature(game, region, slot),
+    }
+}
+
+fn master_creature(game: &Game, number: u8) -> String {
+    game.adventure()
+        .creatures
+        .get((number as usize).wrapping_sub(1))
+        .map(|c| c.name.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| format!("creature {number}"))
+}
+
+fn stat_name(s: Stat) -> &'static str {
+    match s {
+        Stat::Constitution => "Constitution",
+        Stat::Strength => "Strength",
+        Stat::Dexterity => "Dexterity",
+        Stat::Speed => "Speed",
+        Stat::Wisdom => "Wisdom",
+        Stat::Dodge => "Dodge",
+        Stat::Parry => "Parry",
+        Stat::ArmorSkill => "Armor skill",
+        Stat::Melee => "Melee",
+        Stat::Missile => "Missile",
+        Stat::Power => "Power",
+        Stat::LifeForce => "Life Force",
+        Stat::MagicDefense => "magic defense",
+    }
+}
+
+/// What a spell action does, in a few words.
+fn action_text(game: &Game, a: SpellAction) -> String {
+    use SpellActionKind::*;
+    let thing = |t: u8| {
+        game.thing(t)
+            .map(|t| t.name.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| format!("thing {t}"))
+    };
+    let p = a.parameter;
+    let signed = |p: u8| {
+        let (n, temporary) = amount(p);
+        let t = if temporary { " for a while" } else { "" };
+        format!("{n:+}{t}")
+    };
+    let stat = |p: u8| Stat::from_spell_parameter(p).map_or("nothing", stat_name);
+    match a.kind {
+        Nothing => "nothing happens".into(),
+        KillAllButOwnerOf => format!("kill all but owners of {}", thing(p)),
+        SummonOrBanish if p == 0 => "banish every creature".into(),
+        SummonOrBanish => format!("summon {}", master_creature(game, p)),
+        IncreaseMagicDefense => "raise magic defense".into(),
+        DecreaseMagicDefense => "lower magic defense".into(),
+        IncreaseStat => format!("raise {}", stat(p)),
+        DecreaseStat => format!("lower {}", stat(p)),
+        ChangePower => format!("Power {}", signed(p)),
+        ChangeLifeForce => format!("Life Force {}", signed(p)),
+        Give => format!("give {}", thing(p)),
+        LongMessage => format!("message {p}"),
+        PlayMusic => format!("music {}", p as u16 + 1),
+        RidRoomOf => format!("rid the room of {}", thing(p)),
+        AddToRoom => format!("add {}", thing(p)),
+        ActivateAll => "activate everything here".into(),
+        Invalid(c) => format!("unknown action {c}"),
     }
 }
 

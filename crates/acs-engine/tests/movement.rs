@@ -466,14 +466,15 @@ fn one_way_door_to_the_map_and_door_to_a_deleted_room() {
                 ..
             }
         ));
+        // The spell's own effects come next, then the door.
         assert!(
-            matches!(
-                ev[1],
+            ev.iter().any(|e| matches!(
+                e,
                 Event::TookDoor {
                     to: Location::World { x: 5, y: 6 },
                     ..
                 }
-            ),
+            )),
             "{ev:?}"
         );
         assert!(ev.contains(&Event::LeftRegion { player: 0, region: 1 }));
@@ -574,8 +575,19 @@ fn non_owner_space_obstacles_store_and_residents() {
                 ..
             }
         ));
-        assert!(matches!(ev[2], Event::ObstacleVanished { thing: CHEST, .. }));
-        assert!(matches!(mv(&mut g, Dir::S)[0], Event::Moved { .. }));
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::ObstacleVanished { thing: CHEST, .. })));
+        // Its Add to Room left a KEY where it stood (magic 3.13).
+        let ev = mv(&mut g, Dir::S);
+        assert_eq!(
+            ev[0],
+            Event::PickedUp {
+                player: 0,
+                thing: KEY
+            }
+        );
+        assert!(matches!(ev[1], Event::Moved { .. }));
 
         // Altar: custom obstacle with the placement parameter.
         g.place(0, hall(5, 3));

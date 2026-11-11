@@ -13,8 +13,11 @@ engine handles movement, inventory and creatures outside combat so far, and
 the viewer's walk mode lets you move a player through an adventure, pick
 things up, ready weapons and armor, drop things, and watch the creatures in
 the room take their turns: they walk up to you, follow you through doors,
-grab gold and treasure, and appear at random. There is no combat or magic
-yet. See
+grab gold and treasure, and appear at random. Spells work: spaces, doors,
+obstacles and magic items set them off, you can cast spells and use magic
+items on yourself or anyone in the room, smart creatures cast at you (or
+heal you, if they are friends), and Life Force can run out. There is no
+combat yet. See
 [docs/design.md](docs/design.md) for the full plan and
 [docs/rules/](docs/rules/movement.md) for the rules as specified.
 

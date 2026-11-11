@@ -5,8 +5,9 @@
 //! to it). Picking up happens in `step.rs`, since it is a move.
 
 use crate::game::{Game, Player};
+use crate::magic::Spell;
 use crate::step::resolve_custom_space;
-use crate::{Dir, DropRefusal, Event, Location, ReadyRefusal, Slot, SpellSource};
+use crate::{Dir, DropRefusal, Event, Location, ReadyRefusal, Slot, SpellSource, Who};
 use acs_core::model::{Adventure, CustomTrigger, RoomItem, ThingKind};
 
 /// Thing 81 is Gold, counted in pieces (1.3).
@@ -201,9 +202,15 @@ impl Game {
 
     /// A "when dropped here" custom space on top of the target that wants
     /// `thing`: casts its spell and says whether the thing is consumed (5.7).
-    fn dropped_on_custom_space(&self, top: &Option<RoomItem>, thing: u8, ev: &mut Vec<Event>) -> bool {
+    fn dropped_on_custom_space(
+        &mut self,
+        at: (u8, u8, u8, u8),
+        top: &Option<RoomItem>,
+        thing: u8,
+        ev: &mut Vec<Event>,
+    ) -> bool {
         let Some(it) = top else { return false };
-        let Some(t) = self.thing(it.thing) else {
+        let Some(t) = self.thing(it.thing).cloned() else {
             return false;
         };
         let ThingKind::CustomSpace {
@@ -220,13 +227,24 @@ impl Game {
         if needed != thing {
             return false;
         }
-        ev.push(Event::SpellTriggered {
-            player: self.current,
-            source: SpellSource::CustomSpace,
-            thing: it.thing,
-            action,
-            message: self.message(&t.spell_message),
-        });
+        let (region, room, x, y) = at;
+        let stack = self
+            .room(region, room)
+            .and_then(|r| r.items.iter().position(|i| i.x == x && i.y == y));
+        let me = Who::Player { player: self.current };
+        self.run_spell(
+            Spell {
+                by: me,
+                target: me,
+                source: SpellSource::CustomSpace,
+                thing: it.thing,
+                action,
+                message: self.message(&t.spell_message),
+                at: Location::Room { region, room, x, y },
+                stack,
+            },
+            ev,
+        );
         if destroy_needed_thing {
             ev.push(Event::ThingUsedUp {
                 player: self.current,
@@ -300,18 +318,45 @@ impl Game {
             }
         };
         self.take_one(p, thing);
+        let me = Who::Player { player: p };
+        // Magic 2.3: it acts on the dropper unless it lands on a creature.
         let drop_spell = match t.kind {
             ThingKind::MagicItem {
                 action,
                 on_drop: true,
                 ..
-            } => Some(Event::SpellTriggered {
-                player: p,
-                source: SpellSource::Dropped,
-                thing,
-                action,
-                message: self.message(&t.spell_message),
-            }),
+            } => {
+                let (at, victim) = match &target {
+                    Target::Map => (self.players[p].at, me),
+                    Target::Room {
+                        region, room, x, y, ..
+                    } => {
+                        let on = self
+                            .others_in_room(*region, *room, Some(me))
+                            .into_iter()
+                            .find(|o| (o.x, o.y) == (*x, *y) && matches!(o.who, Who::Creature { .. }));
+                        (
+                            Location::Room {
+                                region: *region,
+                                room: *room,
+                                x: *x,
+                                y: *y,
+                            },
+                            on.map_or(me, |o| o.who),
+                        )
+                    }
+                };
+                Some(Spell {
+                    by: me,
+                    target: victim,
+                    source: SpellSource::Dropped,
+                    thing,
+                    action,
+                    message: self.message(&t.spell_message),
+                    at,
+                    stack: None,
+                })
+            }
             _ => None,
         };
         match target {
@@ -324,7 +369,7 @@ impl Game {
                 y,
                 top,
             } => {
-                if self.dropped_on_custom_space(&top, thing, ev) {
+                if self.dropped_on_custom_space((region, room, x, y), &top, thing, ev) {
                     return;
                 }
                 if matches!(
@@ -345,7 +390,9 @@ impl Game {
                 }
             }
         }
-        ev.extend(drop_spell);
+        if let Some(s) = drop_spell {
+            self.run_spell(s, ev);
+        }
     }
 
     /// `DropGold { amount, dir }` (5.8).
@@ -385,7 +432,7 @@ impl Game {
                 y,
                 top,
             } => {
-                if self.dropped_on_custom_space(&top, GOLD, ev) {
+                if self.dropped_on_custom_space((region, room, x, y), &top, GOLD, ev) {
                     return;
                 }
                 let vanishes = matches!(

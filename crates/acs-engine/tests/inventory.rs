@@ -517,15 +517,23 @@ fn when_dropped_here_spaces_make_vending_machines() {
             Event::SpellTriggered { source: SpellSource::CustomSpace, thing: SLOT, action, .. }
                 if action.kind == SpellActionKind::AddToRoom && action.parameter == CROWN
         ));
+        // Magic 3.13: the crown lands on top of the slot.
         assert_eq!(
             ev[1],
+            Event::ThingAdded {
+                thing: CROWN,
+                at: hall(6, 1)
+            }
+        );
+        assert_eq!(
+            ev[2],
             Event::ThingUsedUp {
                 player: 0,
                 thing: GOLD
             }
         );
         assert_eq!(g.current_player().gold, 9);
-        assert_eq!(stack(&g, 6, 1), vec![(SLOT, GOLD)]);
+        assert_eq!(stack(&g, 6, 1), vec![(CROWN, 1), (SLOT, GOLD)]);
 
         // The bin keeps what it is given and casts once for the rock.
         g.place(0, hall(7, 2));
@@ -534,8 +542,10 @@ fn when_dropped_here_spaces_make_vending_machines() {
             ev[0],
             Event::SpellTriggered { thing: BIN, action, .. } if action.kind == SpellActionKind::RidRoomOf
         ));
+        // Rid Room runs before the rock lands, so the rock stays.
+        assert!(matches!(ev[1], Event::RoomRidOf { count: 0, .. }));
         assert_eq!(
-            ev[1],
+            ev[2],
             Event::Dropped {
                 player: 0,
                 thing: ROCK,

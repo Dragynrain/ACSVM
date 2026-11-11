@@ -2,8 +2,8 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 2 (rules engine from the manual; movement, inventory and
-creatures outside combat done, spell actions in progress). Next: 3, the behavior capture harness,
+Plan: `docs/design.md`. Current phase: 2 (rules engine from the manual; movement, inventory,
+creatures outside combat and magic done). Next: 3, the behavior capture harness,
 before any combat formulas.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data] or
 [unknown] with the engine's choice; write the spec before the code.
@@ -62,8 +62,10 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (SplitMix64) for every roll. `step.rs` is movement (and pick-ups),
   `inventory.rs` carry limits, weight, Ready and Drop, `creatures.rs` turn
   order, random creatures and personality, `ai.rs` one creature's turn (goals,
-  paths, doors, pick-ups, drops, readying); `describe` turns events into log
-  lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
+  paths, doors, pick-ups, drops, readying, casting), `magic.rs` the 15 spell
+  actions, Cast/Use, Power drift, temporary Life Force, healing and death
+  (`run_spell` is the one place a spell takes effect); `describe` turns
+  events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays

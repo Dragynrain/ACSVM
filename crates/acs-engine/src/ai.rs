@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! One creature's turn: the overburdened drop, readying, choosing a goal
-//! and walking towards it. Spec: `docs/rules/creatures.md` sections 5-8.
+//! One creature's turn: the overburdened drop, readying, casting, choosing
+//! a goal and walking towards it. Spec: `docs/rules/creatures.md` sections
+//! 5-8 and `docs/rules/magic.md` section 6.
 
 use crate::creatures::{self, is_fighter, is_foe, is_wounded, Other};
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT, PILE_LIMIT};
-use crate::{Dir, Event, Location, RemovalReason, Who};
-use acs_core::model::{Access, Alignment, Creature, Destination, Possession, SpellActionKind, ThingKind};
+use crate::magic::{self, add_possession, take_possession, Spell};
+use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
+use acs_core::model::{Access, Alignment, Creature, Destination, SpellActionKind, ThingKind};
 use std::collections::VecDeque;
 
 use Alignment::{Enemy, Friend, Neutral, Thief};
@@ -105,19 +107,130 @@ struct Choice {
 const FAR: u16 = u16::MAX;
 
 impl Game {
-    /// One creature's turn in a creature phase (2.5, 8.1, 8.2, 6.6).
+    /// One creature's turn in a creature phase (2.5, 8.1, 8.2, 6.6), then
+    /// drift, decay and healing (magic 5.4).
     pub(crate) fn creature_turn(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
+        self.creature_acts(region, slot, ev);
+        self.upkeep(Who::Creature { region, slot }, ev);
+    }
+
+    fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
         self.overburdened_drop(region, slot, ev);
+        if self.creature(region, slot).is_none() {
+            return; // its drop spell killed it
+        }
         self.creature_ready(region, slot, ev);
         let Some(c) = self.creature(region, slot) else {
             return;
         };
         let moves = creatures::effective_speed(&self.adv, c);
         ev.push(Event::CreatureTurn { region, slot, moves });
+        // Magic 6.3: casting (or using an item) takes the whole turn.
+        if self.creature_magic(region, slot, ev) {
+            return;
+        }
         for _ in 0..moves {
             if !self.creature_step(region, slot, ev) {
                 break;
             }
+        }
+    }
+
+    /// Magic 6.1-6.5: a smart fighter casts its lowest-numbered fitting
+    /// spell at the individual it is after (Power at least Wisdom), or else
+    /// uses a fitting magic item (Power at least half Wisdom). True if it
+    /// did, which ends its turn.
+    fn creature_magic(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
+        let me = Who::Creature { region, slot };
+        let Some(c) = self.creature(region, slot).cloned() else {
+            return false;
+        };
+        if !is_fighter(&c) || c.power < c.wisdom / 2 {
+            return false;
+        }
+        let Some((grid, w, h)) = self.squares(region, slot) else {
+            return false;
+        };
+        let Some(choice) = self.choose(region, slot, &grid, w, h) else {
+            return false;
+        };
+        let Target::Individual(goal) = choice.target else {
+            return false;
+        };
+        let foe = is_foe(&c, &goal);
+        let mut owned: Vec<u8> = c
+            .possessions
+            .iter()
+            .filter(|p| p.count > 0)
+            .map(|p| p.thing)
+            .collect();
+        owned.sort_unstable();
+        let find = |spell: bool| {
+            owned
+                .iter()
+                .copied()
+                .find(|&t| match self.thing(t).map(|t| &t.kind) {
+                    Some(ThingKind::MagicSpell { action, .. }) => {
+                        spell && magic::hurtful(*action) == Some(foe)
+                    }
+                    Some(ThingKind::MagicItem {
+                        action, on_use: true, ..
+                    }) => !spell && magic::hurtful(*action) == Some(foe),
+                    _ => false,
+                })
+        };
+        let pick = if c.power >= c.wisdom {
+            find(true)
+                .map(|t| (t, true))
+                .or_else(|| find(false).map(|t| (t, false)))
+        } else {
+            find(false).map(|t| (t, false))
+        };
+        let Some((thing, is_spell)) = pick else {
+            return false;
+        };
+        let smart = match c.wisdom {
+            w if w > 14 => true,
+            w if w < 6 => false,
+            w => self.rng.percent((w - 5) * 10),
+        };
+        if !smart {
+            return false;
+        }
+        if is_spell {
+            self.cast(me, thing, goal.who, ev);
+        } else {
+            self.use_item(me, thing, goal.who, ev);
+        }
+        true
+    }
+
+    /// Magic 6.6: a magic item a creature drops on `at` casts its drop
+    /// spell on the creature itself (it never lands on another creature).
+    fn creature_drop_spell(&mut self, region: u8, slot: usize, thing: u8, at: Location, ev: &mut Vec<Event>) {
+        let Some(t) = self.thing(thing).cloned() else {
+            return;
+        };
+        if let ThingKind::MagicItem {
+            action,
+            on_drop: true,
+            ..
+        } = t.kind
+        {
+            let me = Who::Creature { region, slot };
+            self.run_spell(
+                Spell {
+                    by: me,
+                    target: me,
+                    source: SpellSource::Dropped,
+                    thing,
+                    action,
+                    message: self.message(&t.spell_message),
+                    at,
+                    stack: None,
+                },
+                ev,
+            );
         }
     }
 
@@ -544,6 +657,32 @@ impl Game {
                 }
             }
         }
+        // Magic 6.6: a door's spell goes off for the creature passing.
+        if let Some(t) = self.thing(item.thing).cloned() {
+            if let ThingKind::Portal {
+                access: Access::InvokeSpell { action },
+                ..
+            } = t.kind
+            {
+                let me = Who::Creature { region, slot };
+                self.run_spell(
+                    Spell {
+                        by: me,
+                        target: me,
+                        source: SpellSource::Portal,
+                        thing: item.thing,
+                        action,
+                        message: self.message(&t.spell_message),
+                        at: door,
+                        stack: Some(index),
+                    },
+                    ev,
+                );
+                if self.creature(region, slot).is_none() {
+                    return;
+                }
+            }
+        }
         if let Some(cm) = self.creature_mut(region, slot) {
             cm.room = room;
             cm.x = lx;
@@ -568,26 +707,7 @@ impl Game {
         if !self.occupied(region, room, x, y) {
             return Some((x, y));
         }
-        let r = self.room(region, room)?;
-        let (w, h) = (r.width as i16, r.height as i16);
-        for d in 1..w.max(h) {
-            for ny in (y as i16 - d)..=(y as i16 + d) {
-                for nx in (x as i16 - d)..=(x as i16 + d) {
-                    if (nx - x as i16).abs().max((ny - y as i16).abs()) != d {
-                        continue;
-                    }
-                    if nx <= 0 || ny <= 0 || nx >= w - 1 || ny >= h - 1 {
-                        continue;
-                    }
-                    let (nx, ny) = (nx as u8, ny as u8);
-                    let has_item = r.items.iter().any(|it| it.x == nx && it.y == ny);
-                    if !has_item && !self.occupied(region, room, nx, ny) {
-                        return Some((nx, ny));
-                    }
-                }
-            }
-        }
-        None
+        self.nearest_free(region, room, x, y)
     }
 
     /// 8.1: one drop a turn while load is above capacity.
@@ -654,6 +774,7 @@ impl Game {
             amount,
             at: (!vanishes).then_some(at),
         });
+        self.creature_drop_spell(region, slot, thing, at, ev);
     }
 
     /// 8.2: a missile weapon when safe, else a melee weapon; lowest number.
@@ -750,50 +871,19 @@ impl Game {
             take_possession(cm, thing);
         }
         self.put_on_top(region, c.room, spot.0, spot.1, thing, 1);
+        let at = Location::Room {
+            region,
+            room: c.room,
+            x: spot.0,
+            y: spot.1,
+        };
         ev.push(Event::CreatureDropped {
             region,
             slot,
             thing,
             amount: 1,
-            at: Some(Location::Room {
-                region,
-                room: c.room,
-                x: spot.0,
-                y: spot.1,
-            }),
+            at: Some(at),
         });
+        self.creature_drop_spell(region, slot, thing, at, ev);
     }
-}
-
-fn add_possession(c: &mut Creature, thing: u8) {
-    if let Some(p) = c.possessions.iter_mut().find(|p| p.thing == thing) {
-        p.count += 1;
-    } else {
-        c.possessions.push(Possession { thing, count: 1 });
-    }
-}
-
-/// Removes one; clears the readied slot when the last goes. False if none.
-fn take_possession(c: &mut Creature, thing: u8) -> bool {
-    if thing == GOLD {
-        if c.wealth == 0 {
-            return false;
-        }
-        c.wealth -= 1;
-        return true;
-    }
-    let Some(i) = c.possessions.iter().position(|p| p.thing == thing && p.count > 0) else {
-        return false;
-    };
-    c.possessions[i].count -= 1;
-    if c.possessions[i].count == 0 {
-        c.possessions.remove(i);
-        if c.weapon == thing {
-            c.weapon = 0;
-        }
-        if c.armor == thing {
-            c.armor = 0;
-        }
-    }
-    true
 }

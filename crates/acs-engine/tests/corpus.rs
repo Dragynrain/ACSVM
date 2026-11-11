@@ -392,10 +392,11 @@ fn every_carriable_thing_can_be_picked_up() {
     assert!(items > 0);
 }
 
-/// Creatures 1-8: a player dropped into every room that has residents or a
-/// random creature, then a dozen turns of waiting and wandering. Creatures
-/// stay in their region, never share a square, stand only inside live rooms
-/// once they move, and keep within the carry limits.
+/// Creatures 1-8 and magic 6-7: a player dropped into every room that has
+/// residents or a random creature, then a dozen turns of waiting and
+/// wandering. Creatures stay in their region, never share a square, stand
+/// only inside live rooms once they move, and keep within the carry limits.
+/// Casting creatures may kill the player, which ends that room's tour.
 #[test]
 fn creatures_in_every_room_follow_the_rules() {
     use acs_engine::creatures::{is_fighter, SLOTS};
@@ -471,11 +472,31 @@ fn creatures_in_every_room_follow_the_rules() {
                     for e in evs {
                         let k = format!("{e:?}");
                         let k = k.split([' ', '{']).next().unwrap();
-                        if k.starts_with("Creature") || k == "RoomEncounter" {
+                        let magic = [
+                            "SpellCast",
+                            "ItemUsed",
+                            "SpellTriggered",
+                            "Died",
+                            "SummonUnanswered",
+                            "Music",
+                            "LongMessage",
+                            "Given",
+                        ];
+                        if k.starts_with("Creature") || k == "RoomEncounter" || magic.contains(&k) {
                             *tally.entry(k.to_string()).or_default() += 1;
                         }
                         if let Event::CreatureRemoved { reason, .. } = e {
                             *tally.entry(format!("removed {reason:?}")).or_default() += 1;
+                        }
+                        if let Event::SpellCast { success: true, .. } = e {
+                            *tally.entry("cast and worked".into()).or_default() += 1;
+                        }
+                        if let Event::Died {
+                            who: acs_engine::Who::Player { .. },
+                            ..
+                        } = e
+                        {
+                            *tally.entry("player died".into()).or_default() += 1;
                         }
                     }
                     let ga = g.adventure();
@@ -499,7 +520,8 @@ fn creatures_in_every_room_follow_the_rules() {
                                 assert!(!(same && moved), "{file}: two creatures share {},{}", c.x, c.y);
                             }
                             let pl = g.current_player().at;
-                            if moved {
+                            // The dead stand nowhere (magic 7.4).
+                            if moved && g.current_player().alive {
                                 assert_ne!(
                                     pl,
                                     Location::Room {
@@ -516,6 +538,9 @@ fn creatures_in_every_room_follow_the_rules() {
                                 assert!(p.count as u16 <= inventory::limit(p.thing), "{file}: {c:?}");
                             }
                         }
+                    }
+                    if g.is_over() {
+                        break;
                     }
                 }
             }

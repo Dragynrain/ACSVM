@@ -6,7 +6,8 @@
 
 use crate::game::Game;
 use crate::inventory;
-use crate::{BlockReason, Dir, Event, Location, Slot, SpellSource};
+use crate::magic::Spell;
+use crate::{BlockReason, Dir, Event, Location, Slot, SpellSource, Who};
 use acs_core::model::{
     Access, CustomTrigger, Destination, Passability, PlacementChoice, SpellAction, ThingKind,
 };
@@ -170,13 +171,23 @@ impl Game {
                 self.players[p].at = to;
                 ev.push(Event::Moved { player: p, from, to });
                 if let Some((action, message)) = self.thing_spell(terrain.parameter) {
-                    ev.push(Event::SpellTriggered {
-                        player: p,
-                        source: SpellSource::Terrain,
-                        thing: terrain.parameter,
-                        action,
-                        message,
-                    });
+                    let me = Who::Player { player: p };
+                    self.run_spell(
+                        Spell {
+                            by: me,
+                            target: me,
+                            source: SpellSource::Terrain,
+                            thing: terrain.parameter,
+                            action,
+                            message,
+                            at: to,
+                            stack: None,
+                        },
+                        ev,
+                    );
+                    if !self.players[p].alive {
+                        return;
+                    }
                 }
                 self.spend(ev);
             }
@@ -290,12 +301,17 @@ impl Game {
             reason,
             message: blocked_message.clone(),
         };
-        let spell = |source, action| Event::SpellTriggered {
-            player: p,
+        let me = Who::Player { player: p };
+        // Magic 2.1: the spell acts on the one who set it off, at this square.
+        let spell = |source, action, stack| Spell {
+            by: me,
+            target: me,
             source,
             thing: item.thing,
             action,
             message: spell_message.clone(),
+            at: to,
+            stack,
         };
 
         match thing.kind {
@@ -350,7 +366,11 @@ impl Game {
                     ..
                 } = thing.kind
                 {
-                    ev.push(spell(SpellSource::PickedUp, action));
+                    // Magic 2.2: it acts on the one who picked it up.
+                    self.run_spell(spell(SpellSource::PickedUp, action, None), ev);
+                    if !self.players[p].alive {
+                        return;
+                    }
                 }
                 self.move_to(p, from, to, ev);
             }
@@ -363,7 +383,10 @@ impl Game {
                 Pass::No(reason) => ev.push(block(reason)),
                 Pass::Yes { spell: s, used_up } => {
                     if let Some(a) = s {
-                        ev.push(spell(SpellSource::Portal, a));
+                        self.run_spell(spell(SpellSource::Portal, a, Some(index)), ev);
+                        if !self.players[p].alive {
+                            return;
+                        }
                     }
                     self.use_up(p, used_up, ev);
                     // Creatures 6.4: creatures left behind chase through it.
@@ -378,7 +401,10 @@ impl Game {
                     self.players[p].at = to;
                     ev.push(Event::Moved { player: p, from, to });
                     if let Some(a) = s {
-                        ev.push(spell(SpellSource::Space, a));
+                        self.run_spell(spell(SpellSource::Space, a, Some(index)), ev);
+                        if !self.players[p].alive {
+                            return;
+                        }
                     }
                     self.spend(ev);
                 }
@@ -414,7 +440,10 @@ impl Game {
                 self.players[p].at = to;
                 ev.push(Event::Moved { player: p, from, to });
                 if fires {
-                    ev.push(spell(SpellSource::CustomSpace, action));
+                    self.run_spell(spell(SpellSource::CustomSpace, action, Some(index)), ev);
+                    if !self.players[p].alive {
+                        return;
+                    }
                 }
                 self.use_up(p, used_up, ev);
                 self.spend(ev);
@@ -426,11 +455,12 @@ impl Game {
             } => {
                 ev.push(block(BlockReason::Obstacle { thing: item.thing }));
                 if bump_invokes_spell {
-                    ev.push(spell(SpellSource::Obstacle, action));
+                    self.run_spell(spell(SpellSource::Obstacle, action, Some(index)), ev);
                 }
                 // 5.9: bit 4 of the first property byte = vanishes when bumped.
+                // (The spell may have changed the list, so look it up again.)
                 if thing.raw[0] & 0x10 != 0 {
-                    self.remove_item(region, room, index);
+                    self.remove_thing_at(region, room, nx, ny, item.thing);
                     ev.push(Event::ObstacleVanished {
                         at: to,
                         thing: item.thing,
@@ -439,13 +469,17 @@ impl Game {
             }
             ThingKind::CustomObstacle { action, .. } => {
                 ev.push(block(BlockReason::Obstacle { thing: item.thing }));
-                ev.push(spell(
-                    SpellSource::CustomObstacle,
-                    SpellAction {
-                        kind: action.kind,
-                        parameter: item.parameter,
-                    },
-                ));
+                self.run_spell(
+                    spell(
+                        SpellSource::CustomObstacle,
+                        SpellAction {
+                            kind: action.kind,
+                            parameter: item.parameter,
+                        },
+                        Some(index),
+                    ),
+                    ev,
+                );
             }
             ThingKind::Store { .. } => ev.push(block(BlockReason::Store { thing: item.thing })),
             ThingKind::RoomFloor { .. } | ThingKind::Undefined | ThingKind::Unknown { .. } => {
@@ -506,6 +540,18 @@ impl Game {
             .and_then(|r| r.items.get_mut(index))
         {
             it.parameter = parameter;
+        }
+    }
+
+    /// Removes the topmost `thing` on a square, if any.
+    pub(crate) fn remove_thing_at(&mut self, region: u8, room: u8, x: u8, y: u8, thing: u8) {
+        let i = self.room(region, room).and_then(|r| {
+            r.items
+                .iter()
+                .position(|it| it.x == x && it.y == y && it.thing == thing)
+        });
+        if let Some(i) = i {
+            self.remove_item(region, room, i);
         }
     }
 

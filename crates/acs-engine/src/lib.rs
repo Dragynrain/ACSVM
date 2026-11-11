@@ -12,14 +12,15 @@
 //! the spec tags every rule as coming from the manual, from the data, or as
 //! still unknown, and says what the engine does for the unknown ones.
 //! Implemented so far: movement (`docs/rules/movement.md`), inventory
-//! (`docs/rules/inventory.md`) and creatures outside combat
-//! (`docs/rules/creatures.md`).
+//! (`docs/rules/inventory.md`), creatures outside combat
+//! (`docs/rules/creatures.md`) and magic (`docs/rules/magic.md`).
 
 mod ai;
 pub mod creatures;
 mod describe;
 mod game;
 pub mod inventory;
+pub mod magic;
 pub mod rng;
 mod step;
 
@@ -130,6 +131,19 @@ pub enum Command {
     },
     /// "New Weapon" / "New Armor": readies a carried weapon or armor.
     Ready { thing: u8 },
+    /// "Use Power": casts a carried magic spell at `target` (the caster
+    /// when `None`) (magic 4.1). Ends the turn.
+    Cast {
+        thing: u8,
+        #[serde(default)]
+        target: Option<Who>,
+    },
+    /// "Use Object": uses a carried magic item (magic 4.2). Ends the turn.
+    Use {
+        thing: u8,
+        #[serde(default)]
+        target: Option<Who>,
+    },
 }
 
 /// Choices the original leaves open or that are still unmeasured
@@ -222,6 +236,85 @@ pub enum SpellSource {
     PickedUp,
     /// A magic item's drop spell.
     Dropped,
+    /// A magic spell cast with `Cast`.
+    Cast,
+    /// A magic item used with `Use`.
+    Used,
+    /// A magic item or spell lying in a stack, run by Activate All.
+    Stack,
+}
+
+/// Why `Cast` or `Use` was refused (it costs nothing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum CastRefusal {
+    NotCarried,
+    /// `Cast` needs a magic spell.
+    NotASpell,
+    /// `Use` needs a magic item that acts when used.
+    NotUsable,
+    /// The target is not an individual in the caster's room.
+    BadTarget,
+}
+
+/// A trait, skill or other rating a spell can change (magic 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Stat {
+    Constitution,
+    Strength,
+    Dexterity,
+    Speed,
+    Wisdom,
+    Dodge,
+    Parry,
+    ArmorSkill,
+    Melee,
+    Missile,
+    Power,
+    LifeForce,
+    /// Magic defense as its level 0..=3.
+    MagicDefense,
+}
+
+impl Stat {
+    /// The Increase / Decrease spell parameter 0..=9 (magic 3.5).
+    pub fn from_spell_parameter(p: u8) -> Option<Stat> {
+        use Stat::*;
+        Some(match p {
+            0 => Constitution,
+            1 => Strength,
+            2 => Dexterity,
+            3 => Speed,
+            4 => Wisdom,
+            5 => Dodge,
+            6 => Parry,
+            7 => ArmorSkill,
+            8 => Melee,
+            9 => Missile,
+            _ => return None,
+        })
+    }
+
+    /// Skills move by 5 per spell, traits by 1 (magic 3.5).
+    pub fn is_skill(self) -> bool {
+        matches!(
+            self,
+            Stat::Dodge | Stat::Parry | Stat::ArmorSkill | Stat::Melee | Stat::Missile
+        )
+    }
+
+    /// The highest value the manual allows.
+    pub fn max(self) -> u8 {
+        match self {
+            Stat::Speed => 15,
+            Stat::LifeForce => 63,
+            Stat::Power => 127,
+            Stat::MagicDefense => 3,
+            s if s.is_skill() => 127,
+            _ => 31,
+        }
+    }
 }
 
 /// What happened. Front ends draw from these; tests compare them.
@@ -328,9 +421,13 @@ pub enum Event {
         at: Location,
         thing: u8,
     },
-    /// A spell went off. Its effect belongs to the magic rules (not yet).
+    /// A spell went off; its effects follow as further events (magic 3).
     SpellTriggered {
-        player: usize,
+        /// Who set it off (stepped on, bumped, picked up, dropped, cast).
+        by: Who,
+        /// The individual it acts on, for spells that act on one (magic 2).
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        target: Option<Who>,
         source: SpellSource,
         /// The master thing that carries the spell.
         thing: u8,
@@ -453,6 +550,88 @@ pub enum Event {
         slot: usize,
         reason: RemovalReason,
     },
+    /// `Cast` or a creature's cast: the roll against Power (magic 4.1). The
+    /// cost is already off the caster's Power.
+    SpellCast {
+        by: Who,
+        thing: u8,
+        target: Who,
+        /// Percent chance of success that was rolled against.
+        chance: u8,
+        cost: u8,
+        success: bool,
+    },
+    /// `Use` or a creature using a magic item (magic 4.2).
+    ItemUsed {
+        by: Who,
+        thing: u8,
+        target: Who,
+    },
+    CastRefused {
+        player: usize,
+        thing: u8,
+        #[serde(flatten)]
+        reason: CastRefusal,
+    },
+    /// A spell that disappears after use is gone from its owner.
+    SpellGone {
+        who: Who,
+        thing: u8,
+    },
+    /// A spell changed a rating.
+    StatChanged {
+        who: Who,
+        stat: Stat,
+        from: u8,
+        to: u8,
+    },
+    /// Give: `kept` is false when the carry limit refused it (magic 3.9).
+    Given {
+        who: Who,
+        thing: u8,
+        kept: bool,
+    },
+    LongMessage {
+        number: u8,
+        text: String,
+    },
+    /// Play Music, 1-based choice 1..=30 (magic 3.11).
+    Music {
+        number: u8,
+    },
+    /// Rid Room: `count` copies of `thing` lying in the room are gone.
+    RoomRidOf {
+        region: u8,
+        room: u8,
+        thing: u8,
+        count: u16,
+    },
+    /// Add to Room: one `thing` now lies on top at `at`.
+    ThingAdded {
+        thing: u8,
+        at: Location,
+    },
+    /// A summoned master creature arrived (magic 3.2).
+    CreatureSummoned {
+        region: u8,
+        slot: usize,
+        creature: u8,
+        at: Location,
+    },
+    /// A summons found no free slot or square, or was made on the map.
+    SummonUnanswered {
+        creature: u8,
+    },
+    /// Life Force reached 0 (magic 7). `left` lists what now lies at `at`
+    /// (thing, amount; gold in pieces).
+    Died {
+        who: Who,
+        at: Location,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        left: Vec<(u8, u16)>,
+    },
+    /// No player is left alive; the game takes no more commands.
+    AllPlayersDead,
 }
 
 /// An individual: a player or a creature in a region slot.
@@ -469,6 +648,7 @@ pub enum Who {
 pub enum RemovalReason {
     /// A random creature left in a room with no player (creatures 2.4).
     LeftBehind,
-    /// Sent through a door into a deleted room (creatures 5.5).
+    /// Sent through a door into a deleted room (creatures 5.5), or by a
+    /// Banish spell (magic 3.2).
     Banished,
 }

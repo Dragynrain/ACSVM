@@ -105,7 +105,7 @@ impl Game {
             } = p.at
             {
                 let who = Who::Player { player: i };
-                if r == region && m == room && Some(who) != not {
+                if p.alive && r == region && m == room && Some(who) != not {
                     out.push(Other {
                         who,
                         alignment: None,
@@ -141,7 +141,9 @@ impl Game {
     }
 
     fn player_in_room(&self, region: u8, room: u8) -> bool {
-        self.players.iter().any(|p| p.at.room() == Some((region, room)))
+        self.players
+            .iter()
+            .any(|p| p.alive && p.at.room() == Some((region, room)))
     }
 
     /// 2.6: an aggressive creature that is not a Friend stands next to the
@@ -212,6 +214,7 @@ impl Game {
             c.wealth = 0;
         }
         self.random.retain(|&r| r != (region, slot));
+        self.forget_vitals(Who::Creature { region, slot });
         ev.push(Event::CreatureRemoved { region, slot, reason });
     }
 
@@ -245,6 +248,7 @@ impl Game {
         let reg = self.region_mut(region)?;
         reg.residents[slot] = c;
         self.random.push((region, slot));
+        self.forget_vitals(Who::Creature { region, slot });
         Some((slot, Location::Room { region, room, x, y }))
     }
 

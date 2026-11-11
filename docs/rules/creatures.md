@@ -111,7 +111,7 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    a player (owners of / non-owners of, with the needed thing used up if the
    door destroys it); an "invoke spell" door is closed to creatures when the
    spell is Activate All, Rid Room or Add to Room. Other spell doors let them
-   pass without the spell going off, until the magic rules exist. [unknown]
+   pass and the spell goes off for them ([magic](magic.md) 6.6). [unknown]
 4. **Taking a door** costs one step and ends the creature's turn. It arrives
    on the door's destination square, or if an individual stands there, on
    the nearest inside square with no individual and no thing (rings of
@@ -187,7 +187,8 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    carries one. [manual] **Engine:** the lowest-numbered one, onto the first
    square around the player (direction order from N) that is an inside
    square accepting drops (inventory 5.4) with no individual on it, else
-   onto the friend's own square. Its drop spell does not go off yet. [unknown]
+   onto the friend's own square. A drop spell then acts on the friend
+   itself, since it lands on no creature ([magic](magic.md) 2.3). [unknown]
 4. **Foes**, for readying and for 7.1: [manual] **Engine:**
    - an enemy's foes are players and friends;
    - a friend's foes are enemies, aggressive neutrals and aggressive thieves;
@@ -219,7 +220,7 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    only if it is the lowest-numbered of that kind. [unknown]
 3. A safe fighter with a readied missile weapon fires at a foe goal.
    [manual] Combat.
-4. Casting and using magic items: the magic rules.
+4. Casting and using magic items: [magic](magic.md) section 6.
 
 ## 9. Corpus check
 
@@ -236,8 +237,6 @@ creatures replay exactly.
 
 - **Combat:** attacks on `CreatureConfronts`, attacking those met on the way,
   missile fire, creatures turning hostile when hurt.
-- **Magic:** creatures casting and using items, door and drop spells set off
-  by creatures, summons (which also obey 1.1), Banish.
 - **World map:** encounter areas and the creatures in them.
 - **Mimics** copy the opponent they meet: combat.
 

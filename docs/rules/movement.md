@@ -224,11 +224,10 @@ These need the AI and are listed so the movement code leaves room for them.
   melee weapon is readied; adjacency to aggressive unfriendlies shortens the
   bar; missile range counts squares including diagonals and stops at
   obstacles. Death on the map loses carried things.
-- **Magic:** every `SpellTriggered` event (from terrain, portals, spaces,
-  custom spaces, obstacles, picked-up items) carries the thing and the
-  resolved action and parameter. The spell rules decide the effect, including
-  *Activate All Things* running the rest of the stack top to bottom, messages
-  before effects, and summons arriving next turn.
+- **Magic:** done in [magic.md](magic.md): every spell found here (terrain,
+  portals, spaces, custom spaces, obstacles, picked-up items) now takes
+  effect, including *Activate All Things* running the rest of the stack top
+  to bottom, messages before effects, and summons arriving next turn.
 - **Inventory:** done in [inventory.md](inventory.md): pick-up limits,
   weight and capacity slowing the bar, dropping (also onto "when dropped
   here" custom spaces and on the map).

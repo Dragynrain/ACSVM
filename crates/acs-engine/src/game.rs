@@ -2,9 +2,10 @@
 
 //! Game state, turns and the command loop.
 
+use crate::magic::{PendingSummon, Vitals};
 use crate::rng::Rng;
 use crate::{Command, Event, Location, Rules};
-use acs_core::model::{Adventure, Region, Room, Thing};
+use acs_core::model::{Adventure, MagicDefense, Region, Room, Thing};
 use serde::{Deserialize, Serialize};
 
 /// Speed of a character made by [`PlayerSetup::default`]: the top of the
@@ -15,8 +16,26 @@ pub const DEFAULT_SPEED: u8 = 7;
 /// [`PlayerSetup::default`]: the top of the manual's normal range (10-11).
 pub const DEFAULT_TRAIT: u8 = 11;
 
+/// Dodge, Parry, Melee and Armor skill of a default character: the middle
+/// of the manual's 25-35 (magic 8).
+pub const DEFAULT_SKILL: u8 = 30;
+/// Missile skill of a default character: the middle of 10-20.
+pub const DEFAULT_MISSILE: u8 = 15;
+
 fn default_trait() -> u8 {
     DEFAULT_TRAIT
+}
+fn default_skill() -> u8 {
+    DEFAULT_SKILL
+}
+fn default_missile() -> u8 {
+    DEFAULT_MISSILE
+}
+fn yes() -> bool {
+    true
+}
+fn no_defense() -> MagicDefense {
+    MagicDefense::None
 }
 
 /// A new character. Trait generation is a later rule set; for now a player
@@ -38,6 +57,26 @@ pub struct PlayerSetup {
     pub possessions: Vec<u8>,
     #[serde(default)]
     pub gold: u16,
+    #[serde(default = "default_trait")]
+    pub dexterity: u8,
+    #[serde(default = "default_trait")]
+    pub wisdom: u8,
+    #[serde(default = "default_trait")]
+    pub power: u8,
+    #[serde(default = "default_trait")]
+    pub size: u8,
+    #[serde(default = "default_skill")]
+    pub dodge: u8,
+    #[serde(default = "default_skill")]
+    pub parry: u8,
+    #[serde(default = "default_skill")]
+    pub armor_skill: u8,
+    #[serde(default = "default_skill")]
+    pub melee: u8,
+    #[serde(default = "default_missile")]
+    pub missile: u8,
+    #[serde(default = "no_defense")]
+    pub magic_defense: MagicDefense,
 }
 
 impl Default for PlayerSetup {
@@ -50,6 +89,16 @@ impl Default for PlayerSetup {
             life_force: DEFAULT_TRAIT,
             possessions: Vec::new(),
             gold: 0,
+            dexterity: DEFAULT_TRAIT,
+            wisdom: DEFAULT_TRAIT,
+            power: DEFAULT_TRAIT,
+            size: DEFAULT_TRAIT,
+            dodge: DEFAULT_SKILL,
+            parry: DEFAULT_SKILL,
+            armor_skill: DEFAULT_SKILL,
+            melee: DEFAULT_SKILL,
+            missile: DEFAULT_MISSILE,
+            magic_defense: MagicDefense::None,
         }
     }
 }
@@ -73,6 +122,29 @@ pub struct Player {
     /// Readied weapon (melee or missile) and armor, master thing numbers.
     pub weapon: Option<u8>,
     pub armor: Option<u8>,
+    #[serde(default = "default_trait")]
+    pub dexterity: u8,
+    #[serde(default = "default_trait")]
+    pub wisdom: u8,
+    #[serde(default = "default_trait")]
+    pub power: u8,
+    #[serde(default = "default_trait")]
+    pub size: u8,
+    #[serde(default = "default_skill")]
+    pub dodge: u8,
+    #[serde(default = "default_skill")]
+    pub parry: u8,
+    #[serde(default = "default_skill")]
+    pub armor_skill: u8,
+    #[serde(default = "default_skill")]
+    pub melee: u8,
+    #[serde(default = "default_missile")]
+    pub missile: u8,
+    #[serde(default = "no_defense")]
+    pub magic_defense: MagicDefense,
+    /// False once Life Force reached 0 (magic 7.4).
+    #[serde(default = "yes")]
+    pub alive: bool,
 }
 
 impl Player {
@@ -112,6 +184,15 @@ pub struct Game {
     /// door square (creatures 6.4).
     #[serde(default)]
     pub(crate) turn_exits: Vec<(u8, u8, u8, u8)>,
+    /// Temporary Life Force and turn counts per individual (magic 5).
+    #[serde(default)]
+    pub(crate) vitals: Vec<Vitals>,
+    /// Summonses waiting for the next player turn (magic 3.2).
+    #[serde(default)]
+    pub(crate) summons: Vec<PendingSummon>,
+    /// Every player is dead (magic 7.4).
+    #[serde(default)]
+    pub(crate) over: bool,
 }
 
 impl Game {
@@ -130,6 +211,9 @@ impl Game {
             random: Vec::new(),
             turn_rooms: Vec::new(),
             turn_exits: Vec::new(),
+            vitals: Vec::new(),
+            summons: Vec::new(),
+            over: false,
         };
         let mut ev = Vec::new();
         g.add_player(first, &mut ev);
@@ -147,9 +231,13 @@ impl Game {
     }
 
     /// Runs one command for the player whose turn it is.
+    /// Once every player is dead (magic 7.4) commands are ignored.
     pub fn apply(&mut self, cmd: Command) -> Vec<Event> {
-        self.log.push(cmd.clone());
         let mut ev = Vec::new();
+        if self.over {
+            return ev;
+        }
+        self.log.push(cmd.clone());
         match cmd {
             Command::Wait => self.end_turn(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
@@ -157,8 +245,19 @@ impl Game {
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
             Command::Ready { thing } => self.ready(thing, &mut ev),
+            Command::Cast { thing, target } => self.cast_command(thing, target, &mut ev),
+            Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
+        }
+        // Magic 7.5: a player who died during their own turn ends it.
+        if !self.over && !self.players[self.current].alive {
+            self.end_turn(&mut ev);
         }
         ev
+    }
+
+    /// True once no player is left alive.
+    pub fn is_over(&self) -> bool {
+        self.over
     }
 
     pub fn adventure(&self) -> &Adventure {
@@ -227,6 +326,17 @@ impl Game {
             gold: gold.min(crate::inventory::GOLD_LIMIT),
             weapon: None,
             armor: None,
+            dexterity: setup.dexterity,
+            wisdom: setup.wisdom,
+            power: setup.power,
+            size: setup.size,
+            dodge: setup.dodge,
+            parry: setup.parry,
+            armor_skill: setup.armor_skill,
+            melee: setup.melee,
+            missile: setup.missile,
+            magic_defense: setup.magic_defense,
+            alive: true,
         });
         ev.push(Event::PlayerAdded {
             player: self.players.len() - 1,
@@ -245,10 +355,23 @@ impl Game {
 
     /// Ends the current player's turn, runs the creature phase for the rooms
     /// that player was in (creatures 2.2), and starts the next turn.
+    /// Then the next living player's turn starts (magic 7.4).
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
-        ev.push(Event::TurnEnded { player: self.current });
-        self.creature_phase(self.current, ev);
-        self.current = (self.current + 1) % self.players.len();
+        let p = self.current;
+        ev.push(Event::TurnEnded { player: p });
+        // Magic 5.4: drift, decay and healing at the end of a player's turn.
+        self.upkeep(crate::Who::Player { player: p }, ev);
+        self.creature_phase(p, ev);
+        if !self.players.iter().any(|pl| pl.alive) {
+            self.over = true;
+            ev.push(Event::AllPlayersDead);
+            return;
+        }
+        let n = self.players.len();
+        self.current = (1..=n)
+            .map(|k| (p + k) % n)
+            .find(|&i| self.players[i].alive)
+            .unwrap_or(p);
         self.start_turn(ev);
     }
 
@@ -256,6 +379,8 @@ impl Game {
     /// (inventory 3.3, 3.4), halved next to an aggressive unfriendly
     /// creature (creatures 2.6).
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
+        // Magic 3.2: summonses are answered on the following turn.
+        self.answer_summons(ev);
         let mut moves = self.players[self.current].effective_speed(&self.adv);
         let hindered = moves > 0 && self.hindered(self.current);
         if hindered {
