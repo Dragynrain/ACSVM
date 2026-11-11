@@ -401,6 +401,45 @@ In this order (planned November 2026):
    new kind of outcome. If 20 jitters give one outcome, the jitter doesn't
    reach the program's random rolls and another noise source is needed
    before casting chances can be measured.
-5. **The rest of the captures-needed lists** in `docs/rules/`: turn order
-   and creature phases, the adjacency slowdown, creature paths, drift and
-   heal rates, cast chance.
+5. **Cast chance** (magic 4.1, 4.3; experiment `cast`). The status area's
+   right edge holds two more bars, read like the movement bar but 4 pixels
+   a point: Power (x = 276..291, blue, grey while a message waits) and Life
+   Force (x = 308..319, red; its bottom runs into the red strip below
+   y = 158, so it is read only above that line). Both are read as the
+   number of non-black pixels in one column, counted up from y = 158.
+   Trial (two runs of item 4's player, one success and one failure): the
+   Power bar stayed at 80 pixels (20) through the cast and the next turns,
+   while the profile screen showed Power about 2 after either outcome and
+   7, then 12, over the following turns. So the Power bar does not follow
+   current Power, and Power is read off the profile screen (item 6's
+   drift capture needs the glyph reader). A failed cast cost as much
+   Power as a working one in that trial.
+   Ten Power/cost pairs, each its own scenario disk (`--player wis=P
+   --spell C`; Power = Wisdom, section 8) and start chain, 60 runs each:
+   Power 20 against costs 10, 20, 30, 40, 60 and 90 (the shape against
+   cost), and Power 10 against 10 and 20, Power 31 against 31 and 62 (cost
+   = Power and cost = 2 x Power at three Powers: does the chance follow
+   the ratio, the difference or neither). Each run, from the first turn:
+   1. reads the movement, Power and Life Force bars;
+   2. casts the spell as in item 4;
+   3. waits 10 million instructions: the long message means it worked, the
+      map still showing means it failed (a screenshot of each new kind of
+      outcome screen, in case a cost above Power is refused another way);
+   4. presses the button, waits 10 million instructions and reads the
+      three bars again: the Power spent on a success and on a failure, and
+      the movement bar left;
+   5. waits for the next turn's bar (at most 80 million instructions) and
+      reads the bars a third time: whether the cast ended the turn (the
+      wait is short) and the first step of Power drift.
+   The summary gives the successes per pair and the Power and movement
+   readings per outcome. The fitted formula goes into magic 4.1.
+6. **Then:** the Power cost of using a magic item of ours (Use Object);
+   Power drift, temporary Life Force decay and natural healing (a Speed 1
+   player, Wisdom 20, Constitution 20, Life Force 5, cost-0 spells of ours
+   that change Power by -10 or +10 or Life Force by a temporary +10, cast
+   on the first turn, then about 40 idle turns read bar by bar); then the
+   loose ends (whether taking costs exactly one step, the first take after
+   entering a room ending the turn, a room door back out, a locked door,
+   retired slot 2).
+7. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+   and creature phases, the adjacency slowdown, creature paths.

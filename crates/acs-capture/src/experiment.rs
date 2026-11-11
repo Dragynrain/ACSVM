@@ -27,6 +27,12 @@ const MAP_AREA: (usize, usize, usize, usize) = (28, 0, 240, 158);
 /// y = 158; the area reaches the top so a Speed 15 bar (120) fits.
 const BAR_AREA: (usize, usize, usize, usize) = (0, 0, 28, 159);
 const BAR_BOTTOM: usize = 158;
+/// The Power and Life Force bars at the status area's right edge, 4 pixels
+/// a point, bottom at y = 158 like the movement bar (docs/capture.md 10.5).
+/// Each is read in one column, so its colour (Power turns grey while a
+/// message waits) and the red strip below y = 158 don't matter.
+const POWER_X: usize = 283;
+const LIFE_X: usize = 313;
 /// A bar that grows by more than this is a new turn's bar. (The bar only
 /// shrinks within a turn; a Speed 1 bar is 8 pixels, so the step can't be 8.)
 const REFILL: usize = 4;
@@ -45,6 +51,14 @@ pub struct Obs {
     pub cell: Option<(i32, i32)>,
     /// Movement bar height in pixels (0 = empty or hidden).
     pub bar: usize,
+    /// Power and Life Force bar heights in pixels (4 a point).
+    pub power: usize,
+    pub life: usize,
+}
+
+/// Non-black pixels in column `x`, counted up from `BAR_BOTTOM`.
+fn column(f: &Frame, x: usize) -> usize {
+    (0..=BAR_BOTTOM).rev().take_while(|&y| f.at(x, y) != 0).count()
 }
 
 fn square(b: &Box2) -> bool {
@@ -94,7 +108,12 @@ pub fn observe(f: &Frame, s: &MoveBasic, place: Place) -> Obs {
         .find(|b| b.y1 == BAR_BOTTOM && b.w() >= 8)
         .map(|b| b.h())
         .unwrap_or(0);
-    Obs { cell, bar }
+    Obs {
+        cell,
+        bar,
+        power: column(f, POWER_X),
+        life: column(f, LIFE_X),
+    }
 }
 
 pub struct Runner<'a> {
@@ -538,10 +557,12 @@ impl Runner<'_> {
         self.joy("none")
     }
 
-    /// The `cast` run (docs/capture.md 10.4): from the first turn on the
-    /// map, after the run's jitter, casts the player's spell (menu, Use
-    /// Power) and watches 60 million instructions for the map to give way
-    /// to the spell's long message.
+    /// The `cast` run (docs/capture.md 10.4 and 10.5): from the first turn
+    /// on the map, after the run's jitter, reads the three bars, casts the
+    /// player's spell (menu, Use Power) and looks 10 million instructions
+    /// later: the spell's long message means it worked, the map still
+    /// showing means it failed. Then the button, the bars again, and the
+    /// bars once more at the start of the next turn.
     pub fn cast_run(&mut self, run: usize, jitter: u64) -> Result<(), String> {
         self.place = Place::Map;
         self.reset(jitter)?;
@@ -556,38 +577,29 @@ impl Runner<'_> {
         self.menu_tap("fire")?;
         // "SELECT SPELL": NONE, then the spell.
         self.menu_tap("s")?;
-        self.s
-            .shot(&format!("cast-{run}-chosen"))
-            .map_err(|e| e.to_string())?;
+        let chosen = self.look()?;
         self.menu_tap("fire")?;
-        let mut t = 0u64;
-        let mut message_at = None;
-        let mut hashes = Vec::new();
-        while t < 60_000_000 {
-            self.step(500_000)?;
-            t += 500_000;
-            let f = self.s.frame().map_err(|e| e.to_string())?;
-            let h = f.hash();
-            if hashes.last() != Some(&h) {
-                hashes.push(h);
-            }
-            if message_at.is_none() && observe(&f, &self.scen, Place::Map).cell.is_none() {
-                message_at = Some(t);
-                self.s
-                    .shot(&format!("cast-{run}-message"))
-                    .map_err(|e| e.to_string())?;
-            }
+        let f = self.s.frame().map_err(|e| e.to_string())?;
+        let outcome_hash = f.hash();
+        let outcome = observe(&f, &self.scen, Place::Map);
+        let worked = outcome.cell.is_none();
+        let kind = if worked { "worked" } else { "failed" };
+        // One screenshot of each different outcome screen, named by its
+        // hash (a cost above Power might be refused some other way).
+        let name = format!("cast-{kind}-{outcome_hash:016x}");
+        if !self.s.out.join(format!("{name}.png")).exists() {
+            self.s.shot(&name).map_err(|e| e.to_string())?;
         }
-        let end = self.look()?;
-        if message_at.is_none() {
-            self.s
-                .shot(&format!("cast-{run}-end"))
-                .map_err(|e| e.to_string())?;
-        }
+        self.button()?;
+        self.step(10_000_000)?;
+        let after = self.look()?;
+        let next_turn = self.wait_refill(TURN_LIMIT)?;
+        let next = self.look()?;
         self.write(json!({
             "kind": "cast", "run": run, "jitter": jitter, "start": start,
-            "message_at": message_at, "worked": message_at.is_some(),
-            "screens": hashes.len(), "end": end,
+            "chosen": chosen, "worked": worked, "outcome": outcome,
+            "outcome_hash": format!("{outcome_hash:016x}"),
+            "after": after, "next_turn_after": next_turn, "next": next,
         }))
     }
 }
@@ -606,6 +618,8 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
     let mut full: BTreeMap<String, usize> = BTreeMap::new();
     // refuse cases: settled bars (counted) and turn lengths, per case.
     let mut refuse: BTreeMap<String, (BTreeMap<String, usize>, Vec<u64>)> = BTreeMap::new();
+    // cast: per outcome, counts of each reading.
+    let mut cast: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> = BTreeMap::new();
     for line in text.lines() {
         let v: serde_json::Value = match serde_json::from_str(line) {
             Ok(v) => v,
@@ -641,6 +655,31 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
                     e.1.push(f);
                 }
             }
+            Some("cast") => {
+                let outcome = if v["worked"].as_bool() == Some(true) {
+                    "worked"
+                } else {
+                    "failed"
+                };
+                let e = cast.entry(outcome.into()).or_default();
+                let mut count = |k: &str, val: String| {
+                    *e.entry(k.into()).or_default().entry(val).or_default() += 1;
+                };
+                count("runs", "all".into());
+                for (k, at) in [("start", "start"), ("after", "after"), ("next", "next")] {
+                    count(&format!("{k}_power_px"), v[at]["power"].to_string());
+                    count(&format!("{k}_life_px"), v[at]["life"].to_string());
+                    count(&format!("{k}_bar_px"), v[at]["bar"].to_string());
+                }
+                count("chosen_power_px", v["chosen"]["power"].to_string());
+                count("outcome_hash", v["outcome_hash"].to_string());
+                // The wait for the next turn, in millions of instructions.
+                let wait = v["next_turn_after"]
+                    .as_u64()
+                    .map(|t| format!("{}M", t / 1_000_000))
+                    .unwrap_or_else(|| "none".into());
+                count("next_turn_after", wait);
+            }
             Some("idle_drain") => {
                 if let Some(f) = v["frames_to_empty"].as_u64() {
                     drain.push(f);
@@ -662,6 +701,7 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
         })
         .collect();
     Ok(json!({
+        "cast": cast,
         "refuse": refuse,
         "speed": speed,
         "engine_default_rules": engine_predictions(acs_engine::Rules::default(), speed),
@@ -766,6 +806,23 @@ mod tests {
         assert_eq!(observe(&frame(0), &s, Place::Map).bar, 0);
         // In a room the same box is square (7, 4) of the room.
         assert_eq!(observe(&frame(40), &s, Place::Room).cell, Some((7, 4)));
+    }
+
+    #[test]
+    fn reads_power_and_life_columns() {
+        let s = MoveBasic::default();
+        let mut f = frame(0);
+        let w = f.display.width;
+        // Power 20 (80 px) in grey, Life Force 11 (44 px) in red, with the
+        // red strip below the bars' bottom.
+        for y in BAR_BOTTOM + 1 - 80..=BAR_BOTTOM {
+            f.display.pixels[y * w + POWER_X] = 12;
+        }
+        for y in BAR_BOTTOM + 1 - 44..BAR_BOTTOM + 9 {
+            f.display.pixels[y * w + LIFE_X] = MARKER;
+        }
+        let o = observe(&f, &s, Place::Map);
+        assert_eq!((o.power, o.life), (80, 44));
     }
 
     #[test]
