@@ -13,6 +13,42 @@ items, 382 doors).
 The code is the precise reference: `crates/acs-core/src/layout.rs` holds every
 offset, `decode.rs` every field.
 
+## Platforms at a glance
+
+The record layouts (messages, creatures, things, header, world map, regions)
+are the same on every platform; only block positions and pictures differ.
+C64 and PC are confirmed against real files; Apple II and Amiga come from
+AcsLib and are untested (see below).
+
+| | C64 | Apple II | MS-DOS | Amiga |
+| --- | --- | --- | --- | --- |
+| Released | 1984 (one listing: Jan 1985) | 1985 | 1987 | 1986 |
+| Port | Original (Stuart Smith) | ? | Jerry Boutelle (one listing) | Glenn Tenney, Fantasia Systems |
+| Container | Whole `.d64` (174,848 bytes), raw sectors | Whole `.dsk` (143,360 bytes), no directory | `ADVEN.FPY` / `.HRD` file (`ACS.FPY` is 229,376 bytes) | `Adventure` file in an `.adf` |
+| Pictures | 110 | 110 | **96** | 110 |
+| Picture size | 8 x 16, double-wide pixels | **14 x 16** hi-res | 16 x 16 | 16 x 16 |
+| Bits per pixel | 2 | 1 (artifact colour) | 2 | **5** (bitplanes) |
+| Colours per adventure | 4 of 16; colour 3 only from the first 8 | 4 or 6 artifact colours | 4 of 16 (CGA/EGA values) | **32 of 4,096**, shared by all pictures |
+| Creature-only pictures | 64-109 | probably the same | unknown (96 total) | probably the same |
+| Extras | | | | *Galactic Agent* (Ken St. Andre) |
+| Status here | Decoded, 14 adventures | AcsLib only | Decoded, 1 adventure | AcsLib only |
+
+The PC display mode is unconfirmed: a MobyGames caption says CGA, but CGA's
+320 x 200 mode can't show any 4 of 16 colours, so how the PC shows a palette
+chosen from 16 is open.
+
+Limits shared by every platform: world map 40 x 40 with 16 terrain types,
+32 map portals, 15 regions of up to 16 rooms, rooms up to 15 x 10, 16
+resident and 8 random creatures per region, 128 things, 128 creatures, 8
+creature classes, 255 long messages (8 x 32 characters, 255 is the intro),
+80 short-message slots (3 x 40), 20-character region and world names. Room
+items are a per-region list with 4-bit coordinates.
+
+Sources: dates, the Amiga's 32 colours and *Galactic Agent* from
+[Wikipedia](https://en.wikipedia.org/wiki/Adventure_Construction_Set); port
+credits from [Pixelated Arcade](https://pixelatedarcade.com/games/stuart-smith-s-adventure-construction-set/releases)
+and the [Amiga reference card](https://www.mocagh.org/ea/acsuk-refcard.pdf).
+
 ## Platform layout
 
 | Block | PC | C64 | Note |

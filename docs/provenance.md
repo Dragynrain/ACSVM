@@ -17,6 +17,7 @@ Every outside source used by this project, and how it was used. Licensed CC BY 4
 | 1541 `.d64` geometry (sectors per track) | Facts, widely documented | Track/sector offsets in `disk.rs` | Written from general knowledge. |
 | Rust crates used by the viewer (eframe/egui, rfd, png, wasm-bindgen) and trunk | MIT / Apache-2.0 | GUI, file dialogs, PNG output, web build | Ordinary dependencies from crates.io. No format knowledge came from them. The room-drawing rules in `format-notes.md` come from corpus statistics only. |
 | GPL-3.0, CC BY 4.0 and CC BY-SA 4.0 texts | Their own terms | `LICENSE`, `LICENSES/` | Downloaded unchanged from gnu.org and creativecommons.org. |
+| Release history: [Wikipedia](https://en.wikipedia.org/wiki/Adventure_Construction_Set), [Pixelated Arcade](https://pixelatedarcade.com/games/stuart-smith-s-adventure-construction-set/releases), EA's Amiga reference card ([mocagh.org](https://www.mocagh.org/ea/acsuk-refcard.pdf)) | Facts (dates, credits, colour counts) | The "Platforms at a glance" table in `format-notes.md` | Read only, facts restated. Nothing copied. |
 | `docs/design.md` | CC BY 4.0, project's own | Plan | Snapshot of the living design document. |
 | SplitMix64 (Steele, Lea and Flood, 2014) | Published algorithm | The engine's seeded random generator (`crates/acs-engine/src/rng.rs`) | Written from the published constants; a unit test checks its first output for seed 0. |
 

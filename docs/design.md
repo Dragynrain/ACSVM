@@ -297,6 +297,56 @@ Island peoples need care: write them as people with their own aims, not as hazar
 
 Runners-up, in order: **gothic horror** (vampires and Lovecraft; the best showcase for lighting and normal maps), **weird west** (six-shooters suit missile combat, towns suit stores), **Greek or Norse myth** (close to fantasy but with its own look).
 
+## Extended adventures
+
+**Recommendation: two profiles on one engine. Classic adventures keep every original limit and behaviour; Extended adventures raise counts and sizes but play by the same rules unless they opt into a named rule feature.** Until now the plan raised nothing except art (Native HD at 128 px).
+
+### Profiles
+
+- **Classic.** Anything decoded from an original disk or file. Limits are checked on import, the engine reproduces the original exactly, and the golden tests run on this profile. An editor could later write it back to an original format.
+- **Extended.** Our own file: a zip bundle with `adventure.json` (the canonical model), the art as WebP atlases, audio and a manifest. A `limits` block declares the sizes the adventure uses, and a `features` list names any rule extensions. An engine that lacks a listed feature refuses the file with a clear message instead of misplaying it.
+- **One way up.** Every Classic adventure is a valid Extended one, so upgrading is a re-save. Going back down works only if the adventure fits the original limits.
+
+### Limits
+
+| Limit | Classic | Extended v1 (proposed) | What it touches |
+| --- | --- | --- | --- |
+| World map | 40 x 40 | Up to 128 x 128 | A scrolling world-map camera |
+| Terrain types | 16 | 64 | |
+| Map portals | 32 | 512 | |
+| Regions | 15 | 64 | |
+| Rooms per region | 16 | 64 | Door and portal tables |
+| Room size | 15 x 10 | Up to 32 x 32 | A scrolling room camera; the stash square (15,14) becomes its own list |
+| Resident creatures per region | 16 | 256 (about 4 per room, as against 1 in Classic) | Region storage |
+| Random creatures per region | 8 | 32 | |
+| Creatures in one room at once | 16 (random arrivals share the region's 16 slots) | 32 | Turn-order length and AI cost, which are per room |
+| Things | 128 | 1,024 | Ids widen from `u8` to `u16` |
+| Creatures | 128 | 1,024 | Same |
+| Creature classes | 8 | 32 | |
+| Pictures | 96 (PC) or 110 | 1,024 (animation frames sit inside a picture) | Same |
+| Picture format | 2-bit, 14 or 16 px wide (Amiga 5-bit) | Classic pixels, or RGBA at 128 px (64 and 256 allowed) with layers and frames | `Picture` gains an RGBA form |
+| Colours | 4 per adventure (Amiga 32) | Full RGBA, optional palette ramps | Render modes |
+| Long messages | 255, 8 x 32 characters | No fixed count, up to 4,000 characters, UTF-8 | The message log wraps text |
+| Short messages | 80, 3 x 40 characters | Merged into long messages | |
+| Names | 15 to 20 characters | 64 | |
+
+The numbers keep Classic's proportions: residents are stored per region, but turns are taken per room, so the cost to cap is how many creatures share one room. Ids are `u16` and the caps live in the validator, so any of them can rise later without changing the format.
+
+**What stays fixed in v1:** stat ranges (0 to 255; wider ones change balance), the 13 thing types, the 15 spell actions, one creature per square and the turn-order rules. Changing any of those is a rule feature, not a limit, for example `multi-square-creatures` (a 2 x 2 dragon) or `new-spell-actions`. Each gets its own spec in `docs/rules/` first.
+
+### Engine work
+
+- **Limits come from the adventure, not constants.** `MAP_SIZE` and `REGION_CREATURE_LIMIT` in `step.rs` and `SLOTS` in `creatures.rs` become values from `adventure.limits`.
+- **Widen ids now.** Thing, creature, picture, region and room references are `u8` throughout `model.rs`. Typed ids such as `ThingId(u16)` cost little while the engine is small and a lot later. This is a `MODEL_VERSION` bump.
+- **Move the stash** out of room coordinates once its meaning is known. Rid Room currently clears stash copies too, so moving it now would change Classic play (see `format-notes.md`).
+- **`Picture` gets an RGBA variant** with layers and frames (see Format impact above).
+- **One validator** checks a file against its profile, shared by the importer and the future editor.
+- **Replays and online sync** record the profile and limits with the seed.
+
+**Timing:** limits and wider ids during Phase 2, while they are cheap; the bundle and RGBA pictures with Native HD in Phase 5. Our own sample adventures exercise the raised limits first, the editor later.
+
+Open question: the bundle's name and file extension, which must avoid the ACS trademark.
+
 ## Multiplayer
 
 Hot-seat play ships in 1.0 and online co-op in 1.1. Both come almost for free because the engine is turn-based and deterministic.
@@ -328,7 +378,7 @@ Data flows one way: file to layout to decoded model to rules. The rules engine n
 
 ## Components to build
 
-Eighteen pieces in total. Most are routine. The rules engine (#7), behavior capture (#13) and the original asset kits (#17) carry most of the effort. Size is relative: S is days, M is weeks, L is a month or more of part-time work.
+Nineteen pieces in total. Most are routine. The rules engine (#7), behavior capture (#13) and the original asset kits (#17) carry most of the effort. Size is relative: S is days, M is weeks, L is a month or more of part-time work.
 
 | # | Component | What it does | Size |
 | --- | --- | --- | --- |
@@ -350,6 +400,7 @@ Eighteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
 | 17 | Original asset kits | Four starter kits at 128 px (pirates first, then fantasy, spy and mystery, sci-fi; up to 110 tiles each), UI font, title art, two sample adventures | L |
 | 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
+| 19 | Extended format | Classic and Extended profiles, a limits block and feature list, wider typed ids, the zip bundle, one validator | M |
 
 ## Fidelity and research
 
