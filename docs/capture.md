@@ -252,6 +252,28 @@ hidden and not draining, which is why that turn is longer. Our engine does
 the same on every count: refused moves are free, a door spends one step and
 the turn continues.
 
+**Weight slowdown** (experiment `weight`, section 10.3; 20 runs for each of
+two players of ours, November 2026). Each run takes the row's things one by
+one; the next turn's full bar gives the slowed Speed:
+
+| Player | Load after the take, and the next turn's Speed (bar / 8) |
+| --- | --- |
+| Speed 15, capacity 1,000 | 400: 15, 500: 15, 501: 14, 600: 12, 700: 9, 800: 6, 1,000: 0 |
+| Speed 10, capacity 1,500 (Strength 15) | 700: 10, 750: 10, 751: 9, 900: 8, 1,050: 6, 1,200: 4, 1,350: 2, 1,500: 0 |
+
+Every reading was the same in all 20 runs. Above half the capacity the
+slowed Speed is Speed x 2 x (capacity - load) / capacity, rounded down: a
+straight line to 0 at the capacity, where the player gets no more turns it
+can move in (so the loads past it were never reached). Also seen, in all
+300 takes: the player **stays on its own square**; the program shows
+"T TAKES ..." and waits for the button with the bar not draining; 2
+million instructions after the button the bar is 15 pixels lower (the
+drain alone would take about 9), so taking most likely costs one step. The
+first take after entering the room also started a new turn, 20 of 20 for
+both players; not understood. Our engine halved Speed above half the
+capacity and moved the taker onto the square; both are now as captured
+(inventory 2.1, 3.3).
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -337,10 +359,20 @@ In this order (planned November 2026):
      door); control `map-walk-s3`, 3 squares south.
    Still to do: a room door back out, and a door that refuses (locked,
    needs a key).
-3. **Weight slowdown** (inventory 1): our own things of chosen weights (x1
-   and x20) in a room, picked up by stepping on them; steps per turn at
-   loads of 0, just under and just over half the capacity, at capacity and
-   past it.
+3. **Weight slowdown** (inventory 1, 3.3 and 3.4): done (section 7),
+   experiment `weight`. A
+   player of ours with Strength 10, Constitution 10, Life Force 10 and
+   Speed 15: capacity (10 - 0 / 2) x 100 = 1,000 by the manual's formula.
+   Nine treasures of our own (things 71-79, weights x1 or x20) stand in a
+   row east of the room's entry, squares 5..13 of row 4, weighing 400, 100,
+   1, 99, 100, 100, 200, 1 and 500, so the load after each pick-up is 400,
+   500, 501, 600, 700, 800, 1,000, 1,001 and 1,501. Each run goes through
+   the map door, then steps east onto one thing at a time; after each
+   pick-up it records the bar right away and lets the turn run out, and the
+   next turn's full bar gives the slowed Speed (8 pixels a point).
+   `--weights` on the scenario sets the row; each take shows a message the
+   run answers with the button. A second player (Speed 10, Strength 15,
+   capacity 1,500; loads 700 to 1,500) checks that the rule scales.
 4. **Is the randomness ours to vary?** Before any statistical capture: 20
    casts from 20 jitters, to check that the outcomes vary. If they don't,
    find another noise source first.

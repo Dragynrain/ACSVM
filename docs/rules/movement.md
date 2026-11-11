@@ -139,7 +139,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 
    | Top thing | Move | Triggers | Source |
    | --- | --- | --- | --- |
-   | treasure, magic item, weapon, armor, magic spell | moves; the thing is picked up, or refused at the carry limit ([inventory](inventory.md) 2) | a magic item's pick-up spell | [manual]; spells are placed 31 times [data] |
+   | treasure, magic item, weapon, armor, magic spell | stays; the thing is picked up (one step), or refused at the carry limit ([inventory](inventory.md) 2) | a magic item's pick-up spell | [manual]; spells are placed 31 times [data] |
    | portal | takes the door if access allows, else refused | its spell if access is "invoke spell" | [manual] |
    | space | moves if access allows, else refused | its spell if access is "invoke spell" | [manual] |
    | custom space, "when moved onto" | moves | its spell | [manual] |
@@ -170,8 +170,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    set is removed from the square.
 10. **Picking up** happens by moving onto the thing. A character who cannot
     carry more of a thing gets a message instead, and the move is refused.
-    [manual] Limits, gold piles and readying are [inventory](inventory.md)
-    rules (section 2).
+    [manual] On the C64 the character takes the thing but stays on its own
+    square. [capture: weight] Limits, gold piles and readying are
+    [inventory](inventory.md) rules (section 2).
 
 ## 6. Room doors
 

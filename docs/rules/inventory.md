@@ -34,8 +34,15 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 
 ## 2. Picking up
 
-1. Moving onto a square whose top thing is carriable picks it up and moves
-   there. [manual] (movement 5.5)
+1. Moving onto a square whose top thing is carriable picks it up. [manual]
+   On the C64 the character **stays where it was**: the thing goes, the
+   program shows "NAME TAKES THING" and waits for the button (the bar does
+   not drain meanwhile), and the character must step again to enter the
+   square. Taking seems to cost one step: 2 million instructions after the
+   button the bar is 15 pixels lower, against about 9 for the drain alone.
+   [capture: weight, 300 takes] **Engine:** the thing is taken, the
+   character stays put, and the take spends one step. Gold piles are taken
+   the same way. [unknown for gold]
 2. **At the limit.** If the character already owns as many of that thing as
    allowed, a message says they can't carry more of those, and they must drop
    one first if they need to pass. [manual] So the move is refused.
@@ -72,13 +79,22 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    **Engine:** the formula as written, halving toward zero; whether the
    original clamps the wound term at 0 or rounds the other way is [unknown].
 3. **Slowdown.** Carrying more than half the capacity slows the character
-   down: the movement bar shrinks. [manual] By how much is [unknown].
-   **Engine:** load above half the capacity halves Speed (rounding down, at
-   least 1); load above the whole capacity leaves 1 move. Speed 0 stays 0.
-   Needs a capture.
-4. **When it applies.** [unknown] **Engine:** the bar fills from the slowed
-   Speed at the start of each turn; a load change during a turn counts from
-   the next turn.
+   down: the movement bar shrinks. [manual] On the C64 the slowed Speed
+   falls in a straight line from the full Speed at half the capacity to 0
+   at the full capacity: Speed x 2 x (capacity - load) / capacity, rounded
+   down, for loads above half. Up to half there is no slowdown. A character
+   at or past its capacity has Speed 0 and no longer gets a turn it can
+   move in. [capture: weight, two players (Speed 15 with capacity 1,000,
+   Speed 10 with 1,500), 20 runs each: loads 400, 500, 501, 600, 700, 800,
+   1,000 gave Speed 15, 15, 14, 12, 9, 6, 0; loads 700, 750, 751, 900,
+   1,050, 1,200, 1,350, 1,500 gave 10, 10, 9, 8, 6, 4, 2, 0] **Engine:**
+   that formula; a capacity of 0 or less with any positive load gives 0.
+4. **When it applies.** The next turn's bar starts from the slowed Speed.
+   [capture: weight] Whether a pick-up shortens the turn already under way
+   beyond the step is [unknown]. **Engine:** a load change counts from the
+   next turn. On the C64 the first take after entering the room also ended
+   the turn under way (20 of 20 in both runs; later takes did not): not
+   understood, not in the engine.
 5. For the AI later: at the start, 3 master creatures and 5 residents carry
    more than their capacity, and 5 master and 9 residents more than half.
    [data] An overburdened creature drops a magic item, treasure or gold.
@@ -162,8 +178,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 
 ## Captures needed
 
-1. The slowdown: bar length against load, between half and full capacity and
-   past it.
+1. The slowdown: captured (3.3). Still open: whether taking costs exactly
+   one step, and why the first take after entering a room ends the turn.
 2. Capacity with Life Force above Constitution, and rounding of odd wounds.
 3. Gold pile size against the placement parameter, and a 0 parameter.
 4. Which squares accept a drop, dropping on one's own square, and the cost
