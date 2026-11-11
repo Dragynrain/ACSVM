@@ -20,6 +20,9 @@ pub const DEFAULT_TRAIT: u8 = 11;
 /// Dodge, Parry, Melee and Armor skill of a default character: the middle
 /// of the manual's 25-35 (magic 8).
 pub const DEFAULT_SKILL: u8 = 30;
+/// A joining player's Power: its Wisdom, but at most this (magic 5.1,
+/// captured on the C64).
+pub const JOIN_POWER_MAX: u8 = 27;
 /// Missile skill of a default character: the middle of 10-20.
 pub const DEFAULT_MISSILE: u8 = 15;
 
@@ -60,8 +63,8 @@ pub struct PlayerSetup {
     pub gold: u16,
     #[serde(default = "default_trait")]
     pub dexterity: u8,
-    /// Also the character's Power when it joins (magic 5.1, captured: the
-    /// original sets a joining player's Power to its Wisdom).
+    /// Also the character's Power when it joins, up to 27 (magic 5.1,
+    /// captured: the original sets a joining player's Power to its Wisdom).
     #[serde(default = "default_trait")]
     pub wisdom: u8,
     #[serde(default = "default_trait")]
@@ -297,6 +300,12 @@ impl Game {
         self.players[player].power = power;
     }
 
+    /// Test and tool hook: sets a player's Life Force (a joining player
+    /// can't start below its Constitution, magic 5.1). Not replayed.
+    pub fn set_life_force(&mut self, player: usize, life_force: u8) {
+        self.players[player].life_force = life_force;
+    }
+
     /// Test and tool hook: gives a player a thing. Not replayed.
     pub fn give(&mut self, player: usize, thing: ThingId) {
         let p = &mut self.players[player];
@@ -323,7 +332,9 @@ impl Game {
             speed: setup.speed,
             strength: setup.strength,
             constitution: setup.constitution,
-            life_force: setup.life_force,
+            // Magic 5.1: a joining player's Life Force is raised to its
+            // Constitution, never lowered.
+            life_force: setup.life_force.max(setup.constitution),
             moves_left: setup.speed,
             turn_moves: setup.speed,
             at,
@@ -333,8 +344,8 @@ impl Game {
             armor: None,
             dexterity: setup.dexterity,
             wisdom: setup.wisdom,
-            // Magic 5.1: a joining player's Power is its Wisdom.
-            power: setup.wisdom,
+            // Magic 5.1: a joining player's Power is its Wisdom, at most 27.
+            power: setup.wisdom.min(JOIN_POWER_MAX),
             size: setup.size,
             dodge: setup.dodge,
             parry: setup.parry,

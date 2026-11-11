@@ -157,16 +157,22 @@ magic item after it is used. [unknown]
    1) rounded down and at most 100. The cost comes off Power whether or not
    the spell works (not below 0). Corpus costs run 0..60, median 13. [data]
 2. *Use Object* uses a magic item that is set to act when used; magic items
-   always work. [manual] Some must be dropped instead. [manual] **Engine:**
-   an item without the "used" trigger refuses (`CastRefused`, `not_usable`);
-   using one costs no Power. The manual says using magic objects lowers
-   Power but gives no amount. [unknown] 127 of 134 corpus magic items act
-   when used. [data]
+   always work. [manual] Some must be dropped instead. [manual] The manual
+   says using magic objects lowers Power but gives no amount. On the C64 a
+   use costs 2 Power, at Wisdom 10 and 20 alike, and again on a second use;
+   using does not end the turn: the bar goes on draining afterwards, about
+   one step lower. [capture: item, 3 runs at each Wisdom, two uses a run,
+   the profile screen] **Engine:** an item without the "used" trigger
+   refuses (`CastRefused`, `not_usable`); a use costs 2 Power (not below 0)
+   and one step of the bar (the step is approximate: the bar fell 11 to 15
+   pixels across a use beyond the drain the harness waited out). 127 of
+   134 corpus magic items act when used. [data]
 3. **Cost in moves.** Casting ends the caster's turn, whether the spell
    works or not, however much of the movement bar is left. [capture: cast,
    600 casts with 5 to 28 pixels of bar left; the next turn came at the
-   same moment after each] **Engine:** casting or using ends the caster's
-   turn, like readying armor (inventory 4.3). A refused command costs
+   same moment after each] Using a magic item does not end the turn
+   (4.2). **Engine:** casting ends the caster's turn, like readying armor
+   (inventory 4.3); using spends one step. A refused command costs
    nothing.
 4. Magic spells can't be dropped (inventory 5.2), so a spell is only lost by
    disappearing after use, by banishment or by death.
@@ -176,12 +182,15 @@ magic item after it is used. [unknown]
 1. **Power drifts.** Each turn an individual's Power moves a little toward
    its Wisdom. [manual] **Engine:** 1 point per turn of its own, at the end
    of the turn. [unknown] A player joining an adventure starts with Power
-   equal to its Wisdom, whatever its saved Power. [capture: three retired
-   players of ours, profile screen] Wisdom 31 gave Power 27, though
-   (Wisdom 13, 20 and 25 gave their own value). [capture: profile screen]
-   **Engine:** a joining player's Power is its Wisdom; a `PlayerSetup` has
-   no Power of its own. [unknown] above Wisdom 25: the engine keeps Power
-   = Wisdom until more points are seen.
+   equal to its Wisdom, at most 27, whatever its saved Power; above 27 it
+   then drifts up to its Wisdom like any other Power. [capture: retired
+   players of ours with Wisdom 13, 20, 25 and 26 to 31, profile screen:
+   Wisdom 28 to 31 showed 27 on the first turn, then 28, 29 on the next]
+   **Engine:** a joining player's Power is its Wisdom, at most 27; a
+   `PlayerSetup` has no Power of its own.
+   A joining player's Life Force is raised to its Constitution if below it,
+   and kept if above. [capture: Life Force 5 under Constitution 20 showed
+   20; 22 over 21 showed 22; one player each] **Engine:** the same.
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as

@@ -69,6 +69,9 @@ pub fn acts_on_individual(kind: SpellActionKind) -> bool {
     )
 }
 
+/// Power a magic item's use costs (4.2).
+pub const USE_POWER: u8 = 2;
+
 /// The signed amount of a Change Power / Change Life Force parameter and
 /// whether it is temporary (3.7, 3.8).
 pub fn amount(parameter: u16) -> (i16, bool) {
@@ -738,7 +741,8 @@ impl Game {
         true
     }
 
-    /// Uses `thing` (a magic item `by` owns that acts when used) (4.2).
+    /// Uses `thing` (a magic item `by` owns that acts when used) (4.2): 2
+    /// Power, then the item's spell.
     pub(crate) fn use_item(&mut self, by: Who, thing: ThingId, target: Who, ev: &mut Vec<Event>) {
         let Some(t) = self.thing(thing).cloned() else {
             return;
@@ -755,6 +759,9 @@ impl Game {
             return;
         };
         ev.push(Event::ItemUsed { by, thing, target });
+        // 4.2: a use costs 2 Power, not below 0.
+        let power = self.stat(by, Stat::Power).unwrap_or(0);
+        self.set_stat(by, Stat::Power, power.saturating_sub(USE_POWER));
         if disappears_after_use && self.take_from(by, thing) {
             ev.push(Event::SpellGone { who: by, thing });
         }
@@ -827,8 +834,9 @@ impl Game {
             }),
             Ok(target) => {
                 self.use_item(Who::Player { player: p }, thing, target, ev);
-                if self.players[p].alive {
-                    self.end_turn(ev);
+                // 4.3: using spends one step; the turn goes on.
+                if self.players[p].alive && !self.over {
+                    self.spend(ev);
                 }
             }
         }

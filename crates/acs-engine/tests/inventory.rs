@@ -337,10 +337,10 @@ fn capacity_follows_the_manual_formula() {
     assert_eq!(g.current_player().capacity(), 1100);
     let wounded = PlayerSetup {
         constitution: 11,
-        life_force: 1,
         ..setup()
     };
-    let (g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, wounded);
+    let (mut g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, wounded);
+    g.set_life_force(0, 1);
     assert_eq!(g.current_player().capacity(), 600); // 11 - 10/2
     let hale = PlayerSetup {
         constitution: 10,

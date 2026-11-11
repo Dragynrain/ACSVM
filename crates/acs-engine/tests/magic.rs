@@ -362,7 +362,11 @@ fn setup() -> PlayerSetup {
 }
 
 fn start(a: Adventure, x: u8, y: u8, setup: PlayerSetup) -> Game {
+    // Tests ask for wounded players; joining raises Life Force to
+    // Constitution (5.1), so set it afterwards.
+    let life_force = setup.life_force;
     let (mut g, _) = Game::new(a, 5, Rules { diagonals: true }, setup);
+    g.set_life_force(0, life_force);
     g.place(0, hall(x, y));
     g
 }
@@ -562,6 +566,33 @@ fn using_items_needs_no_power() {
 }
 
 #[test]
+fn a_use_costs_two_power_and_a_step_and_the_turn_goes_on() {
+    // magic 4.2, 4.3, as captured: 2 Power a use; using doesn't end the turn.
+    both(|p| {
+        let a = adventure(p);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                wisdom: 20,
+                possessions: vec![ROD],
+                ..setup()
+            },
+        );
+        for (power, moves) in [(18, 14), (16, 13)] {
+            let ev = g.apply(Command::Use {
+                thing: ROD,
+                target: None,
+            });
+            assert!(!ev.iter().any(|e| matches!(e, Event::TurnEnded { .. })));
+            assert_eq!(g.stat(ME, Stat::Power), Some(power));
+            assert_eq!(g.current_player().moves_left, moves);
+        }
+    });
+}
+
+#[test]
 fn kill_all_spares_owners_and_the_dead_leave_their_things() {
     both(|p| {
         let mut a = adventure(p);
@@ -651,6 +682,8 @@ fn a_player_who_dies_ends_their_turn_and_the_last_one_ends_the_game() {
                 ..setup()
             },
         });
+        // Joining raised TWO to its Constitution (5.1): wound it again.
+        g.set_life_force(1, 4);
         let ev = mv(&mut g, Dir::E);
         assert!(ev.contains(&Event::Died {
             who: ME,
