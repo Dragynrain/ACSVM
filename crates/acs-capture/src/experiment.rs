@@ -522,6 +522,76 @@ impl Runner<'_> {
     }
 }
 
+impl Runner<'_> {
+    /// Taps the stick for 25,000 instructions (the menu cursor repeats
+    /// after about 40,000) and lets the menu settle.
+    fn menu_tap(&mut self, dir: &str) -> Result<(), String> {
+        self.joy(dir)?;
+        self.step(25_000)?;
+        self.joy("none")?;
+        self.step(10_000_000)
+    }
+
+    fn button(&mut self) -> Result<(), String> {
+        self.joy("fire")?;
+        self.step(4_000_000)?;
+        self.joy("none")
+    }
+
+    /// The `cast` run (docs/capture.md 10.4): from the first turn on the
+    /// map, after the run's jitter, casts the player's spell (menu, Use
+    /// Power) and watches 60 million instructions for the map to give way
+    /// to the spell's long message.
+    pub fn cast_run(&mut self, run: usize, jitter: u64) -> Result<(), String> {
+        self.place = Place::Map;
+        self.reset(jitter)?;
+        let start = self.look()?;
+        self.button()?;
+        self.step(30_000_000)?;
+        // Use Power: one column right, two rows down. Then short taps: a
+        // held button would pick the list's first entry, NONE.
+        self.menu_tap("e")?;
+        self.menu_tap("s")?;
+        self.menu_tap("s")?;
+        self.menu_tap("fire")?;
+        // "SELECT SPELL": NONE, then the spell.
+        self.menu_tap("s")?;
+        self.s
+            .shot(&format!("cast-{run}-chosen"))
+            .map_err(|e| e.to_string())?;
+        self.menu_tap("fire")?;
+        let mut t = 0u64;
+        let mut message_at = None;
+        let mut hashes = Vec::new();
+        while t < 60_000_000 {
+            self.step(500_000)?;
+            t += 500_000;
+            let f = self.s.frame().map_err(|e| e.to_string())?;
+            let h = f.hash();
+            if hashes.last() != Some(&h) {
+                hashes.push(h);
+            }
+            if message_at.is_none() && observe(&f, &self.scen, Place::Map).cell.is_none() {
+                message_at = Some(t);
+                self.s
+                    .shot(&format!("cast-{run}-message"))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        let end = self.look()?;
+        if message_at.is_none() {
+            self.s
+                .shot(&format!("cast-{run}-end"))
+                .map_err(|e| e.to_string())?;
+        }
+        self.write(json!({
+            "kind": "cast", "run": run, "jitter": jitter, "start": start,
+            "message_at": message_at, "worked": message_at.is_some(),
+            "screens": hashes.len(), "end": end,
+        }))
+    }
+}
+
 fn room_entry(s: &MoveBasic) -> (i32, i32) {
     (s.room_entry.0 as i32, s.room_entry.1 as i32)
 }

@@ -39,6 +39,9 @@ enum Cmd {
         /// the room's entry square.
         #[arg(long, value_delimiter = ',')]
         weights: Vec<u16>,
+        /// Also give the player a spell of ours with this cost.
+        #[arg(long)]
+        spell: Option<u8>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -112,6 +115,7 @@ fn main() {
             player,
             obstacle,
             weights,
+            spell,
         } => {
             let template = template
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_TEMPLATE").map(PathBuf::from))
@@ -127,6 +131,7 @@ fn main() {
                         player,
                         obstacle: obstacle.then_some((5, 4)),
                         weights: weights.clone(),
+                        spell,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -147,7 +152,7 @@ fn main() {
             speed,
         } => {
             let place = match name.as_str() {
-                "move-basic" | "refuse" | "weight" => experiment::Place::Map,
+                "move-basic" | "refuse" | "weight" | "cast" => experiment::Place::Map,
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -172,6 +177,14 @@ fn main() {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * 7_919) % 1_000_000;
+                if name == "cast" {
+                    result = r.cast_run(run, jitter);
+                    if result.is_err() {
+                        break 'outer;
+                    }
+                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    continue;
+                }
                 if name == "weight" {
                     result = r.weight_run(run, jitter, weight_items);
                     if result.is_err() {

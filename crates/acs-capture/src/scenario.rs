@@ -153,7 +153,15 @@ pub struct MoveBasic {
     /// Treasures of these weights (things `FIRST_WEIGHT`..), in a row east
     /// of the room's entry square, one a square.
     pub weights: Vec<u16>,
+    /// A magic spell of this cost (thing `SPELL`) that shows long message 1
+    /// when it works; the retired player owns it.
+    pub spell: Option<u8>,
 }
+
+/// The master thing slot of our spell (1-80, so a player can own it).
+pub const SPELL: u8 = 80;
+/// Long message 1, shown when the spell works.
+pub const SPELL_MESSAGE: &str = "THE SPELL WORKED";
 
 /// The first master thing slot of the weight row (carriable things must be
 /// 1-80: possessions are a bitmap over them).
@@ -189,6 +197,7 @@ impl Default for MoveBasic {
             player: None,
             obstacle: None,
             weights: Vec::new(),
+            spell: None,
         }
     }
 }
@@ -316,10 +325,22 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         "MARKER 3",
         wm::TERRAIN_NAME_LEN,
     );
+    if let Some(cost) = s.spell {
+        // Type 6, cost, action 10 (display long message), message 1.
+        f.thing(SPELL as usize, "TESTSPELL", [0x06, cost, 10, 1]);
+        f.long_message(1, SPELL_MESSAGE);
+    }
     if let Some(p) = &s.player {
         let c = l.creatures;
         f.packed(c + cr::RETIRED_NAMES, &p.name);
-        f.put(c + cr::RETIRED_RECORDS, &p.record(s.start));
+        let mut r = p.record(s.start);
+        if s.spell.is_some() {
+            // Possessions from byte 0x17: things 33-80 one bit each, eight
+            // to a byte, high bit first (as the decoder reads them).
+            let i = SPELL as usize - 33;
+            r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
+        }
+        f.put(c + cr::RETIRED_RECORDS, &r);
     }
     f.ascii(
         l.adventure + acs_core::layout::adventure::MAP_NAME,
@@ -438,5 +459,27 @@ mod tests {
             .collect();
         assert_eq!(got, vec![(5, 400), (6, 100), (7, 1)]);
         assert!(weight_bytes(401).is_err());
+    }
+
+    #[test]
+    fn the_player_owns_the_spell() {
+        let s = MoveBasic {
+            player: Some(Player::default()),
+            spell: Some(20),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let p = &adv.retired_players[0];
+        assert_eq!(p.possessions.len(), 1);
+        assert_eq!(p.possessions[0].thing, SPELL as u16);
+        match &adv.things[SPELL as usize - 1].kind {
+            acs_core::model::ThingKind::MagicSpell { power, action, .. } => {
+                assert_eq!(*power, 20);
+                assert_eq!(action.kind, acs_core::model::SpellActionKind::LongMessage);
+            }
+            k => panic!("{k:?}"),
+        }
     }
 }
