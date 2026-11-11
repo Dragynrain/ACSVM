@@ -11,9 +11,12 @@
 //! Each rule is specified in `docs/rules/` before it is implemented here;
 //! the spec tags every rule as coming from the manual, from the data, or as
 //! still unknown, and says what the engine does for the unknown ones.
-//! Implemented so far: movement (`docs/rules/movement.md`) and inventory
-//! (`docs/rules/inventory.md`).
+//! Implemented so far: movement (`docs/rules/movement.md`), inventory
+//! (`docs/rules/inventory.md`) and creatures outside combat
+//! (`docs/rules/creatures.md`).
 
+mod ai;
+pub mod creatures;
 mod describe;
 mod game;
 pub mod inventory;
@@ -228,6 +231,10 @@ pub enum Event {
     TurnStarted {
         player: usize,
         moves: u8,
+        /// The bar was halved for standing next to an aggressive, unfriendly
+        /// creature (creatures 2.6).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        hindered: bool,
     },
     TurnEnded {
         player: usize,
@@ -371,12 +378,97 @@ pub enum Event {
         creature: usize,
         terrain: u8,
     },
-    /// A room's random creature appeared on entry (roll only for now).
+    /// A room's random creature appeared on entry (creatures 3). `slot` and
+    /// `at` are `None` when the roll hit but no square was free.
     RoomEncounter {
         player: usize,
         region: u8,
         room: u8,
         /// Index into the region's random creature list.
         creature: u8,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        slot: Option<usize>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        at: Option<Location>,
     },
+    /// A creature's turn in a creature phase (creatures 2.2).
+    CreatureTurn {
+        region: u8,
+        slot: usize,
+        moves: u8,
+    },
+    CreatureMoved {
+        region: u8,
+        slot: usize,
+        from: Location,
+        to: Location,
+    },
+    /// Took a door inside its region; `from` is the door square.
+    CreatureTookDoor {
+        region: u8,
+        slot: usize,
+        from: Location,
+        to: Location,
+    },
+    CreaturePickedUp {
+        region: u8,
+        slot: usize,
+        thing: u8,
+    },
+    CreatureGoldPickedUp {
+        region: u8,
+        slot: usize,
+        amount: u16,
+    },
+    /// Put down `amount` of `thing` (gold pieces for thing 81, else 1) at
+    /// `at`, or `None` when a treasure vanished on being dropped.
+    CreatureDropped {
+        region: u8,
+        slot: usize,
+        thing: u8,
+        amount: u16,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        at: Option<Location>,
+    },
+    CreatureReadied {
+        region: u8,
+        slot: usize,
+        thing: u8,
+    },
+    /// A fighter stands next to a foe it sought; combat will make this an
+    /// attack (creatures 7.1).
+    CreatureConfronts {
+        region: u8,
+        slot: usize,
+        target: Who,
+    },
+    /// A door used up a creature's needed thing.
+    CreatureUsedUp {
+        region: u8,
+        slot: usize,
+        thing: u8,
+    },
+    CreatureRemoved {
+        region: u8,
+        slot: usize,
+        reason: RemovalReason,
+    },
+}
+
+/// An individual: a player or a creature in a region slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "who", rename_all = "snake_case")]
+pub enum Who {
+    Player { player: usize },
+    Creature { region: u8, slot: usize },
+}
+
+/// Why a creature left the game.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemovalReason {
+    /// A random creature left in a room with no player (creatures 2.4).
+    LeftBehind,
+    /// Sent through a door into a deleted room (creatures 5.5).
+    Banished,
 }

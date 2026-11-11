@@ -225,7 +225,11 @@ fn start_and_first_turn() {
                     player: 0,
                     at: Location::World { x: 20, y: 20 }
                 },
-                Event::TurnStarted { player: 0, moves: 7 },
+                Event::TurnStarted {
+                    player: 0,
+                    moves: 7,
+                    hindered: false
+                },
             ]
         );
     });
@@ -259,7 +263,11 @@ fn the_bar_runs_out_and_refills() {
     mv(&mut g, Dir::S); // 20,21 field: spell, still a step
     let ev = mv(&mut g, Dir::S);
     assert!(ev.contains(&Event::TurnEnded { player: 0 }));
-    assert!(ev.contains(&Event::TurnStarted { player: 0, moves: 2 }));
+    assert!(ev.contains(&Event::TurnStarted {
+        player: 0,
+        moves: 2,
+        hindered: false
+    }));
     assert_eq!(g.current_player().moves_left, 2);
     // Wait ends the turn at once.
     let ev = g.apply(Command::Wait);

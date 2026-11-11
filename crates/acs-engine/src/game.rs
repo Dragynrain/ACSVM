@@ -102,6 +102,16 @@ pub struct Game {
     seed: u64,
     first: PlayerSetup,
     log: Vec<Command>,
+    /// Region slots holding random creatures (creatures 2.4, 3.3).
+    #[serde(default)]
+    pub(crate) random: Vec<(u8, usize)>,
+    /// Rooms the current player has been in this turn (creatures 2.2).
+    #[serde(default)]
+    pub(crate) turn_rooms: Vec<(u8, u8)>,
+    /// Doors the current player left a room by this turn: region, room,
+    /// door square (creatures 6.4).
+    #[serde(default)]
+    pub(crate) turn_exits: Vec<(u8, u8, u8, u8)>,
 }
 
 impl Game {
@@ -117,6 +127,9 @@ impl Game {
             seed,
             first: first.clone(),
             log: Vec::new(),
+            random: Vec::new(),
+            turn_rooms: Vec::new(),
+            turn_exits: Vec::new(),
         };
         let mut ev = Vec::new();
         g.add_player(first, &mut ev);
@@ -230,23 +243,50 @@ impl Game {
         }
     }
 
+    /// Ends the current player's turn, runs the creature phase for the rooms
+    /// that player was in (creatures 2.2), and starts the next turn.
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
         ev.push(Event::TurnEnded { player: self.current });
+        self.creature_phase(self.current, ev);
         self.current = (self.current + 1) % self.players.len();
         self.start_turn(ev);
     }
 
     /// Fills the current player's bar from Speed after any slowdown
-    /// (inventory 3.3, 3.4).
+    /// (inventory 3.3, 3.4), halved next to an aggressive unfriendly
+    /// creature (creatures 2.6).
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
-        let moves = self.players[self.current].effective_speed(&self.adv);
+        let mut moves = self.players[self.current].effective_speed(&self.adv);
+        let hindered = moves > 0 && self.hindered(self.current);
+        if hindered {
+            moves = (moves / 2).max(1);
+        }
+        let at = self.players[self.current].at;
+        self.turn_rooms = at.room().into_iter().collect();
+        self.turn_exits.clear();
         let p = &mut self.players[self.current];
         p.moves_left = moves;
         p.turn_moves = moves;
         ev.push(Event::TurnStarted {
             player: self.current,
             moves,
+            hindered,
         });
+    }
+
+    /// Test and tool hook: the live creature in a region slot.
+    pub fn creature(&self, region: u8, slot: usize) -> Option<&acs_core::model::Creature> {
+        self.region(region)?.residents.get(slot).filter(|c| c.in_use)
+    }
+
+    /// Whether a region slot holds a random creature (creatures 3.3).
+    pub fn is_random(&self, region: u8, slot: usize) -> bool {
+        self.random.contains(&(region, slot))
+    }
+
+    /// Test and tool hook: edits a region slot's record (not replayed).
+    pub fn creature_mut(&mut self, region: u8, slot: usize) -> Option<&mut acs_core::model::Creature> {
+        self.region_mut(region)?.residents.get_mut(slot)
     }
 
     // ---- lookups ---------------------------------------------------------

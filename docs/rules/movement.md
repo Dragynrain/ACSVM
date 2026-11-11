@@ -159,7 +159,10 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    an obstacle (54), a custom space (49), a portal (14, all from one-way
    doors) or another thing. [data] Whether arriving on such a square triggers
    it is not stated. [unknown] **Engine:** arriving triggers nothing and
-   never chains to another door; the character just stands there.
+   never chains to another door; the character just stands there. If an
+   individual already stands on the destination square, the character
+   arrives on the nearest free square instead, as creatures do
+   ([creatures](creatures.md) 5.4). [unknown]
    The corpus smoke test (`crates/acs-engine/tests/corpus.rs`) steps onto
    every door that is on top of its stack: 3,025 lead to an inside square of
    a live room or a map cell, 1 sends the player to the start (the deleted

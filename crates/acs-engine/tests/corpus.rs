@@ -391,3 +391,140 @@ fn every_carriable_thing_can_be_picked_up() {
     assert!(other.is_empty(), "{}", other.join("\n"));
     assert!(items > 0);
 }
+
+/// Creatures 1-8: a player dropped into every room that has residents or a
+/// random creature, then a dozen turns of waiting and wandering. Creatures
+/// stay in their region, never share a square, stand only inside live rooms
+/// once they move, and keep within the carry limits.
+#[test]
+fn creatures_in_every_room_follow_the_rules() {
+    use acs_engine::creatures::{is_fighter, SLOTS};
+    use std::collections::BTreeMap;
+    let Some(advs) = corpus() else {
+        eprintln!("skipped: ACSVM_CORPUS not set");
+        return;
+    };
+    let mut total: BTreeMap<String, usize> = BTreeMap::new();
+    let mut types: BTreeMap<String, usize> = BTreeMap::new();
+    let mut rooms_toured = 0;
+    for (file, a) in &advs {
+        for reg in &a.regions {
+            for c in reg.residents.iter().filter(|c| c.in_use) {
+                let kind = if is_fighter(c) { "fighter" } else { "slinker" };
+                *types
+                    .entry(format!("{kind} {:?}", c.strategy.alignment))
+                    .or_default() += 1;
+                if c.speed == 0 {
+                    *types.entry("speed 0".into()).or_default() += 1;
+                }
+            }
+        }
+        let mut tally: BTreeMap<String, usize> = BTreeMap::new();
+        for reg in &a.regions {
+            for room in reg.rooms.iter().filter(|r| !r.deleted) {
+                let lives = reg.residents.iter().any(|c| c.in_use && c.room == room.number);
+                let random = room.random_chance > 0
+                    && reg
+                        .random_creatures
+                        .get(room.random_creature as usize)
+                        .is_some_and(|c| c.in_use);
+                if !lives && !random {
+                    continue;
+                }
+                let start: Vec<_> = reg
+                    .residents
+                    .iter()
+                    .map(|c| (c.in_use, c.room, c.x, c.y))
+                    .collect();
+                let free = (1..room.height.saturating_sub(1))
+                    .flat_map(|y| (1..room.width.saturating_sub(1)).map(move |x| (x, y)))
+                    .find(|&(x, y)| {
+                        !room.items.iter().any(|it| it.x == x && it.y == y)
+                            && !reg
+                                .residents
+                                .iter()
+                                .any(|c| c.in_use && c.room == room.number && (c.x, c.y) == (x, y))
+                    });
+                let Some((x, y)) = free else { continue };
+                rooms_toured += 1;
+                let mut g = game(a);
+                g.place(
+                    0,
+                    Location::Room {
+                        region: reg.number,
+                        room: room.number,
+                        x,
+                        y,
+                    },
+                );
+                let mut pick = Rng::new(reg.number as u64 * 100 + room.number as u64);
+                for i in 0..12 {
+                    let cmd = if i % 2 == 0 {
+                        Command::Wait
+                    } else {
+                        Command::Move {
+                            dir: Dir::ALL[pick.below(8) as usize],
+                        }
+                    };
+                    let evs = g.apply(cmd);
+                    let last = format!("{evs:?}");
+                    for e in evs {
+                        let k = format!("{e:?}");
+                        let k = k.split([' ', '{']).next().unwrap();
+                        if k.starts_with("Creature") || k == "RoomEncounter" {
+                            *tally.entry(k.to_string()).or_default() += 1;
+                        }
+                        if let Event::CreatureRemoved { reason, .. } = e {
+                            *tally.entry(format!("removed {reason:?}")).or_default() += 1;
+                        }
+                    }
+                    let ga = g.adventure();
+                    for greg in &ga.regions {
+                        let live: Vec<_> = (0..SLOTS)
+                            .filter_map(|s| g.creature(greg.number, s).map(|c| (s, c)))
+                            .collect();
+                        for &(s, c) in &live {
+                            let r = &greg.rooms[c.room as usize];
+                            assert!(!r.deleted && c.x < r.width && c.y < r.height, "{file}: {c:?}");
+                            let moved = start.get(s).is_some_and(|&st| st != (true, c.room, c.x, c.y))
+                                || greg.number != reg.number;
+                            if moved && greg.number == reg.number {
+                                assert!(
+                                    c.x > 0 && c.y > 0 && c.x + 1 < r.width && c.y + 1 < r.height,
+                                    "{file}: creature on a wall {c:?}"
+                                );
+                            }
+                            for &(t, o) in &live {
+                                let same = t != s && o.room == c.room && (o.x, o.y) == (c.x, c.y);
+                                assert!(!(same && moved), "{file}: two creatures share {},{}", c.x, c.y);
+                            }
+                            let pl = g.current_player().at;
+                            if moved {
+                                assert_ne!(
+                                    pl,
+                                    Location::Room {
+                                        region: greg.number,
+                                        room: c.room,
+                                        x: c.x,
+                                        y: c.y
+                                    },
+                                    "{file}: creature on the player after {last}"
+                                );
+                            }
+                            assert!(c.wealth <= inventory::GOLD_LIMIT);
+                            for p in &c.possessions {
+                                assert!(p.count as u16 <= inventory::limit(p.thing), "{file}: {c:?}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        println!("{file}: {tally:?}");
+        for (k, v) in tally {
+            *total.entry(k).or_default() += v;
+        }
+    }
+    println!("residents by type: {types:?}");
+    println!("{rooms_toured} rooms toured; total: {total:?}");
+}

@@ -3,7 +3,7 @@
 //! Plain-text lines for events, for message logs and traces.
 
 use crate::game::Game;
-use crate::{BlockReason, DropRefusal, Event, Location, ReadyRefusal, Slot, SpellSource};
+use crate::{BlockReason, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot, SpellSource, Who};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
@@ -24,8 +24,17 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         None => line,
     };
     match ev {
-        Event::TurnStarted { player, moves } => {
-            format!("{}'s turn ({moves} moves).", who(player))
+        Event::TurnStarted {
+            player,
+            moves,
+            hindered,
+        } => {
+            let h = if *hindered {
+                ", hindered by a creature next to them"
+            } else {
+                ""
+            };
+            format!("{}'s turn ({moves} moves{h}).", who(player))
         }
         Event::TurnEnded { player } => format!("{}'s turn ends.", who(player)),
         Event::PlayerAdded { player, at } => {
@@ -209,15 +218,106 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 .unwrap_or_default();
             format!("Encounter: {name} appears in the {tname} (encounters come later).")
         }
-        Event::RoomEncounter { region, creature, .. } => {
+        Event::RoomEncounter {
+            region, creature, at, ..
+        } => {
             let name = game
                 .region(*region)
                 .and_then(|r| r.random_creatures.get(*creature as usize))
                 .map(|c| c.name.trim().to_string())
                 .unwrap_or_default();
-            format!("{name} would appear here (random creatures come later).")
+            match at {
+                Some(at) => format!("{name} appears at {}.", place(game, at)),
+                None => format!("{name} would appear, but no square is free."),
+            }
+        }
+        Event::CreatureTurn { region, slot, moves } => {
+            format!("{}'s turn ({moves} moves).", creature(game, *region, *slot))
+        }
+        Event::CreatureMoved { region, slot, to, .. } => {
+            format!("{} moves to {}.", creature(game, *region, *slot), place(game, to))
+        }
+        Event::CreatureTookDoor { region, slot, to, .. } => {
+            format!(
+                "{} goes through to {}.",
+                creature(game, *region, *slot),
+                place(game, to)
+            )
+        }
+        Event::CreaturePickedUp {
+            region,
+            slot,
+            thing: t,
+        } => {
+            format!("{} picks up {}.", creature(game, *region, *slot), thing(*t))
+        }
+        Event::CreatureGoldPickedUp { region, slot, amount } => format!(
+            "{} picks up {amount} {}.",
+            creature(game, *region, *slot),
+            thing(crate::inventory::GOLD)
+        ),
+        Event::CreatureDropped {
+            region,
+            slot,
+            thing: t,
+            amount,
+            at,
+        } => {
+            let what = if *t == crate::inventory::GOLD {
+                format!("{amount} {}", thing(*t))
+            } else {
+                thing(*t)
+            };
+            match at {
+                Some(at) => format!(
+                    "{} drops {what} at {}.",
+                    creature(game, *region, *slot),
+                    place(game, at)
+                ),
+                None => format!("{} drops {what} and it vanishes.", creature(game, *region, *slot)),
+            }
+        }
+        Event::CreatureReadied {
+            region,
+            slot,
+            thing: t,
+        } => {
+            format!("{} readies {}.", creature(game, *region, *slot), thing(*t))
+        }
+        Event::CreatureConfronts { region, slot, target } => {
+            let other = match *target {
+                Who::Player { player } => who(&player),
+                Who::Creature { region, slot } => creature(game, region, slot),
+            };
+            format!(
+                "{} squares up to {other} (combat comes later).",
+                creature(game, *region, *slot)
+            )
+        }
+        Event::CreatureUsedUp {
+            region,
+            slot,
+            thing: t,
+        } => {
+            format!("{}'s {} is used up.", creature(game, *region, *slot), thing(*t))
+        }
+        Event::CreatureRemoved { region, slot, reason } => {
+            let why = match reason {
+                RemovalReason::LeftBehind => "wanders off",
+                RemovalReason::Banished => "is banished",
+            };
+            format!("{} {why}.", creature(game, *region, *slot))
         }
     }
+}
+
+/// A region slot's creature name (removed ones keep theirs in the record).
+fn creature(game: &Game, region: u8, slot: usize) -> String {
+    game.region(region)
+        .and_then(|r| r.residents.get(slot))
+        .map(|c| c.name.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| format!("creature {}", slot + 1))
 }
 
 fn map_name(game: &Game) -> String {

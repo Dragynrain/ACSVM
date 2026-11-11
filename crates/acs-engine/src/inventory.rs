@@ -236,7 +236,7 @@ impl Game {
         destroy_needed_thing
     }
 
-    fn put_on_top(&mut self, region: u8, room: u8, x: u8, y: u8, thing: u8, parameter: u8) {
+    pub(crate) fn put_on_top(&mut self, region: u8, room: u8, x: u8, y: u8, thing: u8, parameter: u8) {
         if let Some(r) = self
             .region_mut(region)
             .and_then(|reg| reg.rooms.get_mut(room as usize))

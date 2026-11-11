@@ -69,6 +69,13 @@ impl Game {
             });
             return;
         }
+        // Creatures 2.2: every room the player is in this turn counts (also
+        // after a `place`, which records nothing itself).
+        if let Some(r) = from.room() {
+            if !self.turn_rooms.contains(&r) {
+                self.turn_rooms.push(r);
+            }
+        }
         match from {
             Location::World { x, y } => self.step_on_map(p, x, y, dir, ev),
             Location::Room { region, room, x, y } => self.step_in_room(p, region, room, x, y, dir, ev),
@@ -359,6 +366,8 @@ impl Game {
                         ev.push(spell(SpellSource::Portal, a));
                     }
                     self.use_up(p, used_up, ev);
+                    // Creatures 6.4: creatures left behind chase through it.
+                    self.turn_exits.push((region, room, nx, ny));
                     self.travel(p, from, item.destination, Some(item.thing), ev);
                     self.spend(ev);
                 }
@@ -539,10 +548,22 @@ impl Game {
                 .map(|_| Location::Room { region, room, x, y }),
             _ => None,
         };
-        let Some(to) = to else {
+        let Some(mut to) = to else {
             self.send_to_start(p, from, ev);
             return;
         };
+        // 6.3 / creatures 5.4: a creature on the destination square moves the
+        // arrival to the nearest free square.
+        if let Location::Room { region, room, x, y } = to {
+            if let Some((lx, ly)) = self.landing(region, room, x, y) {
+                to = Location::Room {
+                    region,
+                    room,
+                    x: lx,
+                    y: ly,
+                };
+            }
+        }
         self.players[p].at = to;
         ev.push(Event::TookDoor {
             player: p,
@@ -583,6 +604,9 @@ impl Game {
         }
         if let Some((region, room)) = to.room() {
             if from.room() != Some((region, room)) {
+                if !self.turn_rooms.contains(&(region, room)) {
+                    self.turn_rooms.push((region, room));
+                }
                 ev.push(Event::EnteredRoom {
                     player: p,
                     region,
@@ -609,11 +633,15 @@ impl Game {
             return;
         }
         if self.rng.percent(chance) {
+            // Creatures 3.2, 3.3: an empty square and the lowest free slot.
+            let placed = self.place_random(region, room, slot);
             ev.push(Event::RoomEncounter {
                 player: p,
                 region,
                 room,
                 creature: slot,
+                slot: placed.map(|(s, _)| s),
+                at: placed.map(|(_, at)| at),
             });
         }
     }
