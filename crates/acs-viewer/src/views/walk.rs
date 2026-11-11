@@ -7,8 +7,9 @@
 //! carries, and lists the engine's events in a message log.
 
 use super::*;
-use acs_core::model::ThingKind;
+use acs_core::model::{Alignment, Creature, ThingKind};
 use acs_core::scene::{self, RoomScene};
+use acs_engine::creatures::{self as cr, SLOTS};
 use acs_engine::inventory::{self, GOLD};
 use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules};
 use egui::{Key, Modifiers, RichText};
@@ -27,6 +28,8 @@ enum Kind {
     Door,
     Spell,
     Item,
+    Creature,
+    Foe,
 }
 
 pub struct Walk {
@@ -37,6 +40,8 @@ pub struct Walk {
     pending_drop: Option<u8>,
     /// Pieces per gold drop.
     gold_amount: u16,
+    /// The current turn's bar was halved by a creature (creatures 2.6).
+    hindered: bool,
 }
 
 impl Walk {
@@ -47,6 +52,7 @@ impl Walk {
             log: Vec::new(),
             pending_drop: None,
             gold_amount: 1,
+            hindered: false,
         };
         w.note(format!(
             "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
@@ -87,6 +93,9 @@ impl Walk {
 
     fn record(&mut self, events: &[Event]) {
         for e in events {
+            if let Event::TurnStarted { hindered, .. } = e {
+                self.hindered = *hindered;
+            }
             let kind = match e {
                 Event::TurnStarted { .. } | Event::TurnEnded { .. } => Kind::Turn,
                 Event::Moved { .. } => Kind::Step,
@@ -111,6 +120,15 @@ impl Walk {
                 Event::SpellTriggered { .. } | Event::Encounter { .. } | Event::RoomEncounter { .. } => {
                     Kind::Spell
                 }
+                Event::CreatureConfronts { .. } | Event::CreatureRemoved { .. } => Kind::Foe,
+                Event::CreatureTurn { .. }
+                | Event::CreatureMoved { .. }
+                | Event::CreatureTookDoor { .. }
+                | Event::CreaturePickedUp { .. }
+                | Event::CreatureGoldPickedUp { .. }
+                | Event::CreatureDropped { .. }
+                | Event::CreatureReadied { .. }
+                | Event::CreatureUsedUp { .. } => Kind::Creature,
                 _ => Kind::Note,
             };
             self.log.push((kind, describe(&self.game, e)));
@@ -271,16 +289,17 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             let p = g.current_player();
             ui.heading(&p.name);
             ui.label(place_name(g, p.at));
-            let slowed = if p.turn_moves < p.speed {
-                format!(" (slowed from {})", p.speed)
-            } else {
-                String::new()
+            let slowed = match (p.turn_moves < p.speed, walk.hindered) {
+                (true, true) => format!(" (slowed from {}, hindered)", p.speed),
+                (true, false) => format!(" (slowed from {})", p.speed),
+                _ => String::new(),
             };
             ui.add(
                 egui::ProgressBar::new(p.moves_left as f32 / p.turn_moves.max(1) as f32)
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
             inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
+            creatures_panel(ui, g);
             ui.horizontal(|ui| {
                 let mut rules = g.rules();
                 if ui
@@ -309,6 +328,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             Kind::Door => t.color(Color32::from_rgb(120, 220, 255)),
                             Kind::Spell => t.color(Color32::from_rgb(230, 160, 255)),
                             Kind::Item => t.color(Color32::from_rgb(150, 230, 140)),
+                            Kind::Creature => t.color(Color32::from_rgb(235, 220, 150)),
+                            Kind::Foe => t.color(Color32::from_rgb(255, 110, 110)),
                             Kind::Note => t,
                         };
                         ui.label(t);
@@ -421,6 +442,79 @@ fn inventory_panel(
     }
 }
 
+/// Colour of a creature's alignment marker.
+fn alignment_colour(a: Alignment) -> Color32 {
+    match a {
+        Alignment::Enemy => Color32::from_rgb(235, 60, 60),
+        Alignment::Friend => Color32::from_rgb(70, 210, 90),
+        Alignment::Neutral => Color32::from_rgb(230, 200, 60),
+        Alignment::Thief => Color32::from_rgb(190, 110, 255),
+    }
+}
+
+/// "fighter enemy, aggressive, brave" (creatures 4).
+fn personality(c: &Creature) -> String {
+    let kind = if cr::is_fighter(c) { "fighter" } else { "slinker" };
+    let s = c.strategy;
+    format!(
+        "{kind} {}, {}, {}",
+        format!("{:?}", s.alignment).to_lowercase(),
+        if s.aggressive { "aggressive" } else { "peaceful" },
+        if s.brave { "brave" } else { "cautious" }
+    )
+}
+
+/// The creatures in the player's room, with what the AI uses.
+fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
+    let Location::Room { region, room, .. } = g.current_player().at else {
+        return;
+    };
+    let a = g.adventure();
+    let here: Vec<(usize, &Creature)> = (0..SLOTS)
+        .filter_map(|s| g.creature(region, s).map(|c| (s, c)))
+        .filter(|(_, c)| c.room == room)
+        .collect();
+    ui.separator();
+    ui.label(RichText::new("Creatures here").strong());
+    if here.is_empty() {
+        ui.label(RichText::new("None.").weak());
+    }
+    for (slot, c) in here {
+        let name = c.name.trim();
+        let random = if g.is_random(region, slot) {
+            " (random)"
+        } else {
+            ""
+        };
+        ui.horizontal(|ui| {
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+            ui.painter()
+                .circle_filled(rect.center(), 5.0, alignment_colour(c.strategy.alignment));
+            ui.label(format!("{name}{random} · {},{}", c.x, c.y));
+        });
+        let weapon = a
+            .things
+            .get((c.weapon as usize).wrapping_sub(1))
+            .map(|t| format!(" · {}", t.name.trim()))
+            .unwrap_or_default();
+        let wealth = if c.wealth > 0 {
+            format!(" · {} gold", c.wealth)
+        } else {
+            String::new()
+        };
+        ui.label(
+            RichText::new(format!(
+                "    {} · speed {} · LF {}/{}{weapon}{wealth}",
+                personality(c),
+                cr::effective_speed(a, c),
+                c.life_force,
+                c.constitution
+            ))
+            .weak(),
+        );
+    }
+}
+
 fn place_name(g: &Game, at: Location) -> String {
     let a = g.adventure();
     match at {
@@ -494,6 +588,14 @@ fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);
         let (_, pic) = scene::shown(a, reg, r, sq);
         tiles.paint(&painter, pic, grid.cell_rect(x, y));
+    }
+    // A dot in the corner of each creature's square shows its alignment.
+    for c in reg.residents.iter().filter(|c| c.in_use && c.room == room) {
+        let cell = grid.cell_rect(c.x as u32, c.y as u32);
+        let rad = (cell.width().min(cell.height()) * 0.12).max(2.0);
+        let at = cell.right_top() + egui::vec2(-rad * 1.4, rad * 1.4);
+        painter.circle_filled(at, rad + 1.0, Color32::BLACK);
+        painter.circle_filled(at, rad, alignment_colour(c.strategy.alignment));
     }
     marker(&painter, grid.cell_rect(px as u32, py as u32));
 }

@@ -9,9 +9,12 @@ and PC adventures into JSON and exports their pictures, and a viewer that
 shows an adventure's world map, regions, rooms, things, creatures and messages
 on the desktop or in a browser
 ([try it](https://dragynrain.github.io/ACSVM/) with your own file). The rules
-engine handles movement and inventory so far, and the viewer's walk mode lets
-you move a player through an adventure, pick things up, ready weapons and
-armor, and drop things; there is no combat, magic or AI yet. See
+engine handles movement, inventory and creatures outside combat so far, and
+the viewer's walk mode lets you move a player through an adventure, pick
+things up, ready weapons and armor, drop things, and watch the creatures in
+the room take their turns: they walk up to you, follow you through doors,
+grab gold and treasure, and appear at random. There is no combat or magic
+yet. See
 [docs/design.md](docs/design.md) for the full plan and
 [docs/rules/](docs/rules/movement.md) for the rules as specified.
 
@@ -56,10 +59,14 @@ the window, with C64 pixels twice as wide as tall.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
 End, PgDn, or the numpad), and press Space to end a turn. The log on the right
 lists what the rules engine reports: steps, blocked moves with the designer's
-messages, doors, pick-ups, spells that would go off, and random encounter
-rolls. The panel shows the load against the carrying capacity and what the
-player carries; Ready readies a weapon or puts on armor, and Drop asks for a
-direction (Space drops on the player's own square, Escape cancels).
+messages, doors, pick-ups, spells that would go off, random encounters, and
+each creature's turn. The panel shows the load against the carrying capacity
+and what the player carries; Ready readies a weapon or puts on armor, and
+Drop asks for a direction (Space drops on the player's own square, Escape
+cancels). Below it, the creatures in the room are listed with their
+personality (fighter or slinker; enemy, friend, neutral or thief), speed,
+Life Force and readied weapon; a coloured dot on each one's square shows its
+alignment (red enemy, green friend, yellow neutral, purple thief).
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
