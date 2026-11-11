@@ -91,7 +91,7 @@ pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
 }
 
 /// Every room square where master thing `number` is placed: (region, room, x, y).
-fn placements(adv: &Adventure, number: u8) -> Vec<(usize, usize, u8, u8)> {
+fn placements(adv: &Adventure, number: u16) -> Vec<(usize, usize, u8, u8)> {
     let mut out = Vec::new();
     for (r, region) in adv.regions.iter().enumerate() {
         for (i, room) in region.rooms.iter().enumerate().filter(|(_, rm)| !rm.deleted) {

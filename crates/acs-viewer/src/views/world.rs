@@ -139,7 +139,7 @@ fn door_at(map: &WorldMap, x: u8, y: u8) -> Option<Destination> {
         .map(|d| d.destination)
 }
 
-fn passability(p: Passability, parameter: u8, adv: &Adventure) -> String {
+fn passability(p: Passability, parameter: u16, adv: &Adventure) -> String {
     match p {
         Passability::Impassable => "impassable".into(),
         Passability::Open => "open".into(),

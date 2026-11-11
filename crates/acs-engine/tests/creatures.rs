@@ -13,14 +13,14 @@ use acs_engine::inventory::GOLD;
 use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason, Rules, Who};
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
-const GEM: u8 = 1; // treasure, weight 1
-const ROCK: u8 = 2; // treasure, weight 200
-const SWORD: u8 = 3; // melee weapon
-const BOW: u8 = 4; // missile weapon
-const WAND: u8 = 40; // magic item
-const DOOR: u8 = 82; // portal, anyone
-const RIDDOOR: u8 = 83; // portal, invokes Rid Room
-const PILLAR: u8 = 84; // obstacle
+const GEM: u16 = 1; // treasure, weight 1
+const ROCK: u16 = 2; // treasure, weight 200
+const SWORD: u16 = 3; // melee weapon
+const BOW: u16 = 4; // missile weapon
+const WAND: u16 = 40; // magic item
+const DOOR: u16 = 82; // portal, anyone
+const RIDDOOR: u16 = 83; // portal, invokes Rid Room
+const PILLAR: u16 = 84; // obstacle
 
 /// One region "DEN":
 ///
@@ -57,10 +57,10 @@ fn fixture(platform: Platform) -> Fixture {
                 h: 7,
                 wall: 12,
                 items: vec![
-                    (9, 3, DOOR, 1),
-                    (0, 3, DOOR, 3),
-                    (4, 6, RIDDOOR, 4),
-                    (4, 0, DOOR, 5),
+                    (9, 3, (DOOR as u8), 1),
+                    (0, 3, (DOOR as u8), 3),
+                    (4, 6, (RIDDOOR as u8), 4),
+                    (4, 0, (DOOR as u8), 5),
                 ],
                 ..Default::default()
             },
@@ -70,7 +70,7 @@ fn fixture(platform: Platform) -> Fixture {
                 h: 7,
                 x: 9,
                 wall: 12,
-                items: vec![(0, 3, DOOR, 2)],
+                items: vec![(0, 3, (DOOR as u8), 2)],
                 ..Default::default()
             },
             RoomSpec {
@@ -140,7 +140,7 @@ fn put(a: &mut Adventure, slot: usize, s: Spec) {
     let mut c = a.regions[0].residents[0].clone();
     c.in_use = true;
     c.name = format!("C{slot}");
-    c.number = slot as u8 + 1;
+    c.number = u16::from(slot as u8 + 1);
     c.region = 1;
     c.room = s.room;
     c.x = s.x;
@@ -152,7 +152,7 @@ fn put(a: &mut Adventure, slot: usize, s: Spec) {
     a.regions[0].residents[slot] = c;
 }
 
-fn item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u8, parameter: u8) {
+fn item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u16, parameter: u8) {
     a.regions[0].rooms[room].items.insert(
         0,
         RoomItem {
@@ -202,7 +202,7 @@ fn adjacent(a: (u8, u8), b: (u8, u8)) -> bool {
     a != b && (a.0 as i16 - b.0 as i16).abs() <= 1 && (a.1 as i16 - b.1 as i16).abs() <= 1
 }
 
-fn top(g: &Game, room: usize, x: u8, y: u8) -> Option<u8> {
+fn top(g: &Game, room: usize, x: u8, y: u8) -> Option<u16> {
     g.adventure().regions[0].rooms[room]
         .items
         .iter()

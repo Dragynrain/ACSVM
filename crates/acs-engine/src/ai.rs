@@ -12,6 +12,7 @@ use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
 use acs_core::model::{Access, Alignment, Creature, Destination, SpellActionKind, ThingKind};
 use std::collections::VecDeque;
 
+use acs_core::model::ThingId;
 use Alignment::{Enemy, Friend, Neutral, Thief};
 
 /// A goal category from the manual's lists (6.1).
@@ -158,7 +159,7 @@ impl Game {
             return false;
         };
         let foe = is_foe(&c, &goal);
-        let mut owned: Vec<u8> = c
+        let mut owned: Vec<ThingId> = c
             .possessions
             .iter()
             .filter(|p| p.count > 0)
@@ -207,7 +208,14 @@ impl Game {
 
     /// Magic 6.6: a magic item a creature drops on `at` casts its drop
     /// spell on the creature itself (it never lands on another creature).
-    fn creature_drop_spell(&mut self, region: u8, slot: usize, thing: u8, at: Location, ev: &mut Vec<Event>) {
+    fn creature_drop_spell(
+        &mut self,
+        region: u8,
+        slot: usize,
+        thing: ThingId,
+        at: Location,
+        ev: &mut Vec<Event>,
+    ) {
         let Some(t) = self.thing(thing).cloned() else {
             return;
         };
@@ -719,7 +727,7 @@ impl Game {
         if load <= cap {
             return;
         }
-        let mut owned: Vec<u8> = c
+        let mut owned: Vec<ThingId> = c
             .possessions
             .iter()
             .filter(|p| p.count > 0)
@@ -786,7 +794,7 @@ impl Game {
         let safe = !self.others_in_room(region, c.room, Some(me)).iter().any(|o| {
             (o.x as i16 - c.x as i16).abs() <= 1 && (o.y as i16 - c.y as i16).abs() <= 1 && is_foe(&c, o)
         });
-        let mut weapons: Vec<u8> = c
+        let mut weapons: Vec<ThingId> = c
             .possessions
             .iter()
             .filter(|p| p.count > 0)
@@ -830,7 +838,7 @@ impl Game {
         let Some(c) = self.creature(region, slot).cloned() else {
             return;
         };
-        let mut items: Vec<u8> = c
+        let mut items: Vec<ThingId> = c
             .possessions
             .iter()
             .filter(|p| p.count > 0)

@@ -29,6 +29,7 @@ pub use game::{Game, Player, PlayerSetup};
 pub use rng::Rng;
 
 use acs_core::model::SpellAction;
+use acs_core::model::ThingId;
 use serde::{Deserialize, Serialize};
 
 /// Where a character stands.
@@ -119,7 +120,7 @@ pub enum Command {
     /// "Drop Object": one of `thing` onto the adjacent square in `dir`, or
     /// the player's own square when `dir` is `None` (inventory 5).
     Drop {
-        thing: u8,
+        thing: ThingId,
         #[serde(default)]
         dir: Option<Dir>,
     },
@@ -130,17 +131,17 @@ pub enum Command {
         dir: Option<Dir>,
     },
     /// "New Weapon" / "New Armor": readies a carried weapon or armor.
-    Ready { thing: u8 },
+    Ready { thing: ThingId },
     /// "Use Power": casts a carried magic spell at `target` (the caster
     /// when `None`) (magic 4.1). Ends the turn.
     Cast {
-        thing: u8,
+        thing: ThingId,
         #[serde(default)]
         target: Option<Who>,
     },
     /// "Use Object": uses a carried magic item (magic 4.2). Ends the turn.
     Use {
-        thing: u8,
+        thing: ThingId,
         #[serde(default)]
         target: Option<Who>,
     },
@@ -169,22 +170,22 @@ pub enum BlockReason {
     /// Impassable terrain (0..16).
     Terrain { terrain: u8 },
     /// Terrain, a door or a space open only to owners of `thing`.
-    NeedsThing { thing: u8 },
+    NeedsThing { thing: ThingId },
     /// A door or space closed to owners of `thing`.
-    ClosedToOwnersOf { thing: u8 },
+    ClosedToOwnersOf { thing: ThingId },
     /// A plain wall square.
     Wall,
     /// An obstacle or custom obstacle (master thing number).
-    Obstacle { thing: u8 },
+    Obstacle { thing: ThingId },
     /// A store (stores come with a later rule set).
-    Store { thing: u8 },
+    Store { thing: ThingId },
     /// A diagonal step while [`Rules::diagonals`] is off.
     Diagonal,
     /// The movement bar is empty (Speed 0); only `Wait` helps.
     NoMovesLeft,
     /// The top thing is carriable but the player already owns as many of it
     /// as anyone may (inventory 2.2).
-    CarryLimit { thing: u8 },
+    CarryLimit { thing: ThingId },
 }
 
 /// Why a drop was refused (it costs nothing).
@@ -200,7 +201,7 @@ pub enum DropRefusal {
     /// The target is a wall or outside the room.
     Wall,
     /// The target's top thing does not take drops (portal, obstacle, store).
-    Thing { thing: u8 },
+    Thing { thing: ThingId },
     /// A gold amount of 0 or more than one pile holds (255).
     BadAmount,
 }
@@ -279,7 +280,7 @@ pub enum Stat {
 
 impl Stat {
     /// The Increase / Decrease spell parameter 0..=9 (magic 3.5).
-    pub fn from_spell_parameter(p: u8) -> Option<Stat> {
+    pub fn from_spell_parameter(p: u16) -> Option<Stat> {
         use Stat::*;
         Some(match p {
             0 => Constitution,
@@ -362,7 +363,7 @@ pub enum Event {
     },
     PickedUp {
         player: usize,
-        thing: u8,
+        thing: ThingId,
     },
     /// Picked up a pile of gold (thing 81).
     GoldPickedUp {
@@ -372,19 +373,19 @@ pub enum Event {
     /// A weapon or armor is now readied (`Ready`, or a weapon picked up).
     Readied {
         player: usize,
-        thing: u8,
+        thing: ThingId,
         slot: Slot,
     },
     ReadyRefused {
         player: usize,
-        thing: u8,
+        thing: ThingId,
         #[serde(flatten)]
         reason: ReadyRefusal,
     },
     /// The thing now lies on top of the stack at `at`.
     Dropped {
         player: usize,
-        thing: u8,
+        thing: ThingId,
         at: Location,
     },
     /// A pile of gold was put down at `at`, or lost on the world map (`None`).
@@ -397,29 +398,29 @@ pub enum Event {
     /// Dropped on the world map: gone from the adventure.
     LostOnMap {
         player: usize,
-        thing: u8,
+        thing: ThingId,
     },
     /// A treasure that disappears when dropped.
     VanishedWhenDropped {
         player: usize,
-        thing: u8,
+        thing: ThingId,
     },
     DropRefused {
         player: usize,
         /// Thing 81 for gold.
-        thing: u8,
+        thing: ThingId,
         #[serde(flatten)]
         reason: DropRefusal,
     },
     /// A door, space or "when dropped here" space destroyed the needed thing.
     ThingUsedUp {
         player: usize,
-        thing: u8,
+        thing: ThingId,
     },
     /// A disappearing obstacle was bumped and is gone.
     ObstacleVanished {
         at: Location,
-        thing: u8,
+        thing: ThingId,
     },
     /// A spell went off; its effects follow as further events (magic 3).
     SpellTriggered {
@@ -430,7 +431,7 @@ pub enum Event {
         target: Option<Who>,
         source: SpellSource,
         /// The master thing that carries the spell.
-        thing: u8,
+        thing: ThingId,
         /// The action with its parameter resolved (placement parameters of
         /// custom spaces and custom obstacles already applied).
         action: SpellAction,
@@ -443,7 +444,7 @@ pub enum Event {
         from: Location,
         to: Location,
         #[serde(skip_serializing_if = "Option::is_none", default)]
-        thing: Option<u8>,
+        thing: Option<ThingId>,
     },
     EnteredRoom {
         player: usize,
@@ -510,7 +511,7 @@ pub enum Event {
     CreaturePickedUp {
         region: u8,
         slot: usize,
-        thing: u8,
+        thing: ThingId,
     },
     CreatureGoldPickedUp {
         region: u8,
@@ -522,7 +523,7 @@ pub enum Event {
     CreatureDropped {
         region: u8,
         slot: usize,
-        thing: u8,
+        thing: ThingId,
         amount: u16,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         at: Option<Location>,
@@ -530,7 +531,7 @@ pub enum Event {
     CreatureReadied {
         region: u8,
         slot: usize,
-        thing: u8,
+        thing: ThingId,
     },
     /// A fighter stands next to a foe it sought; combat will make this an
     /// attack (creatures 7.1).
@@ -543,7 +544,7 @@ pub enum Event {
     CreatureUsedUp {
         region: u8,
         slot: usize,
-        thing: u8,
+        thing: ThingId,
     },
     CreatureRemoved {
         region: u8,
@@ -554,7 +555,7 @@ pub enum Event {
     /// cost is already off the caster's Power.
     SpellCast {
         by: Who,
-        thing: u8,
+        thing: ThingId,
         target: Who,
         /// Percent chance of success that was rolled against.
         chance: u8,
@@ -564,19 +565,19 @@ pub enum Event {
     /// `Use` or a creature using a magic item (magic 4.2).
     ItemUsed {
         by: Who,
-        thing: u8,
+        thing: ThingId,
         target: Who,
     },
     CastRefused {
         player: usize,
-        thing: u8,
+        thing: ThingId,
         #[serde(flatten)]
         reason: CastRefusal,
     },
     /// A spell that disappears after use is gone from its owner.
     SpellGone {
         who: Who,
-        thing: u8,
+        thing: ThingId,
     },
     /// A spell changed a rating.
     StatChanged {
@@ -588,11 +589,11 @@ pub enum Event {
     /// Give: `kept` is false when the carry limit refused it (magic 3.9).
     Given {
         who: Who,
-        thing: u8,
+        thing: ThingId,
         kept: bool,
     },
     LongMessage {
-        number: u8,
+        number: u16,
         text: String,
     },
     /// Play Music, 1-based choice 1..=30 (magic 3.11).
@@ -603,24 +604,24 @@ pub enum Event {
     RoomRidOf {
         region: u8,
         room: u8,
-        thing: u8,
+        thing: ThingId,
         count: u16,
     },
     /// Add to Room: one `thing` now lies on top at `at`.
     ThingAdded {
-        thing: u8,
+        thing: ThingId,
         at: Location,
     },
     /// A summoned master creature arrived (magic 3.2).
     CreatureSummoned {
         region: u8,
         slot: usize,
-        creature: u8,
+        creature: u16,
         at: Location,
     },
     /// A summons found no free slot or square, or was made on the map.
     SummonUnanswered {
-        creature: u8,
+        creature: u16,
     },
     /// Life Force reached 0 (magic 7). `left` lists what now lies at `at`
     /// (thing, amount; gold in pieces).
@@ -628,7 +629,7 @@ pub enum Event {
         who: Who,
         at: Location,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        left: Vec<(u8, u16)>,
+        left: Vec<(ThingId, u16)>,
     },
     /// No player is left alive; the game takes no more commands.
     AllPlayersDead,

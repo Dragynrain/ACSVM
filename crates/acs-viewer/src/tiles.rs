@@ -54,12 +54,12 @@ impl Tiles {
         }
     }
 
-    pub fn get(&self, picture: u8) -> Option<&TextureHandle> {
+    pub fn get(&self, picture: u16) -> Option<&TextureHandle> {
         self.textures.get(picture as usize)
     }
 
     /// Paints `picture` into `rect`, or the background colour if there is none.
-    pub fn paint(&self, painter: &egui::Painter, picture: Option<u8>, rect: Rect) {
+    pub fn paint(&self, painter: &egui::Painter, picture: Option<u16>, rect: Rect) {
         match picture.and_then(|p| self.get(p)) {
             Some(t) => {
                 painter.image(

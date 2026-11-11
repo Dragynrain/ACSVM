@@ -73,7 +73,7 @@ pub fn pulse(ui: &egui::Ui, painter: &Painter, rect: Rect) {
     ui.ctx().request_repaint();
 }
 
-pub fn thing_label(adv: &Adventure, number: u8) -> String {
+pub fn thing_label(adv: &Adventure, number: u16) -> String {
     match adv.things.get((number as usize).wrapping_sub(1)) {
         Some(t) => format!("#{number} {} ({})", t.name.trim(), t.kind.type_name()),
         None => format!("#{number} (not in the master list)"),
@@ -151,7 +151,7 @@ pub fn follow_row(ui: &mut egui::Ui, adv: &Adventure, d: &Destination) -> Option
 pub const PANEL_WIDTH: std::ops::RangeInclusive<f32> = 200.0..=480.0;
 
 /// A picture about `points` wide, at a whole-number multiple of its pixels.
-pub fn picture(ui: &mut egui::Ui, doc: &Doc, picture: Option<u8>, points: f32) -> Response {
+pub fn picture(ui: &mut egui::Ui, doc: &Doc, picture: Option<u16>, points: f32) -> Response {
     let ppp = ui.ctx().pixels_per_point();
     let scale = (points * ppp / doc.tiles.size[0] as f32).floor().max(1.0);
     let size = egui::vec2(

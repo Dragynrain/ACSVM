@@ -17,19 +17,19 @@ use acs_engine::{
 use common::{Fixture, RegionSpec, RoomSpec};
 
 // Master things (1-based). 1..32 may be owned 3 times, 33..80 once.
-const SWORD: u8 = 1; // melee weapon, weight 5
-const BOW: u8 = 2; // missile weapon
-const CLAWS: u8 = 3; // melee weapon, usable only by its owner
-const SHIELD: u8 = 4; // armor, weight 10
-const ROCK: u8 = 5; // treasure, weight 200
-const BAG: u8 = 6; // treasure, weight -1000 (50 x -20)
-const DUST: u8 = 7; // treasure, disappears when dropped
-const AMULET: u8 = 8; // magic item, drop spell (long message 3)
-const CHARM: u8 = 9; // magic spell
-const CROWN: u8 = 40; // treasure, one per owner
-const SLOT: u8 = 82; // custom space, when GOLD dropped here: add CROWN, destroys
-const BIN: u8 = 83; // custom space, when ROCK dropped here: rid room, keeps it
-const PILLAR: u8 = 84; // obstacle
+const SWORD: u16 = 1; // melee weapon, weight 5
+const BOW: u16 = 2; // missile weapon
+const CLAWS: u16 = 3; // melee weapon, usable only by its owner
+const SHIELD: u16 = 4; // armor, weight 10
+const ROCK: u16 = 5; // treasure, weight 200
+const BAG: u16 = 6; // treasure, weight -1000 (50 x -20)
+const DUST: u16 = 7; // treasure, disappears when dropped
+const AMULET: u16 = 8; // magic item, drop spell (long message 3)
+const CHARM: u16 = 9; // magic spell
+const CROWN: u16 = 40; // treasure, one per owner
+const SLOT: u16 = 82; // custom space, when GOLD dropped here: add CROWN, destroys
+const BIN: u16 = 83; // custom space, when ROCK dropped here: rid room, keeps it
+const PILLAR: u16 = 84; // obstacle
 
 /// One region with one room, HALL (10 x 6, walls included):
 ///
@@ -61,7 +61,7 @@ fn fixture(platform: Platform) -> Fixture {
     f.thing(GOLD as usize, "GOLD", [0x01, 1, 1, 9]);
     // Custom spaces: placement chooses the thing (bit 7 clear), trigger 0 =
     // when dropped here; p2 = spell | destroy (bit 7), p3 = fixed parameter.
-    f.thing(SLOT as usize, "SLOT", [0x09, 10, 13 | 0x80, CROWN]);
+    f.thing(SLOT as usize, "SLOT", [0x09, 10, 13 | 0x80, (CROWN as u8)]);
     f.thing(BIN as usize, "BIN", [0x09, 10, 12, 0]);
     f.thing(PILLAR as usize, "PILLAR", [0x0A, 11, 0, 0]);
     f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
@@ -74,16 +74,16 @@ fn fixture(platform: Platform) -> Fixture {
             h: 6,
             wall: 12,
             items: vec![
-                (2, 1, SWORD, 1),
-                (3, 1, BOW, 1),
-                (4, 1, ROCK, 1),
-                (5, 1, AMULET, 1),
-                (6, 1, SLOT, GOLD),
-                (7, 1, BIN, ROCK),
-                (8, 1, PILLAR, 0),
-                (2, 2, GOLD, 30),
-                (3, 2, CROWN, 1),
-                (4, 2, DUST, 1),
+                (2, 1, (SWORD as u8), 1),
+                (3, 1, (BOW as u8), 1),
+                (4, 1, (ROCK as u8), 1),
+                (5, 1, (AMULET as u8), 1),
+                (6, 1, (SLOT as u8), (GOLD as u8)),
+                (7, 1, (BIN as u8), (ROCK as u8)),
+                (8, 1, (PILLAR as u8), 0),
+                (2, 2, (GOLD as u8), 30),
+                (3, 2, (CROWN as u8), 1),
+                (4, 2, (DUST as u8), 1),
             ],
             ..Default::default()
         }],
@@ -133,7 +133,7 @@ fn mv(g: &mut Game, dir: Dir) -> Vec<Event> {
     g.apply(Command::Move { dir })
 }
 
-fn drop(g: &mut Game, thing: u8, dir: Option<Dir>) -> Vec<Event> {
+fn drop(g: &mut Game, thing: u16, dir: Option<Dir>) -> Vec<Event> {
     g.apply(Command::Drop { thing, dir })
 }
 
@@ -145,7 +145,7 @@ fn refused(ev: &[Event]) -> Option<DropRefusal> {
 }
 
 /// Things lying on a HALL square, top first.
-fn stack(g: &Game, x: u8, y: u8) -> Vec<(u8, u8)> {
+fn stack(g: &Game, x: u8, y: u8) -> Vec<(u16, u8)> {
     g.adventure().regions[0].rooms[0]
         .items
         .iter()
@@ -533,7 +533,7 @@ fn when_dropped_here_spaces_make_vending_machines() {
             }
         );
         assert_eq!(g.current_player().gold, 9);
-        assert_eq!(stack(&g, 6, 1), vec![(CROWN, 1), (SLOT, GOLD)]);
+        assert_eq!(stack(&g, 6, 1), vec![(CROWN, 1), (SLOT, GOLD as u8)]);
 
         // The bin keeps what it is given and casts once for the rock.
         g.place(0, hall(7, 2));
@@ -552,7 +552,7 @@ fn when_dropped_here_spaces_make_vending_machines() {
                 at: hall(7, 1)
             }
         );
-        assert_eq!(stack(&g, 7, 1), vec![(ROCK, 1), (BIN, ROCK)]);
+        assert_eq!(stack(&g, 7, 1), vec![(ROCK, 1), (BIN, ROCK as u8)]);
         // Something else just lands on top.
         g.place(0, hall(6, 2));
         let ev = drop(&mut g, SWORD, Some(Dir::N));

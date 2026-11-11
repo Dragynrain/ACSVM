@@ -8,7 +8,7 @@ use crate::{
     BlockReason, CastRefusal, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot, SpellSource,
     Stat, Who,
 };
-use acs_core::model::{SpellAction, SpellActionKind};
+use acs_core::model::{SpellAction, SpellActionKind, ThingId};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
@@ -18,7 +18,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             .map(|pl| pl.name.clone())
             .unwrap_or_else(|| format!("player {}", p + 1))
     };
-    let thing = |t: u8| {
+    let thing = |t: ThingId| {
         game.thing(t)
             .map(|t| t.name.trim().to_string())
             .filter(|n| !n.is_empty())
@@ -438,7 +438,7 @@ fn individual(game: &Game, who: Who) -> String {
     }
 }
 
-fn master_creature(game: &Game, number: u8) -> String {
+fn master_creature(game: &Game, number: u16) -> String {
     game.adventure()
         .creatures
         .get((number as usize).wrapping_sub(1))
@@ -468,19 +468,19 @@ fn stat_name(s: Stat) -> &'static str {
 /// What a spell action does, in a few words.
 fn action_text(game: &Game, a: SpellAction) -> String {
     use SpellActionKind::*;
-    let thing = |t: u8| {
+    let thing = |t: ThingId| {
         game.thing(t)
             .map(|t| t.name.trim().to_string())
             .filter(|n| !n.is_empty())
             .unwrap_or_else(|| format!("thing {t}"))
     };
     let p = a.parameter;
-    let signed = |p: u8| {
+    let signed = |p: u16| {
         let (n, temporary) = amount(p);
         let t = if temporary { " for a while" } else { "" };
         format!("{n:+}{t}")
     };
-    let stat = |p: u8| Stat::from_spell_parameter(p).map_or("nothing", stat_name);
+    let stat = |p: u16| Stat::from_spell_parameter(p).map_or("nothing", stat_name);
     match a.kind {
         Nothing => "nothing happens".into(),
         KillAllButOwnerOf => format!("kill all but owners of {}", thing(p)),
@@ -494,7 +494,7 @@ fn action_text(game: &Game, a: SpellAction) -> String {
         ChangeLifeForce => format!("Life Force {}", signed(p)),
         Give => format!("give {}", thing(p)),
         LongMessage => format!("message {p}"),
-        PlayMusic => format!("music {}", p as u16 + 1),
+        PlayMusic => format!("music {}", p + 1),
         RidRoomOf => format!("rid the room of {}", thing(p)),
         AddToRoom => format!("add {}", thing(p)),
         ActivateAll => "activate everything here".into(),

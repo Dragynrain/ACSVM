@@ -8,22 +8,19 @@ use crate::game::Game;
 use crate::inventory;
 use crate::magic::Spell;
 use crate::{BlockReason, Dir, Event, Location, Slot, SpellSource, Who};
+use acs_core::model::ThingId;
 use acs_core::model::{
     Access, CustomTrigger, Destination, Passability, PlacementChoice, SpellAction, ThingKind,
 };
 
-/// World map width and height (4.1).
-pub const MAP_SIZE: u8 = 40;
 /// Terrain numbers 12..16 (13-16 in the editor) are doors (4.4).
 pub const FIRST_DOOR_TERRAIN: u8 = 12;
-/// Most creatures a region holds at once (7.2).
-pub const REGION_CREATURE_LIMIT: usize = 16;
 
 /// Outcome of an access check on a door or space.
 enum Pass {
     Yes {
         spell: Option<SpellAction>,
-        used_up: Option<u8>,
+        used_up: Option<ThingId>,
     },
     No(BlockReason),
 }
@@ -34,7 +31,8 @@ pub(crate) fn resolve_custom_space(
     choice: PlacementChoice,
     action: SpellAction,
     placement: u8,
-) -> (u8, SpellAction) {
+) -> (ThingId, SpellAction) {
+    let placement = u16::from(placement);
     let (needed, parameter) = match choice {
         PlacementChoice::Thing => (placement, action.parameter),
         PlacementChoice::SpellParameter => (action.parameter, placement),
@@ -95,13 +93,28 @@ impl Game {
             .unwrap_or(0)
     }
 
+    /// World map width and height, taken from the map itself: 40 x 40 in
+    /// Classic (4.1), up to `limits.world_size` in Extended.
+    fn map_size(&self) -> (i16, i16) {
+        let tiles = &self.adv.world.tiles;
+        let w = tiles.first().map_or(0, Vec::len);
+        (w as i16, tiles.len() as i16)
+    }
+
+    fn on_map(&self, x: u8, y: u8) -> bool {
+        let (w, h) = self.map_size();
+        (x as i16) < w && (y as i16) < h
+    }
+
     fn map_target(&self, x: u8, y: u8, dir: Dir) -> Option<(u8, u8)> {
         let (dx, dy) = dir.delta();
         let (nx, ny) = (x as i16 + dx as i16, y as i16 + dy as i16);
-        let n = MAP_SIZE as i16;
-        if self.adv.world.wraps {
-            Some((nx.rem_euclid(n) as u8, ny.rem_euclid(n) as u8))
-        } else if (0..n).contains(&nx) && (0..n).contains(&ny) {
+        let (w, h) = self.map_size();
+        if w == 0 || h == 0 {
+            None
+        } else if self.adv.world.wraps {
+            Some((nx.rem_euclid(w) as u8, ny.rem_euclid(h) as u8))
+        } else if (0..w).contains(&nx) && (0..h).contains(&ny) {
             Some((nx as u8, ny as u8))
         } else {
             None
@@ -195,7 +208,7 @@ impl Game {
     }
 
     /// The spell a carried thing (magic spell or magic item) holds.
-    fn thing_spell(&self, thing: u8) -> Option<(SpellAction, Option<String>)> {
+    fn thing_spell(&self, thing: ThingId) -> Option<(SpellAction, Option<String>)> {
         let t = self.thing(thing)?;
         let action = match t.kind {
             ThingKind::MagicSpell { action, .. } | ThingKind::MagicItem { action, .. } => action,
@@ -474,7 +487,7 @@ impl Game {
                         SpellSource::CustomObstacle,
                         SpellAction {
                             kind: action.kind,
-                            parameter: item.parameter,
+                            parameter: item.parameter.into(),
                         },
                         Some(index),
                     ),
@@ -526,7 +539,7 @@ impl Game {
         }
     }
 
-    fn use_up(&mut self, p: usize, thing: Option<u8>, ev: &mut Vec<Event>) {
+    fn use_up(&mut self, p: usize, thing: Option<ThingId>, ev: &mut Vec<Event>) {
         let Some(thing) = thing else { return };
         if self.take_one(p, thing) {
             ev.push(Event::ThingUsedUp { player: p, thing });
@@ -544,7 +557,7 @@ impl Game {
     }
 
     /// Removes the topmost `thing` on a square, if any.
-    pub(crate) fn remove_thing_at(&mut self, region: u8, room: u8, x: u8, y: u8, thing: u8) {
+    pub(crate) fn remove_thing_at(&mut self, region: u8, room: u8, x: u8, y: u8, thing: ThingId) {
         let i = self.room(region, room).and_then(|r| {
             r.items
                 .iter()
@@ -581,13 +594,11 @@ impl Game {
         p: usize,
         from: Location,
         dest: Option<Destination>,
-        thing: Option<u8>,
+        thing: Option<ThingId>,
         ev: &mut Vec<Event>,
     ) {
         let to = match dest {
-            Some(Destination::WorldMap { x, y }) if x < MAP_SIZE && y < MAP_SIZE => {
-                Some(Location::World { x, y })
-            }
+            Some(Destination::WorldMap { x, y }) if self.on_map(x, y) => Some(Location::World { x, y }),
             Some(Destination::Room { region, room, x, y }) => self
                 .room(region, room)
                 .filter(|r| x < r.width && y < r.height)
@@ -674,8 +685,18 @@ impl Game {
         let slot = r.random_creature;
         let chance = r.random_chance;
         let usable = reg.random_creatures.get(slot as usize).is_some_and(|c| c.in_use);
+        // The region's slots are its creature limit (16 in Classic). The
+        // room cap only binds in Extended, where regions hold more.
+        let limits = &self.adv.limits;
         let present = reg.residents.iter().filter(|c| c.in_use).count();
-        if chance == 0 || !usable || present >= REGION_CREATURE_LIMIT {
+        let in_room = reg
+            .residents
+            .iter()
+            .filter(|c| c.in_use && c.room == room)
+            .count();
+        let slots = reg.residents.len().min(limits.residents_per_region as usize);
+        let full = present >= slots || in_room >= limits.creatures_per_room as usize;
+        if chance == 0 || !usable || full {
             return;
         }
         if self.rng.percent(chance) {

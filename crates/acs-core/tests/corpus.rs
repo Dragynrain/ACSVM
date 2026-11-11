@@ -164,6 +164,8 @@ fn c64_corpus_decodes_cleanly() {
         assert_eq!(d.adventure.pictures.len(), 110);
         check_consistency(&d.adventure, &file);
         check_scene(&d.adventure, &file);
+        let over = acs_core::limits::check(&d.adventure);
+        assert!(over.is_empty(), "{file}: over Classic limits: {over:?}");
         // The model survives a JSON round trip.
         let json = serde_json::to_string(&d.adventure).unwrap();
         let back: Adventure = serde_json::from_str(&json).unwrap();
@@ -213,6 +215,8 @@ fn pc_corpus_decodes_cleanly() {
         assert_eq!(d.adventure.pictures.len(), 96);
         check_consistency(&d.adventure, &file);
         check_scene(&d.adventure, &file);
+        let over = acs_core::limits::check(&d.adventure);
+        assert!(over.is_empty(), "{file}: over Classic limits: {over:?}");
         eprintln!(
             "ok: {file}: {} ({} warnings)",
             d.adventure.name,

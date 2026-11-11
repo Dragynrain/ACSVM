@@ -8,10 +8,8 @@
 use crate::game::Game;
 use crate::inventory::{self, slowed_speed, GOLD};
 use crate::{Dir, Event, Location, RemovalReason, Who};
+use acs_core::model::ThingId;
 use acs_core::model::{Adventure, Alignment, Creature, ThingKind};
-
-/// Slots per region, which is also the region creature limit (1.1).
-pub const SLOTS: usize = 16;
 
 /// Fighter or slinker (4.2).
 pub fn is_fighter(c: &Creature) -> bool {
@@ -47,7 +45,7 @@ pub fn is_foe(c: &Creature, o: &Other) -> bool {
 }
 
 /// How many of `thing` a creature owns (gold pieces for thing 81).
-pub fn count(c: &Creature, thing: u8) -> u16 {
+pub fn count(c: &Creature, thing: ThingId) -> u16 {
     if thing == GOLD {
         c.wealth
     } else {
@@ -81,7 +79,7 @@ pub fn effective_speed(adv: &Adventure, c: &Creature) -> u8 {
 }
 
 /// Whether a creature picks up `kind` (5.2), ignoring limits and load.
-pub fn picks_up(c: &Creature, thing: u8, kind: &ThingKind) -> bool {
+pub fn picks_up(c: &Creature, thing: ThingId, kind: &ThingKind) -> bool {
     match kind {
         ThingKind::Treasure { .. } if thing == GOLD => {
             !(c.strategy.alignment == Alignment::Friend
@@ -240,7 +238,7 @@ impl Game {
         let mut c = reg.random_creatures.get(which as usize)?.clone();
         let (x, y) = free[self.rng.below(free.len() as u32) as usize];
         c.in_use = true;
-        c.number = slot as u8 + 1;
+        c.number = slot as u16 + 1;
         c.region = region;
         c.room = room;
         c.x = x;

@@ -15,12 +15,12 @@
 //! - Resident creatures stand on top of everything.
 //! - Rooms lie on a region grid in squares; neighbours share a wall line.
 
-use crate::model::{Adventure, Region, Room};
+use crate::model::{Adventure, PictureId, Region, Room, ThingId};
 
 /// Master thing whose picture is the floor of every room.
-pub const FLOOR_THING: u8 = 127;
+pub const FLOOR_THING: ThingId = 127;
 /// Master thing that holds the editor's default wall picture.
-pub const BORDER_THING: u8 = 128;
+pub const BORDER_THING: ThingId = 128;
 
 /// The fixed part of a square, under any items.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,7 +112,7 @@ pub enum Shown {
 /// The visible layer of a square and the picture it shows (`None` when the
 /// visible thing or creature has no picture, e.g. a floor thing missing from
 /// the master list).
-pub fn shown(adv: &Adventure, region: &Region, room: &Room, sq: &Square) -> (Shown, Option<u8>) {
+pub fn shown(adv: &Adventure, region: &Region, room: &Room, sq: &Square) -> (Shown, Option<PictureId>) {
     if let Some(&r) = sq.residents.first() {
         return (Shown::Resident(r), region.residents[r].picture);
     }
@@ -129,14 +129,14 @@ pub fn shown(adv: &Adventure, region: &Region, room: &Room, sq: &Square) -> (Sho
 }
 
 /// Picture of master thing `number` (1-based), if it has one.
-pub fn thing_picture(adv: &Adventure, number: u8) -> Option<u8> {
+pub fn thing_picture(adv: &Adventure, number: ThingId) -> Option<PictureId> {
     adv.things
         .get((number as usize).checked_sub(1)?)
         .and_then(|t| t.kind.picture())
 }
 
 /// The floor picture: master thing 127's.
-pub fn floor_picture(adv: &Adventure) -> Option<u8> {
+pub fn floor_picture(adv: &Adventure) -> Option<PictureId> {
     thing_picture(adv, FLOOR_THING)
 }
 

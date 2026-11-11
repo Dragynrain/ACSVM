@@ -15,6 +15,7 @@ use crate::graphics::{decode_palette, decode_pictures};
 use crate::layout::{
     self, adventure as adv, creatures as cr, region as rg, things as th, world_map as wm, Layout, NAME_LEN,
 };
+use crate::limits::{Limits, Profile};
 use crate::model::*;
 use crate::text::{decode_ascii, decode_ascii_byte, decode_packed};
 
@@ -179,6 +180,8 @@ impl Decoder<'_> {
         Ok(Adventure {
             model_version: MODEL_VERSION,
             platform: image.platform,
+            profile: Profile::Classic,
+            limits: Limits::CLASSIC,
             name: name.trim().to_string(),
             byline: byline.trim().to_string(),
             intro: lines(&intro, 32),
@@ -206,7 +209,10 @@ impl Decoder<'_> {
             self.diags
                 .warn(K::UnknownSpellAction, location, format!("spell action code {c}"));
         }
-        SpellAction { kind, parameter }
+        SpellAction {
+            kind,
+            parameter: parameter.into(),
+        }
     }
 
     fn message(&mut self, number: usize, slot: usize) -> Result<Option<MessageRef>> {
@@ -243,8 +249,8 @@ impl Decoder<'_> {
                     action: self.action(p[2] & 0x0F, p[3], location),
                 }
             }
-            2 => Access::OwnersOf { thing: p[3] },
-            _ => Access::NonOwnersOf { thing: p[3] },
+            2 => Access::OwnersOf { thing: p[3].into() },
+            _ => Access::NonOwnersOf { thing: p[3].into() },
         }
     }
 
@@ -295,9 +301,11 @@ impl Decoder<'_> {
         // (blocked message slot used, spell message slot used)
         let (mut m0, mut m1) = (false, false);
         let kind = match code {
-            0 => ThingKind::RoomFloor { picture: p[1] & 0x3F },
+            0 => ThingKind::RoomFloor {
+                picture: (p[1] & 0x3F).into(),
+            },
             1 => ThingKind::Treasure {
-                picture: p[3] & 0x3F,
+                picture: (p[3] & 0x3F).into(),
                 disappears_when_dropped: disappears,
                 carry: Self::carry(&p),
             },
@@ -305,7 +313,7 @@ impl Decoder<'_> {
                 let e = self.extended(p[3], true)?;
                 m1 = true;
                 ThingKind::MagicItem {
-                    picture: field(e[1], 0, 5),
+                    picture: field(e[1], 0, 5).into(),
                     disappears_after_use: disappears,
                     carry: Self::carry(&p),
                     action: self.action(field(e[0], 0, 3), e[2], &loc),
@@ -320,19 +328,19 @@ impl Decoder<'_> {
                 let disappears_after_use = disappears;
                 match code {
                     3 => ThingKind::MissileWeapon {
-                        picture,
+                        picture: picture.into(),
                         disappears_after_use,
                         carry,
                         stats,
                     },
                     4 => ThingKind::MeleeWeapon {
-                        picture,
+                        picture: picture.into(),
                         disappears_after_use,
                         carry,
                         stats,
                     },
                     _ => ThingKind::Armor {
-                        picture,
+                        picture: picture.into(),
                         disappears_after_use,
                         carry,
                         stats,
@@ -350,7 +358,7 @@ impl Decoder<'_> {
             7 => {
                 m0 = true;
                 ThingKind::Portal {
-                    picture: p[1] & 0x3F,
+                    picture: (p[1] & 0x3F).into(),
                     two_way: bit(p[0], 5),
                     access: self.access(&p, &loc),
                     destroy_needed_thing: bit(p[2], 7),
@@ -359,14 +367,14 @@ impl Decoder<'_> {
             8 => {
                 (m0, m1) = (true, true);
                 ThingKind::Space {
-                    picture: p[1] & 0x3F,
+                    picture: (p[1] & 0x3F).into(),
                     access: self.access(&p, &loc),
                 }
             }
             9 => {
                 (m0, m1) = (true, true);
                 ThingKind::CustomSpace {
-                    picture: p[1] & 0x3F,
+                    picture: (p[1] & 0x3F).into(),
                     placement_choice: if bit(p[0], 7) {
                         PlacementChoice::SpellParameter
                     } else {
@@ -385,7 +393,7 @@ impl Decoder<'_> {
             10 => {
                 (m0, m1) = (true, true);
                 ThingKind::Obstacle {
-                    picture: p[1] & 0x3F,
+                    picture: (p[1] & 0x3F).into(),
                     bump_invokes_spell: bit(p[1], 6),
                     action: self.action(field(p[2], 0, 3), p[3], &loc),
                 }
@@ -393,11 +401,13 @@ impl Decoder<'_> {
             11 => {
                 m1 = true;
                 ThingKind::CustomObstacle {
-                    picture: p[1] & 0x3F,
+                    picture: (p[1] & 0x3F).into(),
                     action: self.action(field(p[2], 0, 3), p[3], &loc),
                 }
             }
-            12 => ThingKind::Store { picture: p[1] & 0x3F },
+            12 => ThingKind::Store {
+                picture: (p[1] & 0x3F).into(),
+            },
             15 => ThingKind::Undefined,
             c => {
                 self.diags.error(
@@ -409,7 +419,7 @@ impl Decoder<'_> {
             }
         };
         Ok(Thing {
-            number: number as u8,
+            number: number as u16,
             name,
             acs_may_add,
             blocked_message: if m0 { self.message(number, 0)? } else { None },
@@ -431,7 +441,7 @@ impl Decoder<'_> {
                 let count = (b >> (6 - 2 * k)) & 3;
                 if count > 0 {
                     out.push(Possession {
-                        thing: (i * 4 + k + 1) as u8,
+                        thing: (i * 4 + k + 1) as u16,
                         count,
                     });
                 }
@@ -441,7 +451,7 @@ impl Decoder<'_> {
             for k in 0..8 {
                 if bit(b, 7 - k as u8) {
                     out.push(Possession {
-                        thing: (33 + i * 8 + k) as u8,
+                        thing: (33 + i * 8 + k) as u16,
                         count: 1,
                     });
                 }
@@ -478,11 +488,11 @@ impl Decoder<'_> {
             None
         };
         Ok(Creature {
-            number: number as u8,
+            number: number as u16,
             in_use,
             name,
             class: class.filter(|&c| c < 8),
-            picture,
+            picture: picture.map(u16::from),
             constitution: field(r[0x00], 0, 5),
             magic_defense: MagicDefense::from_code(field(r[0x00], 6, 7)),
             strength: field(r[0x01], 0, 4),
@@ -515,8 +525,8 @@ impl Decoder<'_> {
             region: field(r[0x10], 4, 7),
             wisdom: field(r[0x11], 0, 4),
             wealth: u16::from_le_bytes([r[0x12], r[0x13]]),
-            weapon: r[0x14],
-            armor: r[0x15],
+            weapon: r[0x14].into(),
+            armor: r[0x15].into(),
             possessions: Self::possessions(&r[0x17..0x25]),
         })
     }
@@ -582,14 +592,14 @@ impl Decoder<'_> {
             terrain.push(Terrain {
                 number: i as u8,
                 name: tname.trim().to_string(),
-                picture: field(b0, 0, 4),
+                picture: field(b0, 0, 4).into(),
                 passability: match field(b0, 6, 7) {
                     0 => Passability::Impassable,
                     1 => Passability::Open,
                     2 => Passability::OwnersOf,
                     _ => Passability::TriggersSpell,
                 },
-                parameter: b1,
+                parameter: b1.into(),
                 unknown_bit5: bit(b0, 5),
             });
         }
@@ -624,7 +634,7 @@ impl Decoder<'_> {
                 }
             };
             doors.push(MapDoor {
-                index: k as u8,
+                index: k as u16,
                 at: MapPoint { x, y: y & 0x7F },
                 destination,
                 unknown_y_bit7: bit(y, 7),
@@ -765,7 +775,7 @@ impl Decoder<'_> {
                 number: i as u8,
                 name: room_name,
                 deleted: w == 0 && h == 0,
-                wall_picture: d[0],
+                wall_picture: d[0].into(),
                 width: w + 1,
                 height: h + 1,
                 x: d[2],
@@ -831,7 +841,7 @@ impl Decoder<'_> {
             let item = RoomItem {
                 x: field(it[0], 4, 7),
                 y: field(it[0], 0, 3),
-                thing,
+                thing: thing.into(),
                 parameter: it[2],
                 flag: bit(it[1], 7),
                 destination: None,

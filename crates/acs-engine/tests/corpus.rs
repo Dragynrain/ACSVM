@@ -399,7 +399,7 @@ fn every_carriable_thing_can_be_picked_up() {
 /// Casting creatures may kill the player, which ends that room's tour.
 #[test]
 fn creatures_in_every_room_follow_the_rules() {
-    use acs_engine::creatures::{is_fighter, SLOTS};
+    use acs_engine::creatures::is_fighter;
     use std::collections::BTreeMap;
     let Some(advs) = corpus() else {
         eprintln!("skipped: ACSVM_CORPUS not set");
@@ -501,7 +501,7 @@ fn creatures_in_every_room_follow_the_rules() {
                     }
                     let ga = g.adventure();
                     for greg in &ga.regions {
-                        let live: Vec<_> = (0..SLOTS)
+                        let live: Vec<_> = (0..g.slots(greg.number))
                             .filter_map(|s| g.creature(greg.number, s).map(|c| (s, c)))
                             .collect();
                         for &(s, c) in &live {
