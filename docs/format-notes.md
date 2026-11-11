@@ -84,6 +84,65 @@ half at +0x800, as in AcsLib (the draft lists the columns in the reverse
 order). **PC**: confirmed; all 96 pictures of *Rivers of Light* come out clean
 with the palette at 0x2A802.
 
+## Apple II and Amiga (from AcsLib, unverified)
+
+Neither platform is decoded yet and no Apple II or Amiga file has been tested.
+Everything here is what AcsLib (`GameLoader.cs`) does, restated as facts for
+the port; treat it as a starting point to confirm against real files.
+
+**Block bases.** The records (messages, creatures, things, header, world map,
+regions) have the same layout as on the PC; only the bases move. Offsets are
+into the file AcsLib loads: the whole `.dsk` image for the Apple II (sector
+order not stated), the `Adventure` file extracted from the `.adf` for the Amiga.
+
+| Block | PC | Apple II (PC - 0x6700) | Amiga |
+| --- | --- | --- | --- |
+| Long messages | 0x06C00 | 0x00500 | 0x18100 (PC + 0x11500) |
+| Intro text | 0x16A00 | 0x10300 | 0x27F00 (PC + 0x11500) |
+| Short messages | 0x16B00 | 0x10400 | 0x15900 (PC - 0x1200) |
+| Creatures | 0x19300 | 0x12C00 | 0x06600 (PC - 0x12D00) |
+| Things | 0x1B800 | 0x15100 | 0x08B00 (PC - 0x12D00) |
+| Adventure header | 0x1C200 | 0x15B00 | 0x09500 (PC - 0x12D00) |
+| World map | 0x1C700 | 0x16000 | 0x09900 (PC - 0x12E00) |
+| Regions | 0x1D300 | 0x16C00 | 0x0A500 (PC - 0x12E00) |
+| Pictures | 0x28720 | 0x22040 | bitplanes, see below |
+| Palette | 0x2A802 | 0x22FF8-9 | 0x00000 |
+
+So the Amiga file is reordered, not just shifted: palette and pictures first,
+then creatures, things, header, world map and regions, then short messages,
+then long messages and the intro at the end. Whether long messages 250-255
+split off as on the C64 is unknown for both platforms.
+
+**Amiga pictures: 110 pictures, 16 x 16 square pixels, 32 colours.**
+
+- Palette at file offset 0: 32 colours of 2 bytes each in the Amiga `0x0RGB`
+  form (byte 0 low nibble = red, byte 1 high nibble = green, low nibble =
+  blue). Each nibble scales to 8 bits as `n * 0x11`. So the palette is chosen
+  per adventure from 4,096 colours, and all 110 pictures share it. Colour 0 is
+  the background.
+- Five bitplanes at 0x40, 0xE00, 0x1BC0, 0x2980, 0x3740 (0xDC0 apart). Plane
+  `j` gives bit `j` of each pixel's colour index; within a byte bit 7 is the
+  leftmost pixel.
+- Each plane holds two strips of 55 pictures side by side: 16 rows of 110
+  bytes (2 bytes per picture per row). Picture `n` row `y` is at
+  `plane + n*2 + y*110` for n < 55, and `plane + 0x6E0 + (n-55)*2 + y*110`
+  for n >= 55 (AcsLib writes this as `+ 1650 + n*2`).
+
+**Apple II pictures: 110 pictures, 14 x 16, hi-res.** 32 bytes per picture
+at `0x22040 + n*32`: rows 0-7 take one byte from +0..7 and one from +8..15,
+rows 8-15 from +16..23 and +24..31 (7 pixels per byte, the Apple hi-res
+layout). Colours are the hi-res artifact colours (black, green, violet, white,
+orange, blue). When byte 0x22FF9 is 0x7F the adventure uses 4 colours and
+bits 5-7 of 0x22FF8 pick the green/violet or orange/blue pair; otherwise it
+uses all 6. The exact pixel-to-colour rule is in AcsLib's `RenderBytesApple`
+and still needs writing up.
+
+**Effect on the model.** `Picture` stores one hex digit per pixel and
+`PaletteColor.code` indexes a 16-colour master palette. Amiga needs colour
+indices up to 31 and palette entries that are plain RGB with no master code.
+Apple II needs 14-pixel-wide pictures and its artifact-colour rule. Both
+change what the model means, so they need a `MODEL_VERSION` bump.
+
 ## Regions
 
 The region header is more structured than either source says:
