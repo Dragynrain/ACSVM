@@ -143,3 +143,12 @@ Lightning LoRA runs in about 15 s an image.
    those (design, art pipeline step 3).
 4. Check each batch against the sheet: same height, outline colour,
    light direction and face style.
+
+**From 1024 px to a tile:** `scripts/sprite64.py` cuts the figure off the
+magenta, crops it, shrinks it to 60 px tall with k-centroid downscaling (each
+pixel takes its block's dominant colour, not the average) and places it on a
+64 px tile with the feet on the baseline; `--palette N` snaps a batch to one
+shared palette, `--sheet` writes a before-and-after contact sheet. Averaging
+the whole frame down, as the first contact sheets did, smears outlines and
+faces; cropping first does most of the good. Faces are still about 4 px
+wide at 64, so eyes and mouths get hand-placed pixels.
