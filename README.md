@@ -17,7 +17,9 @@ grab gold and treasure, and appear at random. Spells work: spaces, doors,
 obstacles and magic items set them off, you can cast spells and use magic
 items on yourself or anyone in the room, smart creatures cast at you (or
 heal you, if they are friends), and Life Force can run out. There is no
-combat yet. See
+combat yet. A capture harness now plays the original C64 program in the VICE
+emulator and measures it, to check those rules and to find the formulas the
+manual leaves out ([docs/capture.md](docs/capture.md)). See
 [docs/design.md](docs/design.md) for the full plan and
 [docs/rules/](docs/rules/movement.md) for the rules as specified.
 

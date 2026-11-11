@@ -2,11 +2,12 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 2 (rules engine from the manual; movement, inventory,
-creatures outside combat and magic done). Next: 3, the behavior capture harness,
-before any combat formulas.
-Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data] or
-[unknown] with the engine's choice; write the spec before the code.
+Plan: `docs/design.md`. Current phase: 3, the behavior capture harness
+(`docs/capture.md`; first capture done), before any combat formulas. Phase 2
+(rules engine from the manual: movement, inventory, creatures outside combat
+and magic) is done.
+Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
+[capture] or [unknown] with the engine's choice; write the spec before the code.
 
 ## Hard rules
 
@@ -42,6 +43,7 @@ scripts/web.sh serve                                    # trunk dev server, :808
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
+cargo run -p acs-capture -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN  # docs/capture.md 4
 ```
 
 Write CLI output and viewer screenshots for real adventures outside the repo
@@ -67,6 +69,11 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (`run_spell` is the one place a spell takes effect); `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
+- `crates/acs-capture`: the capture harness (tool crate, not wasm): drives
+  VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary
+  monitor; scenario disks are our blocks over the user's blank adventure
+  disk (`ACSVM_CAPTURE_TEMPLATE`); scripts in `scripts/`. All its output goes
+  to `ACSVM-research/capture/`. See `docs/capture.md`.
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in

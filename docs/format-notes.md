@@ -75,6 +75,14 @@ first directory sector), which start at image offset 0x16500. So data before
 messages 1-249 end exactly at 0x16500, so AcsLib's split at message 249 is
 this gap. This is why disk tools see no files on an adventure disk.
 
+**An adventure disk is more than the adventure blocks.** The C64 player
+refuses a disk that holds only the blocks this project decodes ("if you have
+not made an adventure disk yet..."). It accepts the same blocks written over
+a blank adventure disk made by the program's own "make an adventure disk"
+step. 64,753 bytes are identical on all 14 corpus adventure disks, most of
+tracks 1-5 among them; what the check looks at is unknown, and the capture
+harness doesn't need to know (docs/capture.md 1.4).
+
 ## Text
 
 - Single-byte text stores `@`, `A`-`Z` and `[\]^_` as 0-31 (C64 screen-code

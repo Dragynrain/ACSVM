@@ -10,6 +10,9 @@ Every rule is tagged with where it comes from:
 - **[data]**: follows from the stored format or from corpus counts (the 14
   Jadeworld C64 adventures plus EA's PC *Rivers of Light*, see
   `docs/format-notes.md` and `docs/provenance.md`).
+- **[capture]**: measured by playing the original in an emulator with the
+  capture harness ([capture.md](../capture.md)); the scenario and run count
+  are given.
 - **[unknown]**: not settled by either. The engine's current choice is given
   as **Engine:**, and the rule needs a capture from the original program
   (VICE or DOSBox-X) before it can be called faithful.
@@ -29,16 +32,22 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 
 1. On its turn a character has a **movement bar** that starts at its Speed
    (0..15) and drops by one for every square moved. The turn ends when it
-   reaches zero. [manual]
+   reaches zero. [manual] On the C64 the bar is 48 pixels tall for a Speed 6
+   player, each step takes 8 pixels (one sixth), and holding the stick in one
+   direction gives exactly 6 steps before the turn passes. [capture:
+   move-basic, world map, 20 runs]
 2. A move that is refused (impassable terrain, an obstacle, a wall) leaves
    the bar unchanged. [manual] Being refused by a door or space that bars
    passage is not described. [unknown] **Engine:** no cost, as for obstacles.
 3. Taking a door costs the one step onto the door square. [unknown]
    **Engine:** one step; the character then stands on the destination square.
 4. The bar also drains slowly in real time while the player does nothing.
-   [manual] The rate is not given. [unknown] **Engine:** no real-time drain in
-   the rules; a front end may send `Wait` to end the turn, and later a timer
-   option can do so on a clock.
+   [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
+   2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
+   so about 7.1 s per unused step. [capture: move-basic, 20 runs] Whether the
+   rate depends on Speed is not yet measured. [unknown] **Engine:** no
+   real-time drain in the rules; a front end may send `Wait` to end the
+   turn, and later a timer option can do so on a clock.
 5. With one character and no creatures in the room, the same character moves
    again when the bar refills. With several players, or creatures in the room,
    each gets a turn first. [manual] **Engine:** players take turns in order;
@@ -56,10 +65,12 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 ## 3. Directions
 
 1. Players move with the joystick, one square per step. [manual]
-2. Whether diagonal steps are allowed is not stated. Missile ranges count
-   diagonals, and an 8-way joystick makes diagonals easy to send. [unknown]
-   **Engine:** 8 directions, switchable off with `Rules::diagonals`.
-   Needs a capture.
+2. Whether diagonal steps are allowed is not stated. [manual] On the C64
+   world map they are not: a diagonal push does nothing at all (no move, no
+   bar cost) in 80 of 80 tries, while straight pushes always move one cell.
+   [capture: move-basic, 20 runs] Rooms are not yet measured. [unknown]
+   **Engine:** 8 directions, switchable off with `Rules::diagonals`; the
+   default should become "off" (to be decided, see capture.md section 7).
 
 ## 4. The world map
 
@@ -244,7 +255,7 @@ These need the AI and are listed so the movement code leaves room for them.
 
 In priority order, for the behaviour-capture harness:
 
-1. Diagonal moves allowed?
+1. Diagonal moves allowed? World map: no (captured). Rooms: still open.
 2. Bar cost of a refused door/space, and of taking a door.
 3. Arriving on a space, obstacle or door: does it trigger?
 4. Map encounter roll: before refused moves? Which terrain? Order among
