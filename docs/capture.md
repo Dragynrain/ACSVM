@@ -198,9 +198,45 @@ No address in the original program is used.
 
 ## 9. Next
 
-- **Other Speeds**: start-up with several jitters gives players with
-  different rolled stats; read Speed from the profile screen, then measure
-  steps per turn and the drain rate for each.
-- **Refused moves**: push into the wall ring and an obstacle and measure the
-  bar (movement 2.2).
-- **The captures-needed lists** in `docs/rules/` in their priority order.
+In this order (planned November 2026):
+
+1. **Players with chosen stats.** The weight slowdown needs Strength,
+   Constitution and Life Force, cast chance needs Power, and the drain
+   question needs other Speeds, so experiments need players whose stats we
+   set. The route is a **retired player record** written onto the scenario
+   disk, chosen at start-up as an existing player.
+   1. *Check the layout black-box first.* AcsLib's layout (26 names, 7
+      records per 256-byte page) overruns the page, the decoder reads 25 and
+      6, and no corpus disk has a retired player. So: copy a scenario disk,
+      create a player in VICE, retire them, and diff the disk against the
+      copy. Only our own scenario disk is compared, never the program.
+      Repeat with a second player to tell names, records and counters
+      apart. Findings go to `format-notes.md`.
+   2. *Read the profile screen.* The 8 x 8 cells of the screen are matched
+      against a glyph table taken from the program's own rendered screens
+      and labelled once by eye. The table is the program's font, so it stays
+      in `capture/` and is loaded at run time; the repository holds only
+      the matcher. Every scenario player's stats are read back to confirm
+      the record took.
+   3. *Speed survey.* Players with Speed 1, 3, 6, 9 and 15: full bar height,
+      steps per turn holding east, and the idle drain rate (does the drain
+      per pixel or per step depend on Speed?).
+2. **Refused moves** (movement 2.2): on the map, a few steps and then a
+   push into the wall ring; in a room, a push into the room wall and into
+   an obstacle (our own thing as a room item). Bars are read once settled,
+   against a control run that idles for the same number of frames, so the
+   real-time drain can be subtracted.
+3. **Door cost** (movement 2.3): the map door from the square north of it
+   (bar before, bar settled in the room, steps left in that turn), and a
+   room door back out. A door that refuses (locked, needs a key) comes
+   later.
+4. **Weight slowdown** (inventory 1): our own things of chosen weights (x1
+   and x20) in a room, picked up by stepping on them; steps per turn at
+   loads of 0, just under and just over half the capacity, at capacity and
+   past it.
+5. **Is the randomness ours to vary?** Before any statistical capture: 20
+   casts from 20 jitters, to check that the outcomes vary. If they don't,
+   find another noise source first.
+6. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+   and creature phases, the adjacency slowdown, creature paths, drift and
+   heal rates, cast chance.
