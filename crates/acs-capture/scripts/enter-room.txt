@@ -1,0 +1,8 @@
+# From a move-basic start.vsf: walks south from 12,12 onto the map door at
+# 12,16 and stops in the room behind it; saves ${OUT}/room.vsf for move-room.
+joy 1 s
+run 9m
+joy 1 none
+run 3m
+shot in-room
+dump ${OUT}/room.vsf

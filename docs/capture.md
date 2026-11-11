@@ -79,7 +79,7 @@ lists at the end of each `docs/rules/` spec.
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
 | `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `reset`). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
-| `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario. |
+| `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario; walk into the room. |
 
 ## 4. One scenario, end to end
 
@@ -91,7 +91,8 @@ lists at the end of each `docs/rules/` spec.
    title, choose "create new player", take the first picture, type the name
    T, and save `start.vsf` at the first turn. The player's stats are rolled
    by the program; the profile screen shows them (move-basic's player has
-   Speed 6).
+   Speed 6). For move-room, `scripts/enter-room.txt` then walks south
+   through the map door and saves `room.vsf`.
 3. **Runs** (`acs-capture run`): each run restores `start.vsf`, idles a
    number of instructions set by the run index (jitter: run × 7,919 mod
    1,000,000, which moves the noise sources: SID voice 3, the CIA timers and
@@ -103,13 +104,31 @@ lists at the end of each `docs/rules/` spec.
 5. **Compare**: deterministic rules must match exactly; statistical ones are
    compared with chi-square or Kolmogorov-Smirnov tests (from Phase 4 on).
 
+With `C` = the research folder's `capture/`, `ACSVM_VICE` set, and
+`C/boot/program1.d64` a copy of program disk 1 (the chain to `start.vsf`
+takes about two minutes, 20 runs about six; every step is deterministic):
+
 ```bash
-acs-capture scenario move-basic DISK.d64 --template TEMPLATE.d64
-acs-capture script crates/acs-capture/scripts/boot.txt --boot PROGRAM1.d64 --out DIR --var OUT=DIR
-acs-capture script crates/acs-capture/scripts/start-scenario.txt --disk PROGRAM1.d64 \
-    --snapshot DIR/play.vsf --out RUN --var OUT=RUN --var SCENARIO=RUN/disk.d64
-acs-capture run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN --runs 20
+acs-capture script crates/acs-capture/scripts/boot.txt --boot C/boot/program1.d64 --out C/boot --var OUT=C/boot
+acs-capture scenario move-basic C/runs/move-basic/disk.d64 --template C/template-fantasy.d64
+acs-capture script crates/acs-capture/scripts/start-scenario.txt --disk C/boot/program1.d64 \
+    --snapshot C/boot/play.vsf --out C/runs/move-basic \
+    --var OUT=C/runs/move-basic --var SCENARIO=C/runs/move-basic/disk.d64
+acs-capture run move-basic --snapshot C/runs/move-basic/start.vsf --disk C/runs/move-basic/disk.d64 \
+    --out C/runs/move-basic --runs 20
+# move-room: the same disk and start in C/runs/move-room, then
+acs-capture script crates/acs-capture/scripts/enter-room.txt --disk C/runs/move-room/disk.d64 \
+    --snapshot C/runs/move-room/start.vsf --out C/runs/move-room --var OUT=C/runs/move-room
+acs-capture run move-room --snapshot C/runs/move-room/room.vsf --disk C/runs/move-room/disk.d64 \
+    --out C/runs/move-room --runs 20
 ```
+
+**Making the template** (once, by hand with `acs-capture script`): main menu
+F1, tap the stick down three times (about 40k instructions each) to
+"Fantasy builder set", push right, hold the button, and insert a blank
+35-track `.d64` when asked. Then swap in a copy of program disk 2 and the
+new disk as the prompts ask, holding the button about 4M instructions each
+time, until "the adventure disk is ready" (about ten swaps).
 
 ## 5. Observation
 
@@ -134,7 +153,8 @@ So the player is the one 16 x 16 green box on the map.
 
 Under `ACSVM-research/capture/`: `template-fantasy.d64`, `boot/` (program disk
 copy, `play.vsf`), `scenarios/`, and `runs/NAME/` (`disk.d64`, `start.vsf`,
-`runs.jsonl`, `summary.json`, start-up screenshots).
+`room.vsf` for move-room, `runs.jsonl`, `summary.json`, start-up
+screenshots).
 
 ## 7. First scenarios: move-basic and move-room
 
