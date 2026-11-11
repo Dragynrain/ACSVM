@@ -302,6 +302,10 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   named for lightness (LIGHTFOOT, HOVERING PACE) come out negative only with
   AcsLib's order.
 - Picture fields are 6 bits (0-63); things never use creature pictures.
+- **Change Power / Change Life Force parameter: bits 0-5 the amount, bit 7
+  negative, bit 6 temporary**, as the draft says. Confirmed on the C64
+  (docs/capture.md section 7, experiment `drift`): Life Force +10 with bit
+  6 set wore off, without it stayed.
 - **Thing 81 is Gold** in all 15 adventures: a treasure of value 1 (weight 1
   or 4), the only carriable thing above 80. Every other carriable thing is
   1-80, matching the possession bitmap (2-bit counts for 1-32, one bit for

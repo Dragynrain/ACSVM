@@ -345,6 +345,64 @@ the next turn came the same 2 million instructions after the button
 whether 5 or 28 pixels of the bar were left. Our engine now rolls the
 same way (magic 4.1).
 
+**Using a magic item** (experiment `item`, section 10.6.2; 3 runs for each
+of two players of ours, Wisdom 10 and 20, two uses a run, November 2026).
+Power read off the profile before and after each use and at each next
+turn:
+
+| Wisdom | Power: start, after use 1, next turn, after use 2, next turn |
+| --- | --- |
+| 10 | 10, 8, 9, 7, 8 (runs 0 and 2); 10, 9, 10, 8, 9 (run 1) |
+| 20 | 20, 18, 19, 17, 18 (runs 0 and 2); 20, 19, 20, 18, 19 (run 1) |
+
+A use costs 2 Power whatever the Wisdom, and the turn goes on: the bar
+kept draining after the use (28 to 13 pixels, 20 to 5, 48 to 29) and the
+next turn came when it ran out. Run 1's first use outlasted its turn (12
+pixels left), so the next turn's drift (+1) shows already. The bar fell 15
+to 19 pixels across a use, about 4 of them the million instructions the
+harness waits after the message, so a use costs about one step. Our engine
+ended the turn and cost no Power; it now costs 2 Power and a step (magic
+4.2).
+
+**Starting Power above Wisdom 25** (section 10.6.4; one player of each
+Wisdom, the profile read at the top of the second and third turns): Wisdom
+26 and 27 showed their own value both times; 28, 29, 30 and 31 showed 28,
+then 29 (28 and 28 for Wisdom 28). With Power drifting 1 a turn toward
+Wisdom, a joining player's Power is its Wisdom, at most 27, as the Wisdom
+31 player of the cast grid showed on its first turn. Our engine now caps
+it at 27 (magic 5.1).
+
+**A failed cast's cost** (experiment `cast` with the profile read back,
+section 10.6.3; Power 20 against cost 30, 60 wide-jitter runs, November
+2026): 40 worked and 20 failed, and every one of the 60 left Power at 1 on
+the profile read after the outcome (0, plus the drift of the turn the cast
+ended). So a failure costs at least 19 of the 30, as much as a success;
+half the cost would have left 6.
+
+**Power, Life Force and healing over time** (experiment `drift`, section
+10.6.5; a Speed 1 player of ours, Wisdom 20, Constitution 20, Life Force
+20; a cost-0 spell of ours cast on the first turn, then the profile read
+at the top of each of 60 turns; 3 wide-jitter runs a case, November 2026).
+The first reading after a cast comes two turn ends later (Speed 1 turns
+are short), so it shows two turns' worth.
+
+| Case (spell parameter) | What the profile showed |
+| --- | --- |
+| Power -10 (`0x8A`) | 12, 13, ... 20 one a turn, then 20; the same in all 3 runs |
+| Power +10 (`0x0A`) | 28, 27, ... 20 one a turn, then 20; the same in all 3 runs |
+| Life Force +10, bit 6 set (`0x4A`) | 30, then down 1 at random turns: 10 or 11 ticks over 28 to 39 turns (31 in 101 turns, about 1 in 3); an eleventh tick in 2 runs took it to 19, back to 20 the next turn |
+| Life Force +10, bit 6 clear (`0x0A`) | 30 for all 60 turns |
+| Life Force -15 (`0x8F`), healing | +1 a turn from about 7 to 20, now and then +2 (4 extra points in 35 turns) |
+| Disease: `0x4A` on turn 1, `0x8A` on turn 2 | 29 or 30, then 20, then 19 for one turn at each tick of the temporary part and 20 again, until turn 30 to 34 |
+
+So Power drifts 1 a turn toward Wisdom, with no randomness; bit 6 means
+temporary; the temporary part ticks away at random, about 1 turn in 3;
+healing is 1 a turn (sometimes 2) whenever Life Force itself is below
+Constitution, and it comes before the tick in a turn. Our engine ticked
+every second turn and healed every fourth on Life Force less its temporary
+part; it now follows the capture (magic 5.2, 5.3). Healing outpaces the
+tick, against the manual's "about twice as fast".
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -517,6 +575,7 @@ In this order (planned November 2026):
    ACTION:PARAM`, a magic item of ours (thing 70, acts when used, the
    template's magic-item offset kept, extended record 0) that the player
    owns.
+   Done (section 7), but for the loose ends below.
    1. *Is reading the profile free?* Experiment `profile-check`: done. 5
       runs from a Wisdom 20 player's first turn: the bar was the same
       before and after (27 or 28 pixels), the profile read every stat as
@@ -536,8 +595,9 @@ In this order (planned November 2026):
       Power cost of a use, whether it repeats, and whether using ends the
       turn.
    3. *A failed cast's cost* (`cast` with the profile): Power 20 against
-      cost 40, 60 wide-jitter runs; the profile is read right after the
-      outcome, split by outcome.
+      cost 30, 60 wide-jitter runs (a third fail; at cost 40 both outcomes
+      would go below 0 and look alike); the profile is read right after
+      the outcome, split by outcome.
    4. *Starting Power above Wisdom 25*: one player of each Wisdom 26..31,
       the start chain and one profile read.
    5. *Drift, decay and healing* (`drift`): a Speed 1 player (short turns),
@@ -547,7 +607,8 @@ In this order (planned November 2026):
       healing mixed in); natural healing alone at Life Force 5; a permanent
       Life Force +10 at 20 (does it stay; which bit-6 value is temporary);
       the disease stack (temporary +10 on turn 1, permanent -10 on turn 2).
-   Then the loose ends (whether taking costs exactly one step, the first
+   Then the loose ends (a use's exact step cost and whether taking costs
+   exactly one step, both against a control; the first
    take after entering a room ending the turn, the obstacle's 1-pixel
    drain, a room door back out, a locked door, retired slot 2).
 7. **The rest of the captures-needed lists** in `docs/rules/`: turn order

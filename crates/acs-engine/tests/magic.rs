@@ -506,7 +506,13 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         assert_eq!((*chance, *cost, *success), (100, 7, true));
         // Power: 20 - 7, then 1 back toward Wisdom 20 at the end of the turn.
         assert_eq!(g.current_player().power, 14);
-        assert_eq!(lf(&g, cr(1)), 4);
+        // 10 - 6 (the creature heals afterwards in its own turn, 5.3).
+        assert!(ev.contains(&Event::StatChanged {
+            who: cr(1),
+            stat: Stat::LifeForce,
+            from: 10,
+            to: 4
+        }));
         assert!(ev.contains(&Event::TurnEnded { player: 0 }));
         assert!(g.current_player().owns(BOLT));
 
@@ -516,12 +522,11 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
             target: None,
         });
         assert!(ev.contains(&Event::SpellGone { who: ME, thing: HEAL }));
-        assert!(ev.contains(&Event::StatChanged {
-            who: ME,
-            stat: Stat::LifeForce,
-            from: 6,
-            to: 11
-        }));
+        // +5 (from 6 healed a little at the bolt's turn end, 5.3).
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::StatChanged { who: ME, stat: Stat::LifeForce, from, to } if *from > 6 && *to == *from + 5
+        )));
         assert!(!g.current_player().owns(HEAL));
     });
 }
@@ -928,27 +933,18 @@ fn disease_power_drift_and_healing() {
         mv(&mut g, Dir::E);
         assert_eq!(lf(&g, ME), 11);
         assert_eq!(g.temporary_life(ME), 10);
-        // Turn ends: 1, 2, 3, 4 ... temp wears off on every 2nd, healing on
-        // every 4th (base 1 is below Constitution 11).
-        let mut seen = Vec::new();
-        for _ in 0..8 {
+        // Each turn end: Power 1 toward Wisdom; healing on Life Force below
+        // Constitution 11, then the temporary part's tick (1 in 3): Life
+        // Force stays at 10 or 11 until the 10 temporary points are gone.
+        let mut power = Vec::new();
+        for _ in 0..200 {
             g.apply(Command::Wait);
-            seen.push((lf(&g, ME), g.current_player().power));
+            power.push(g.current_player().power);
+            assert!((10..=11).contains(&lf(&g, ME)), "{}", lf(&g, ME));
         }
-        assert_eq!(
-            seen,
-            vec![
-                (11, 14),
-                (10, 13),
-                (10, 12),
-                (10, 11), // -1 decay, +1 healing
-                (10, 11),
-                (9, 11),
-                (9, 11),
-                (9, 11),
-            ]
-        );
-        assert_eq!(g.temporary_life(ME), 6);
+        assert_eq!(power[..5], [14, 13, 12, 11, 11]);
+        assert_eq!(g.temporary_life(ME), 0);
+        assert_eq!(lf(&g, ME), 11);
     });
 }
 
@@ -1034,7 +1030,11 @@ fn friends_heal_the_player_and_half_power_creatures_use_items() {
             thing: POTION,
             target: ME
         }));
-        assert_eq!(lf(&g, ME), 7);
+        // The potion's +4 (the player's own healing came first, 5.3).
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::StatChanged { who: ME, stat: Stat::LifeForce, from, to } if *to == *from + 4
+        )));
         assert!(!ev.iter().any(|e| matches!(e, Event::SpellCast { .. })));
     });
 }
@@ -1077,7 +1077,12 @@ fn creatures_set_off_door_and_drop_spells() {
             )
         });
         assert!(bomb, "{ev:?}");
-        assert_eq!(lf(&g, cr(2)), 8);
+        assert!(ev.contains(&Event::StatChanged {
+            who: cr(2),
+            stat: Stat::LifeForce,
+            from: 10,
+            to: 8
+        }));
     });
 }
 

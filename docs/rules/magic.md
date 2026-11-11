@@ -149,9 +149,11 @@ magic item after it is used. [unknown]
    (50% at Power 20, cost 20). The program's roll follows the moment of
    the cast (outcomes come in streaks along the jitter), so each figure is
    good to about 10 points. A cost 0 spell always worked; a failure shows
-   "A FEW SPARKS FIZZLE BUT ... FAILS." Both outcomes left Power near 0
-   for a cost equal to Power. [capture: one success and one failure, the
-   profile screen] **Engine:** a cost of 0 always works; otherwise the
+   "A FEW SPARKS FIZZLE BUT ... FAILS." A failure costs as much as a
+   success: at Power 20 against cost 30, all 60 casts (40 worked, 20
+   failed) left Power at 0, read as 1 after the turn's drift; half the
+   cost would have left 6. [capture: cast with the profile read back,
+   60 wide-jitter runs] **Engine:** a cost of 0 always works; otherwise the
    spell works when a roll of 0..cost (cost + 1 values) is below Power.
    `SpellCast` reports the chance as a percentage, Power x 100 / (cost +
    1) rounded down and at most 100. The cost comes off Power whether or not
@@ -180,10 +182,13 @@ magic item after it is used. [unknown]
 ## 5. Power, Life Force and healing over time
 
 1. **Power drifts.** Each turn an individual's Power moves a little toward
-   its Wisdom. [manual] **Engine:** 1 point per turn of its own, at the end
-   of the turn. [unknown] A player joining an adventure starts with Power
-   equal to its Wisdom, at most 27, whatever its saved Power; above 27 it
-   then drifts up to its Wisdom like any other Power. [capture: retired
+   its Wisdom. [manual] On the C64: 1 point at the end of each of its turns,
+   up or down, stopping at Wisdom, every time. [capture: drift, Power 10
+   and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
+   reached 20 after 10 turn ends in every run] **Engine:** the same. A
+   player joining an adventure starts with Power equal to its Wisdom, at
+   most 27, whatever its saved Power; above 27 it then drifts up to its
+   Wisdom like any other Power. [capture: retired
    players of ours with Wisdom 13, 20, 25 and 26 to 31, profile screen:
    Wisdom 28 to 31 showed 27 on the first turn, then 28, 29 on the next]
    **Engine:** a joining player's Power is its Wisdom, at most 27; a
@@ -194,17 +199,33 @@ magic item after it is used. [unknown]
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
-   fast as natural healing. [manual] **Engine:** each individual carries a
+   fast as natural healing. [manual] Bit 6 of the parameter set means
+   temporary: +10 with it wore off, +10 without it stayed for 60 turns. A
+   temporary +10 wore off 1 point at a time at random turns, about 1 turn
+   in 3 (10 or 11 ticks over 28 to 39 turns; 31 ticks in 101 turns). In 2
+   of 3 runs an eleventh tick took Life Force to 1 below Constitution, and
+   healing put it back the next turn. [capture: drift, 3 runs each, the
+   profile read every turn] **Engine:** each individual carries a
    temporary part of its Life Force (positive or negative). A temporary
    change moves Life Force and the temporary part together; a permanent one
-   moves only Life Force. Every second turn of its own, the temporary part
-   moves 1 toward 0, and Life Force with it. [unknown]
+   moves only Life Force. At the end of each of its turns, with chance 1 in
+   3, the temporary part moves 1 toward 0, and Life Force with it. The
+   eleventh tick is [unknown] and not copied.
 3. **Natural healing.** Life Force below Constitution heals on its own, about
-   6 times slower than resting. [manual] **Engine:** every fourth turn of its
-   own, an individual whose Life Force without the temporary part is below
-   Constitution gains 1. Life Force above Constitution from a permanent
-   change stays. [manual] Rest comes with a later rule set. So the disease
-   stack loses 1 point every 2 turns and heals 1 every 4.
+   6 times slower than resting. [manual] On the C64 it heals 1 point at the
+   end of every turn while below Constitution, now and then 2 (4 extra
+   points in 35 turns), and the test is on Life Force itself, temporary
+   part and all: the disease stack sat at Constitution, each tick of its
+   temporary part taking Life Force 1 below and the next turn's healing
+   putting it back, until the temporary part was gone. Healing comes before
+   the tick in a turn (a dip shows for one turn). [capture: drift, Life
+   Force 5 against Constitution 20 and the disease stack, 3 runs each]
+   **Engine:** at the end of each of its turns, an individual whose Life
+   Force is below its Constitution gains 1, and 1 more with chance 1 in 9,
+   not above Constitution; then the temporary part's tick. Life Force above
+   Constitution from a permanent change stays. [manual, capture] The
+   manual's "twice as fast" does not hold on the C64: healing outpaces the
+   tick about three to one. Rest comes with a later rule set.
 4. These run for players at the end of each of their turns and for creatures
    at the end of each creature turn, so creatures in rooms no player visits
    stand still in time, as they do in everything else (creatures 2.3).
@@ -289,9 +310,12 @@ defense (none). Trait generation is a later rule set.
 
 ## Captures needed
 
-1. Cast success: captured (4.1). Still open: a failed cast's Power cost
-   on more than one trial, and the Power cost of using a magic item.
-2. Power drift, temporary decay and healing rates.
+1. Cast success, a failed cast's cost and a magic item's cost: captured
+   (4.1, 4.2). Still open: a use's exact cost in steps.
+2. Power drift, temporary decay and healing rates: captured (5.1-5.3).
+   Still open: the eleventh tick of a temporary +10, and whether healing
+   and the tick follow turns or time (Speed 1 turns can't tell them
+   apart).
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
 5. Add to Room: where the thing lands.

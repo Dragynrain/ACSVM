@@ -71,6 +71,11 @@ pub fn acts_on_individual(kind: SpellActionKind) -> bool {
 
 /// Power a magic item's use costs (4.2).
 pub const USE_POWER: u8 = 2;
+/// The temporary part of Life Force ticks 1 toward 0 with chance 1 in
+/// this, each turn (5.2, captured).
+pub const TEMP_TICK: u32 = 3;
+/// Natural healing adds 1 more with chance 1 in this (5.3, captured).
+pub const HEAL_EXTRA: u32 = 9;
 
 /// The signed amount of a Change Power / Change Life Force parameter and
 /// whether it is temporary (3.7, 3.8).
@@ -852,24 +857,26 @@ impl Game {
         }
         let v = self.vitals_mut(who);
         v.turns += 1;
-        let (turns, temp) = (v.turns, v.temp);
+        let temp = v.temp;
         let power = self.stat(who, Stat::Power).unwrap_or(0);
         let wisdom = self.stat(who, Stat::Wisdom).unwrap_or(0);
         if power != wisdom {
             let to = if power < wisdom { power + 1 } else { power - 1 };
             self.set_stat(who, Stat::Power, to);
         }
+        // 5.3: healing first, on Life Force itself, not above Constitution.
         let life = self.stat(who, Stat::LifeForce).unwrap_or(0) as i16;
+        let con = self.stat(who, Stat::Constitution).unwrap_or(0) as i16;
         let mut to = life;
-        if turns % 2 == 0 && temp != 0 {
+        if to < con {
+            let extra = i16::from(self.rng.below(HEAL_EXTRA) == 0);
+            to = (to + 1 + extra).min(con);
+        }
+        // 5.2: then the temporary part's tick.
+        if temp != 0 && self.rng.below(TEMP_TICK) == 0 {
             let step = -temp.signum();
             to = (to + step).clamp(0, Stat::LifeForce.max() as i16);
             self.vitals_mut(who).temp += step;
-        }
-        let con = self.stat(who, Stat::Constitution).unwrap_or(0) as i16;
-        let base = to - self.temporary_life(who);
-        if turns % 4 == 0 && base < con {
-            to = (to + 1).min(Stat::LifeForce.max() as i16);
         }
         if to != life {
             self.set_stat(who, Stat::LifeForce, to as u8);
