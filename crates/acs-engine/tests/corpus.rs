@@ -108,8 +108,9 @@ fn every_door_can_be_taken_and_lands_somewhere_real() {
                         t.covered += 1;
                         continue;
                     }
-                    // Stand next to the door, inside the room, and step onto it.
-                    let Some((sx, sy, dir)) = Dir::ALL.iter().find_map(|d| {
+                    // Stand next to the door, inside the room, and step onto it
+                    // (straight: the default rules refuse diagonal steps).
+                    let Some((sx, sy, dir)) = Dir::ALL.iter().filter(|d| !d.is_diagonal()).find_map(|d| {
                         let (dx, dy) = d.delta();
                         let (sx, sy) = (item.x as i16 - dx as i16, item.y as i16 - dy as i16);
                         let inside =

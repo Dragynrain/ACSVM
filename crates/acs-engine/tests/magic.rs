@@ -362,7 +362,7 @@ fn setup() -> PlayerSetup {
 }
 
 fn start(a: Adventure, x: u8, y: u8, setup: PlayerSetup) -> Game {
-    let (mut g, _) = Game::new(a, 5, Rules::default(), setup);
+    let (mut g, _) = Game::new(a, 5, Rules { diagonals: true }, setup);
     g.place(0, hall(x, y));
     g
 }

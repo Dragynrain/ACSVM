@@ -394,7 +394,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 let mut rules = g.rules();
                 if ui
                     .checkbox(&mut rules.diagonals, "Diagonal moves")
-                    .on_hover_text("Unknown in the original; changing it restarts the walk.")
+                    .on_hover_text(
+                        "Off in the original (measured on the C64); changing it restarts the walk.",
+                    )
                     .changed()
                 {
                     restart = Some(rules);

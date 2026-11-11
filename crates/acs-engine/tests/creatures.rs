@@ -170,7 +170,7 @@ fn start(a: Adventure, room: u8, x: u8, y: u8) -> Game {
     let (mut g, _) = Game::new(
         a,
         3,
-        Rules::default(),
+        Rules { diagonals: true },
         PlayerSetup {
             speed: 15,
             ..Default::default()
@@ -608,7 +608,7 @@ fn games_with_creatures_replay_exactly() {
             speed: 15,
             ..Default::default()
         };
-        let (mut g, _) = Game::new(a.clone(), 11, Rules::default(), setup.clone());
+        let (mut g, _) = Game::new(a.clone(), 11, Rules { diagonals: true }, setup.clone());
         let mut kinds = std::collections::BTreeSet::new();
         let script = [
             Dir::N,
@@ -634,7 +634,7 @@ fn games_with_creatures_replay_exactly() {
         }
         assert!(kinds.contains("CreatureTurn"), "{kinds:?}");
         assert!(kinds.contains("CreatureMoved"), "{kinds:?}");
-        let r = Game::replay(a, 11, Rules::default(), setup, g.log());
+        let r = Game::replay(a, 11, Rules { diagonals: true }, setup, g.log());
         assert_eq!(r, g);
     });
 }

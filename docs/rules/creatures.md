@@ -248,7 +248,9 @@ creatures replay exactly.
 2. Random creature square choice and how soon left-behind ones go.
 3. The adjacency slowdown: bar length next to an aggressive unfriendly.
 4. Goal choice when a less favoured goal is closer: how much closer.
-5. Path tie-breaks and whether creatures move diagonally.
+5. Path tie-breaks and whether creatures move diagonally. (Players can't,
+   on the C64: movement 3.2. The engine's creatures follow the same
+   `Rules::diagonals`, so they step straight too.)
 6. A creature following through a door: where it lands, and whether its
    turn goes on in the new room.
 7. The overburdened drop: what, where, how much gold, how often.

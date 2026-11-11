@@ -136,23 +136,31 @@ Under `ACSVM-research/capture/`: `template-fantasy.d64`, `boot/` (program disk
 copy, `play.vsf`), `scenarios/`, and `runs/NAME/` (`disk.d64`, `start.vsf`,
 `runs.jsonl`, `summary.json`, start-up screenshots).
 
-## 7. First scenario: move-basic
+## 7. First scenarios: move-basic and move-room
 
 One player on an open field of the world map (cells 6..24 by 6..18, walled
-in, start 12,12), a marker cell at 15,14, one empty region with one room.
-Each of 20 runs pushes the joystick once in each of the 8 directions (from a
-fresh snapshot, at the top of a fresh turn), holds east for one whole turn,
-and leaves the stick alone for one whole turn.
+in, start 12,12), a marker cell at 15,14, and a map door at 12,16 (terrain
+12, door 0) into a 15 x 10 room, region 1 room 0, arriving on square 4,4.
+`move-basic` runs on the map from the first turn; `move-room` runs from a
+snapshot taken after walking south through the door. Each of 20 runs pushes
+the joystick once in each of the 8 directions (from a fresh snapshot, at the
+top of a fresh turn), holds east for one whole turn, and leaves the stick
+alone for one whole turn.
 
-Results (20 runs, November 2026):
+Results (20 runs each, November 2026):
 
-| Measurement | Original (C64) | Our engine (default rules) |
-| --- | --- | --- |
-| Push n, e, s, w | 80 of 80 moved one cell that way | Same |
-| Push ne, nw, se, sw | 80 of 80 no move, and no bar cost | Moves diagonally |
-| Bar per step | 8 of 48 pixels (one sixth) in 80 of 80 steps | One of Speed (6) |
-| Steps in a turn, holding east | 6 in 20 of 20 | 6 |
-| Idle turn, full bar to empty | 2,136-2,142 frames (42.6-42.7 s PAL) | No real-time drain |
+| Measurement | World map | Room | Our engine before | Our engine now |
+| --- | --- | --- | --- | --- |
+| Push n, e, s, w | 80 of 80 moved one square that way | 80 of 80 | Same | Same |
+| Push ne, nw, se, sw | 80 of 80 no move, no bar cost | 80 of 80 | Moved diagonally | Refused, no cost |
+| Steps in a turn, holding east | 6 in 20 of 20 | 6 in 20 of 20 | 6 | 6 |
+| Bar per step (full bar / steps) | 8 of 48 pixels | 8 of 48 pixels | One of Speed (6) | Same |
+| Idle turn, full bar to empty | 2,136-2,142 frames | 2,141-2,142 frames | No real-time drain | Same |
+
+The engine's `Rules::diagonals` now defaults to off. Reading the bar right
+after a single step is unreliable, because the bar is redrawn a few frames
+after the player moves (in rooms more than on the map), so the per-step cost
+is taken as the full bar over the steps in one turn.
 
 The idle bar loses one pixel every 43 to 48 frames (about 44.6 on average),
 so one unused step's worth of bar (8 pixels) drains in about 357 frames
@@ -170,7 +178,6 @@ No address in the original program is used.
 
 ## 9. Next
 
-- **Rooms**: the same pushes inside a room (a map door into a room).
 - **Other Speeds**: start-up with several jitters gives players with
   different rolled stats; read Speed from the profile screen, then measure
   steps per turn and the drain rate for each.

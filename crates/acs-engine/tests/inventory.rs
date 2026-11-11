@@ -108,7 +108,7 @@ fn setup() -> PlayerSetup {
 }
 
 fn game_with(platform: Platform, setup: PlayerSetup) -> Game {
-    Game::new(adventure(platform), 1, Rules::default(), setup).0
+    Game::new(adventure(platform), 1, Rules { diagonals: true }, setup).0
 }
 
 fn game(platform: Platform) -> Game {
@@ -331,21 +331,21 @@ fn picking_up_a_weapon_readies_it_and_armor_takes_the_turn() {
 #[test]
 fn capacity_follows_the_manual_formula() {
     let a = adventure(Platform::Pc);
-    let (g, _) = Game::new(a.clone(), 1, Rules::default(), setup());
+    let (g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, setup());
     assert_eq!(g.current_player().capacity(), 1100);
     let wounded = PlayerSetup {
         constitution: 11,
         life_force: 1,
         ..setup()
     };
-    let (g, _) = Game::new(a.clone(), 1, Rules::default(), wounded);
+    let (g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, wounded);
     assert_eq!(g.current_player().capacity(), 600); // 11 - 10/2
     let hale = PlayerSetup {
         constitution: 10,
         life_force: 20,
         ..setup()
     };
-    let (g, _) = Game::new(a, 1, Rules::default(), hale);
+    let (g, _) = Game::new(a, 1, Rules { diagonals: true }, hale);
     assert_eq!(g.current_player().capacity(), 1600); // 11 + 10/2
 
     assert_eq!(slowed_speed(15, 550, 1100), 15);
@@ -589,7 +589,7 @@ fn when_dropped_here_spaces_make_vending_machines() {
 fn inventory_commands_replay_exactly() {
     both(|p| {
         let a = adventure(p);
-        let (mut g2, _) = Game::new(a.clone(), 5, Rules::default(), setup());
+        let (mut g2, _) = Game::new(a.clone(), 5, Rules { diagonals: true }, setup());
         for c in [
             Command::Drop {
                 thing: SWORD,
@@ -602,7 +602,7 @@ fn inventory_commands_replay_exactly() {
         ] {
             g2.apply(c);
         }
-        let r = Game::replay(a, 5, Rules::default(), setup(), g2.log());
+        let r = Game::replay(a, 5, Rules { diagonals: true }, setup(), g2.log());
         assert_eq!(r, g2);
     });
 }

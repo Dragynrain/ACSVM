@@ -183,7 +183,7 @@ fn game(platform: Platform) -> Game {
     Game::new(
         adventure(platform),
         1,
-        Rules::default(),
+        Rules { diagonals: true },
         PlayerSetup {
             speed: 15,
             ..Default::default()
@@ -220,7 +220,7 @@ fn both(test: impl Fn(Platform)) {
 #[test]
 fn start_and_first_turn() {
     both(|p| {
-        let (g, ev) = Game::new(adventure(p), 9, Rules::default(), PlayerSetup::default());
+        let (g, ev) = Game::new(adventure(p), 9, Rules { diagonals: true }, PlayerSetup::default());
         assert_eq!(g.current_player().at, Location::World { x: 20, y: 20 });
         assert_eq!(
             ev,
@@ -258,7 +258,7 @@ fn the_bar_runs_out_and_refills() {
     let (mut g, _) = Game::new(
         adventure(Platform::C64),
         1,
-        Rules::default(),
+        Rules { diagonals: true },
         PlayerSetup {
             speed: 2,
             ..Default::default()
@@ -293,6 +293,20 @@ fn players_take_turns() {
     assert_eq!(g.current(), 1);
     mv(&mut g, Dir::S); // one step uses TWO's whole bar
     assert_eq!(g.current(), 0);
+}
+
+/// The synthetic tests were written with diagonal steps allowed and keep
+/// them on explicitly; the default follows the C64 capture (movement 3.2).
+#[test]
+fn default_rules_refuse_diagonals() {
+    let (mut g, _) = Game::new(
+        adventure(Platform::Pc),
+        1,
+        Rules::default(),
+        PlayerSetup::default(),
+    );
+    assert_eq!(blocked(&mv(&mut g, Dir::NE)), Some(BlockReason::Diagonal));
+    assert_ne!(blocked(&mv(&mut g, Dir::E)), Some(BlockReason::Diagonal));
 }
 
 #[test]
@@ -357,7 +371,7 @@ fn extended_world_map_is_as_big_as_its_tiles() {
     }
     a.world.tiles.resize(60, vec![0; 60]);
     assert!(acs_core::limits::check(&a).is_empty());
-    let mut g = Game::new(a, 1, Rules::default(), PlayerSetup::default()).0;
+    let mut g = Game::new(a, 1, Rules { diagonals: true }, PlayerSetup::default()).0;
     g.place(0, Location::World { x: 39, y: 50 });
     let ev = mv(&mut g, Dir::E);
     assert!(matches!(
@@ -374,14 +388,26 @@ fn extended_world_map_is_as_big_as_its_tiles() {
 #[test]
 fn map_edges_stop_unless_the_map_wraps() {
     let mut f = fixture(Platform::C64);
-    let mut g = Game::new(build(&mut f), 1, Rules::default(), PlayerSetup::default()).0;
+    let mut g = Game::new(
+        build(&mut f),
+        1,
+        Rules { diagonals: true },
+        PlayerSetup::default(),
+    )
+    .0;
     g.place(0, Location::World { x: 0, y: 39 });
     assert_eq!(blocked(&mv(&mut g, Dir::W)), Some(BlockReason::MapEdge));
     assert_eq!(blocked(&mv(&mut g, Dir::S)), Some(BlockReason::MapEdge));
 
     let a = f.l.adventure + adv::MAP_WRAP;
     f.put(a, &[1]);
-    let mut g = Game::new(build(&mut f), 1, Rules::default(), PlayerSetup::default()).0;
+    let mut g = Game::new(
+        build(&mut f),
+        1,
+        Rules { diagonals: true },
+        PlayerSetup::default(),
+    )
+    .0;
     g.place(0, Location::World { x: 0, y: 39 });
     let ev = mv(&mut g, Dir::SW);
     assert!(matches!(
@@ -652,7 +678,7 @@ fn map_encounters_roll_for_the_terrain_stood_on() {
     assert_eq!(a.world.random_creatures[0].chance, 60);
     let mut hits = 0;
     for seed in 0..500 {
-        let (mut g, _) = Game::new(a.clone(), seed, Rules::default(), PlayerSetup::default());
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
         let ev = mv(&mut g, Dir::SW);
         if ev.iter().any(|e| {
             matches!(
@@ -687,7 +713,8 @@ fn room_encounters_roll_on_entry_and_respect_the_region_limit() {
     let rolls = |a: &Adventure| {
         (0..400)
             .filter(|&seed| {
-                let (mut g, _) = Game::new(a.clone(), seed, Rules::default(), PlayerSetup::default());
+                let (mut g, _) =
+                    Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
                 mv(&mut g, Dir::N)
                     .iter()
                     .any(|e| matches!(e, Event::RoomEncounter { creature: 1, .. }))
@@ -714,7 +741,7 @@ fn replay_from_seed_and_log_is_exact() {
     f.put(w + wm::CREATURE_CHANCES, &[15]);
     let a = build(&mut f);
     let setup = PlayerSetup::default();
-    let (mut g, _) = Game::new(a.clone(), 1234, Rules::default(), setup.clone());
+    let (mut g, _) = Game::new(a.clone(), 1234, Rules { diagonals: true }, setup.clone());
     // A fixed walk with some refusals, door trips and waits.
     let mut events = Vec::new();
     for (i, d) in [
@@ -743,7 +770,7 @@ fn replay_from_seed_and_log_is_exact() {
             events.extend(g.apply(Command::Wait));
         }
     }
-    let r = Game::replay(a, 1234, Rules::default(), setup, g.log());
+    let r = Game::replay(a, 1234, Rules { diagonals: true }, setup, g.log());
     assert_eq!(r, g);
     // The log round-trips through JSON.
     let json = serde_json::to_string(g.log()).unwrap();

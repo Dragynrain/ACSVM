@@ -149,16 +149,14 @@ pub enum Command {
 
 /// Choices the original leaves open or that are still unmeasured
 /// (see the "Engine:" notes in `docs/rules/movement.md`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// The defaults follow the original as measured.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rules {
-    /// Allow diagonal steps. Unknown in the original; on by default.
+    /// Allow diagonal steps. Off by default: the C64 original ignores a
+    /// diagonal push on the world map and in rooms (movement 3.2, captured).
+    /// Creatures follow the same rule; whether the original's creatures step
+    /// diagonally is still unmeasured.
     pub diagonals: bool,
-}
-
-impl Default for Rules {
-    fn default() -> Self {
-        Rules { diagonals: true }
-    }
 }
 
 /// Why a move was refused.

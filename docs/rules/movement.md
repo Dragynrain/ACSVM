@@ -66,11 +66,11 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 
 1. Players move with the joystick, one square per step. [manual]
 2. Whether diagonal steps are allowed is not stated. [manual] On the C64
-   world map they are not: a diagonal push does nothing at all (no move, no
-   bar cost) in 80 of 80 tries, while straight pushes always move one cell.
-   [capture: move-basic, 20 runs] Rooms are not yet measured. [unknown]
-   **Engine:** 8 directions, switchable off with `Rules::diagonals`; the
-   default should become "off" (to be decided, see capture.md section 7).
+   they are not, on the world map or in rooms: a diagonal push does nothing
+   at all (no move, no bar cost) in 80 of 80 tries in each place, while
+   straight pushes always move one square. [capture: move-basic and
+   move-room, 20 runs each] **Engine:** diagonal steps are refused
+   (`BlockReason::Diagonal`, no cost); `Rules::diagonals` turns them on.
 
 ## 4. The world map
 
@@ -255,7 +255,7 @@ These need the AI and are listed so the movement code leaves room for them.
 
 In priority order, for the behaviour-capture harness:
 
-1. Diagonal moves allowed? World map: no (captured). Rooms: still open.
+1. Diagonal moves allowed? No, on the map and in rooms (captured).
 2. Bar cost of a refused door/space, and of taking a door.
 3. Arriving on a space, obstacle or door: does it trigger?
 4. Map encounter roll: before refused moves? Which terrain? Order among
