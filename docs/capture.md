@@ -208,7 +208,24 @@ is taken as the full bar over the steps in one turn.
 
 The idle bar loses one pixel every 43 to 48 frames (about 44.6 on average),
 so one unused step's worth of bar (8 pixels) drains in about 357 frames
-(7.1 s). A Speed 9 player (section 8) drains at the same rate per pixel.
+(7.1 s). Players of other Speeds (section 8) drain at the same rate.
+
+**Speed survey** (players of ours, section 8; 20 runs each on the widened
+field, November 2026). Everything but Speed as move-basic's player:
+
+| Speed | Pushes n/e/s/w; diagonals | Full bar | Steps per turn | Idle turn, full to empty |
+| --- | --- | --- | --- | --- |
+| 1 | 80 of 80 moved; 80 of 80 refused | 8 px in 20 | 1 in 20 | 369-374 frames |
+| 3 | same | 24 px in 20 | 3 in 20 | 1,077-1,078 frames |
+| 6 (rolled, move-basic) | same | 48 px in 20 | 6 in 20 | 2,136-2,142 frames |
+| 9 | same | 72 px in 20 | 9 in 20 | 3,206-3,207 frames |
+| 15 | same | 120 px in 20 | 15 in 20 | 5,328-5,334 frames |
+
+So the full bar is 8 pixels per point of Speed and a step always costs 8
+pixels. An idle turn lasts about 354 frames per point of Speed plus about
+17 (7.1 s per unused step, PAL); the drain per pixel (44.3 to 46 frames)
+does not depend on Speed. Our engine's prediction matched every row's
+moves and steps.
 
 ## 8. Players of our own: retired records
 
@@ -237,13 +254,14 @@ screen offers next to "create new player".
    this player", the program saves the adventure, and a third press starts
    play on the world map's start cell. Taking the player off the list
    clears its name on the disk.
-3. **Our own record works.** The program's T record with Speed set to 9,
-   written onto a fresh scenario disk (name and record only, nothing at
-   + 0xE7 or + 0x36F), was offered, chosen and played. Speed 9: full bar 72
-   pixels, 9 steps per turn holding east, 8 pixels per step; an idle full
-   bar empties in 3,206 frames (44.5 frames per pixel, as for Speed 6: the
-   drain per pixel does not depend on Speed, so a whole idle turn lasts
-   about 357 frames per point of Speed). One run, November 2026.
+3. **Our own record works.** First the program's T record with Speed set
+   to 9 was written onto a fresh scenario disk (name and record only,
+   nothing at + 0xE7 or + 0x36F): it was offered, chosen and played. Now
+   `acs-capture scenario move-basic OUT --player spd=15,...` builds the
+   record from the decoder's field layout (byte 1 bit 6 set, as in the
+   program's own player records; meaning unknown), standing on the map
+   start cell, and `scripts/start-retired.txt` picks it. Players of Speed
+   1, 3, 9 and 15 made this way all loaded with their Speed (section 7).
 4. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
    (two values seen so far; identical chains write the same ones). Entering
    the room did not write to the disk.
@@ -273,9 +291,7 @@ In this order (planned November 2026):
       in `capture/` and is loaded at run time; the repository holds only
       the matcher. Every scenario player's stats are read back to confirm
       the record took.
-   3. *Speed survey.* Players with Speed 1, 3 and 15 (6 and 9 are done):
-      full bar height, steps per turn holding east, the idle drain rate,
-      20 runs each.
+   3. *Speed survey*: done (section 7).
 2. **Refused moves** (movement 2.2): on the map, a few steps and then a
    push into the wall ring; in a room, a push into the room wall and into
    an obstacle (our own thing as a room item). Bars are read once settled,

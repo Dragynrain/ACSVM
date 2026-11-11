@@ -35,8 +35,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    reaches zero. [manual] On the C64 the full bar is 8 pixels per point of
    Speed and each step takes 8 pixels: a Speed 6 player's bar is 48 pixels
    and holding the stick in one direction gives exactly 6 steps before the
-   turn passes; Speed 9 gives 72 pixels and 9 steps. [capture: move-basic,
-   world map, 20 runs; Speed 9: retired-player scenario, 1 run]
+   turn passes; the same holds for Speed 1, 3, 9 and 15 (8 to 120 pixels,
+   1 to 15 steps). [capture: move-basic and the Speed survey, world map,
+   20 runs each]
 2. A move that is refused (impassable terrain, an obstacle, a wall) leaves
    the bar unchanged. [manual] Being refused by a door or space that bars
    passage is not described. [unknown] **Engine:** no cost, as for obstacles.
@@ -45,10 +46,10 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
-   so about 7.1 s per unused step. [capture: move-basic, 20 runs] A Speed 9
-   bar drains at the same rate per pixel (3,206 frames for 72 pixels), so a
-   whole idle turn lasts about 357 frames per point of Speed. [capture:
-   retired-player scenario, 1 run] **Engine:** no
+   so about 7.1 s per unused step. [capture: move-basic, 20 runs] The rate
+   per pixel doesn't depend on Speed: an idle turn lasts about 354 frames
+   per point of Speed plus about 17 (369 frames at Speed 1, 5,331 at
+   Speed 15). [capture: Speed survey, 20 runs each] **Engine:** no
    real-time drain in the rules; a front end may send `Wait` to end the
    turn, and later a timer option can do so on a clock.
 5. With one character and no creatures in the room, the same character moves
@@ -264,5 +265,6 @@ In priority order, for the behaviour-capture harness:
 4. Map encounter roll: before refused moves? Which terrain? Order among
    creatures? Shape of the encounter area.
 5. Room random creature: square choice.
-6. Real-time drain rate of the bar; extra turns for players in other regions.
+6. Real-time drain rate of the bar (captured: about 354 frames per point of
+   Speed); extra turns for players in other regions.
 7. Stores: bump or step on.
