@@ -39,9 +39,15 @@ enum Cmd {
         /// the room's entry square.
         #[arg(long, value_delimiter = ',')]
         weights: Vec<u16>,
-        /// Also give the player a spell of ours with this cost.
+        /// Also give the player a spell of ours: COST (shows a long
+        /// message) or COST:ACTION:PARAM (numbers, 0x.. for hex). Repeat
+        /// for more spells (things 80, 79, ..).
         #[arg(long)]
-        spell: Option<u8>,
+        spell: Vec<String>,
+        /// Also give the player a magic item of ours that acts when used:
+        /// ACTION:PARAM (10:2 shows a long message).
+        #[arg(long)]
+        item: Option<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -78,6 +84,16 @@ enum Cmd {
         /// The player's Speed, for our engine's prediction in the summary.
         #[arg(long, default_value_t = 6)]
         speed: u8,
+        /// drift: what to cast first (none, spell1, spell1-spell2).
+        #[arg(long, default_value = "none")]
+        plan: String,
+        /// drift: turns to read after the casts.
+        #[arg(long, default_value_t = 40)]
+        turns: usize,
+        /// The glyph table for reading the profile (default:
+        /// ACSVM_CAPTURE_GLYPHS).
+        #[arg(long)]
+        glyphs: Option<PathBuf>,
     },
     /// Distil a runs.jsonl into summary.json.
     Summarize {
@@ -85,6 +101,20 @@ enum Cmd {
         /// The player's Speed, for our engine's prediction.
         #[arg(long, default_value_t = 6)]
         speed: u8,
+    },
+    /// Learn or read screen text (docs/capture.md 5.3).
+    Glyphs {
+        /// learn (add new cells of the shots to the table, unlabelled) or
+        /// read (print the shots as text; with --profile, the stats too).
+        action: String,
+        /// Screenshots of the inner screen (any integer scale).
+        shots: Vec<PathBuf>,
+        /// The glyph table (default: ACSVM_CAPTURE_GLYPHS); learn creates it.
+        #[arg(long)]
+        glyphs: Option<PathBuf>,
+        /// read: also parse the profile screen's stats.
+        #[arg(long)]
+        profile: bool,
     },
     /// Run a line script (see `script.rs`) against a fresh VICE.
     Script {
@@ -122,7 +152,16 @@ fn main() {
             obstacle,
             weights,
             spell,
+            item,
         } => {
+            let spells: Vec<scenario::Spell> = spell
+                .iter()
+                .map(|t| scenario::Spell::parse(t).unwrap_or_else(|e| fail(&e)))
+                .collect();
+            let item = item.map(|t| {
+                let s = scenario::Spell::parse(&format!("0:{t}")).unwrap_or_else(|e| fail(&e));
+                (s.action, s.param)
+            });
             let template = template
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_TEMPLATE").map(PathBuf::from))
                 .map(|p| std::fs::read(&p).unwrap_or_else(|e| fail(&format!("{}: {e}", p.display()))));
@@ -137,7 +176,8 @@ fn main() {
                         player,
                         obstacle: obstacle.then_some((5, 4)),
                         weights: weights.clone(),
-                        spell,
+                        spells: spells.clone(),
+                        item,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -158,9 +198,18 @@ fn main() {
             jitter_step,
             jitter_range,
             speed,
+            plan,
+            turns,
+            glyphs,
         } => {
+            let plan = acs_capture::power::plan(&plan).unwrap_or_else(|e| fail(&e));
+            let glyphs = glyphs
+                .or_else(|| std::env::var_os("ACSVM_CAPTURE_GLYPHS").map(PathBuf::from))
+                .map(|p| acs_capture::glyphs::Table::load(&p).unwrap_or_else(|e| fail(&e)));
             let place = match name.as_str() {
-                "move-basic" | "refuse" | "weight" | "cast" => experiment::Place::Map,
+                "move-basic" | "refuse" | "weight" | "cast" | "profile-check" | "item" | "drift" => {
+                    experiment::Place::Map
+                }
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -178,6 +227,7 @@ fn main() {
                 scen: scenario::MoveBasic::default(),
                 place,
                 out: file,
+                glyphs,
             };
             let started = std::time::Instant::now();
             let mut result = Ok(());
@@ -185,6 +235,18 @@ fn main() {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * jitter_step) % jitter_range;
+                if matches!(name.as_str(), "profile-check" | "item" | "drift") {
+                    result = match name.as_str() {
+                        "item" => r.item_run(run, jitter),
+                        "drift" => r.drift_run(run, jitter, &plan, turns),
+                        _ => r.profile_check(run, jitter),
+                    };
+                    if result.is_err() {
+                        break 'outer;
+                    }
+                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    continue;
+                }
                 if name == "cast" {
                     result = r.cast_run(run, jitter);
                     if result.is_err() {
@@ -239,6 +301,75 @@ fn main() {
         Cmd::Summarize { runs, speed } => {
             let summary = experiment::summarize(&runs, speed).unwrap_or_else(|e| fail(&e.to_string()));
             println!("{}", serde_json::to_string_pretty(&summary).unwrap_or_default());
+        }
+        Cmd::Glyphs {
+            action,
+            shots,
+            glyphs,
+            profile,
+        } => {
+            use acs_capture::glyphs as g;
+            let path = glyphs
+                .or_else(|| std::env::var_os("ACSVM_CAPTURE_GLYPHS").map(PathBuf::from))
+                .unwrap_or_else(|| fail("no glyph table: --glyphs or ACSVM_CAPTURE_GLYPHS"));
+            let mut table = if action == "learn" && !path.exists() {
+                g::Table::default()
+            } else {
+                g::Table::load(&path).unwrap_or_else(|e| fail(&e))
+            };
+            let screens: Vec<(PathBuf, g::Screen)> = shots
+                .into_iter()
+                .map(|p| {
+                    let s = g::Screen::from_png(&p, &[g::INK], &g::MASK).unwrap_or_else(|e| fail(&e));
+                    (p, s)
+                })
+                .collect();
+            match action.as_str() {
+                "learn" => {
+                    for (p, s) in &screens {
+                        let added = g::learn(s, &mut table);
+                        println!("{}: {} new", p.display(), added.len());
+                    }
+                    std::fs::write(&path, table.to_text()).unwrap_or_else(|e| fail(&e.to_string()));
+                    // Text art of every glyph, for labelling by eye.
+                    let mut art = String::new();
+                    for (i, (bits, label)) in table.glyphs.iter().enumerate() {
+                        art.push_str(&format!(
+                            "{i} {bits:016X} {}
+",
+                            label.as_deref().unwrap_or("?")
+                        ));
+                        art.push_str(&g::art(*bits));
+                    }
+                    let art_path = path.with_extension("art.txt");
+                    std::fs::write(&art_path, art).unwrap_or_else(|e| fail(&e.to_string()));
+                    println!(
+                        "{} glyphs in {}; art in {}",
+                        table.glyphs.len(),
+                        path.display(),
+                        art_path.display()
+                    );
+                }
+                "read" => {
+                    for (p, s) in &screens {
+                        let text = g::read(s, &table);
+                        println!(
+                            "== {} (grid {:?}, doubtful {:?})",
+                            p.display(),
+                            text.grid,
+                            text.doubtful
+                        );
+                        for l in &text.lines {
+                            println!("|{l}");
+                        }
+                        if profile {
+                            let stats = g::profile(&text);
+                            println!("{}", serde_json::to_string(&stats).unwrap_or_default());
+                        }
+                    }
+                }
+                other => fail(&format!("glyphs {other}: learn or read")),
+            }
         }
         Cmd::Script {
             script,

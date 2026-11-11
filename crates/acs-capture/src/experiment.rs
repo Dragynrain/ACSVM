@@ -38,7 +38,10 @@ const LIFE_X: usize = 313;
 const REFILL: usize = 4;
 /// Instructions to wait for a turn to pass: an idle Speed 15 turn lasts
 /// about 5,400 frames, some 40 million instructions.
-const TURN_LIMIT: u64 = 80_000_000;
+pub(crate) const TURN_LIMIT: u64 = 80_000_000;
+/// A pixel inside the command menu's cursor on MOVE (cyan), which shows
+/// only while the menu is open.
+const MENU_CURSOR: (usize, usize) = (15, 170);
 const CELL: i32 = 16;
 const VIEW_X: i32 = 28;
 const VIEW_Y: i32 = -1;
@@ -122,15 +125,31 @@ pub struct Runner<'a> {
     pub scen: MoveBasic,
     pub place: Place,
     pub out: std::fs::File,
+    /// The glyph table, for reading the profile screen (5.3).
+    pub glyphs: Option<crate::glyphs::Table>,
+}
+
+/// The profile screen read back (docs/capture.md 5.3.5).
+#[derive(Debug, Clone, Serialize)]
+pub struct ProfileRead {
+    pub stats: BTreeMap<String, crate::glyphs::Stat>,
+    /// Instructions from the button to the profile showing.
+    pub shown_after: u64,
+}
+
+impl ProfileRead {
+    pub fn get(&self, key: &str) -> Option<u16> {
+        self.stats.get(key).and_then(|s| s.value)
+    }
 }
 
 impl Runner<'_> {
-    fn look(&mut self) -> Result<Obs, String> {
+    pub(crate) fn look(&mut self) -> Result<Obs, String> {
         let f = self.s.frame().map_err(|e| e.to_string())?;
         Ok(observe(&f, &self.scen, self.place))
     }
 
-    fn reset(&mut self, jitter: u64) -> Result<(), String> {
+    pub(crate) fn reset(&mut self, jitter: u64) -> Result<(), String> {
         let line = format!("undump {}", self.snapshot);
         self.s.line(&line)?;
         if jitter > 0 {
@@ -139,21 +158,21 @@ impl Runner<'_> {
         Ok(())
     }
 
-    fn joy(&mut self, dir: &str) -> Result<(), String> {
+    pub(crate) fn joy(&mut self, dir: &str) -> Result<(), String> {
         let bits = joy_bits(dir).ok_or("bad direction")?;
         self.s.vice.mon.joystick(1, bits).map_err(|e| e.to_string())
     }
 
-    fn step(&mut self, n: u64) -> Result<(), String> {
+    pub(crate) fn step(&mut self, n: u64) -> Result<(), String> {
         self.s.run(n).map_err(|e| e.to_string())
     }
 
-    fn write(&mut self, v: serde_json::Value) -> Result<(), String> {
+    pub(crate) fn write(&mut self, v: serde_json::Value) -> Result<(), String> {
         writeln!(self.out, "{v}").map_err(|e| e.to_string())
     }
 
     /// Runs until the bar refills (a new turn), up to `limit` instructions.
-    fn wait_refill(&mut self, limit: u64) -> Result<Option<u64>, String> {
+    pub(crate) fn wait_refill(&mut self, limit: u64) -> Result<Option<u64>, String> {
         let mut last = self.look()?.bar;
         let mut t = 0;
         while t < limit {
@@ -544,14 +563,59 @@ impl Runner<'_> {
 impl Runner<'_> {
     /// Taps the stick for 25,000 instructions (the menu cursor repeats
     /// after about 40,000) and lets the menu settle.
-    fn menu_tap(&mut self, dir: &str) -> Result<(), String> {
+    pub(crate) fn menu_tap(&mut self, dir: &str) -> Result<(), String> {
         self.joy(dir)?;
         self.step(25_000)?;
         self.joy("none")?;
         self.step(10_000_000)
     }
 
-    fn button(&mut self) -> Result<(), String> {
+    /// Opens the command menu from the map: the button held for a million
+    /// instructions (holding it stops the drain; the menu opens when it is
+    /// let go), then waits for the menu's cursor on MOVE. A short tap can be
+    /// missed, and the menu taps that follow would then walk the player.
+    pub(crate) fn open_menu(&mut self) -> Result<(), String> {
+        // First the turn's prompt ("move with the joystick ..."): between
+        // turns the status area is blank and a press opens nothing.
+        let mut t = 0;
+        while !self.prompt_shows()? {
+            if t > 40_000_000 {
+                self.s.shot("no-prompt").map_err(|e| e.to_string())?;
+                return Err("no turn prompt (no-prompt.png)".into());
+            }
+            self.step(100_000)?;
+            t += 100_000;
+        }
+        self.joy("fire")?;
+        self.step(1_000_000)?;
+        self.joy("none")?;
+        for _ in 0..60 {
+            self.step(500_000)?;
+            let f = self.s.frame().map_err(|e| e.to_string())?;
+            let c = f.palette.get(f.at(MENU_CURSOR.0, MENU_CURSOR.1) as usize);
+            if c == Some(&crate::glyphs::MASK[0]) {
+                return self.step(5_000_000);
+            }
+        }
+        self.s.shot("menu-unopened").map_err(|e| e.to_string())?;
+        Err("the command menu did not open (menu-unopened.png)".into())
+    }
+
+    /// Whether the status area shows text in the prompt colour (cyan), as
+    /// it does for the turn's prompt and the open menu.
+    fn prompt_shows(&mut self) -> Result<bool, String> {
+        let f = self.s.frame().map_err(|e| e.to_string())?;
+        for y in 167..195 {
+            for x in 4..316 {
+                if f.palette.get(f.at(x, y) as usize) == Some(&crate::glyphs::MASK[0]) {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    pub(crate) fn button(&mut self) -> Result<(), String> {
         self.joy("fire")?;
         self.step(4_000_000)?;
         self.joy("none")
@@ -593,14 +657,79 @@ impl Runner<'_> {
         self.button()?;
         self.step(10_000_000)?;
         let after = self.look()?;
+        // With a glyph table, Power read back (10.6.3). The cast ended the
+        // turn, so this is the next turn's top.
+        let profile = match self.glyphs {
+            Some(_) => Some(self.profile(None)?),
+            None => None,
+        };
         let next_turn = self.wait_refill(TURN_LIMIT)?;
         let next = self.look()?;
         self.write(json!({
             "kind": "cast", "run": run, "jitter": jitter, "start": start,
             "chosen": chosen, "worked": worked, "outcome": outcome,
             "outcome_hash": format!("{outcome_hash:016x}"),
-            "after": after, "next_turn_after": next_turn, "next": next,
+            "after": after, "profile": profile, "next_turn_after": next_turn, "next": next,
         }))
+    }
+}
+
+impl Runner<'_> {
+    /// Opens the profile (a tap of the button, then e, e, s, s and a tap
+    /// in the command menu, whose cursor starts on MOVE each time), reads
+    /// it once every stat shows, and leaves it with a tap of the button;
+    /// the map shows again. `shot` saves the profile screen under that name.
+    pub fn profile(&mut self, shot: Option<&str>) -> Result<ProfileRead, String> {
+        use crate::glyphs as g;
+        if self.glyphs.is_none() {
+            return Err("no glyph table (--glyphs or ACSVM_CAPTURE_GLYPHS)".into());
+        }
+        self.open_menu()?;
+        for d in ["e", "e", "s", "s"] {
+            self.menu_tap(d)?;
+        }
+        self.joy("fire")?;
+        self.step(25_000)?;
+        self.joy("none")?;
+        let mut t = 25_000;
+        // Two equal readings a million instructions apart, so a number
+        // still being drawn is not taken.
+        let mut prev = None;
+        let stats = loop {
+            self.step(1_000_000)?;
+            t += 1_000_000;
+            let f = self.s.frame().map_err(|e| e.to_string())?;
+            if f.palette.get(1) != Some(&g::INK) || f.palette.get(3) != Some(&g::MASK[0]) {
+                return Err("VICE's palette is not the one the glyph colours assume".into());
+            }
+            let text = g::read(
+                &g::Screen::from_frame(&f, &[g::INK], &g::MASK),
+                self.glyphs.as_ref().unwrap(),
+            );
+            let stats = g::profile(&text);
+            let full = stats.len() == g::PROFILE_STATS.len() && stats.values().all(|s| s.value.is_some());
+            if full && prev.as_ref() == Some(&stats) {
+                break stats;
+            }
+            prev = full.then_some(stats);
+            if t > 60_000_000 {
+                self.s.shot("profile-unread").map_err(|e| e.to_string())?;
+                return Err("the profile did not read (profile-unread.png)".into());
+            }
+        };
+        if let Some(name) = shot {
+            self.s.shot(name).map_err(|e| e.to_string())?;
+        }
+        // Leave: a 25,000-instruction tap of the button, then a million
+        // instructions for the map to show (the turn goes on from here).
+        self.joy("fire")?;
+        self.step(25_000)?;
+        self.joy("none")?;
+        self.step(1_000_000)?;
+        Ok(ProfileRead {
+            stats,
+            shown_after: t,
+        })
     }
 }
 

@@ -153,15 +153,63 @@ pub struct MoveBasic {
     /// Treasures of these weights (things `FIRST_WEIGHT`..), in a row east
     /// of the room's entry square, one a square.
     pub weights: Vec<u16>,
-    /// A magic spell of this cost (thing `SPELL`) that shows long message 1
-    /// when it works; the retired player owns it.
-    pub spell: Option<u8>,
+    /// Magic spells of ours (things `SPELL`, `SPELL` - 1, ..); the retired
+    /// player owns them.
+    pub spells: Vec<Spell>,
+    /// A magic item of ours (thing `ITEM`) that acts when used, with this
+    /// action and parameter; the retired player owns it.
+    pub item: Option<(u8, u8)>,
 }
 
-/// The master thing slot of our spell (1-80, so a player can own it).
+/// One spell of ours: its cost and what it does (action code, parameter).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Spell {
+    pub cost: u8,
+    pub action: u8,
+    pub param: u8,
+}
+
+/// Action code 10: display long message.
+pub const LONG_MESSAGE: u8 = 10;
+
+impl Spell {
+    /// `COST` (shows long message 1) or `COST:ACTION:PARAM`.
+    pub fn parse(spec: &str) -> Result<Self, String> {
+        let n: Vec<&str> = spec.split(':').collect();
+        let num = |t: &str| -> Result<u8, String> {
+            let t = t.trim();
+            let v = if let Some(h) = t.strip_prefix("0x") {
+                u8::from_str_radix(h, 16)
+            } else {
+                t.parse()
+            };
+            v.map_err(|_| format!("{spec}: bad number {t}"))
+        };
+        match n.as_slice() {
+            [c] => Ok(Spell {
+                cost: num(c)?,
+                action: LONG_MESSAGE,
+                param: 1,
+            }),
+            [c, a, p] => Ok(Spell {
+                cost: num(c)?,
+                action: num(a)?,
+                param: num(p)?,
+            }),
+            _ => Err(format!("{spec}: want COST or COST:ACTION:PARAM")),
+        }
+    }
+}
+
+/// The master thing slot of our first spell (1-80, so a player can own it);
+/// further spells take the slots below it.
 pub const SPELL: u8 = 80;
 /// Long message 1, shown when the spell works.
 pub const SPELL_MESSAGE: &str = "THE SPELL WORKED";
+/// The master thing slot of our magic item, below the weight row.
+pub const ITEM: u8 = 70;
+/// Long message 2, for an item that displays a message.
+pub const ITEM_MESSAGE: &str = "THE ITEM WORKED";
 
 /// The first master thing slot of the weight row (carriable things must be
 /// 1-80: possessions are a bitmap over them).
@@ -197,7 +245,8 @@ impl Default for MoveBasic {
             player: None,
             obstacle: None,
             weights: Vec::new(),
-            spell: None,
+            spells: Vec::new(),
+            item: None,
         }
     }
 }
@@ -210,6 +259,13 @@ fn picture(f: &mut Fixture, n: usize, rows: [u8; 16], right: [u8; 16]) {
         f.data[base + half + row] = rows[r];
         f.data[base + half + 8 + row] = right[r];
     }
+}
+
+/// Clears a thing's two message references: the template's builder-set
+/// thing in that slot may have had one, which the program would show.
+fn no_messages(f: &mut Fixture, n: usize) {
+    f.thing_message(n, 0, 0);
+    f.thing_message(n, 1, 0);
 }
 
 /// Starts a scenario: from zeros, or from a copy of a blank adventure disk
@@ -325,19 +381,38 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         "MARKER 3",
         wm::TERRAIN_NAME_LEN,
     );
-    if let Some(cost) = s.spell {
-        // Type 6, cost, action 10 (display long message), message 1.
-        f.thing(SPELL as usize, "TESTSPELL", [0x06, cost, 10, 1]);
-        f.long_message(1, SPELL_MESSAGE);
+    for (i, sp) in s.spells.iter().enumerate() {
+        // Type 6, cost, action, parameter.
+        let n = SPELL as usize - i;
+        f.thing(
+            n,
+            &format!("TESTSPELL{}", i + 1),
+            [0x06, sp.cost, sp.action, sp.param],
+        );
+        no_messages(&mut f, n);
+    }
+    f.long_message(1, SPELL_MESSAGE);
+    if let Some((action, param)) = s.item {
+        // Type 2, weight 1, value 1, extended record 0 of the magic part
+        // (the template's offset kept): action, acts when used (bit 7);
+        // the door picture; the parameter.
+        let off = f.data[l.things + acs_core::layout::things::MAGIC_ITEM_OFFSET];
+        f.thing(ITEM as usize, "TESTITEM", [0x02, 1, 1, 0]);
+        no_messages(&mut f, ITEM as usize);
+        f.extended(Some(off), 0, [0x80 | (action & 0x0F), PIC_DOOR as u8, param]);
+        f.long_message(2, ITEM_MESSAGE);
     }
     if let Some(p) = &s.player {
         let c = l.creatures;
         f.packed(c + cr::RETIRED_NAMES, &p.name);
         let mut r = p.record(s.start);
-        if s.spell.is_some() {
-            // Possessions from byte 0x17: things 33-80 one bit each, eight
-            // to a byte, high bit first (as the decoder reads them).
-            let i = SPELL as usize - 33;
+        // Possessions from byte 0x17: things 33-80 one bit each, eight to a
+        // byte, high bit first (as the decoder reads them).
+        let owned = (0..s.spells.len())
+            .map(|i| SPELL as usize - i)
+            .chain(s.item.map(|_| ITEM as usize));
+        for n in owned {
+            let i = n - 33;
             r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
         }
         f.put(c + cr::RETIRED_RECORDS, &r);
@@ -465,15 +540,33 @@ mod tests {
     fn the_player_owns_the_spell() {
         let s = MoveBasic {
             player: Some(Player::default()),
-            spell: Some(20),
+            spells: vec![Spell::parse("20").unwrap(), Spell::parse("0:7:0x8A").unwrap()],
+            item: Some((LONG_MESSAGE, 2)),
             ..MoveBasic::default()
         };
         let adv = acs_core::decode(&move_basic(&s, None))
             .expect("decodes")
             .adventure;
         let p = &adv.retired_players[0];
-        assert_eq!(p.possessions.len(), 1);
-        assert_eq!(p.possessions[0].thing, SPELL as u16);
+        let mut owned: Vec<u16> = p.possessions.iter().map(|q| q.thing).collect();
+        owned.sort();
+        assert_eq!(owned, vec![ITEM as u16, SPELL as u16 - 1, SPELL as u16]);
+        match &adv.things[SPELL as usize - 2].kind {
+            acs_core::model::ThingKind::MagicSpell { power, action, .. } => {
+                assert_eq!(*power, 0);
+                assert_eq!(action.kind, acs_core::model::SpellActionKind::ChangePower);
+                assert_eq!(acs_engine::magic::amount(action.parameter), (-10, false));
+            }
+            k => panic!("{k:?}"),
+        }
+        match &adv.things[ITEM as usize - 1].kind {
+            acs_core::model::ThingKind::MagicItem { action, on_use, .. } => {
+                assert!(*on_use);
+                assert_eq!(action.kind, acs_core::model::SpellActionKind::LongMessage);
+                assert_eq!(action.parameter, 2);
+            }
+            k => panic!("{k:?}"),
+        }
         match &adv.things[SPELL as usize - 1].kind {
             acs_core::model::ThingKind::MagicSpell { power, action, .. } => {
                 assert_eq!(*power, 20);

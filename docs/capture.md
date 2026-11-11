@@ -172,8 +172,35 @@ So the player is the one 16 x 16 green box on the map.
    when full (48 for Speed 6, 120 for Speed 15). A new bar is drawn over a
    few frames, so a reading is taken only once it stops growing. A bar that
    grows by more than 4 pixels is a new turn's (a Speed 1 bar is 8).
-3. **Text** is read by eye from screenshots for now. Matching 8 x 8 cells
-   against the program's font will come when an experiment needs it.
+3. **Text** (`glyphs.rs`) is read by matching 8 x 8 cells against a glyph
+   table taken from the program's own rendered screens. The table is the
+   program's font, so it lives in the research folder
+   (`capture/glyphs/profile.txt`, one line per glyph: 16 hex digits, the
+   rows top to bottom, then its label) and is loaded at run time (`--glyphs`
+   or `ACSVM_CAPTURE_GLYPHS`); the repository holds only the matcher.
+   1. *Pixels.* A pixel of the text colour (white) is ink, a pixel of a
+      sprite colour (cyan: the mark beside the profile's Wisdom and Power)
+      is unknown, anything else is paper. Screenshots (PNG, any integer
+      scale) are read the same way, by their colours.
+   2. *The grid.* Text sits on an 8 x 8 grid that is offset from the inner
+      screen's corner. With no table yet, the offset (0..7 each way) is the
+      one that gives the fewest distinct non-blank cells, then the fewest
+      non-blank cells: text on its grid repeats its letters, text off it
+      splits into many shapes. With a table, it is the offset that matches
+      the most cells.
+   3. *Matching.* A cell matches a glyph when they agree on every known
+      pixel. One label among the matches gives that character; none gives
+      `?`; a cell with no ink reads as a space. A cell with unknown pixels
+      that some glyph would also fit is flagged as doubtful, so a digit
+      hidden under the mark is never read as a shorter number.
+   4. *Learning* (`acs-capture glyphs learn SHOT... --glyphs T`): every
+      distinct cell not in the table is added unlabelled and drawn as text
+      art; the labels are filled in once by eye. `acs-capture glyphs read
+      SHOT --glyphs T` prints a screen, unlabelled glyphs as `{n}`.
+   5. *The profile* (menu e, e, s, s, button; button again to leave) is
+      parsed into stats by finding each stat's name on a line and reading
+      the number after it. Every scenario player's profile is read back
+      against the record we wrote.
 
 ## 6. Output
 
@@ -360,7 +387,11 @@ screen offers next to "create new player".
    different value in each). To set a player's Power, set its Wisdom.
    Not above 25, though: Wisdom 31 showed Power 27 (and a Power bar of
    102 pixels, not 108, with a grey top). Whether Power stops at 27 or
-   follows some other rule above 25 is open.
+   follows some other rule above 25 is open. Life Force is raised to
+   Constitution the same way but not lowered: record Life Force 5 under
+   Constitution 20 showed 20 (glyph reader, one player), while 22 over
+   Constitution 21 showed 22. So a player can't start hurt; a scenario
+   that needs Life Force below Constitution lowers it with a spell.
 5. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
    (two values seen so far; identical chains write the same ones). Entering
    the room did not write to the disk.
@@ -480,13 +511,44 @@ In this order (planned November 2026):
    instructions (about 16 s). The range stays inside the first turn: the
    bar at the snapshot (27 pixels) drains in about 1,200 frames, some 9
    million instructions, and the menu pauses the drain.
-6. **Then:** the Power cost of using a magic item of ours (Use Object);
-   Power drift, temporary Life Force decay and natural healing (a Speed 1
-   player, Wisdom 20, Constitution 20, Life Force 5, cost-0 spells of ours
-   that change Power by -10 or +10 or Life Force by a temporary +10, cast
-   on the first turn, then about 40 idle turns read bar by bar); then the
-   loose ends (whether taking costs exactly one step, the first take after
-   entering a room ending the turn, a room door back out, a locked door,
-   retired slot 2).
+6. **Power over time** (magic 4, 5), read off the profile screen (5.3).
+   Scenario flags: `--spell COST:ACTION:PARAM` (repeatable; things 80,
+   79, ..; `--spell COST` is the long-message spell of item 4) and `--item
+   ACTION:PARAM`, a magic item of ours (thing 70, acts when used, the
+   template's magic-item offset kept, extended record 0) that the player
+   owns.
+   1. *Is reading the profile free?* Experiment `profile-check`: done. 5
+      runs from a Wisdom 20 player's first turn: the bar was the same
+      before and after (27 or 28 pixels), the profile read every stat as
+      written, and the rest of the turn was the control's plus about 1.2
+      million instructions while the map redraws with the bar still. So the
+      profile can be read every turn without changing what is measured.
+      Opening the menu from the map: the button pressed between turns
+      (status area blank) opens nothing, and a 25,000-instruction tap was
+      missed; holding the button stops the drain and the menu opens when
+      it is let go. So the harness waits for the turn's prompt, holds the
+      button a million instructions, and checks for the menu's cursor
+      before any tap (otherwise the taps would walk the player).
+   2. *Using a magic item* (`item`): players of Wisdom 10 and 20 own an
+      item that shows long message 2. Each run reads the profile, uses the
+      item (menu, Use Object), answers the message, reads the profile again
+      and the bar, then uses it a second time and reads once more: the
+      Power cost of a use, whether it repeats, and whether using ends the
+      turn.
+   3. *A failed cast's cost* (`cast` with the profile): Power 20 against
+      cost 40, 60 wide-jitter runs; the profile is read right after the
+      outcome, split by outcome.
+   4. *Starting Power above Wisdom 25*: one player of each Wisdom 26..31,
+      the start chain and one profile read.
+   5. *Drift, decay and healing* (`drift`): a Speed 1 player (short turns),
+      Wisdom 20, Constitution 20; the profile read at the top of each of 40
+      turns, 3 jitters per case. Cases: Power -10 and +10 (cost-0 spells,
+      permanent bit); a temporary Life Force +10 at Life Force 20 (no
+      healing mixed in); natural healing alone at Life Force 5; a permanent
+      Life Force +10 at 20 (does it stay; which bit-6 value is temporary);
+      the disease stack (temporary +10 on turn 1, permanent -10 on turn 2).
+   Then the loose ends (whether taking costs exactly one step, the first
+   take after entering a room ending the turn, the obstacle's 1-pixel
+   drain, a room door back out, a locked door, retired slot 2).
 7. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.
