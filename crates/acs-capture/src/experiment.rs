@@ -27,6 +27,8 @@ const MAP_AREA: (usize, usize, usize, usize) = (28, 0, 240, 158);
 const BAR_AREA: (usize, usize, usize, usize) = (0, 100, 28, 60);
 const BAR_BOTTOM: usize = 158;
 const CELL: i32 = 16;
+const VIEW_X: i32 = 28;
+const VIEW_Y: i32 = -1;
 
 pub const DIRS: [&str; 8] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
@@ -42,15 +44,33 @@ fn square(b: &Box2) -> bool {
     b.w() == 16 && b.h() == 16
 }
 
-pub fn observe(f: &Frame, s: &MoveBasic) -> Obs {
+/// Where the observer is: on the world map (the view scrolls, so cells
+/// are read relative to the marker) or in a room (the room is drawn from
+/// the view's top-left corner and doesn't scroll, so the player's box gives
+/// its square directly, counted from the room's top-left wall square).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Place {
+    Map,
+    Room,
+}
+
+pub fn observe(f: &Frame, s: &MoveBasic, place: Place) -> Obs {
     let players: Vec<Box2> = blobs(f, PLAYER, MAP_AREA).into_iter().filter(square).collect();
-    let markers: Vec<Box2> = blobs(f, MARKER, MAP_AREA).into_iter().filter(square).collect();
-    let cell = match (players.as_slice(), markers.as_slice()) {
-        ([p], [m]) => Some((
-            s.marker.0 as i32 + (p.x0 as i32 - m.x0 as i32) / CELL,
-            s.marker.1 as i32 + (p.y0 as i32 - m.y0 as i32) / CELL,
-        )),
-        _ => None,
+    let cell = match place {
+        Place::Map => {
+            let markers: Vec<Box2> = blobs(f, MARKER, MAP_AREA).into_iter().filter(square).collect();
+            match (players.as_slice(), markers.as_slice()) {
+                ([p], [m]) => Some((
+                    s.marker.0 as i32 + (p.x0 as i32 - m.x0 as i32) / CELL,
+                    s.marker.1 as i32 + (p.y0 as i32 - m.y0 as i32) / CELL,
+                )),
+                _ => None,
+            }
+        }
+        Place::Room => match players.as_slice() {
+            [p] => Some(((p.x0 as i32 - VIEW_X) / CELL, (p.y0 as i32 - VIEW_Y) / CELL)),
+            _ => None,
+        },
     };
     let bar = blobs(f, PLAYER, BAR_AREA)
         .into_iter()
@@ -64,13 +84,14 @@ pub struct Runner<'a> {
     pub s: &'a mut Session,
     pub snapshot: String,
     pub scen: MoveBasic,
+    pub place: Place,
     pub out: std::fs::File,
 }
 
 impl Runner<'_> {
     fn look(&mut self) -> Result<Obs, String> {
         let f = self.s.frame().map_err(|e| e.to_string())?;
-        Ok(observe(&f, &self.scen))
+        Ok(observe(&f, &self.scen, self.place))
     }
 
     fn reset(&mut self, jitter: u64) -> Result<(), String> {
@@ -135,12 +156,14 @@ impl Runner<'_> {
         let mut t = 0;
         let mut moved = None;
         let mut bar_at_move = before.bar;
+        let mut bar_after_move = None;
         while t < 1_500_000 {
             self.step(20_000)?;
             t += 20_000;
             let o = self.look()?;
             if o.cell.is_some() && o.cell != before.cell {
                 moved = Some(t);
+                bar_after_move = Some(o.bar);
                 break;
             }
             bar_at_move = o.bar;
@@ -153,9 +176,13 @@ impl Runner<'_> {
             _ => None,
         };
         self.write(json!({
-            "kind": "direction", "run": run, "jitter": jitter, "dir": dir,
-            "before": before, "after": after, "moved_after": moved,
-            "delta": delta, "bar_before_move": bar_at_move,
+            "kind": "direction", "place": format!("{:?}", self.place), "run": run,
+            "jitter": jitter, "dir": dir, "before": before, "after": after,
+            "moved_after": moved, "delta": delta,
+            // Bar just before and at the first frame showing the move (the
+            // frames are 20,000 instructions apart, so the real-time drain
+            // can't take a pixel in between).
+            "bar_before_move": bar_at_move, "bar_after_move": bar_after_move,
         }))
     }
 
@@ -192,9 +219,15 @@ impl Runner<'_> {
             }
         }
         self.joy("none")?;
+        // Count squares, not observed changes: a fast step can fall between
+        // two looks.
+        let steps = match (cells.first().copied().flatten(), cells.last().copied().flatten()) {
+            (Some(a), Some(b)) => (b.0 - a.0).abs(),
+            _ => -1,
+        };
         self.write(json!({
             "kind": "steps_per_turn", "run": run, "jitter": jitter,
-            "steps": cells.len() - 1, "turn_ended": ended,
+            "steps": steps, "turn_ended": ended,
             "cells": cells, "bars": bars,
         }))
     }
@@ -250,14 +283,17 @@ pub fn summarize(path: &Path) -> std::io::Result<serde_json::Value> {
                     None => "no move".into(),
                 };
                 *dirs.entry(d).or_default().entry(outcome).or_default() += 1;
-                if v["delta"].is_array() {
-                    let b0 = v["bar_before_move"].as_u64().unwrap_or(0);
-                    let b1 = v["after"]["bar"].as_u64().unwrap_or(0);
-                    *bar_cost.entry(format!("{}", b0 as i64 - b1 as i64)).or_default() += 1;
-                }
             }
             Some("steps_per_turn") => {
                 *steps.entry(v["steps"].to_string()).or_default() += 1;
+                // Bar cost per square: the full bar over the squares one
+                // turn held. (Single readings right after a step can catch
+                // the bar before it is redrawn, in rooms especially.)
+                if let (Some(full), Some(n)) = (v["bars"][0].as_f64(), v["steps"].as_f64()) {
+                    if n > 0.0 {
+                        *bar_cost.entry(format!("{}", full / n)).or_default() += 1;
+                    }
+                }
                 *full.entry(v["bars"][0].to_string()).or_default() += 1;
             }
             Some("idle_drain") => {
@@ -272,7 +308,7 @@ pub fn summarize(path: &Path) -> std::io::Result<serde_json::Value> {
     Ok(json!({
         "engine_default_rules": engine_predictions(acs_engine::Rules::default(), 6),
         "directions": dirs,
-        "bar_pixels_per_step": bar_cost,
+        "bar_pixels_per_step_per_turn": bar_cost,
         "steps_per_turn": steps,
         "full_bar_pixels": full,
         "idle_frames_to_empty": drain,
@@ -365,18 +401,22 @@ mod tests {
 
     #[test]
     fn reads_cell_and_bar() {
-        let o = observe(&frame(40), &MoveBasic::default());
+        let s = MoveBasic::default();
+        let o = observe(&frame(40), &s, Place::Map);
         assert_eq!(o.cell, Some((12, 12)));
         assert_eq!(o.bar, 40);
-        assert_eq!(observe(&frame(0), &MoveBasic::default()).bar, 0);
+        assert_eq!(observe(&frame(0), &s, Place::Map).bar, 0);
+        // In a room the same box is square (7, 4) of the room.
+        assert_eq!(observe(&frame(40), &s, Place::Room).cell, Some((7, 4)));
     }
 
     #[test]
     fn engine_predictions_follow_the_diagonal_rule() {
-        let on = engine_predictions(acs_engine::Rules::default(), 6);
+        let on = engine_predictions(acs_engine::Rules { diagonals: true }, 6);
         assert_eq!(on["directions"]["ne"], "moved 1,-1");
         assert_eq!(on["steps_per_turn"], 6);
-        let off = engine_predictions(acs_engine::Rules { diagonals: false }, 6);
+        // The default now matches the capture: no diagonal moves.
+        let off = engine_predictions(acs_engine::Rules::default(), 6);
         assert_eq!(off["directions"]["ne"], "no move");
         assert_eq!(off["directions"]["e"], "moved 1,0");
     }

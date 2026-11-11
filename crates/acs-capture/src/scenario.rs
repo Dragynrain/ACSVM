@@ -20,6 +20,8 @@ pub const PIC_FLOOR: usize = 0;
 pub const PIC_WALL: usize = 1;
 /// A solid colour-2 square: a landmark that shows where the view is.
 pub const PIC_MARKER: usize = 2;
+/// The map door: a solid colour-1 square.
+pub const PIC_DOOR: usize = 3;
 
 /// The map cell the player starts on, and the open field around it.
 pub struct MoveBasic {
@@ -28,6 +30,11 @@ pub struct MoveBasic {
     pub field: (u8, u8, u8, u8),
     /// An open marker cell inside the field (terrain 2), always in view.
     pub marker: (u8, u8),
+    /// A map door (terrain 12, door 0) into region 1, room 0.
+    pub door: (u8, u8),
+    /// Where the door leads: a square of that room, counted from its
+    /// top-left wall square.
+    pub room_entry: (u8, u8),
 }
 
 impl Default for MoveBasic {
@@ -36,6 +43,8 @@ impl Default for MoveBasic {
             start: (12, 12),
             field: (6, 6, 24, 18),
             marker: (15, 14),
+            door: (12, 16),
+            room_entry: (4, 4),
         }
     }
 }
@@ -82,6 +91,10 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     let wall: [u8; 16] = std::array::from_fn(|r| if r % 2 == 0 { 0x55 } else { 0x00 });
     picture(&mut f, PIC_WALL, wall, wall);
     picture(&mut f, PIC_MARKER, [0xAA; 16], [0xAA; 16]);
+    picture(&mut f, PIC_DOOR, [0x55; 16], [0x55; 16]);
+    // Room floors show master thing 127's picture: make it the blank one.
+    let floor = l.things + acs_core::layout::things::PROPS + 126 * 4 + 1;
+    f.data[floor] = (f.data[floor] & 0xC0) | PIC_FLOOR as u8;
     // Creature pictures 64..109: solid colour 3.
     for n in 64..110 {
         picture(&mut f, n, [0xFF; 16], [0xFF; 16]);
@@ -92,6 +105,19 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     f.put(w + wm::TERRAIN, &[0x40 | PIC_FLOOR as u8, 0]);
     f.put(w + wm::TERRAIN + 2, &[PIC_WALL as u8, 0]);
     f.put(w + wm::TERRAIN + 4, &[0x40 | PIC_MARKER as u8, 0]);
+    // Terrain 12 (the first of the four door terrains), open.
+    f.put(w + wm::TERRAIN + 24, &[0x40 | PIC_DOOR as u8, 0]);
+    f.ascii(
+        w + wm::TERRAIN_NAMES + 12 * wm::TERRAIN_NAME_LEN,
+        "DOOR",
+        wm::TERRAIN_NAME_LEN,
+    );
+    // Door 0 at s.door, leading to region 1, room 0, s.room_entry.
+    f.put(w + wm::POINTS, &[s.door.0, s.door.1]);
+    f.put(
+        w + wm::DOOR_DESTINATIONS,
+        &[1 << 4, s.room_entry.1 | s.room_entry.0 << 4],
+    );
     f.ascii(w + wm::TERRAIN_NAMES, "FIELD", wm::TERRAIN_NAME_LEN);
     f.ascii(
         w + wm::TERRAIN_NAMES + wm::TERRAIN_NAME_LEN,
@@ -110,6 +136,8 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             let inside = xu >= x0 && xu <= x1 && yu >= y0 && yu <= y1;
             let t = if (xu, yu) == s.marker {
                 2u8
+            } else if (xu, yu) == s.door {
+                12
             } else if inside {
                 0
             } else {
@@ -131,13 +159,14 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         20,
     );
 
-    // One region with one small room, so the region list isn't empty.
+    // One region with one full-size room behind the map door.
     f.region(RegionSpec {
         name: "TEST REGION",
         rooms: vec![RoomSpec {
             name: "TEST ROOM",
-            w: 8,
-            h: 6,
+            w: 15,
+            h: 10,
+            wall: PIC_WALL as u8,
             ..RoomSpec::default()
         }],
         ..RegionSpec::default()
@@ -159,6 +188,9 @@ mod tests {
         assert_eq!(m.tiles[5][12], 1);
         assert_eq!(m.terrain[0].name, "FIELD");
         assert_eq!(m.tiles[14][15], 2);
+        assert_eq!(m.doors.len(), 1);
+        let room = &adv.regions[0].rooms[0];
+        assert_eq!((room.width, room.height), (15, 10));
         assert_eq!(adv.pictures[70].pixel(3, 9), 3);
         assert!(adv.pictures[0].is_blank());
     }

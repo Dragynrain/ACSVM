@@ -30,7 +30,8 @@ enum Cmd {
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
-        /// Experiment: move-basic.
+        /// Experiment: move-basic (world map) or move-room (the same pushes
+        /// in the room behind the map door; the snapshot is taken there).
         name: String,
         /// Snapshot taken at the scenario's first player turn.
         #[arg(long)]
@@ -96,9 +97,11 @@ fn main() {
             out,
             runs,
         } => {
-            if name != "move-basic" {
-                fail(&format!("unknown experiment {name}"));
-            }
+            let place = match name.as_str() {
+                "move-basic" => experiment::Place::Map,
+                "move-room" => experiment::Place::Room,
+                other => fail(&format!("unknown experiment {other}")),
+            };
             std::fs::create_dir_all(&out).expect("out folder");
             let opts = Options {
                 drive8: Some(disk),
@@ -111,6 +114,7 @@ fn main() {
                 s: &mut s,
                 snapshot: snapshot.display().to_string(),
                 scen: scenario::MoveBasic::default(),
+                place,
                 out: file,
             };
             let started = std::time::Instant::now();
