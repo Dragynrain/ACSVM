@@ -25,6 +25,8 @@ pub const PIC_DOOR: usize = 3;
 /// A second landmark: colour 2 in the top half only (a 16 x 8 box), so the
 /// observer can tell it from the first.
 pub const PIC_MARKER2: usize = 4;
+/// A third landmark: colour 2 in the left half only (an 8 x 16 box).
+pub const PIC_MARKER3: usize = 5;
 
 /// A player of our own, written as retired player 1 so the start-up screen
 /// offers it (docs/capture.md section 8). The program rolls the stats of a
@@ -136,6 +138,9 @@ pub struct MoveBasic {
     /// A second marker (terrain 3, a 16 x 8 box), so one stays in view
     /// along a walk east of more than 12 squares.
     pub marker2: (u8, u8),
+    /// A third marker (terrain 4, an 8 x 16 box), in view near the west
+    /// wall.
+    pub marker3: (u8, u8),
     /// A map door (terrain 12, door 0) into region 1, room 0.
     pub door: (u8, u8),
     /// Where the door leads: a square of that room, counted from its
@@ -143,7 +148,12 @@ pub struct MoveBasic {
     pub room_entry: (u8, u8),
     /// A retired player of our own, offered at start-up.
     pub player: Option<Player>,
+    /// An obstacle (thing `OBSTACLE`, type 10) on this room square.
+    pub obstacle: Option<(u8, u8)>,
 }
+
+/// The master thing slot our obstacle takes (over the builder set's).
+pub const OBSTACLE: u8 = 100;
 
 impl Default for MoveBasic {
     fn default() -> Self {
@@ -152,9 +162,11 @@ impl Default for MoveBasic {
             field: (6, 6, 34, 18),
             marker: (15, 14),
             marker2: (27, 14),
+            marker3: (9, 14),
             door: (12, 16),
             room_entry: (4, 4),
             player: None,
+            obstacle: None,
         }
     }
 }
@@ -204,6 +216,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     picture(&mut f, PIC_DOOR, [0x55; 16], [0x55; 16]);
     let half: [u8; 16] = std::array::from_fn(|r| if r < 8 { 0xAA } else { 0x00 });
     picture(&mut f, PIC_MARKER2, half, half);
+    picture(&mut f, PIC_MARKER3, [0xAA; 16], [0; 16]);
     // Room floors show master thing 127's picture: make it the blank one.
     let floor = l.things + acs_core::layout::things::PROPS + 126 * 4 + 1;
     f.data[floor] = (f.data[floor] & 0xC0) | PIC_FLOOR as u8;
@@ -218,6 +231,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     f.put(w + wm::TERRAIN + 2, &[PIC_WALL as u8, 0]);
     f.put(w + wm::TERRAIN + 4, &[0x40 | PIC_MARKER as u8, 0]);
     f.put(w + wm::TERRAIN + 6, &[0x40 | PIC_MARKER2 as u8, 0]);
+    f.put(w + wm::TERRAIN + 8, &[0x40 | PIC_MARKER3 as u8, 0]);
     // Terrain 12 (the first of the four door terrains), open.
     f.put(w + wm::TERRAIN + 24, &[0x40 | PIC_DOOR as u8, 0]);
     f.ascii(
@@ -251,6 +265,8 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
                 2u8
             } else if (xu, yu) == s.marker2 {
                 3
+            } else if (xu, yu) == s.marker3 {
+                4
             } else if (xu, yu) == s.door {
                 12
             } else if inside {
@@ -273,6 +289,11 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         "MARKER 2",
         wm::TERRAIN_NAME_LEN,
     );
+    f.ascii(
+        w + wm::TERRAIN_NAMES + 4 * wm::TERRAIN_NAME_LEN,
+        "MARKER 3",
+        wm::TERRAIN_NAME_LEN,
+    );
     if let Some(p) = &s.player {
         let c = l.creatures;
         f.packed(c + cr::RETIRED_NAMES, &p.name);
@@ -284,6 +305,14 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         20,
     );
 
+    // An obstacle: type 10, the wall picture, no spell on a bump.
+    if s.obstacle.is_some() {
+        f.thing(OBSTACLE as usize, "BLOCK", [0x0A, PIC_WALL as u8, 0, 0]);
+    }
+    let items = s
+        .obstacle
+        .map(|(x, y)| vec![(x, y, OBSTACLE, 0)])
+        .unwrap_or_default();
     // One region with one full-size room behind the map door.
     f.region(RegionSpec {
         name: "TEST REGION",
@@ -292,6 +321,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             w: 15,
             h: 10,
             wall: PIC_WALL as u8,
+            items,
             ..RoomSpec::default()
         }],
         ..RegionSpec::default()
@@ -319,6 +349,7 @@ mod tests {
         assert_eq!(adv.pictures[70].pixel(3, 9), 3);
         assert!(adv.pictures[0].is_blank());
         assert_eq!(m.tiles[14][27], 3);
+        assert_eq!(m.tiles[14][9], 4);
         assert!(adv.retired_players.is_empty());
     }
 
@@ -339,5 +370,22 @@ mod tests {
         assert_eq!((p.x, p.y, p.region), (12, 12, 0));
         assert_eq!(p.picture, Some(64));
         assert!(Player::default().with("spd=16").is_err());
+    }
+
+    #[test]
+    fn obstacle_is_placed_in_the_room() {
+        let s = MoveBasic {
+            obstacle: Some((5, 4)),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let room = &adv.regions[0].rooms[0];
+        assert_eq!(room.items.len(), 1);
+        let it = &room.items[0];
+        assert_eq!((it.x, it.y, it.thing), (5, 4, OBSTACLE as u16));
+        let t = &adv.things[OBSTACLE as usize - 1];
+        assert!(matches!(t.kind, acs_core::model::ThingKind::Obstacle { .. }));
     }
 }

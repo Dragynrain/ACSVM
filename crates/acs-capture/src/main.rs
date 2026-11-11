@@ -32,11 +32,16 @@ enum Cmd {
         /// wis, pow, size, dodge, parry, melee, missile, name).
         #[arg(long)]
         player: Option<String>,
+        /// Also put an obstacle on room square 5,4 (east of the entry).
+        #[arg(long)]
+        obstacle: bool,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
         /// Experiment: move-basic (world map) or move-room (the same pushes
-        /// in the room behind the map door; the snapshot is taken there).
+        /// in the room behind the map door; the snapshot is taken there);
+        /// refuse (docs/capture.md 10.2: from the first turn of a disk made
+        /// with --obstacle and a fast player).
         name: String,
         /// Snapshot taken at the scenario's first player turn.
         #[arg(long)]
@@ -50,6 +55,10 @@ enum Cmd {
         /// Repetitions, each with a different idle start (jitter).
         #[arg(long, default_value_t = 5)]
         runs: usize,
+        /// Index of the first run (sets its jitter), to split a batch over
+        /// several VICE sessions.
+        #[arg(long, default_value_t = 0)]
+        first: usize,
         /// The player's Speed, for our engine's prediction in the summary.
         #[arg(long, default_value_t = 6)]
         speed: u8,
@@ -94,6 +103,7 @@ fn main() {
             out,
             template,
             player,
+            obstacle,
         } => {
             let template = template
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_TEMPLATE").map(PathBuf::from))
@@ -107,6 +117,7 @@ fn main() {
                         player.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
                     let s = scenario::MoveBasic {
                         player,
+                        obstacle: obstacle.then_some((5, 4)),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -122,10 +133,11 @@ fn main() {
             disk,
             out,
             runs,
+            first,
             speed,
         } => {
             let place = match name.as_str() {
-                "move-basic" => experiment::Place::Map,
+                "move-basic" | "refuse" => experiment::Place::Map,
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -146,10 +158,21 @@ fn main() {
             };
             let started = std::time::Instant::now();
             let mut result = Ok(());
-            'outer: for run in 0..runs {
+            'outer: for run in first..first + runs {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * 7_919) % 1_000_000;
+                if name == "refuse" {
+                    let cases = &experiment::REFUSE;
+                    for (case, acts) in cases.iter() {
+                        result = r.refuse_case(run, jitter, case, acts, place);
+                        if result.is_err() {
+                            break 'outer;
+                        }
+                    }
+                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    continue;
+                }
                 for dir in experiment::DIRS {
                     result = r.direction(run, jitter, dir);
                     if result.is_err() {
