@@ -215,10 +215,87 @@ Most fan adventures were built from the three builder sets, so the same tiles re
 
 - **Generate, then hand-finish.** Generate at 1024 px, downscale to 128, then fix silhouettes, palette and readability at 64 px by hand.
 - **One style per kit.** Each starter kit gets one LoRA or reference set, a fixed palette and consistent framing. ACS tiles are front-facing icons, not top-down views.
-- **Kit size matches the original's limits:** 16 terrain tiles, up to 48 general tiles and up to 46 creature tiles. There are three kits (fantasy, spy and mystery, sci-fi) to cover the same genres.
+- **Kit size matches the original's limits:** 16 terrain tiles, up to 48 general tiles and up to 46 creature tiles. Three kits (fantasy, spy and mystery, sci-fi) cover the original genres, and a fourth, pirates, comes first (see Kit 4).
 - **Model license.** Use models whose license allows open distribution of outputs. [FLUX.1 schnell](https://localaimaster.com/blog/local-image-model-licenses-commercial-use) is Apache 2.0. FLUX.1 dev defaults to a non-commercial license, so avoid it unless its output terms are confirmed.
 - **No original art as input.** EA tiles never go into img2img, ControlNet or LoRA training, because that would make our art derivative of theirs.
 - **Copyright on AI art.** The [US Copyright Office](https://copyright.gov/newsnet/2025/1060.html) (January 2025) found that prompt-only output isn't copyrightable, but human selection, arrangement and edits are. For an open project that's acceptable: release the kits under CC BY-SA 4.0, knowing that the hand-edited art carries the clearest protection.
+
+### Art pipeline in detail
+
+**Recommendation: Z-Image for generation, Qwen-Image-Edit 2511 for variants and frames, Wan 2.2 for motion, OneTrainer for the kit LoRA.** All four are Apache 2.0 (OneTrainer is an AGPL tool, which doesn't touch its outputs), all but Z-Image Base are already installed, and they fit a 16 GB card. SwarmUI runs them but doesn't train.
+
+1. **Style sheet first.** Per kit: 24 to 32 colours in hue-shifted ramps (cool shadows, warm highlights), front-facing framing with feet on a fixed baseline, light from the top left, a dark outline that reads at 64 px. Choose painted icons at 128 px or pixel art drawn at 64 and shown at 2x; try both on ten tiles before committing.
+2. **Generate at 1024 px** on a flat chroma background with a pixel-art LoRA, wildcards for one prompt template per kit, and SwarmUI's Grid tool for seed × prompt sweeps. Z-Image Turbo's seed-variety trick (an init image, high sigma shift) helps when seeds look alike.
+3. **Bootstrap the kit style.** Generate about 200, hand-finish about 30, train a kit LoRA on only those 30 in OneTrainer (Z-Image Base, rank 16, 512 and 768 buckets, float8), then regenerate the kit with it. Training only on our own finished art keeps the no-EA-input rule easy to show.
+4. **Make variants by editing, not by new seeds.** One reference image per creature, then Qwen-Image-Edit ("same creature, raising its sword"). [SpriteForge](https://tantk.github.io/spriteforge-pipeline/blog) found that edit models fail at drawing sprite sheets from scratch but do well swapping a character into a sheet template.
+5. **Cut out** with a flat key or [BiRefNet](https://huggingface.co/ZhengPeng7/BiRefNet) (MIT).
+6. **Snap and quantise.** [Pixel Snapper](https://github.com/Hugo-Dz/spritefusion-pixel-snapper) (Rust, MIT) finds the pixel grid and rebuilds the image at native size; then map every pixel to the kit palette in OKLab (our own small step). For the painted style, [PixelOE](https://github.com/KohakuBlueleaf/PixelOE) (Apache 2.0) k-centroid downscaling keeps outlines.
+7. **Hand-finish** in Aseprite or Pixelorama: silhouettes, stray pixels, outlines coloured by the fill, edge anti-aliasing.
+8. **Check automatically:** contact sheets at 64 and 32 px, greyscale and colour-blind views, and a flag on any two silhouettes that overlap too closely.
+9. **Pack** into an atlas and WebP with a manifest giving each tile's model, licence, seed, LoRA version and finisher, which feeds `docs/provenance.md`.
+
+| Job | Model or tool | Licence | Here? |
+| --- | --- | --- | --- |
+| Generation | Z-Image Turbo | Apache 2.0 | Installed |
+| LoRA training base | Z-Image Base | Apache 2.0 | Get |
+| Harder prompts | Qwen-Image 2512 + Lightning 4-step | Apache 2.0 | Installed |
+| Pose and layout | Z-Image Turbo Fun ControlNet Union 2.1 | Apache 2.0 (unverified) | Installed |
+| Variants and frames | Qwen-Image-Edit 2511 + Lightning | Apache 2.0 | Installed (Q4 GGUF; fp8mixed is better if RAM allows) |
+| Motion | Wan 2.2 I2V 14B + lightx2v 4-step | Apache 2.0 | Installed |
+| Pixel LoRAs | [tarn59 Z-Image pixel art](https://huggingface.co/tarn59/pixel_art_style_lora_z_image_turbo), [Pixel Art Redmond for Qwen-Image](https://huggingface.co/artificialguybr/PIXELART-REDMOND-QWENIMAGE) | Apache 2.0 | Get |
+| Pixel animation LoRA | [Wan2.2 pixel-animate](https://huggingface.co/styly-agents/Wan2-2-pixel-animate) | Apache 2.0, defers to Wan | Get |
+| Normal maps | [Laigter](https://github.com/azagaya/laigter) | GPL-3.0 | Get |
+| Training | [OneTrainer](https://github.com/Nerogar/OneTrainer) | AGPL-3.0 (tool) | Installed |
+
+**Keep out of shipped art:** FLUX.1 dev and its LoRAs (non-commercial weights); [FLUX 3 Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) (Kommunity licence with a revenue cap, and tight on 16 GB); [Qwen-Image 2.1](https://huggingface.co/Qwen/Qwen-Image-2.1), despite its native transparency (Qwen Research licence); [RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0) and [DSINE](https://github.com/baegwangbin/DSINE/blob/main/LICENSE) (non-commercial); Illustrious and Pony checkpoints and character LoRAs (model-licence strings, and other people's characters). The SDXL pixel-art checkpoint and [pixel-art-xl](https://huggingface.co/nerijs/pixel-art-xl) LoRA (OpenRAIL-M) are fine for quick tests. Paid services (PixelLab, Retro Diffusion, Ludo) are closed and unnecessary.
+
+### Sprite tricks and animation
+
+**Recommendation: get most motion from code, and draw real frames only for a few hero creatures.** ACS is turn-based, so animation is decoration, and an adventure can hold 46 creature pictures.
+
+- **Layers the engine combines:** base image, a shadow the engine draws (so it suits any floor), an emissive mask (the palette indices that glow: torches, screens, eyes) and a normal map from Laigter for torch-lit rooms. At 64 to 128 px, Laigter's height-based normals usually beat neural estimators.
+- **Palette ramps make recolours free:** red, blue and elite versions of one creature, and night, underwater or cursed moods per region, much like ACS's own 4-colour palette per adventure.
+- **Mirror instead of drawing directions.** Tiles face the viewer; flip horizontally when moving left.
+- **Seamless terrain:** circular padding works on SDXL but not on DiT models such as Z-Image and Qwen-Image, which have no convolutions to patch. For those, shift the tile by half its size and inpaint the seam cross.
+- **Terrain transitions:** dual-grid autotiles, each transition tile made by inpainting its interior with the shared borders fixed, as in [Sartor and Peers, SIGGRAPH Asia 2024](https://arxiv.org/abs/2409.14184). No ready tool exists.
+
+| Effect | How | Cost |
+| --- | --- | --- |
+| Idle breathing | Vertical scale 1 to 2%, anchored at the feet | Code |
+| Bob, hit flash, shake | Offset, white tint, jitter | Code |
+| Attack lunge | Slide part-way toward the target and back | Code |
+| Death | Dissolve through a noise mask | Code |
+| Moving between squares | Tween from square to square | Code |
+| Plants, flags, sails | Sway driven by a mask | Code plus one mask |
+| Water, torches | Scroll the UV, flicker the emissive layer | Code plus one mask |
+| Hero idle loop | 2 to 4 frames from Wan 2.2 or Qwen-Image-Edit | AI frames plus cleanup |
+
+**Making real frames.** Run Wan 2.2 [first-last-frame](https://blog.comfy.org/p/wan22-flf2v-comfyui-native-support) with the same image at both ends, which yields a loop; drop the duplicate end frame. Keep 4 to 6 frames, then re-snap them all to one grid and palette ([proper-pixel-art](https://github.com/KennethJAllen/proper-pixel-art), MIT, does this for video) so pixels don't shimmer. Alternatives: Qwen-Image-Edit keyframes from one reference, or a cut-out puppet of 3 to 5 parts on simple bones, the most consistent of the three.
+
+**Format impact.** The extended model needs, per picture: layers, a frame list with fps, an anchor point, palette ramps and emissive indices. That is a `MODEL_VERSION` bump in Phase 5.
+
+### Kit 4: pirates
+
+**Recommendation: a pirate kit, built first, to prove the pipeline before the three genre kits.** It shares no genre with EA's builder sets, so it can't drift toward them, and the tutorial adventure can use it.
+
+Why it fits ACS:
+
+- **Treasure is the win condition.** ACS adventures are won by collecting treasure, and pirates are about treasure.
+- **The world map is a sea chart.** Ocean and islands are terrain; ships are portals between islands; reefs are terrain that triggers a spell; shallows open only to owners of a boat (the "owners of a thing only" terrain rule).
+- **Weapons map one to one.** Cutlass and boarding axe are melee; flintlock, blunderbuss and thrown knives are missile weapons; a cannon is an obstacle that casts.
+- **Magic has a home.** Sea curses, a cursed compass, a mermaid's charm, a ghost crew. Banish and Summon fit as written.
+- **Stores are ports:** tavern, shipwright, a fence for stolen goods.
+- **It shows off the HD tricks:** water, sails, lanterns and fog all animate with the cheap effects above.
+
+| Group | Tiles | Contents |
+| --- | --- | --- |
+| Terrain | 16 | Deep sea, shallows, reef, beach, jungle, cliff, port town, fort, swamp, volcanic rock and others |
+| General | up to 48 | Deck planks, hull walls, rigging, barrels, chests, map table, tavern pieces, cave and temple pieces, treasure, weapons, ship's wheel |
+| Creatures | up to 46 | Crew types, navy marines, mutineers, a skeleton crew, sea serpent, giant crab, kraken arm (an obstacle that attacks), parrot (a Friend), a captain boss |
+
+Island peoples need care: write them as people with their own aims, not as hazards.
+
+Runners-up, in order: **gothic horror** (vampires and Lovecraft; the best showcase for lighting and normal maps), **weird west** (six-shooters suit missile combat, towns suit stores), **Greek or Norse myth** (close to fantasy but with its own look).
 
 ## Multiplayer
 
@@ -271,7 +348,7 @@ Eighteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
 | 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |
 | 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
-| 17 | Original asset kits | Three starter kits at 128 px (fantasy, spy and mystery, sci-fi; up to 110 tiles each), UI font, title art, two sample adventures | L |
+| 17 | Original asset kits | Four starter kits at 128 px (pirates first, then fantasy, spy and mystery, sci-fi; up to 110 tiles each), UI font, title art, two sample adventures | L |
 | 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
 
 ## Fidelity and research
@@ -371,9 +448,19 @@ GPL still allows selling builds or separately licensed asset packs, though anyon
 
 Ship something useful early (the inspector), then spend most of the effort on rules research and the engine, one rule at a time.
 
-![Roadmap: seven phases to 1.1](images/roadmap.png)
+![Roadmap: eight phases to 1.1](images/roadmap.png)
 
-Three tracks run side by side. Rules research (Phase 2) starts with the viewer and alternates with the engine rule by rule: specify movement, implement it, test it, then move on to combat. Art and audio for Phase 5 can start as soon as the viewer can show tiles, because they depend only on the style briefs, not on the engine. Online co-op waits until after 1.0 because it needs the engine's determinism already proven by the golden tests.
+The image is drawn by `scripts/roadmap.py`; edit its phase list and rerun it to change the roadmap.
+
+Three tracks run side by side. Rules work alternates between spec and engine rule by rule: specify movement, implement it, test it, then move on. Art and audio for Phase 6 can start as soon as the viewer can show tiles, because they depend only on the style briefs, not on the engine. Online co-op waits until after 1.0 because it needs the engine's determinism already proven by the golden tests.
+
+**Why the capture harness is its own phase, and why it comes now (November 2026 update).** The first plan put capture inside one "rules research" phase ahead of the engine. In practice the engine went first: movement, inventory and creatures outside combat were specified from the manual and the data, and every guess is tagged [unknown]. Those rules can be written that way because the manual describes them step by step. Combat, spells, skill growth and stores can't: the manual gives their inputs but not their formulas, so there is nothing to specify until the original has been measured. The harness (component 13) therefore goes between the two:
+
+- **Phase 2, rules engine from the manual:** movement, inventory, creatures outside combat and the 15 spell actions (what each does, not whether it succeeds). Done once these play in walk mode.
+- **Phase 3, behavior capture harness:** build it, then point it first at Phase 2's [unknown] tags (movement bar size, weight slowdown, turn order, creature phases) and at creature bytes 0x0B and 0x0C. Those rules already exist in our engine, so they test the harness itself: any difference is a bug in either the harness or the guess, and both are cheap to find.
+- **Phase 4, combat, formulas and hot-seat:** hit chance, damage, spell success, skill growth, regeneration and store prices are each measured with the harness, written into the spec, implemented, and locked in with a golden test.
+
+Starting combat before the harness would mean writing formulas twice, once as a guess and once after measuring.
 
 ## Risks and open questions
 
