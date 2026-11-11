@@ -156,7 +156,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 - **Death:** an individual leaves what it carried where it died, except on
   the world map or for things set to disappear when the owner dies; an
   owner-only weapon set to be usable after death appears then. [manual]
-- **Stores:** buying and selling, and stock limits (also 1 or 3).
+- **Stores:** buying and selling, and stock limits, specced in
+  [stores.md](stores.md).
 - **Use Object, Use Power:** the magic rules.
 
 ## Captures needed

@@ -131,7 +131,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    | custom space, "when dropped here" | moves | nothing on entry | [manual] |
    | obstacle | refused | its spell if "bump invokes spell" | [manual] |
    | custom obstacle | refused | its spell, parameter from the placement | [manual] |
-   | store | refused | opens the store (later) | [unknown] |
+   | store | refused | opens the store ([stores](stores.md) 3) | [unknown] |
    | floor / undefined / unknown type | moves | nothing | [data] (never placed) |
 
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
@@ -248,7 +248,7 @@ These need the AI and are listed so the movement code leaves room for them.
 - **AI:** turn order with creatures, creatures following through doors,
   creature door rules, random creature placement on an empty square and
   periodic removal, the 16-creature region limit.
-- **Stores:** what bumping or entering a store square does.
+- **Stores:** specced in [stores.md](stores.md) (bumping opens a store room).
 - **Saves:** snapshots at `EnteredRegion` / `LeftRegion`, resume after death.
 
 ## Captures needed

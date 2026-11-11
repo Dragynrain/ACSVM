@@ -280,7 +280,7 @@ Most fan adventures were built from the three builder sets, so the same tiles re
 
 Why it fits ACS:
 
-- **Treasure is the win condition.** ACS adventures are won by collecting treasure, and pirates are about treasure.
+- **Treasure drives the play.** An ACS adventure's goal is finding a particular object, and stores turn treasure into gear ([winning](rules/winning.md), [stores](rules/stores.md)); pirates are about treasure.
 - **The world map is a sea chart.** Ocean and islands are terrain; ships are portals between islands; reefs are terrain that triggers a spell; shallows open only to owners of a boat (the "owners of a thing only" terrain rule).
 - **Weapons map one to one.** Cutlass and boarding axe are melee; flintlock, blunderbuss and thrown knives are missile weapons; a cannon is an obstacle that casts.
 - **Magic has a home.** Sea curses, a cursed compass, a mermaid's charm, a ghost crew. Banish and Summon fit as written.
