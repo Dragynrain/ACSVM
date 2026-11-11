@@ -36,10 +36,11 @@ Characters drift most between realistic, cartoon and anime, so these are fixed.
 
 | Rule | Value |
 | --- | --- |
-| Proportions | About 4.5 heads tall; slightly large head and hands. No chibi, no realistic anatomy. |
+| Proportions | Adult, about 6 heads tall, slightly broad build. 4.5 heads read as children; 7 heads turn thin, realistic and unreadable at 64 px. |
 | Height | Every adult human the same height; the boss and big creatures may exceed it. |
 | Pose | Standing, front-facing (a slight three-quarter turn is fine), full body, feet on the baseline. |
-| Face | Always drawn: small dark eyes (dots or short ovals), visible brows, nose and mouth. No anime eyes, no blank faces, no realistic skin. |
+| Face | Always drawn, mature, with clear simple features: eyes, brows, nose and mouth. No anime eyes, no blank faces, no realistic skin. |
+| People | Every subject line states gender, age, build, skin tone and hair; vary them across the kit. |
 | Hands | Hold the defining item (cutlass, musket, lantern) so the silhouette names the role. |
 | Silhouette | One read per role: hat shape, coat length and held item must tell crew, officer, marine and captain apart in solid black. |
 
@@ -87,34 +88,50 @@ stated positively. Generation is 1024 px, 8 steps, CFG 1, no LoRA, on flat
 magenta (`#FF00FF`) for cutting out. Only the subject changes; the prefix and
 suffix are fixed per group.
 
-**Character prefix:**
+**Character prefix (v3):**
 
-> Hand-painted storybook adventure game character, cel shading with two or
-> three flat tones, cool shadows and warm highlights, light from the top
-> left, clean dark brown outline. Full body, standing, facing the viewer,
-> about four and a half heads tall, slightly large head and hands, simple
-> friendly face with small dark dot eyes, eyebrows, nose and mouth. Golden
-> Age of piracy, around 1710.
+> Illustrated character sprite for a classic adventure video game. One adult
+> person, full body, standing upright and facing the viewer, stylized adult
+> proportions about six heads tall with a slightly broad build, a mature face
+> with clear simple features. Flat cel shading with two or three solid tones
+> per colour and hard edges, no texture, no brush strokes, cool shadows and
+> warm highlights, light from the top left, a bold clean dark brown outline
+> around the whole figure. Caribbean, around 1710.
 
 **Character suffix:**
 
-> Feet on the ground at the bottom of the figure, whole figure visible with
-> margin, isolated on a plain flat solid magenta background, nothing else in
-> the image.
+> Both feet on the ground at the bottom of the figure, the whole figure
+> visible with a margin around it, isolated on a plain flat solid magenta
+> background, no frame, no border, nothing else in the image.
+
+**Subject line:** role first, then gender, age, build, skin, hair, clothes
+from top to bottom, and the held item. Example: "A woman pirate quartermaster
+with a feminine face, a tall woman in her forties with olive skin and a dark
+braid, wearing a weathered long brown coat over a waistcoat, a wide leather
+belt and tall boots, holding a flintlock pistol pointed down."
 
 Never name pirate games, films or their characters in a prompt.
 
-**What the first character batch taught** (6 roles × 8 seeds):
+**What the test batches taught** (6 roles each: deckhand, quartermaster,
+captain, marine, skeleton, navigator):
 
-- The template holds proportions, outline, light and faces well across seeds;
-  the figures read at 64 px.
-- **The model defaults to light skin and one look per role.** Every crew
-  member came out light-skinned, and every navigator bald, heavy and in a
-  grass skirt. State skin tone, age, build and hair in each subject line,
-  and vary them across the kit.
-- **Unspecified captains drift to famous film looks** (braided hair, beard,
-  red bandana; the skeleton picked them up too). Describe hair, hat and
-  face explicitly so the captain is ours.
+| Batch | Template | Result |
+| --- | --- | --- |
+| 1 | 4.5 heads, "friendly face", roles only | One style, but adults read as children; every crew member light-skinned; the navigator a cartoon stereotype; captains in the famous film look. |
+| 2 | 7 heads, "grounded illustrated", full descriptions | Adult and varied, but painterly and semi-realistic, outline lost, too thin at 64 px; "woman" ignored. |
+| 3 | v3 above | Adult, flat, outlined, consistent across roles and seeds; reads at 64 px. Quartermaster female once the subject starts with "A woman". |
+| 3q | v3 on Qwen-Image 2512 (Q4_K_M GGUF, 4-step Lightning bf16) | Dark, gritty and textured despite "flat"; crimson instead of magenta backgrounds, some framed; the quartermaster male again. Z-Image follows this sheet better. |
+
+Qwen-Image 2512 on a 16 GB card: the 19 GB fp8 build runs alone (about 340 s
+an image) but any LoRA runs out of memory; the Q4_K_M GGUF with the bf16
+Lightning LoRA runs in about 15 s an image.
+
+- **Say "flat" and "no texture" outright**, or the model drifts painterly.
+- **Put gender first** in the subject line; buried in the middle, it loses.
+- **A skeleton needs "smooth bare skull, completely bald"**; some seeds still
+  add film-pirate hair, so pick those out.
+- **Z-Image Turbo varies little between seeds**: good for consistency, so
+  change the subject line for variety, not the seed.
 - Some seeds frame the figure as a card with a white border; drop those.
 
 ## 8. Consistency
