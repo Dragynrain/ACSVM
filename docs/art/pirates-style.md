@@ -128,6 +128,16 @@ Lightning LoRA runs in about 15 s an image.
 
 - **Say "flat" and "no texture" outright**, or the model drifts painterly.
 - **Put gender first** in the subject line; buried in the middle, it loses.
+  The same holds for any detail that matters: opening the cook's line with
+  "a one-legged cook with a wooden peg leg" got the peg leg where the end of
+  the line didn't. Ethnicity is the exception: "East Asian man with Chinese
+  features", even first, still gave a European face, so that needs
+  Qwen-Image-Edit on a good figure. Qwen-Image-Edit 2511 (Q4_K_M GGUF,
+  4-step Lightning, about 24 s) kept the pose, coat, chart, outline and
+  background exactly and changed only the face, but added wrinkles and
+  detailed eyes the flat style doesn't have: retouch the face to the sheet
+  afterwards. At 64 px a face is about 4 px wide, so skin, hair and clothing
+  carry who a person is more than the eyes do.
 - **A skeleton needs "smooth bare skull, completely bald"**; some seeds still
   add film-pirate hair, so pick those out.
 - **Z-Image Turbo varies little between seeds**: good for consistency, so
