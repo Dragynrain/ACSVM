@@ -4,11 +4,15 @@ ACSVM (working name) is an open-source engine that plays adventures made with
 *Adventure Construction Set* (Electronic Arts, 1984), in the spirit of ScummVM:
 the engine is free software, and you bring the adventure files you own.
 
-**Status: Phase 1.** There is an inspector that decodes C64 and PC adventures
-into JSON and exports their pictures, and a viewer that shows an adventure's
-world map, regions, rooms, things, creatures and messages on the desktop or in
-a browser. There is no player yet. See [docs/design.md](docs/design.md) for the
-full plan.
+**Status: Phase 2 (rules engine).** There is an inspector that decodes C64
+and PC adventures into JSON and exports their pictures, and a viewer that
+shows an adventure's world map, regions, rooms, things, creatures and messages
+on the desktop or in a browser
+([try it](https://dragynrain.github.io/ACSVM/) with your own file). The rules
+engine handles movement so far, and the viewer's walk mode lets you move a
+player through an adventure; there is no combat, magic or AI yet. See
+[docs/design.md](docs/design.md) for the full plan and
+[docs/rules/](docs/rules/movement.md) for the rules as specified.
 
 This project is not affiliated with or endorsed by Electronic Arts. It ships no
 EA program code, art, music, manual text or adventures.
@@ -36,7 +40,7 @@ The binaries are `target/release/acs` (inspector) and
 ## Using the viewer
 
 ```bash
-acs-viewer                 # then drag a file onto the window, or use Open…
+acs-viewer                 # then drag a file onto the window, or use Openâ€¦
 acs-viewer GAME.D64        # open a file straight away
 ```
 
@@ -47,9 +51,17 @@ a room to open it, and a door (in a room or on the world map) to follow it;
 Back (or Backspace) returns. Pictures are drawn at whole-number scales that fit
 the window, with C64 pixels twice as wide as tall.
 
+**Walk mode** (Walk in the top bar) puts a player at the adventure's start.
+Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
+End, PgDn, or the numpad), and press Space to end a turn. The log on the right
+lists what the rules engine reports: steps, blocked moves with the designer's
+messages, doors, spells that would go off, and random encounter rolls.
+
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
-`creatures`, `messages`, `diagnostics`; R counts from 1, N from 0). Keep such
+`creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
+`--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first.
+Keep such
 screenshots outside the repository: they show the adventure's art.
 
 ### In a browser
@@ -102,11 +114,15 @@ optionally `pc/` (`.fpy`/`.hrd`).
 
 - `crates/acs-core`: library with no GUI: disk readers, platform layouts,
   text codecs, picture decoders and the canonical model (serde).
+- `crates/acs-engine`: the rules engine, also GUI-free: commands in, events
+  out, one seeded random generator, so a game replays from its seed and
+  command log.
 - `crates/acs-cli`: the `acs` inspector binary.
 - `crates/acs-viewer`: the viewer (eframe + egui; desktop and web). Rendering
   lives here; what goes on each room square is worked out in `acs-core`
   (`scene.rs`).
-- `docs/`: design snapshot, [format notes](docs/format-notes.md) and the
+- `docs/`: design snapshot, [rules specs](docs/rules/movement.md),
+  [format notes](docs/format-notes.md) and the
   [provenance record](docs/provenance.md).
 
 ## Licenses

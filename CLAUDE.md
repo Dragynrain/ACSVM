@@ -35,7 +35,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
-cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0] [--screenshot out.png]
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--screenshot out.png]
 scripts/web.sh serve                                    # trunk dev server, :8080
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
@@ -63,4 +63,7 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in
-  physical pixels each frame; `views/` holds one file per view.
+  physical pixels each frame; `views/` holds one file per view; `views/walk.rs` is walk mode
+  (keys to engine commands, events to the log; no rules in the viewer).
+- Repo: public at github.com/Dragynrain/ACSVM; Pages deploys `target/web` on
+  every push to main. Commits use the GitHub noreply address.

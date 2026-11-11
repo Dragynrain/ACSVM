@@ -28,6 +28,12 @@ fn main() -> eframe::Result {
         path: args.file,
         view: args.view,
         screenshot: args.screenshot,
+        walk: (args.seed.is_some() || args.walk.is_some() || args.view == Some(app::View::Walk)).then(|| {
+            (
+                args.seed.unwrap_or_else(views::walk::fresh_seed),
+                args.walk.unwrap_or_default(),
+            )
+        }),
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

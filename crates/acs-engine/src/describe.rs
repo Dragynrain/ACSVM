@@ -48,9 +48,9 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                     .map(|t| t.name.clone())
                     .filter(|n| !n.is_empty())
                     .unwrap_or_else(|| format!("terrain {}", terrain + 1)),
-                BlockReason::NeedsThing { thing: t } => format!("it needs {}", thing(t)),
+                BlockReason::NeedsThing { thing: t } => format!("only owners of {} may pass", thing(t)),
                 BlockReason::ClosedToOwnersOf { thing: t } => {
-                    format!("it is closed to owners of {}", thing(t))
+                    format!("closed to owners of {}", thing(t))
                 }
                 BlockReason::Wall => "a wall".into(),
                 BlockReason::Obstacle { thing: t } => thing(t),
@@ -58,7 +58,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 BlockReason::Diagonal => "diagonal moves are off".into(),
                 BlockReason::NoMovesLeft => "no moves left".into(),
             };
-            with_message(format!("{} is blocked by {why}", who(player)), message)
+            with_message(format!("{} is blocked: {why}", who(player)), message)
         }
         Event::BumpedCreature {
             player,

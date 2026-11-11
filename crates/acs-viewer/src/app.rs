@@ -25,6 +25,8 @@ const NARROW: f32 = 900.0;
 /// What the central area shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
+    /// Walk mode: play movement through the rules engine.
+    Walk,
     World,
     /// 0-based region index.
     Region(usize),
@@ -56,6 +58,8 @@ pub struct Doc {
     pub note: Option<String>,
     /// Whether the info panel of map and room views is shown.
     pub show_info: bool,
+    /// The walk-mode game, started on first use.
+    pub walk: Option<views::walk::Walk>,
 }
 
 impl Doc {
@@ -80,6 +84,7 @@ impl Doc {
             message_tab: views::messages::Tab::Long,
             note: None,
             show_info: true,
+            walk: None,
         }
     }
 
@@ -153,6 +158,8 @@ pub struct Startup {
     pub view: Option<View>,
     /// Write a screenshot here after a few frames, then quit.
     pub screenshot: Option<std::path::PathBuf>,
+    /// Walk mode: seed and commands to play before showing it.
+    pub walk: Option<(u64, Vec<acs_engine::Command>)>,
 }
 
 pub struct Viewer {
@@ -191,6 +198,14 @@ impl Viewer {
         }
         if let (Some(doc), Some(view)) = (&mut v.doc, start.view) {
             doc.view = view;
+        }
+        if let (Some(doc), Some((seed, commands))) = (&mut v.doc, start.walk) {
+            let mut walk = views::walk::Walk::new(&doc.decoded.adventure, seed, Default::default());
+            for c in commands {
+                walk.apply(c);
+            }
+            doc.walk = Some(walk);
+            doc.view = View::Walk;
         }
         v
     }
@@ -306,6 +321,9 @@ impl Viewer {
                 self.pick_file(&ctx);
             }
             if let Some(doc) = &mut self.doc {
+                if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
+                    doc.go(View::Walk);
+                }
                 ui.add_enabled_ui(!doc.history.is_empty(), |ui| {
                     if ui.button("Back").clicked() {
                         doc.back();
@@ -349,6 +367,14 @@ impl Viewer {
         egui::ScrollArea::vertical().show(ui, |ui| {
             let mut go = None;
             let a = &doc.decoded.adventure;
+            if ui
+                .selectable_label(doc.view == View::Walk, RichText::new("Walk (play)").strong())
+                .on_hover_text("Walk a player from the start with the keyboard")
+                .clicked()
+            {
+                go = Some(View::Walk);
+            }
+            ui.add_space(4.0);
             if ui
                 .selectable_label(
                     doc.view == View::World,

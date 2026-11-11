@@ -7,6 +7,7 @@ pub mod lists;
 pub mod messages;
 pub mod region;
 pub mod room;
+pub mod walk;
 pub mod world;
 
 use crate::app::{Doc, View};
@@ -36,6 +37,7 @@ pub fn apply(doc: &mut Doc, action: Option<Action>) {
 
 pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     match doc.view {
+        View::Walk => walk::show(doc, ui),
         View::World => world::show(doc, ui),
         View::Region(r) => region::show(doc, ui, r),
         View::Room(r, i) => room::show(doc, ui, r, i),

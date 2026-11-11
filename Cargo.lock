@@ -44,10 +44,12 @@ name = "acs-viewer"
 version = "0.1.0"
 dependencies = [
  "acs-core",
+ "acs-engine",
  "console_error_panic_hook",
  "eframe",
  "egui",
  "env_logger",
+ "js-sys",
  "log",
  "png 0.17.16",
  "pollster 0.4.0",

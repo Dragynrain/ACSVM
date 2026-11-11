@@ -17,10 +17,13 @@ pub struct Args {
     /// Window inner size in points.
     pub size: Option<[f32; 2]>,
     pub screenshot: Option<PathBuf>,
+    /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
+    pub seed: Option<u64>,
+    pub walk: Option<Vec<acs_engine::Command>>,
 }
 
-pub const USAGE: &str = "usage: acs-viewer [FILE] [--view world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--screenshot OUT.png]\n  R is the region number as listed (1-based), N the room slot (0-based).";
+pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
+[--size WxH] [--screenshot OUT.png] [--seed N] [--walk n,ne,e,...,wait]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed and --walk open walk mode and play the steps first.";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -36,6 +39,11 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
             "--view" => out.view = Some(parse_view(&value("--view")?)?),
             "--size" => out.size = Some(parse_size(&value("--size")?)?),
             "--screenshot" => out.screenshot = Some(PathBuf::from(value("--screenshot")?)),
+            "--seed" => {
+                let v = value("--seed")?;
+                out.seed = Some(v.parse().map_err(|_| format!("bad seed {v:?}"))?);
+            }
+            "--walk" => out.walk = Some(crate::views::walk::parse_commands(&value("--walk")?)?),
             "-h" | "--help" => return Err(USAGE.into()),
             f if f.starts_with("--") => return Err(format!("unknown option {f}\n{USAGE}")),
             _ if out.file.is_none() => out.file = Some(PathBuf::from(a)),
@@ -52,6 +60,7 @@ pub fn parse_view(s: &str) -> Result<View, String> {
             .map_err(|_| format!("bad number {p:?} in --view {s}"))
     };
     Ok(match parts.as_slice() {
+        ["walk"] => View::Walk,
         ["world"] => View::World,
         ["region", r] => View::Region(num(r)?.checked_sub(1).ok_or("regions start at 1")?),
         ["room", r, n] => View::Room(num(r)?.checked_sub(1).ok_or("regions start at 1")?, num(n)?),
@@ -108,6 +117,10 @@ mod tests {
         assert_eq!(p(&[]).unwrap(), Args::default());
         assert_eq!(parse_view("region:1").unwrap(), View::Region(0));
         assert_eq!(parse_view("world").unwrap(), View::World);
+        let w = p(&["--seed", "7", "--walk", "n, ne,wait"]).unwrap();
+        assert_eq!(w.seed, Some(7));
+        assert_eq!(w.walk.map(|c| c.len()), Some(3));
+        assert!(p(&["--walk", "up"]).is_err());
     }
 
     #[test]
