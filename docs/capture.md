@@ -13,7 +13,7 @@ lists at the end of each `docs/rules/` spec.
    address found by studying that code (stat bytes, the random seed, the
    screen layout in RAM). Addresses of that kind come only from the
    clean-room researcher (CONTRIBUTING.md, section 3) as plain-language
-   findings, and are listed in section 8 with their source.
+   findings, and are listed in section 9 with their source.
 2. **Allowed machine facts.** Documented C64 hardware and KERNAL facts
    (joystick lines, the CIA ports, the VIC-II raster) and VICE's own
    features (snapshots, warp, instruction stepping, the rendered frame) are
@@ -51,20 +51,34 @@ lists at the end of each `docs/rules/` spec.
    development tree, October 2026, adds a direct joystick command; switch to
    it when a release ships it.)
 3. **Keyboard.** The monitor's keyboard feed puts PETSCII into the KERNAL
-   buffer; the program's menus (Space, F1-F7) and name entry read it.
+   buffer; the program's menus (Space, F1-F7) and name entry read it. Name
+   entry drops keys fed before it is ready, well after its cursor shows;
+   `start-scenario.txt` waits for it. The in-game command menu ignores keys
+   and takes the stick: a push moves the cursor once at once and again
+   about 40,000 instructions later, so menu taps last 25,000 instructions
+   for up and down (left and right are slower to repeat).
 4. **Disks.** Disk images are always copies; the corpus and program disks
-   are never attached directly. A swap goes through the text monitor's
-   `attach` followed by a reset of drive 8, which makes the drive re-read
-   the disk at a fixed point. Without the drive reset, whether the program
-   accepted the new disk varied from run to run.
-5. **Time is counted in instructions**, never wall-clock time: the harness
+   are never attached directly. Attaching through the text monitor is not
+   deterministic: when the text monitor disconnects, the machine runs
+   freely for a host-timed moment (the program counter moves), so whether
+   the program accepted the new disk varied from run to run, drive reset or
+   not. So a scenario starts with VICE started on the scenario disk and
+   `boot/play-nodisk.vsf` restored: a snapshot saved without disk images
+   leaves the attached disk in place. Then drive 8 is reset.
+5. **Writes reach the disk file only when VICE writes it.** A snapshot
+   saved *with* disk images carries its own copy of the disk: after it is
+   restored, the program writes to that copy, not to the `--disk` file. To
+   capture what the program writes, run from a snapshot without disks
+   (`dump FILE nodisk`) and end the script with `detach`, which flushes
+   the drive's track buffer to the file.
+6. **Time is counted in instructions**, never wall-clock time: the harness
    stops the machine, steps it a fixed number of instructions (the monitor's
    "advance" command) and looks again. Runs are exactly reproducible from a
    snapshot and an input script. About 5 million instructions run per second
    of host time. Emulated time comes from counting frames: the harness steps
    in 1,000-instruction chunks and counts raster wraparounds (the `LIN`
    register). A PAL frame is 1/50.125 s.
-6. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
+7. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
    route. It needs IBM BIOS ROMs and the MS-DOS program, which the project
    doesn't have yet. Not built.
 
@@ -77,7 +91,7 @@ lists at the end of each `docs/rules/` spec.
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
-| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `reset`). |
+| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
 | `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario; walk into the room. |
 
@@ -85,13 +99,15 @@ lists at the end of each `docs/rules/` spec.
 
 1. **Boot once** (`scripts/boot.txt`): autostart a copy of program disk 1,
    leave the demo, press F7, and save `boot/play.vsf` at "put your adventure
-   disk in".
-2. **Start the scenario** (`scripts/start-scenario.txt`): from `play.vsf`,
-   attach the scenario disk, reset the drive, press the button through the
-   title, choose "create new player", take the first picture, type the name
-   T, and save `start.vsf` at the first turn. The player's stats are rolled
-   by the program; the profile screen shows them (move-basic's player has
-   Speed 6). For move-room, `scripts/enter-room.txt` then walks south
+   disk in", and `boot/play-nodisk.vsf` without the disk images.
+2. **Start the scenario** (`scripts/start-scenario.txt`): VICE starts
+   on the scenario disk and restores `play-nodisk.vsf` (2.4); the script
+   resets the drive, presses the button through the title, chooses "create
+   new player", takes the first picture, types the name T, and saves
+   `start.vsf` at the first turn. The player's stats are rolled by the
+   program (move-basic's player has Speed 6). A scenario with a retired
+   player of our own (section 8) chooses that player instead. For
+   move-room, `scripts/enter-room.txt` then walks south
    through the map door and saves `room.vsf`.
 3. **Runs** (`acs-capture run`): each run restores `start.vsf`, idles a
    number of instructions set by the run index (jitter: run × 7,919 mod
@@ -106,14 +122,14 @@ lists at the end of each `docs/rules/` spec.
 
 With `C` = the research folder's `capture/`, `ACSVM_VICE` set, and
 `C/boot/program1.d64` a copy of program disk 1 (the chain to `start.vsf`
-takes about two minutes, 20 runs about six; every step is deterministic):
+takes about two minutes, 20 runs about six; every step is deterministic,
+and two runs of the chain give the same screens):
 
 ```bash
 acs-capture script crates/acs-capture/scripts/boot.txt --boot C/boot/program1.d64 --out C/boot --var OUT=C/boot
 acs-capture scenario move-basic C/runs/move-basic/disk.d64 --template C/template-fantasy.d64
-acs-capture script crates/acs-capture/scripts/start-scenario.txt --disk C/boot/program1.d64 \
-    --snapshot C/boot/play.vsf --out C/runs/move-basic \
-    --var OUT=C/runs/move-basic --var SCENARIO=C/runs/move-basic/disk.d64
+acs-capture script crates/acs-capture/scripts/start-scenario.txt --disk C/runs/move-basic/disk.d64 \
+    --snapshot C/boot/play-nodisk.vsf --out C/runs/move-basic --var OUT=C/runs/move-basic
 acs-capture run move-basic --snapshot C/runs/move-basic/start.vsf --disk C/runs/move-basic/disk.d64 \
     --out C/runs/move-basic --runs 20
 # move-room: the same disk and start in C/runs/move-room, then
@@ -143,8 +159,8 @@ So the player is the one 16 x 16 green box on the map.
    **marker** cell (terrain 2 at a known map position): the player is at
    marker + (player box - marker box) / 16.
 2. **The movement bar** is a vertical green bar at x = 4..19 whose bottom is
-   y = 158. Its height in pixels is the measurement: 48 when full for a
-   Speed 6 player. A new bar is drawn over a few frames, so a reading is
+   y = 158. Its height in pixels is the measurement: 8 per point of Speed
+   when full (48 for Speed 6, 72 for Speed 9). A new bar is drawn over a few frames, so a reading is
    taken only once it stops growing.
 3. **Text** is read by eye from screenshots for now. Matching 8 x 8 cells
    against the program's font will come when an experiment needs it.
@@ -184,10 +200,47 @@ is taken as the full bar over the steps in one turn.
 
 The idle bar loses one pixel every 43 to 48 frames (about 44.6 on average),
 so one unused step's worth of bar (8 pixels) drains in about 357 frames
-(7.1 s). Whether that rate depends on Speed needs a player with another
-Speed; see section 9.
+(7.1 s). A Speed 9 player (section 8) drains at the same rate per pixel.
 
-## 8. Addresses in use
+## 8. Players of our own: retired records
+
+The program rolls a new player's stats. Experiments need stats we choose, so
+a scenario disk can carry a **retired player** of ours, which the start-up
+screen offers next to "create new player".
+
+1. **What retiring writes** (black box: create T on a scenario disk, enter
+   the room, choose Retire, then "press button to save T"; the disk diffed
+   against a copy taken before). Retire is not immediate: the program says
+   it will retire the player as soon as possible, a little later offers to
+   save or destroy T, then saves the adventure. The writes:
+   - retired name 1 (10 bytes) at creatures + 0x1700 and retired record 1
+     (37 bytes) at creatures + 0x1900, both exactly the bytes of player
+     slot 1 in the adventure block (record at + 0x2B, name at + 0xBF), so
+     the decoder's layout holds for the first slot. The record kept T's
+     square (room 0 of region 1, 4,4) and decoded to the stats the profile
+     shows;
+   - adventure block byte + 0xE7: 0 to 7; and 145 bytes at + 0x36F..0x3FF
+     (template fill to what looks like bitmap data). Not understood; not
+     needed (item 3).
+   Format details are in `format-notes.md`.
+2. **Starting with it.** The add-player screen lists the retired player
+   under the menu with the cursor on it; the button picks it, a second
+   button press answers "press button of the joystick that will control
+   this player", the program saves the adventure, and a third press starts
+   play on the world map's start cell. Taking the player off the list
+   clears its name on the disk.
+3. **Our own record works.** The program's T record with Speed set to 9,
+   written onto a fresh scenario disk (name and record only, nothing at
+   + 0xE7 or + 0x36F), was offered, chosen and played. Speed 9: full bar 72
+   pixels, 9 steps per turn holding east, 8 pixels per step; an idle full
+   bar empties in 3,206 frames (44.5 frames per pixel, as for Speed 6: the
+   drain per pixel does not depend on Speed, so a whole idle turn lasts
+   about 357 frames per point of Speed). One run, November 2026.
+4. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
+   (two values seen so far; identical chains write the same ones). Entering
+   the room did not write to the disk.
+
+## 9. Addresses in use
 
 | Address | What | Source |
 | --- | --- | --- |
@@ -196,31 +249,26 @@ Speed; see section 9.
 
 No address in the original program is used.
 
-## 9. Next
+## 10. Next
 
 In this order (planned November 2026):
 
-1. **Players with chosen stats.** The weight slowdown needs Strength,
-   Constitution and Life Force, cast chance needs Power, and the drain
-   question needs other Speeds, so experiments need players whose stats we
-   set. The route is a **retired player record** written onto the scenario
-   disk, chosen at start-up as an existing player.
-   1. *Check the layout black-box first.* AcsLib's layout (26 names, 7
-      records per 256-byte page) overruns the page, the decoder reads 25 and
-      6, and no corpus disk has a retired player. So: copy a scenario disk,
-      create a player in VICE, retire them, and diff the disk against the
-      copy. Only our own scenario disk is compared, never the program.
-      Repeat with a second player to tell names, records and counters
-      apart. Findings go to `format-notes.md`.
+1. **Players with chosen stats** (the weight slowdown needs Strength,
+   Constitution and Life Force, cast chance needs Power).
+   1. *Retired records*: done for the first slot (section 8). Next: the
+      scenario writer takes a player's stats and writes the record, and
+      `start-scenario.txt` gets a variant that picks it. A second retired
+      player would show slot 2 and the page layout; not needed while one
+      player is enough.
    2. *Read the profile screen.* The 8 x 8 cells of the screen are matched
       against a glyph table taken from the program's own rendered screens
       and labelled once by eye. The table is the program's font, so it stays
       in `capture/` and is loaded at run time; the repository holds only
       the matcher. Every scenario player's stats are read back to confirm
       the record took.
-   3. *Speed survey.* Players with Speed 1, 3, 6, 9 and 15: full bar height,
-      steps per turn holding east, and the idle drain rate (does the drain
-      per pixel or per step depend on Speed?).
+   3. *Speed survey.* Players with Speed 1, 3 and 15 (6 and 9 are done):
+      full bar height, steps per turn holding east, the idle drain rate,
+      20 runs each.
 2. **Refused moves** (movement 2.2): on the map, a few steps and then a
    push into the wall ring; in a room, a push into the room wall and into
    an obstacle (our own thing as a room item). Bars are read once settled,

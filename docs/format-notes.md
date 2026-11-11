@@ -336,6 +336,27 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   in the corpus points at a weapon or armor of the right kind. All possessions
   point at carriable things.
 
+- **Retired players, first slot confirmed by capture** (C64, November 2026;
+  docs/capture.md section 8). Retiring a player on a scenario disk wrote
+  retired name 1 at creatures + 0x1700 and retired record 1 at
+  creatures + 0x1900, each a copy of player slot 1 in the adventure block
+  (record at + 0x2B, name at + 0xBF), the record keeping the player's
+  region, room and square. A record we wrote there ourselves, with no other
+  change to the disk, was offered at start-up and played with its stats.
+  Choosing the player clears the name's second byte (the first is already
+  0 for a one-letter name), so a non-zero name marks the slot as used.
+  Slots after the first are still unchecked.
+
+## Written by the program in play
+
+Seen by diffing scenario disks (C64), meaning unknown:
+
+- Adventure block + 0x400..0x401: written when play starts.
+- Adventure block + 0xE7: 0 to 7 when a player retired.
+- Adventure block + 0x36F..0x3FF (145 bytes, 0x08 fill in a blank disk):
+  rewritten with what looks like multicolour bitmap data when a player
+  retired. Not needed for the retired player to load.
+
 ## Open questions
 
 - Door y bit 7 (7 of 28 doors) and room item thing-byte bit 7 (9 items, all
@@ -345,7 +366,8 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   older name of that region, so possibly an editor buffer.
 - Creature bytes 0x0B, 0x0C: need a saved game or an emulator capture.
 - Retired players: AcsLib reads 26 names and 7 records per 256-byte page, which
-  overruns the page; the decoder reads 25 and 6. No corpus adventure has any.
+  overruns the page; the decoder reads 25 and 6. No corpus adventure has any;
+  only the first slot is confirmed (see Creatures).
 - PC: only one real file so far, made by EA and possibly with an earlier
   editor (it also contains a room named "I DONT KNOW YET"). Adventures saved
   by the shipped PC editor may differ, e.g. in door numbering.

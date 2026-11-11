@@ -32,10 +32,11 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 
 1. On its turn a character has a **movement bar** that starts at its Speed
    (0..15) and drops by one for every square moved. The turn ends when it
-   reaches zero. [manual] On the C64 the bar is 48 pixels tall for a Speed 6
-   player, each step takes 8 pixels (one sixth), and holding the stick in one
-   direction gives exactly 6 steps before the turn passes. [capture:
-   move-basic, world map, 20 runs]
+   reaches zero. [manual] On the C64 the full bar is 8 pixels per point of
+   Speed and each step takes 8 pixels: a Speed 6 player's bar is 48 pixels
+   and holding the stick in one direction gives exactly 6 steps before the
+   turn passes; Speed 9 gives 72 pixels and 9 steps. [capture: move-basic,
+   world map, 20 runs; Speed 9: retired-player scenario, 1 run]
 2. A move that is refused (impassable terrain, an obstacle, a wall) leaves
    the bar unchanged. [manual] Being refused by a door or space that bars
    passage is not described. [unknown] **Engine:** no cost, as for obstacles.
@@ -44,8 +45,10 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
-   so about 7.1 s per unused step. [capture: move-basic, 20 runs] Whether the
-   rate depends on Speed is not yet measured. [unknown] **Engine:** no
+   so about 7.1 s per unused step. [capture: move-basic, 20 runs] A Speed 9
+   bar drains at the same rate per pixel (3,206 frames for 72 pixels), so a
+   whole idle turn lasts about 357 frames per point of Speed. [capture:
+   retired-player scenario, 1 run] **Engine:** no
    real-time drain in the rules; a front end may send `Wait` to end the
    turn, and later a timer option can do so on a clock.
 5. With one character and no creatures in the room, the same character moves
