@@ -13,7 +13,7 @@ use acs_core::model::{
 };
 use acs_core::{decode, Adventure, Platform};
 use acs_engine::inventory::GOLD;
-use acs_engine::magic::cast_chance;
+use acs_engine::magic::{cast_chance, cast_roll};
 use acs_engine::{
     CastRefusal, Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason, Rules, SpellSource, Stat,
     Who,
@@ -405,12 +405,32 @@ fn both(test: impl Fn(Platform)) {
 }
 
 #[test]
-fn cast_chance_is_power_against_cost() {
+fn cast_chance_is_power_over_cost_plus_one() {
+    // magic 4.1, as captured: a roll of 0..=cost below Power.
     assert_eq!(cast_chance(0, 0), 100);
-    assert_eq!(cast_chance(10, 10), 50);
-    assert_eq!(cast_chance(30, 10), 75);
-    assert_eq!(cast_chance(0, 10), 5);
-    assert_eq!(cast_chance(127, 1), 95);
+    assert_eq!(cast_chance(20, 20), 95);
+    assert_eq!(cast_chance(20, 40), 48);
+    assert_eq!(cast_chance(20, 19), 100);
+    assert_eq!(cast_chance(0, 10), 0);
+    assert_eq!(cast_chance(127, 1), 100);
+}
+
+#[test]
+fn cast_roll_matches_its_chance() {
+    let mut rng = acs_engine::Rng::new(7);
+    for (power, cost) in [(20u8, 20u8), (20, 60), (10, 20), (0, 5), (5, 0)] {
+        let n = 20_000;
+        let hits = (0..n).filter(|_| cast_roll(&mut rng, power, cost)).count();
+        let want = if cost == 0 {
+            1.0
+        } else {
+            (power as f64 / (cost as f64 + 1.0)).min(1.0)
+        };
+        assert!(
+            (hits as f64 / n as f64 - want).abs() < 0.015,
+            "{power}/{cost}: {hits}"
+        );
+    }
 }
 
 #[test]
@@ -464,7 +484,8 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         );
         assert_eq!(g.current_player().moves_left, 15);
 
-        // A bolt at the creature: 20 / (20 + 7) = 74%, cost 7 either way.
+        // A bolt at the creature: cost 7 below Power 20 always works (4.1),
+        // and costs 7.
         let ev = g.apply(Command::Cast {
             thing: BOLT,
             target: Some(cr(1)),
@@ -478,14 +499,10 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         else {
             panic!("{ev:?}")
         };
-        assert_eq!((*chance, *cost), (74, 7));
+        assert_eq!((*chance, *cost, *success), (100, 7, true));
         // Power: 20 - 7, then 1 back toward Wisdom 20 at the end of the turn.
         assert_eq!(g.current_player().power, 14);
-        if *success {
-            assert_eq!(lf(&g, cr(1)), 4);
-        } else {
-            assert_eq!(lf(&g, cr(1)), 10);
-        }
+        assert_eq!(lf(&g, cr(1)), 4);
         assert!(ev.contains(&Event::TurnEnded { player: 0 }));
         assert!(g.current_player().owns(BOLT));
 

@@ -91,13 +91,19 @@ pub fn hurtful(action: SpellAction) -> Option<bool> {
     }
 }
 
-/// The chance in percent that a spell of `cost` works for `power` (4.1).
+/// The chance in percent that a spell of `cost` works for `power`: the
+/// share of rolls 0..=cost below Power, rounded down (4.1).
 pub fn cast_chance(power: u8, cost: u8) -> u8 {
     if cost == 0 {
         return 100;
     }
-    let p = power as u32;
-    ((p * 100) / (p + cost as u32)).clamp(5, 95) as u8
+    ((power as u32 * 100) / (cost as u32 + 1)).min(100) as u8
+}
+
+/// Rolls a cast of `cost` for `power` (4.1): cost 0 always works,
+/// otherwise a roll of 0..=cost works when it is below Power.
+pub fn cast_roll(rng: &mut crate::Rng, power: u8, cost: u8) -> bool {
+    cost == 0 || rng.below(cost as u32 + 1) < power as u32
 }
 
 fn level(m: MagicDefense) -> u8 {
@@ -697,7 +703,7 @@ impl Game {
         };
         let power = self.stat(by, Stat::Power).unwrap_or(0);
         let chance = cast_chance(power, cost);
-        let success = chance >= 100 || self.rng.percent(chance);
+        let success = cast_roll(&mut self.rng, power, cost);
         self.set_stat(by, Stat::Power, power.saturating_sub(cost));
         ev.push(Event::SpellCast {
             by,
