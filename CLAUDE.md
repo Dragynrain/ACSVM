@@ -2,8 +2,9 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 2 (rules engine; movement, inventory and creatures outside
-combat done).
+Plan: `docs/design.md`. Current phase: 2 (rules engine from the manual; movement, inventory and
+creatures outside combat done, spell actions in progress). Next: 3, the behavior capture harness,
+before any combat formulas.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data] or
 [unknown] with the engine's choice; write the spec before the code.
 
