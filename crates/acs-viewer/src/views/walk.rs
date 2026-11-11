@@ -2,12 +2,14 @@
 
 //! Walk mode: a player moved by the keyboard through the rules engine.
 //!
-//! All rules live in `acs-engine`; this view only turns keys into commands,
-//! draws where the engine says the player is, and lists the engine's events
-//! in a message log.
+//! All rules live in `acs-engine`; this view only turns keys and buttons into
+//! commands, draws where the engine says the player is, shows what it
+//! carries, and lists the engine's events in a message log.
 
 use super::*;
+use acs_core::model::ThingKind;
 use acs_core::scene::{self, RoomScene};
+use acs_engine::inventory::{self, GOLD};
 use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules};
 use egui::{Key, Modifiers, RichText};
 
@@ -24,11 +26,17 @@ enum Kind {
     Block,
     Door,
     Spell,
+    Item,
 }
 
 pub struct Walk {
     pub game: Game,
     log: Vec<(Kind, String)>,
+    /// A drop waiting for its square: the next direction key (or Space for
+    /// the player's own square) sends it; Escape cancels.
+    pending_drop: Option<u8>,
+    /// Pieces per gold drop.
+    gold_amount: u16,
 }
 
 impl Walk {
@@ -37,9 +45,12 @@ impl Walk {
         let mut w = Walk {
             game,
             log: Vec::new(),
+            pending_drop: None,
+            gold_amount: 1,
         };
         w.note(format!(
-            "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits."
+            "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
+             To drop, click Drop, then a direction (Space = here, Esc = cancel)."
         ));
         w.record(&ev);
         w
@@ -48,6 +59,26 @@ impl Walk {
     pub fn apply(&mut self, cmd: Command) {
         let ev = self.game.apply(cmd);
         self.record(&ev);
+    }
+
+    /// While a drop is pending, a direction key or Wait sends the drop.
+    fn key(&mut self, cmd: Command) {
+        let Some(thing) = self.pending_drop.take() else {
+            self.apply(cmd);
+            return;
+        };
+        let dir = match cmd {
+            Command::Move { dir } => Some(dir),
+            _ => None,
+        };
+        self.apply(if thing == GOLD {
+            Command::DropGold {
+                amount: self.gold_amount,
+                dir,
+            }
+        } else {
+            Command::Drop { thing, dir }
+        });
     }
 
     fn note(&mut self, s: String) {
@@ -59,7 +90,18 @@ impl Walk {
             let kind = match e {
                 Event::TurnStarted { .. } | Event::TurnEnded { .. } => Kind::Turn,
                 Event::Moved { .. } => Kind::Step,
-                Event::Blocked { .. } | Event::BumpedCreature { .. } => Kind::Block,
+                Event::Blocked { .. }
+                | Event::BumpedCreature { .. }
+                | Event::DropRefused { .. }
+                | Event::ReadyRefused { .. } => Kind::Block,
+                Event::PickedUp { .. }
+                | Event::GoldPickedUp { .. }
+                | Event::Dropped { .. }
+                | Event::GoldDropped { .. }
+                | Event::LostOnMap { .. }
+                | Event::VanishedWhenDropped { .. }
+                | Event::Readied { .. }
+                | Event::ThingUsedUp { .. } => Kind::Item,
                 Event::TookDoor { .. }
                 | Event::EnteredRoom { .. }
                 | Event::EnteredRegion { .. }
@@ -101,21 +143,47 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(str::trim)
         .filter(|t| !t.is_empty())
         .map(|t| {
-            let dir = match t.to_ascii_lowercase().as_str() {
-                "wait" => return Ok(Command::Wait),
-                "n" => Dir::N,
-                "ne" => Dir::NE,
-                "e" => Dir::E,
-                "se" => Dir::SE,
-                "s" => Dir::S,
-                "sw" => Dir::SW,
-                "w" => Dir::W,
-                "nw" => Dir::NW,
-                _ => return Err(format!("unknown walk step {t:?} (n, ne, e, ..., wait)")),
-            };
-            Ok(Command::Move { dir })
+            let t = t.to_ascii_lowercase();
+            let bad =
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T)");
+            let mut parts = t.split(':');
+            let head = parts.next().unwrap_or_default();
+            let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
+            let dir = |p: Option<&str>| p.map(|d| parse_dir(d).ok_or_else(bad)).transpose();
+            Ok(match head {
+                "wait" => Command::Wait,
+                "drop" => Command::Drop {
+                    thing: num(parts.next())? as u8,
+                    dir: dir(parts.next())?,
+                },
+                "gold" => Command::DropGold {
+                    amount: num(parts.next())?,
+                    dir: dir(parts.next())?,
+                },
+                "ready" => Command::Ready {
+                    thing: num(parts.next())? as u8,
+                },
+                d => Command::Move {
+                    dir: parse_dir(d).ok_or_else(bad)?,
+                },
+            })
         })
         .collect()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_dir(s: &str) -> Option<Dir> {
+    Some(match s {
+        "n" => Dir::N,
+        "ne" => Dir::NE,
+        "e" => Dir::E,
+        "se" => Dir::SE,
+        "s" => Dir::S,
+        "sw" => Dir::SW,
+        "w" => Dir::W,
+        "nw" => Dir::NW,
+        _ => return None,
+    })
 }
 
 fn key_command(ctx: &egui::Context) -> Option<Command> {
@@ -176,9 +244,20 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     if doc.walk.is_none() {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), Rules::default()));
     }
-    if let Some(cmd) = key_command(ui.ctx()) {
-        doc.walk.as_mut().unwrap().apply(cmd);
+    {
+        let walk = doc.walk.as_mut().unwrap();
+        if walk.pending_drop.is_some()
+            && ui
+                .ctx()
+                .input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
+        {
+            walk.pending_drop = None;
+        }
+        if let Some(cmd) = key_command(ui.ctx()) {
+            walk.key(cmd);
+        }
     }
+    let mut click: Option<Command> = None;
     let mut restart: Option<Rules> = None;
     let walk = doc.walk.as_mut().unwrap();
 
@@ -192,24 +271,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             let p = g.current_player();
             ui.heading(&p.name);
             ui.label(place_name(g, p.at));
+            let slowed = if p.turn_moves < p.speed {
+                format!(" (slowed from {})", p.speed)
+            } else {
+                String::new()
+            };
             ui.add(
-                egui::ProgressBar::new(p.moves_left as f32 / p.speed.max(1) as f32)
-                    .text(format!("moves {} of {}", p.moves_left, p.speed)),
+                egui::ProgressBar::new(p.moves_left as f32 / p.turn_moves.max(1) as f32)
+                    .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
-            if !p.possessions.is_empty() {
-                let names: Vec<String> = p
-                    .possessions
-                    .iter()
-                    .map(|&t| {
-                        g.adventure()
-                            .things
-                            .get(t as usize - 1)
-                            .map(|t| t.name.trim().to_string())
-                            .unwrap_or_default()
-                    })
-                    .collect();
-                ui.label(format!("Carrying: {}", names.join(", ")));
-            }
+            inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
             ui.horizontal(|ui| {
                 let mut rules = g.rules();
                 if ui
@@ -237,6 +308,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             Kind::Block => t.color(Color32::from_rgb(255, 170, 120)),
                             Kind::Door => t.color(Color32::from_rgb(120, 220, 255)),
                             Kind::Spell => t.color(Color32::from_rgb(230, 160, 255)),
+                            Kind::Item => t.color(Color32::from_rgb(150, 230, 140)),
                             Kind::Note => t,
                         };
                         ui.label(t);
@@ -253,8 +325,99 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         }
     });
 
+    if let Some(cmd) = click {
+        walk.apply(cmd);
+    }
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
+    }
+}
+
+/// Load, gold and the carried things, with Ready and Drop buttons.
+fn inventory_panel(
+    ui: &mut egui::Ui,
+    g: &Game,
+    pending: &mut Option<u8>,
+    gold_amount: &mut u16,
+    click: &mut Option<Command>,
+) {
+    let a = g.adventure();
+    let p = g.current_player();
+    let (load, cap) = (p.load(a), p.capacity());
+    let state = if load > cap {
+        " · overloaded"
+    } else if load * 2 > cap {
+        " · over half: slowed"
+    } else {
+        ""
+    };
+    ui.label(format!("Load {load} of {cap}{state}"));
+    let name = |t: u8| {
+        a.things
+            .get(t as usize - 1)
+            .map(|t| t.name.trim().to_string())
+            .unwrap_or_else(|| format!("thing {t}"))
+    };
+    if let Some(t) = *pending {
+        ui.label(
+            RichText::new(format!(
+                "Drop {}: pick a direction, Space = here, Esc = cancel",
+                name(t)
+            ))
+            .color(Color32::from_rgb(255, 215, 0)),
+        );
+    }
+    if p.gold > 0 {
+        ui.horizontal(|ui| {
+            ui.label(format!("{} {}", p.gold, name(GOLD)));
+            ui.add(egui::DragValue::new(gold_amount).range(1..=inventory::PILE_LIMIT.min(p.gold)));
+            if ui.small_button("Drop").clicked() {
+                *pending = Some(GOLD);
+            }
+        });
+    }
+    let mut things = p.possessions.clone();
+    things.sort_unstable();
+    things.dedup();
+    if things.is_empty() && p.gold == 0 {
+        ui.label(RichText::new("Carrying nothing.").weak());
+    }
+    for t in things {
+        let kind = a.things.get(t as usize - 1).map(|t| &t.kind);
+        ui.horizontal(|ui| {
+            let count = p.count(t);
+            let mut label = if count > 1 {
+                format!("{count} x {}", name(t))
+            } else {
+                name(t)
+            };
+            if p.weapon == Some(t) {
+                label.push_str(" (readied)");
+            }
+            if p.armor == Some(t) {
+                label.push_str(" (worn)");
+            }
+            ui.label(label);
+            let readiable = matches!(
+                kind,
+                Some(
+                    ThingKind::MeleeWeapon { .. } | ThingKind::MissileWeapon { .. } | ThingKind::Armor { .. }
+                )
+            );
+            if readiable
+                && p.weapon != Some(t)
+                && p.armor != Some(t)
+                && ui
+                    .small_button("Ready")
+                    .on_hover_text("Readying armor takes the rest of the turn.")
+                    .clicked()
+            {
+                *click = Some(Command::Ready { thing: t });
+            }
+            if ui.small_button("Drop").clicked() {
+                *pending = Some(t);
+            }
+        });
     }
 }
 

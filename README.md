@@ -9,8 +9,9 @@ and PC adventures into JSON and exports their pictures, and a viewer that
 shows an adventure's world map, regions, rooms, things, creatures and messages
 on the desktop or in a browser
 ([try it](https://dragynrain.github.io/ACSVM/) with your own file). The rules
-engine handles movement so far, and the viewer's walk mode lets you move a
-player through an adventure; there is no combat, magic or AI yet. See
+engine handles movement and inventory so far, and the viewer's walk mode lets
+you move a player through an adventure, pick things up, ready weapons and
+armor, and drop things; there is no combat, magic or AI yet. See
 [docs/design.md](docs/design.md) for the full plan and
 [docs/rules/](docs/rules/movement.md) for the rules as specified.
 
@@ -55,12 +56,17 @@ the window, with C64 pixels twice as wide as tall.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
 End, PgDn, or the numpad), and press Space to end a turn. The log on the right
 lists what the rules engine reports: steps, blocked moves with the designer's
-messages, doors, spells that would go off, and random encounter rolls.
+messages, doors, pick-ups, spells that would go off, and random encounter
+rolls. The panel shows the load against the carrying capacity and what the
+player carries; Ready readies a weapon or puts on armor, and Drop asks for a
+direction (Space drops on the player's own square, Escape cancels).
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
 `creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
-`--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first.
+`--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
+steps can also be `ready:T`, `drop:T[:dir]` and `gold:N[:dir]` (T is a thing
+number).
 Keep such
 screenshots outside the repository: they show the adventure's art.
 
