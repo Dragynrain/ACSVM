@@ -39,17 +39,29 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    1 to 15 steps). [capture: move-basic and the Speed survey, world map,
    20 runs each]
 2. A move that is refused (impassable terrain, an obstacle, a wall) leaves
-   the bar unchanged. [manual] Being refused by a door or space that bars
-   passage is not described. [unknown] **Engine:** no cost, as for obstacles.
-3. Taking a door costs the one step onto the door square. [unknown]
-   **Engine:** one step; the character then stands on the destination square.
+   the bar unchanged. [manual] On the C64, holding the stick into the world
+   map's wall ring, a room wall or an obstacle thing leaves the bar as it
+   was and the player in place: no step is spent. [capture: refuse, 20 runs
+   each] Being refused by a door or space that bars passage is not
+   described. [unknown] **Engine:** no cost, as for obstacles.
+3. Taking a door costs the one step onto the door square, and the turn goes
+   on in the new place. [capture: refuse, 20 runs: a Speed 15 player that
+   walks 3 squares and through the map door arrives on the room's entry
+   square with 4 steps spent and the rest of the same turn] **Engine:** one
+   step; the character then stands on the destination square and keeps
+   its remaining moves.
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
    so about 7.1 s per unused step. [capture: move-basic, 20 runs] The rate
    per pixel doesn't depend on Speed: an idle turn lasts about 354 frames
    per point of Speed plus about 17 (369 frames at Speed 1, 5,331 at
-   Speed 15). [capture: Speed survey, 20 runs each] **Engine:** no
+   Speed 15). [capture: Speed survey, 20 runs each] The drain runs only
+   while the stick is let go: walking spends exactly a step's 8 pixels per
+   square, holding the stick into a wall drains nothing (the turn grows by
+   the time held), and holding it into an obstacle drains about one pixel
+   in 390 frames. Loading a region through a door doesn't drain the bar
+   either. [capture: refuse, 20 runs] **Engine:** no
    real-time drain in the rules; a front end may send `Wait` to end the
    turn, and later a timer option can do so on a clock.
 5. With one character and no creatures in the room, the same character moves
@@ -260,7 +272,8 @@ These need the AI and are listed so the movement code leaves room for them.
 In priority order, for the behaviour-capture harness:
 
 1. Diagonal moves allowed? No, on the map and in rooms (captured).
-2. Bar cost of a refused door/space, and of taking a door.
+2. Bar cost of a refused door/space (captured: walls and obstacles cost
+   nothing; taking a door costs one step).
 3. Arriving on a space, obstacle or door: does it trigger?
 4. Map encounter roll: before refused moves? Which terrain? Order among
    creatures? Shape of the encounter area.

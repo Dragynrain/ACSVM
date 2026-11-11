@@ -141,6 +141,9 @@ acs-capture run move-room --snapshot C/runs/move-room/room.vsf --disk C/runs/mov
 acs-capture scenario move-basic C/runs/speed-15/disk.d64 --player spd=15
 acs-capture script crates/acs-capture/scripts/start-retired.txt --disk C/runs/speed-15/disk.d64     --snapshot C/boot/play-nodisk.vsf --out C/runs/speed-15 --var OUT=C/runs/speed-15
 acs-capture run move-basic --snapshot C/runs/speed-15/start.vsf --disk C/runs/speed-15/disk.d64     --out C/runs/speed-15 --runs 20 --speed 15
+# refused moves and door cost: the same with --obstacle, then
+acs-capture run refuse --snapshot C/runs/refuse/start.vsf --disk C/runs/refuse/disk.d64     --out C/runs/refuse/part0 --runs 5 --first 0 --speed 15   # parts 0-3 side by side, then
+acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # over the parts' runs.jsonl joined
 ```
 
 **Making the template** (once, by hand with `acs-capture script`): main menu
@@ -227,6 +230,28 @@ pixels. An idle turn lasts about 354 frames per point of Speed plus about
 does not depend on Speed. Our engine's prediction matched every row's
 moves and steps.
 
+**Refused moves and door cost** (experiment `refuse`, section 10.2: a
+Speed 15 player of ours and an obstacle in the room; 20 runs, November
+2026). Each case against its control in the same run:
+
+| Case | Bar, case minus control | Turn, case minus control |
+| --- | --- | --- |
+| Map: hold west into the wall ring for 390 frames, after 6 squares | 0 in 20 | +385 to +390 frames |
+| Room: the same into the room wall, after 3 squares | 0 in 20 | +384 to +405 |
+| Room: the same into the obstacle, from the entry square | -1 pixel in 20 | +331 to +350 |
+| Through the map door (3 squares and the door) against 3 squares | 88 against 95 pixels: one step more | +1,115 to +1,130 |
+
+The player never moved on a refused push, so a refused move costs no step.
+Holding the stick against a wall also stops the real-time drain: the turn
+grows by the time held. Against the obstacle about one pixel drains (some
+45 frames of the 390 count). Walking spends exactly 8 pixels a square with
+no drain (6 squares leave 72 of 120). Through the door the player arrives
+on the room's entry square with 88 pixels: the door step costs one step and
+the turn goes on. The region loads for about 1,400 frames with the bar
+hidden and not draining, which is why that turn is longer. Our engine does
+the same on every count: refused moves are free, a door spends one step and
+the turn continues.
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -292,22 +317,33 @@ In this order (planned November 2026):
       the matcher. Every scenario player's stats are read back to confirm
       the record took.
    3. *Speed survey*: done (section 7).
-2. **Refused moves** (movement 2.2): on the map, a few steps and then a
-   push into the wall ring; in a room, a push into the room wall and into
-   an obstacle (our own thing as a room item). Bars are read once settled,
-   against a control run that idles for the same number of frames, so the
-   real-time drain can be subtracted.
-3. **Door cost** (movement 2.3): the map door from the square north of it
-   (bar before, bar settled in the room, steps left in that turn), and a
-   room door back out. A door that refuses (locked, needs a key) comes
-   later.
-4. **Weight slowdown** (inventory 1): our own things of chosen weights (x1
+2. **Refused moves and door cost** (movement 2.2, 2.3): done, experiment
+   `refuse` (section 7). A Speed 15 player of ours and an obstacle (our own
+   thing, type 10, wall picture) at room square 5,4, east of the entry
+   (`--obstacle`). Every case starts at the top of a fresh turn on the map
+   and records the bar once settled after its acts and the frames from the
+   turn's start to its end (the bar refilling); each is compared with a
+   control in the same run that does the same minus the push, so the
+   real-time drain cancels. The room cases first go through the map door
+   (which lets go of the stick as soon as the room shows), so they start on
+   the entry square.
+   - `map-wall`: walk west 6 squares to 6,12, then hold west into the wall
+     ring for 2 million instructions; control `map-walk`.
+   - `room-wall`: through the door, walk west 3 squares to 1,4, then hold
+     west into the room wall; control `room-walk`.
+   - `room-obstacle`: through the door, hold east into the obstacle;
+     control `door`.
+   - `door`: hold south from 12,12 until the room shows (3 squares and the
+     door); control `map-walk-s3`, 3 squares south.
+   Still to do: a room door back out, and a door that refuses (locked,
+   needs a key).
+3. **Weight slowdown** (inventory 1): our own things of chosen weights (x1
    and x20) in a room, picked up by stepping on them; steps per turn at
    loads of 0, just under and just over half the capacity, at capacity and
    past it.
-5. **Is the randomness ours to vary?** Before any statistical capture: 20
+4. **Is the randomness ours to vary?** Before any statistical capture: 20
    casts from 20 jitters, to check that the outcomes vary. If they don't,
    find another noise source first.
-6. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+5. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths, drift and
    heal rates, cast chance.
