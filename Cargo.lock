@@ -12,6 +12,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "acs-capture"
+version = "0.1.0"
+dependencies = [
+ "acs-core",
+ "acs-engine",
+ "clap",
+ "png 0.17.16",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "acs-cli"
 version = "0.1.0"
 dependencies = [

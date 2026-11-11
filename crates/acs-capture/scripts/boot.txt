@@ -1,0 +1,14 @@
+# Boots the original program from a copy of its first disk (--boot) to the
+# "put your adventure disk in" prompt and saves ${OUT}/play.vsf.
+# Timings are instruction counts measured in VICE 3.10 x64sc (warp, true
+# drive emulation); see docs/capture.md section 4.1.
+run 240m             # loading, title, then the demo loop
+key {SPACE}          # leave the demo
+run 60m
+key {SPACE}
+run 60m              # main menu
+shot menu
+key {F7}             # play an adventure
+run 40m
+shot play
+dump ${OUT}/play.vsf

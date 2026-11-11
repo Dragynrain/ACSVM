@@ -1,0 +1,30 @@
+# From play.vsf: inserts the scenario disk, creates a player named T and
+# stops at the first turn on the world map; saves ${OUT}/start.vsf.
+attach ${SCENARIO}
+reset 8              # the drive re-reads the new disk at a fixed point
+run 5m
+joy 1 fire
+run 4m
+joy 1 none
+run 100m             # title screen
+shot start-title
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # add player: "create new player" is selected
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # choose a picture
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # type a name
+key T
+run 3m
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # first turn
+shot start-map
+dump ${OUT}/start.vsf

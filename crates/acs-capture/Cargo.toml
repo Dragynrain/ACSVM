@@ -1,0 +1,26 @@
+[package]
+name = "acs-capture"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description.workspace = true
+publish.workspace = true
+
+# The behavior capture harness (docs/capture.md): drives VICE over its binary
+# monitor. A tool crate, outside the core and the engine.
+
+[[bin]]
+name = "acs-capture"
+path = "src/main.rs"
+
+[dependencies]
+acs-core.workspace = true
+acs-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+png.workspace = true
+
+[lints]
+workspace = true
