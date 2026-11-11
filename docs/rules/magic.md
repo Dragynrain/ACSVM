@@ -138,24 +138,36 @@ magic item after it is used. [unknown]
 
 1. *Use Power* casts a magic spell the character owns; success depends on
    the spell's cost (0..127) against the caster's Power, and casting uses up
-   Power. [manual] The formula is not given. [unknown] **Engine:** a cost of
-   0 always works; otherwise the chance is Power / (Power + cost), as a
-   percentage rounded down and held within 5..95, rolled once. The cost
-   comes off Power whether or not the spell works (not below 0).
-   `SpellCast` reports the chance and the outcome. Corpus costs run 0..60,
-   median 13. [data] On the C64 a cost 0 spell worked every time tried, and
-   Power 20 against cost 20 worked in 18 of 20 casts, far above the
-   engine's 50%; a failure shows "A FEW SPARKS FIZZLE BUT ... FAILS."
-   [capture: cast, 20 runs] The formula needs the cast chance capture.
+   Power. [manual] The formula is not given. On the C64 the chance is
+   close to Power / (cost + 1), and certain when the cost is below Power:
+   a roll of 0..cost that works when it is below Power. [capture: cast, 60
+   runs at each of ten Power/cost pairs, jitter over about 16 s; seen
+   against that formula] Power 10: cost 10 85% (91%), cost 20 62% (48%).
+   Power 20: cost 10 100% (100%), 20 92% (95%), 30 67% (65%), 40 58%
+   (49%), 60 32% (33%), 90 10% (22%). Power 27: cost 31 83% (84%), cost
+   62 42% (43%). The engine's earlier Power / (Power + cost) is far off
+   (50% at Power 20, cost 20). The program's roll follows the moment of
+   the cast (outcomes come in streaks along the jitter), so each figure is
+   good to about 10 points. A cost 0 spell always worked; a failure shows
+   "A FEW SPARKS FIZZLE BUT ... FAILS." Both outcomes left Power near 0
+   for a cost equal to Power. [capture: one success and one failure, the
+   profile screen] **Engine:** a cost of 0 always works; otherwise the
+   spell works when a roll of 0..cost (cost + 1 values) is below Power.
+   `SpellCast` reports the chance as a percentage, Power x 100 / (cost +
+   1) rounded down and at most 100. The cost comes off Power whether or not
+   the spell works (not below 0). Corpus costs run 0..60, median 13. [data]
 2. *Use Object* uses a magic item that is set to act when used; magic items
    always work. [manual] Some must be dropped instead. [manual] **Engine:**
    an item without the "used" trigger refuses (`CastRefused`, `not_usable`);
    using one costs no Power. The manual says using magic objects lowers
    Power but gives no amount. [unknown] 127 of 134 corpus magic items act
    when used. [data]
-3. **Cost in moves.** [unknown] **Engine:** casting or using ends the
-   caster's turn, like readying armor (inventory 4.3), whether it works or
-   not. A refused command costs nothing.
+3. **Cost in moves.** Casting ends the caster's turn, whether the spell
+   works or not, however much of the movement bar is left. [capture: cast,
+   600 casts with 5 to 28 pixels of bar left; the next turn came at the
+   same moment after each] **Engine:** casting or using ends the caster's
+   turn, like readying armor (inventory 4.3). A refused command costs
+   nothing.
 4. Magic spells can't be dropped (inventory 5.2), so a spell is only lost by
    disappearing after use, by banishment or by death.
 
@@ -165,8 +177,11 @@ magic item after it is used. [unknown]
    its Wisdom. [manual] **Engine:** 1 point per turn of its own, at the end
    of the turn. [unknown] A player joining an adventure starts with Power
    equal to its Wisdom, whatever its saved Power. [capture: three retired
-   players of ours, profile screen] **Engine:** a joining player's Power is
-   its Wisdom; a `PlayerSetup` has no Power of its own.
+   players of ours, profile screen] Wisdom 31 gave Power 27, though
+   (Wisdom 13, 20 and 25 gave their own value). [capture: profile screen]
+   **Engine:** a joining player's Power is its Wisdom; a `PlayerSetup` has
+   no Power of its own. [unknown] above Wisdom 25: the engine keeps Power
+   = Wisdom until more points are seen.
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
@@ -265,9 +280,8 @@ defense (none). Trait generation is a later rule set.
 
 ## Captures needed
 
-1. Cast success against Power and cost (first point: Power 20, cost 20,
-   18 of 20), and whether a failed cast costs Power. The Power cost of
-   using a magic item.
+1. Cast success: captured (4.1). Still open: a failed cast's Power cost
+   on more than one trial, and the Power cost of using a magic item.
 2. Power drift, temporary decay and healing rates.
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
@@ -275,4 +289,4 @@ defense (none). Trait generation is a later rule set.
 6. Activate All with conditional spaces, "when dropped here" spaces and a
    nested Activate All.
 7. How often a mid-Wisdom creature acts smart; what "half power" is.
-8. What casting costs in moves.
+8. What casting costs in moves: captured (4.3: the rest of the turn).

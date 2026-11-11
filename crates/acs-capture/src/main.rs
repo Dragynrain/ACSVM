@@ -66,6 +66,12 @@ enum Cmd {
         /// several VICE sessions.
         #[arg(long, default_value_t = 0)]
         first: usize,
+        /// Jitter of run n: n x step mod range idle instructions before the
+        /// run's input (docs/capture.md 4.3, 10.5).
+        #[arg(long, default_value_t = 7_919)]
+        jitter_step: u64,
+        #[arg(long, default_value_t = 1_000_000)]
+        jitter_range: u64,
         /// weight: how many things the row holds.
         #[arg(long, default_value_t = 9)]
         weight_items: usize,
@@ -149,6 +155,8 @@ fn main() {
             runs,
             first,
             weight_items,
+            jitter_step,
+            jitter_range,
             speed,
         } => {
             let place = match name.as_str() {
@@ -176,7 +184,7 @@ fn main() {
             'outer: for run in first..first + runs {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
-                let jitter = (run as u64 * 7_919) % 1_000_000;
+                let jitter = (run as u64 * jitter_step) % jitter_range;
                 if name == "cast" {
                     result = r.cast_run(run, jitter);
                     if result.is_err() {

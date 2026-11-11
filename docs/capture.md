@@ -288,6 +288,36 @@ tap of the button (a held button picks the list's first entry, NONE), down
 to the spell in "SELECT SPELL", a short tap again; a long-message spell
 asks for no target.
 
+**Cast chance** (experiment `cast`, section 10.5; 60 runs at each of ten
+Power/cost pairs, November 2026). Players of ours with Wisdom 10, 20 and
+31 (Power 10, 20 and 27: section 8.4), each owning one spell of ours:
+
+| Power | Cost | Worked, wide jitter | Narrow jitter (first grid) | Power / (cost + 1) |
+| --- | --- | --- | --- | --- |
+| 10 | 10 | 51 of 60 | 60 of 60 | 91% |
+| 10 | 20 | 37 | 38 | 48% |
+| 20 | 10 | 60 | 60 | 100% |
+| 20 | 20 | 55 | 59 | 95% |
+| 20 | 30 | 40 | 25 | 65% |
+| 20 | 40 | 35 | 29 | 49% |
+| 20 | 60 | 19 | 17 | 33% |
+| 20 | 90 | 6 | 8 | 22% |
+| 27 | 31 | 50 | 25 | 84% |
+| 27 | 62 | 25 | 29 | 43% |
+
+Wide jitter is section 10.5's 0..6 million instructions; the narrow first
+grid is biased (10.5) and only kept for the record. Power / (cost + 1),
+that is a roll of 0..cost that works below Power, fits the wide grid best
+of the candidates tried (chi-square 16.5 over the ten pairs; Power / cost
+1,752, our engine's old Power / (Power + cost) 198). Its worst points are
+Power 10 against cost 20 (62% seen) and Power 20 against 90 (10%); the
+outcomes come in streaks along the jitter, so each figure is good to
+about 10 points. Only the two outcome screens were ever seen, so a cost
+above Power is cast and rolled like any other. Every cast ended the turn:
+the next turn came the same 2 million instructions after the button
+whether 5 or 28 pixels of the bar were left. Our engine now rolls the
+same way (magic 4.1).
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -328,6 +358,9 @@ screen offers next to "create new player".
    says: record Power 20, Wisdom 13 showed 13; 26 and 25 showed 25; 10 and
    20 showed 20. Every other stat showed as written (a player with a
    different value in each). To set a player's Power, set its Wisdom.
+   Not above 25, though: Wisdom 31 showed Power 27 (and a Power bar of
+   102 pixels, not 108, with a grey top). Whether Power stops at 27 or
+   follows some other rule above 25 is open.
 5. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
    (two values seen so far; identical chains write the same ones). Entering
    the room did not write to the disk.
@@ -401,7 +434,7 @@ In this order (planned November 2026):
    new kind of outcome. If 20 jitters give one outcome, the jitter doesn't
    reach the program's random rolls and another noise source is needed
    before casting chances can be measured.
-5. **Cast chance** (magic 4.1, 4.3; experiment `cast`). The status area's
+5. **Cast chance** (magic 4.1, 4.3; experiment `cast`): done (section 7). The status area's
    right edge holds two more bars, read like the movement bar but 4 pixels
    a point: Power (x = 276..291, blue, grey while a message waits) and Life
    Force (x = 308..319, red; its bottom runs into the red strip below
@@ -433,6 +466,20 @@ In this order (planned November 2026):
       wait is short) and the first step of Power drift.
    The summary gives the successes per pair and the Power and movement
    readings per outcome. The fitted formula goes into magic 4.1.
+
+   **Jitter range.** The first grid used section 4.3's jitter (run x 7,919,
+   so 0 to 467,000 instructions, about 63 frames). Outcomes were exactly
+   reproducible but not independent of the run index: for Power 20 against
+   cost 60, runs 0-29 worked 15 times and runs 30-59 twice, and every pair
+   below an always-works cost showed the same slide. So the roll follows
+   the moment of the cast more slowly than a fresh random number would, and
+   a narrow jitter range samples only a small stretch of it. A player's
+   timing spreads over seconds, so the grid is run again with
+   `--jitter-step 3708203 --jitter-range 6000000`: jitter = run x step mod
+   range, a golden-ratio step that spreads 60 runs evenly over 6 million
+   instructions (about 16 s). The range stays inside the first turn: the
+   bar at the snapshot (27 pixels) drains in about 1,200 frames, some 9
+   million instructions, and the menu pauses the drain.
 6. **Then:** the Power cost of using a magic item of ours (Use Object);
    Power drift, temporary Life Force decay and natural healing (a Speed 1
    player, Wisdom 20, Constitution 20, Life Force 5, cost-0 spells of ours
