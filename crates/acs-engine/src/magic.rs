@@ -15,15 +15,27 @@ use acs_core::model::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Per-individual state the record has no room for (5.2-5.4).
+/// Per-individual state the record has no room for (5.4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Vitals {
     pub who: Who,
-    /// The temporary part of Life Force, positive or negative.
-    pub temp: i16,
     /// Turns of its own since the game began (or since it arrived).
     pub turns: u32,
 }
+
+/// A temporary change still to be taken back (5.2): due in round `due`,
+/// Life Force moves by `step`; then, with `count` left, again a die roll
+/// of rounds later.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Reversal {
+    pub who: Who,
+    pub due: u32,
+    pub step: i8,
+    pub count: u8,
+}
+
+/// Reversals queued at most (5.2).
+pub const REVERSALS: usize = 30;
 
 /// A summons waiting for the next player turn (3.2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,11 +83,8 @@ pub fn acts_on_individual(kind: SpellActionKind) -> bool {
 
 /// Power a magic item's use costs (4.2).
 pub const USE_POWER: u8 = 2;
-/// The temporary part of Life Force ticks 1 toward 0 with chance 1 in
-/// this, each turn (5.2, captured).
-pub const TEMP_TICK: u32 = 3;
-/// Natural healing adds 1 more with chance 1 in this (5.3, captured).
-pub const HEAL_EXTRA: u32 = 9;
+/// The top-of-turn healing die heals on this face (5.3).
+pub const HEAL_FACE: u32 = 2;
 
 /// The signed amount of a Change Power / Change Life Force parameter and
 /// whether it is temporary (3.7, 3.8).
@@ -307,24 +316,27 @@ impl Game {
         let i = match self.vitals.iter().position(|v| v.who == who) {
             Some(i) => i,
             None => {
-                self.vitals.push(Vitals {
-                    who,
-                    temp: 0,
-                    turns: 0,
-                });
+                self.vitals.push(Vitals { who, turns: 0 });
                 self.vitals.len() - 1
             }
         };
         &mut self.vitals[i]
     }
 
-    /// The temporary part of an individual's Life Force (5.2).
+    /// The Life Force a temporary change will still take back (5.2): a
+    /// temporary +10 reads 11 at once (it is taken back once more than it
+    /// was given), 0 when nothing is pending.
     pub fn temporary_life(&self, who: Who) -> i16 {
-        self.vitals.iter().find(|v| v.who == who).map_or(0, |v| v.temp)
+        self.reversals
+            .iter()
+            .filter(|r| r.who == who)
+            .map(|r| -(r.step as i16) * (r.count as i16 + 1))
+            .sum()
     }
 
     pub(crate) fn forget_vitals(&mut self, who: Who) {
         self.vitals.retain(|v| v.who != who);
+        self.reversals.retain(|r| r.who != who);
     }
 
     /// Living individuals in a room, players by number then creatures by slot.
@@ -458,8 +470,14 @@ impl Game {
     pub(crate) fn change_life(&mut self, who: Who, delta: i16, temporary: bool, ev: &mut Vec<Event>) {
         let from = self.stat(who, Stat::LifeForce).unwrap_or(0) as i16;
         let to = (from + delta).clamp(0, Stat::LifeForce.max() as i16);
-        if temporary && to != from {
-            self.vitals_mut(who).temp += to - from;
+        if temporary && to != from && self.reversals.len() < REVERSALS {
+            let due = self.sched.round + 1 + self.rng.below(6);
+            self.reversals.push(Reversal {
+                who,
+                due,
+                step: -(to - from).signum() as i8,
+                count: (to - from).unsigned_abs().min(255) as u8,
+            });
         }
         self.change_stat(who, Stat::LifeForce, to as u8, ev);
         if to == 0 {
@@ -864,39 +882,78 @@ impl Game {
 
     // ---- time (section 5) ----------------------------------------------------
 
-    /// End of an individual's own turn: Power drift, temporary Life Force
-    /// wearing off, natural healing.
-    pub(crate) fn upkeep(&mut self, who: Who, ev: &mut Vec<Event>) {
+    /// The top of an individual's turn: Power drift (5.1), then the healing
+    /// die (5.3).
+    pub(crate) fn turn_top(&mut self, who: Who, ev: &mut Vec<Event>) {
         if !self.alive(who) {
             return;
         }
-        let v = self.vitals_mut(who);
-        v.turns += 1;
-        let temp = v.temp;
+        self.vitals_mut(who).turns += 1;
         let power = self.stat(who, Stat::Power).unwrap_or(0);
         let wisdom = self.stat(who, Stat::Wisdom).unwrap_or(0);
         if power != wisdom {
             let to = if power < wisdom { power + 1 } else { power - 1 };
             self.set_stat(who, Stat::Power, to);
         }
-        // 5.3: healing first, on Life Force itself, not above Constitution.
-        let life = self.stat(who, Stat::LifeForce).unwrap_or(0) as i16;
-        let con = self.stat(who, Stat::Constitution).unwrap_or(0) as i16;
-        let mut to = life;
-        if to < con {
-            let extra = i16::from(self.rng.below(HEAL_EXTRA) == 0);
-            to = (to + 1 + extra).min(con);
+        let face = self.rng.below(6) + 1;
+        if face == HEAL_FACE {
+            self.heal_one(who, ev);
         }
-        // 5.2: then the temporary part's tick.
-        if temp != 0 && self.rng.below(TEMP_TICK) == 0 {
-            let step = -temp.signum();
-            to = (to + step).clamp(0, Stat::LifeForce.max() as i16);
-            self.vitals_mut(who).temp += step;
+    }
+
+    /// 5.3: `n` idle moves of a turn of `full` moves, each a roll of
+    /// 0..full - 1 that heals on a 0.
+    pub(crate) fn idle_moves(&mut self, who: Who, n: u8, full: u8, ev: &mut Vec<Event>) {
+        for _ in 0..n {
+            if !self.alive(who) {
+                return;
+            }
+            if self.rng.below(u32::from(full.max(1))) == 0 {
+                self.heal_one(who, ev);
+            }
         }
-        if to != life {
-            self.set_stat(who, Stat::LifeForce, to as u8);
+    }
+
+    /// 5.3: 1 point while Life Force is below Constitution.
+    fn heal_one(&mut self, who: Who, _ev: &mut Vec<Event>) {
+        let life = self.stat(who, Stat::LifeForce).unwrap_or(0);
+        let con = self.stat(who, Stat::Constitution).unwrap_or(0);
+        if life < con {
+            self.set_stat(who, Stat::LifeForce, life + 1);
+        }
+    }
+
+    /// 5.2: at the end of a round, every reversal due takes its step, then
+    /// counts down and is due again a die roll of rounds later, or is done.
+    pub(crate) fn reversals_due(&mut self, ev: &mut Vec<Event>) {
+        let round = self.sched.round;
+        let mut i = 0;
+        while i < self.reversals.len() {
+            if self.reversals[i].due > round {
+                i += 1;
+                continue;
+            }
+            let r = self.reversals[i].clone();
+            if !self.alive(r.who) {
+                self.reversals.remove(i);
+                continue;
+            }
+            let life = self.stat(r.who, Stat::LifeForce).unwrap_or(0) as i16;
+            let to = (life + r.step as i16).clamp(0, Stat::LifeForce.max() as i16);
+            if to != life {
+                self.set_stat(r.who, Stat::LifeForce, to as u8);
+            }
+            if r.count >= 1 {
+                let due = round + 1 + self.rng.below(6);
+                let e = &mut self.reversals[i];
+                e.count -= 1;
+                e.due = due;
+                i += 1;
+            } else {
+                self.reversals.remove(i);
+            }
             if to == 0 {
-                self.kill(who, ev);
+                self.kill(r.who, ev);
             }
         }
     }

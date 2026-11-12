@@ -108,33 +108,40 @@ struct Choice {
 const FAR: u16 = u16::MAX;
 
 impl Game {
-    /// One creature's turn in a creature phase (2.5, 8.1, 8.2, 6.6), then
-    /// drift, decay and healing (magic 5.4).
+    /// One creature's turn (2.5, 8.1, 8.2, 6.6), with drift and the healing
+    /// die at its top and a healing roll for each move it leaves unused
+    /// (magic 5.1, 5.3, 5.4).
     pub(crate) fn creature_turn(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
-        self.creature_acts(region, slot, ev);
-        self.upkeep(Who::Creature { region, slot }, ev);
+        let me = Who::Creature { region, slot };
+        if let Some((left, full)) = self.creature_acts(region, slot, ev) {
+            self.idle_moves(me, left, full, ev);
+        }
     }
 
-    fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
+    /// The turn itself; the moves left unused and the turn's full moves,
+    /// unless it cast or used an item (or died).
+    fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
         self.overburdened_drop(region, slot, ev);
-        if self.creature(region, slot).is_none() {
-            return; // its drop spell killed it
-        }
+        self.creature(region, slot)?; // its drop spell may have killed it
         self.creature_ready(region, slot, ev);
-        let Some(c) = self.creature(region, slot) else {
-            return;
-        };
+        let c = self.creature(region, slot)?;
         let moves = creatures::effective_speed(&self.adv, c);
         ev.push(Event::CreatureTurn { region, slot, moves });
+        self.turn_top(Who::Creature { region, slot }, ev);
+        self.creature(region, slot)?;
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
-            return;
+            return None;
         }
-        for _ in 0..moves {
+        let mut left = moves;
+        while left > 0 {
             if !self.creature_step(region, slot, ev) {
                 break;
             }
+            left -= 1;
         }
+        self.creature(region, slot)?;
+        Some((left, moves))
     }
 
     /// Magic 6.1-6.5: a smart fighter casts its lowest-numbered fitting

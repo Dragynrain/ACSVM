@@ -289,6 +289,10 @@ fn players_take_turns() {
         },
     });
     assert!(matches!(ev[0], Event::PlayerAdded { player: 1, .. }));
+    // Creatures 2.2: a player added during a round joins the next one,
+    // after the players before it.
+    g.apply(Command::Wait);
+    assert_eq!(g.current(), 0);
     g.apply(Command::Wait);
     assert_eq!(g.current(), 1);
     mv(&mut g, Dir::S); // one step uses TWO's whole bar

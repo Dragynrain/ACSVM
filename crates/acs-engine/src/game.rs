@@ -4,7 +4,7 @@
 
 use crate::magic::{PendingSummon, Vitals};
 use crate::rng::Rng;
-use crate::{Command, Event, Location, Rules};
+use crate::{Command, Event, Location, Rules, Who};
 use acs_core::model::ThingId;
 use acs_core::model::{Adventure, MagicDefense, Region, Room, Thing};
 use serde::{Deserialize, Serialize};
@@ -197,7 +197,38 @@ pub struct Game {
     /// Every player is dead (magic 7.4).
     #[serde(default)]
     pub(crate) over: bool,
+    /// Who moves when (creatures 2.2).
+    #[serde(default)]
+    pub(crate) sched: Schedule,
+    /// Temporary changes still to be taken back (magic 5.2).
+    #[serde(default)]
+    pub(crate) reversals: Vec<crate::magic::Reversal>,
 }
+
+/// The turn scheduler (creatures 2.2): cycles of region visits, each up to
+/// `VISIT_ROUNDS` rounds, each round a list of individuals built at its
+/// start.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Schedule {
+    /// Regions still to visit this cycle, lowest first (0 the world map).
+    pub marks: Vec<u8>,
+    /// The region being visited.
+    pub region: u8,
+    /// Rounds of this visit so far.
+    pub rounds: u8,
+    /// This round's turn list and the next entry to go.
+    pub list: Vec<Who>,
+    pub pos: usize,
+    /// Rounds since the game began (magic 5.2 counts in them).
+    pub round: u32,
+    /// Living players when the round began.
+    pub living: usize,
+}
+
+/// Rounds a region visit lasts at most (creatures 2.2).
+pub const VISIT_ROUNDS: u8 = 10;
+/// Rooms a round's list takes at most (creatures 2.2).
+pub const ROUND_ROOMS: usize = 4;
 
 impl Game {
     /// Starts a game with one character at the adventure's start; returns the
@@ -218,10 +249,13 @@ impl Game {
             vitals: Vec::new(),
             summons: Vec::new(),
             over: false,
+            sched: Schedule::default(),
+            reversals: Vec::new(),
         };
         let mut ev = Vec::new();
         g.add_player(first, &mut ev);
-        g.start_turn(&mut ev);
+        g.begin_cycle();
+        g.next_turn(&mut ev);
         (g, ev)
     }
 
@@ -243,7 +277,7 @@ impl Game {
         }
         self.log.push(cmd.clone());
         match cmd {
-            Command::Wait => self.end_turn(&mut ev),
+            Command::Wait => self.wait_out(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
@@ -291,9 +325,157 @@ impl Game {
     }
 
     /// Test and tool hook: puts a player somewhere without a move. Not a
-    /// command, so it is not replayed.
+    /// command, so it is not replayed. The schedule starts afresh from the
+    /// current player's region, the current turn going on, as if a round
+    /// had just begun with everyone where they now stand.
     pub fn place(&mut self, player: usize, at: Location) {
         self.players[player].at = at;
+        self.reschedule();
+    }
+
+    /// See `place`.
+    fn reschedule(&mut self) {
+        let me = Who::Player { player: self.current };
+        let region = self.players[self.current].at.region();
+        let mut marks = self.player_regions();
+        marks.retain(|&r| r != region);
+        self.sched.marks = marks;
+        self.sched.region = region;
+        self.sched.rounds = 0;
+        self.begin_round();
+        self.sched.pos = self.sched.list.iter().position(|&w| w == me).map_or(0, |i| i + 1);
+    }
+
+    /// Regions where a living player stands, lowest first.
+    fn player_regions(&self) -> Vec<u8> {
+        let mut r: Vec<u8> = self
+            .players
+            .iter()
+            .filter(|p| p.alive)
+            .map(|p| p.at.region())
+            .collect();
+        r.sort_unstable();
+        r.dedup();
+        r
+    }
+
+    /// Creatures 2.2: a new cycle marks the regions with a living player and
+    /// begins the first visit.
+    fn begin_cycle(&mut self) {
+        self.sched.marks = self.player_regions();
+        self.next_visit();
+    }
+
+    /// Begins the next marked region's visit; false if none is left.
+    fn next_visit(&mut self) -> bool {
+        if self.sched.marks.is_empty() {
+            return false;
+        }
+        self.sched.region = self.sched.marks.remove(0);
+        self.sched.rounds = 0;
+        self.begin_round();
+        true
+    }
+
+    /// Builds the round's list for the region being visited: on the map its
+    /// players; in a room region the rooms with a living player (at most 4,
+    /// in player order), each with its players and then its creatures.
+    fn begin_round(&mut self) {
+        let region = self.sched.region;
+        let mut list = Vec::new();
+        if region == 0 {
+            for (i, p) in self.players.iter().enumerate() {
+                if p.alive && p.at.region() == 0 {
+                    list.push(Who::Player { player: i });
+                }
+            }
+        } else {
+            let mut rooms: Vec<u8> = Vec::new();
+            for p in self.players.iter().filter(|p| p.alive) {
+                if let Some((rg, rm)) = p.at.room() {
+                    if rg == region && !rooms.contains(&rm) && rooms.len() < ROUND_ROOMS {
+                        rooms.push(rm);
+                    }
+                }
+            }
+            for &rm in &rooms {
+                for (i, p) in self.players.iter().enumerate() {
+                    if p.alive && p.at.room() == Some((region, rm)) {
+                        list.push(Who::Player { player: i });
+                    }
+                }
+                if let Some(reg) = self.region(region) {
+                    for (slot, c) in reg.residents.iter().enumerate() {
+                        if c.in_use && c.room == rm {
+                            list.push(Who::Creature { region, slot });
+                        }
+                    }
+                }
+            }
+        }
+        self.sched.list = list;
+        self.sched.pos = 0;
+        self.sched.living = self.players.iter().filter(|p| p.alive).count();
+    }
+
+    /// Runs the list on: creatures take their turns, and the next living
+    /// player's turn starts (and waits for commands). A finished list ends
+    /// the round.
+    pub(crate) fn next_turn(&mut self, ev: &mut Vec<Event>) {
+        // Every round with a living player has one on its list, so this
+        // ends; the guard is for safety only.
+        for _ in 0..10_000 {
+            if self.over {
+                return;
+            }
+            if self.sched.pos >= self.sched.list.len() {
+                self.end_round(ev);
+                continue;
+            }
+            let who = self.sched.list[self.sched.pos];
+            self.sched.pos += 1;
+            match who {
+                Who::Player { player } => {
+                    if self.players.get(player).is_some_and(|p| p.alive) {
+                        self.current = player;
+                        self.start_turn(ev);
+                        return;
+                    }
+                }
+                Who::Creature { region, slot } => {
+                    if self.creature(region, slot).is_some() {
+                        self.creature_turn(region, slot, ev);
+                    }
+                }
+            }
+            if !self.players.iter().any(|p| p.alive) {
+                self.over = true;
+                ev.push(Event::AllPlayersDead);
+                return;
+            }
+        }
+    }
+
+    /// The end of a round: the round counter and what falls due on it
+    /// (magic 5.2), random creatures left behind (2.4), then the next round
+    /// of this visit, or the next visit (creatures 2.2).
+    fn end_round(&mut self, ev: &mut Vec<Event>) {
+        self.sched.round += 1;
+        self.reversals_due(ev);
+        self.left_behind(ev);
+        self.turn_exits.clear();
+        self.turn_rooms.clear();
+        self.sched.rounds += 1;
+        let living = self.players.iter().filter(|p| p.alive).count();
+        let region = self.sched.region;
+        let here = self.players.iter().any(|p| p.alive && p.at.region() == region);
+        if self.sched.rounds >= VISIT_ROUNDS || !here || living < self.sched.living {
+            if !self.next_visit() {
+                self.begin_cycle();
+            }
+        } else {
+            self.begin_round();
+        }
     }
 
     /// Test and tool hook: sets a player's Power. Not replayed.
@@ -371,32 +553,28 @@ impl Game {
         }
     }
 
-    /// Ends the current player's turn; after the round's last living player,
-    /// runs the creature phase for the rooms players were in this round
-    /// (creatures 2.2). Then the next living player's turn starts (magic
-    /// 7.4).
+    /// "Wait": the rest of the turn's moves go as idle moves, each with its
+    /// healing roll (magic 5.3), and the turn ends.
+    fn wait_out(&mut self, ev: &mut Vec<Event>) {
+        let p = &self.players[self.current];
+        let (left, full) = (p.moves_left, p.turn_moves);
+        self.idle_moves(Who::Player { player: self.current }, left, full, ev);
+        if self.players[self.current].alive {
+            self.end_turn(ev);
+        }
+    }
+
+    /// Ends the current player's turn; the schedule goes on (creatures 2.2,
+    /// magic 7.4).
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
         let p = self.current;
         ev.push(Event::TurnEnded { player: p });
-        // Magic 5.4: drift, decay and healing at the end of a player's turn.
-        self.upkeep(crate::Who::Player { player: p }, ev);
-        let n = self.players.len();
-        let next = (1..=n).map(|k| (p + k) % n).find(|&i| self.players[i].alive);
-        // The round ends when the next living player comes at or before
-        // this one in joining order (or nobody is left).
-        if next.is_none_or(|i| i <= p) {
-            self.creature_phase(ev);
-        }
         if !self.players.iter().any(|pl| pl.alive) {
             self.over = true;
             ev.push(Event::AllPlayersDead);
             return;
         }
-        self.current = (1..=n)
-            .map(|k| (p + k) % n)
-            .find(|&i| self.players[i].alive)
-            .unwrap_or(p);
-        self.start_turn(ev);
+        self.next_turn(ev);
     }
 
     /// Fills the current player's bar from Speed after any slowdown
@@ -423,6 +601,8 @@ impl Game {
             moves,
             hindered,
         });
+        // Magic 5.1, 5.3: drift and the healing die at the top of the turn.
+        self.turn_top(Who::Player { player: self.current }, ev);
     }
 
     /// Test and tool hook: the live creature in a region slot.

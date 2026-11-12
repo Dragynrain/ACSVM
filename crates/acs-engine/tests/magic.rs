@@ -521,7 +521,8 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
             panic!("{ev:?}")
         };
         assert_eq!((*chance, *cost, *success), (90, 7, true));
-        // Power: 20 - 7, then 1 back toward Wisdom 20 at the end of the turn.
+        // Power: 20 - 7, then 1 back toward Wisdom 20 at the top of the
+        // next turn (5.1), which starts within the same command.
         assert_eq!(g.current_player().power, 14);
         // 10 - 6 (the creature heals afterwards in its own turn, 5.3).
         assert!(ev.contains(&Event::StatChanged {
@@ -539,10 +540,11 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
             target: None,
         });
         assert!(ev.contains(&Event::SpellGone { who: ME, thing: HEAL }));
-        // +5 (from 6 healed a little at the bolt's turn end, 5.3).
+        // +5 (from 6, or 7 if the top-of-turn die healed; a cast leaves no
+        // idle moves to heal on, 5.3).
         assert!(ev.iter().any(|e| matches!(
             e,
-            Event::StatChanged { who: ME, stat: Stat::LifeForce, from, to } if *from > 6 && *to == *from + 5
+            Event::StatChanged { who: ME, stat: Stat::LifeForce, from, to } if *from >= 6 && *to == *from + 5
         )));
         assert!(!g.current_player().owns(HEAL));
     });
@@ -952,10 +954,12 @@ fn disease_power_drift_and_healing() {
         g.set_power(0, 15);
         mv(&mut g, Dir::E);
         assert_eq!(lf(&g, ME), 11);
-        assert_eq!(g.temporary_life(ME), 10);
-        // Each turn end: Power 1 toward Wisdom; healing on Life Force below
-        // Constitution 11, then the temporary part's tick (1 in 3): Life
-        // Force stays at 10 or 11 until the 10 temporary points are gone.
+        // 5.2: a temporary +10 is taken back 11 times.
+        assert_eq!(g.temporary_life(ME), 11);
+        // Each turn's top: Power 1 toward Wisdom (5.1); healing on Life
+        // Force below Constitution 11 (5.3); every 1 to 6 rounds a step of
+        // the reversal (5.2): Life Force stays at 10 or 11 until the 11
+        // steps are done.
         let mut power = Vec::new();
         for _ in 0..200 {
             g.apply(Command::Wait);
@@ -1008,9 +1012,10 @@ fn smart_creatures_cast_at_foes_and_heal_friends() {
             })
             .collect();
         assert_eq!(casts, vec![(cr(1), ME, 7)]);
-        // 20 - 7, and the drift back up toward 15 at the end of its turn.
-        assert_eq!(g.creature(1, 1).unwrap().power, 14);
-        // Now its Power (14) is below its Wisdom (15): no second cast.
+        // 5.1: the drift toward 15 at the top of its turn (19), then 7 for
+        // the cast.
+        assert_eq!(g.creature(1, 1).unwrap().power, 12);
+        // Next turn 13, still below its Wisdom (15): no second cast.
         let ev = g.apply(Command::Wait);
         assert!(!ev.iter().any(|e| matches!(e, Event::SpellCast { .. })), "{ev:?}");
     });
@@ -1184,5 +1189,65 @@ fn magic_is_deterministic() {
         assert_eq!(ea, eb);
         assert_eq!(a, b);
         assert!(ea.iter().any(|e| matches!(e, Event::CreatureSummoned { .. })));
+    });
+}
+
+/// 5.3: a waited Speed 1 turn always heals (its one idle move rolls 0..0),
+/// a turn walked to its end heals only on the top-of-turn die (1 in 6).
+#[test]
+fn healing_rolls_on_idle_moves_and_at_the_top_of_the_turn() {
+    both(|p| {
+        // Strength 31: the wound must not slow it (inventory 3.3).
+        let wounded = PlayerSetup {
+            speed: 1,
+            strength: 31,
+            constitution: 40,
+            life_force: 5,
+            ..setup()
+        };
+        let mut g = start(adventure(p), 2, 2, wounded.clone());
+        for _ in 0..20 {
+            let before = lf(&g, ME);
+            g.apply(Command::Wait);
+            let gain = lf(&g, ME) - before;
+            assert!((1..=2).contains(&gain), "a waited turn gained {gain}");
+        }
+        let mut g = start(adventure(p), 2, 2, wounded);
+        let before = lf(&g, ME);
+        for i in 0..60 {
+            // East and back: each step is the turn's only move.
+            mv(&mut g, if i % 2 == 0 { Dir::E } else { Dir::W });
+        }
+        let gain = lf(&g, ME) - before;
+        assert!((2..=25).contains(&gain), "60 walked turns gained {gain}");
+    });
+}
+
+/// 5.2: a temporary change is taken back a step at a time, each 1 to 6
+/// rounds after the last (a lone player's turn is a round).
+#[test]
+fn reversals_come_one_to_six_rounds_apart() {
+    both(|p| {
+        let mut a = adventure(p);
+        for t in [DISEASE_DOWN, DISEASE_UP, DOALL] {
+            put_item(&mut a, 0, 3, 2, t, 0);
+        }
+        let mut g = start(a, 2, 2, setup());
+        mv(&mut g, Dir::E);
+        let mut left = g.temporary_life(ME);
+        assert_eq!(left, 11);
+        let mut since = 0;
+        while left > 0 {
+            g.apply(Command::Wait);
+            since += 1;
+            let now = g.temporary_life(ME);
+            if now != left {
+                assert_eq!(now, left - 1);
+                assert!((1..=6).contains(&since), "a step after {since} rounds");
+                left = now;
+                since = 0;
+            }
+            assert!(since <= 6, "no step for {since} rounds");
+        }
     });
 }

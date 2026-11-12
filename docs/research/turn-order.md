@@ -1,7 +1,8 @@
 # Research brief: whose turn comes next
 
 A request to the project's clean-room researcher (docs/research/README.md).
-Licensed CC BY 4.0. Status: briefed 2026-11-12, inputs ready, not started.
+Licensed CC BY 4.0. Status: first pass done 2026-11-12, confirmed by
+capture and in the engine.
 
 ## Why
 
@@ -73,4 +74,29 @@ the place name: those are the observer's misreads, not movers.
 
 ## Findings
 
-None yet.
+**First pass, 2026-11-12** (items 1 and 2 in full, 3 and 4 from reading;
+the hand-off reviewed for plain language and accepted). Summary:
+
+1. **The scheduler goes by region.** Each cycle marks the regions with a
+   living player and visits them lowest number first, the world map
+   first; regions reached during the cycle wait for the next.
+2. **A visit is at most 10 rounds**, fewer if no living player is left in
+   the region or a player died that round.
+3. **A round's list is built at its start:** on the map its players; in a
+   room region the rooms with a player (at most 4), each with its players
+   then its creatures in slot order. Requests (add, retire, save) wait for
+   the round's end.
+4. **U's 19 turns** were the rest of one map visit and a whole one; the
+   map and the room then take 10-round blocks in turn. U was never
+   dropped.
+5. **Addresses** (harness only): the region visited `$397C`, the marks
+   `$FE78` on, the round counter `$F65B`, the current individual `$71FA`,
+   the round's list `$FF15` on.
+
+**Checked by capture** (capture.md 10.13): reading the region and round
+counter at every turn's start over 25 of T's turns, in 2 runs, showed
+the predicted blocks exactly. Spec: creatures 2.2, 2.3 tagged [research]
+and [capture]; the engine follows them. **Open:** two players in
+different rooms of one region; the visit after a player dies; the
+per-round random checks (random creatures appearing and falling away);
+individuals 5 to 15 on room lists.

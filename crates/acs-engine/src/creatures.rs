@@ -162,34 +162,9 @@ impl Game {
         })
     }
 
-    /// 2.2-2.4: at the end of a round, every creature in a room a player
-    /// was in during the round takes one turn (region order, then slot);
-    /// then random creatures left without a player are removed.
-    pub(crate) fn creature_phase(&mut self, ev: &mut Vec<Event>) {
-        let mut rooms = std::mem::take(&mut self.turn_rooms);
-        for r in self
-            .players
-            .iter()
-            .filter(|pl| pl.alive)
-            .filter_map(|pl| pl.at.room())
-        {
-            if !rooms.contains(&r) {
-                rooms.push(r);
-            }
-        }
-        let mut acting = Vec::new();
-        for reg in &self.adv.regions {
-            for (slot, c) in reg.residents.iter().enumerate() {
-                if c.in_use && rooms.contains(&(reg.number, c.room)) {
-                    acting.push((reg.number, slot));
-                }
-            }
-        }
-        for (region, slot) in acting {
-            if self.creature(region, slot).is_some() {
-                self.creature_turn(region, slot, ev);
-            }
-        }
+    /// 2.4: at the end of a round, random creatures in rooms no player
+    /// occupies are removed.
+    pub(crate) fn left_behind(&mut self, ev: &mut Vec<Event>) {
         for (region, slot) in self.random.clone() {
             let Some(c) = self.creature(region, slot) else {
                 continue;
@@ -198,7 +173,6 @@ impl Game {
                 self.remove_creature(region, slot, RemovalReason::LeftBehind, ev);
             }
         }
-        self.turn_exits.clear();
     }
 
     /// Frees a slot; what the creature carried goes with it.

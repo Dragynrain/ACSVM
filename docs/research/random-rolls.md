@@ -3,8 +3,9 @@
 A request to the project's clean-room *researcher* (CONTRIBUTING.md,
 section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11),
 by a separate Claude session as the researcher; findings below, the cast
-chance confirmed by capture. **Second pass** (items 7 to 13) briefed
-2026-11-12, inputs ready.
+chance confirmed by capture. **Second pass** (items 7 to 13) done
+2026-11-12; healing and the temporary tick confirmed by capture and in
+the engine.
 
 ## Why
 
@@ -230,6 +231,37 @@ plain-language hand-off:
    it does; whether rolls are taken between turns; the other users of the
    roll (about 30 call sites: item use, drift, healing, combat, creatures).
    These are the second pass, items 7 to 13.
+
+**Second pass, 2026-11-12** (items 7 to 13; the researcher's hand-off
+reviewed for plain language and accepted). Summary:
+
+7. **Using a magic item** takes no roll: 2 Power and two moves, Wisdom
+   not consulted.
+8. **Power drift** takes no roll: 1 toward Wisdom at the top of each turn.
+9. **Temporary Life Force** is a queued reversal: 1 point back every 1 to
+   6 rounds (a die), for every count from N down to 0, so N + 1 steps:
+   the eleventh tick. The queue's round counter and entries are at
+   `$F65B` and `$F65F` on.
+10. **Natural healing**: each idle move rolls 0 to (the turn's full
+   moves - 1) and heals on a 0; the top of each turn rolls a die and
+   heals on a 2; both only below Constitution, on Life Force itself.
+11. **Seeding**: none. The state is 5 after loading and changes only by
+   rolls.
+12. **Between turns**: per idle move the healing roll; per walked square
+   8 percentile rolls against a table (likely random encounters; not
+   traced); at a round's end one die per reversal due and, in rooms, a
+   roll of 0 to 15 and maybe more (likely random creatures); at the top
+   of a turn the healing die. Creatures' rolls not watched yet.
+13. **The raster band** comes from the joystick being read once a frame,
+   on line 221; rolls after a button press land some 130 lines later.
+   Rolls at a turn's end or while walking fall anywhere in the frame.
+
+**Checked by capture** (capture.md 10.12): healing, 253 of 253 runs of a
+256-state sweep exact; the tick's delay, 252 of 252; the seed, 5. Specs:
+magic 5.1-5.3 tagged [research] and [capture]; the engine follows them.
+**Open, for a third pass:** creatures' rolls in a room (square and goal
+choice, the round-end roll), the 8 rolls per walked square, the rolls
+from loading to the first turn, the tick's edge cases.
 
 **Checked by capture** (capture.md 10.9): setting `$1CC9` to each of its
 256 values before a cast, items 1 and 4 predicted every first-draw

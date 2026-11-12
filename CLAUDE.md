@@ -72,7 +72,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   stacks top first, residents) and the region grid. Layout only, no drawing.
 - `crates/acs-engine`: rules, no GUI (Rust 1.85). `Game::new(adv, seed, rules,
   player)`, `apply(Command) -> Vec<Event>`, `Game::replay`; one seeded `Rng`
-  (SplitMix64) for every roll. `step.rs` is movement (and pick-ups),
+  (SplitMix64) for every roll; `game.rs` holds the turn scheduler (region
+  visits of up to 10 rounds, a turn list per round). `step.rs` is movement (and pick-ups),
   `inventory.rs` carry limits, weight, Ready and Drop, `creatures.rs` turn
   order, random creatures and personality, `ai.rs` one creature's turn (goals,
   paths, doors, pick-ups, drops, readying, casting), `magic.rs` the 15 spell

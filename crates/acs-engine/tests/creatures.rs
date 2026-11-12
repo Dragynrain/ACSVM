@@ -703,3 +703,35 @@ fn two_players_one_creature_phase_a_round() {
         );
     });
 }
+
+/// 2.2: players in different regions get the scheduler's visits in turn,
+/// each up to 10 rounds, the world map first in every cycle.
+#[test]
+fn players_apart_take_ten_round_visits() {
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 7, 5, Alignment::Friend, false));
+        let mut g = start(a, 0, 2, 2);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        // Player 0 in the room (region 1), player 1 on the map: the room's
+        // visit goes on from here.
+        g.place(0, at(0, 2, 2));
+        let mut who = Vec::new();
+        for _ in 0..31 {
+            g.apply(Command::Wait);
+            who.push(g.current());
+        }
+        // The room's visit: 9 more rounds of player 0. Then the rest of the
+        // cycle (the map: 10 rounds of player 1) and a new cycle, map first
+        // (10 more), then the room again.
+        let mut want = vec![0; 9];
+        want.extend([1; 20]);
+        want.extend([0; 2]);
+        assert_eq!(who, want);
+    });
+}

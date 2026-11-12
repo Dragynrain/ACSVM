@@ -36,39 +36,47 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    room meanwhile, which is how creatures follow players through doors.
    [manual]
 2. Turns cycle through every player and every creature in the room.
-   [manual] On the C64 the players move in turn, in the order they joined,
-   and then each creature in a room with a player moves once, in slot
-   order (not by Speed, distance or name), before the first player moves
-   again: one creature phase a round, however many players share the
-   room. The name strip under the view names whoever is moving, creatures
-   included. With one player and three creatures of ours: T, then slots
-   0, 1, 2, then T, in all 17 phases of 6 runs; with the slots swapped
-   (the names with them), slot order again in all 9 phases of 3 runs.
-   With two players in the room: T, U, then slots 0, 1, 2, once, in all
-   21 phases of 7 runs, and never a phase after T's turn.
-   The phase comes only once a player has ended a turn in the room: with
-   both players walking in from the map, the first phase came after the
-   round in which both were in. [capture: turns, cases one, slots and
-   two, capture.md 10.10.1] **Engine:** players take their turns in
-   order; after the last living player's turn ends there is a **creature
-   phase**: every creature standing in a room that any player was in at
-   some point during the round (where it started a turn, each room it
-   entered) takes one turn, in order of region, then slot. A creature
-   takes at most one turn per phase, even if it walks into another
-   visited room. Then the next round starts. Counting every room visited
-   in the round, not only the rooms players end in, is the engine's
-   choice ([unknown]): it keeps creatures able to follow a player through
-   a door (2.1).
-3. So a creature is awake exactly while a player is, or was this round,
-   in its room. A creature left in a room with no player stops acting.
-   Two players in one room do not give its creatures two phases. [capture]
-   **Players in different places** do not simply alternate: with T in
-   the room and U left on the map, U took about 20 turns in a row (about
-   140 million instructions, some 9 minutes of play), then T and the
-   room's creatures took round after round with U never moving again: 5
-   of T's turns in 3 runs, 15 in 2 more. [capture: turns, case split] Why is not known
-   ([unknown]; research brief `docs/research/turn-order.md`). **Engine:** still alternates the
-   players strictly, wherever they are.
+   [manual] On the C64 the program schedules by **region** (the world map
+   is region 0):
+   1. A **cycle** marks every region where a living player stands, then
+      visits the marked regions, lowest number first, so the world map
+      first. A region a player reaches during the cycle waits for the next
+      one.
+   2. A **visit** is at most 10 **rounds**. It ends sooner after a round in
+      which no living player is left in the region, or in which the number
+      of living players went down.
+   3. A **round's turn list** is built at its start. On the map: every
+      living player there, in joining order. In a room region: the rooms
+      that hold a living player (at most 4, in player order), and in each,
+      its players in joining order, then its creatures in slot order.
+      Turns go in list order; the dead are skipped and nobody is added
+      during the round. So a creature takes one turn a round, after the
+      players of its room, and a room counts only if a player stands in it
+      when the round begins; a creature already on the list takes its turn
+      even if the player has left. Anything asked for during the round
+      (adding or retiring a player, saving) happens after it.
+   [research: turn-order first pass, 2026-11-12, `docs/research/turn-order.md`] Confirmed: with T in a room with three creatures and U
+   on the map, the scheduler's region and round counter, read at every
+   turn's start, showed U alone for rounds 21 to 39 (the rest of one map
+   visit and a whole one: 19 turns), then T, AA, BB, CC for rounds 40 to
+   49, U for 50 to 59, and the room again from round 60, in both runs.
+   [capture: turns --peek, capture.md 10.13] And by name strip: T, then
+   slots 0, 1, 2 (in slot order, not by Speed, distance or name), then T,
+   in 17 phases of 6 runs and 9 of 3 with the slots swapped; T, U, then
+   the creatures in 21 phases of 7 runs, never after T alone; and the
+   first creature turns after both players had walked in only once both
+   stood in the room at a round's start. [capture: turns, capture.md
+   10.10] **Engine:** the rule above. A player who dies mid-round ends
+   the visit at the round's end; the "restore the last saved game" screen
+   the original then shows is the front end's business. Not settled: two
+   players in different rooms of one region (by the rule: each room's
+   players, then its creatures), the individuals the researcher saw
+   numbered 5 to 15 on room lists.
+3. So creatures act only while a player stands in their room at a round's
+   start, and move once a round however many players share the room. Two
+   players in different places do not alternate: each gets its region's
+   visit of up to 10 rounds in turn. [research, capture]
+
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] How often is not given.
    **Engine:** at the end of every creature phase, each random creature whose
@@ -277,11 +285,12 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 
 The corpus test (`crates/acs-engine/tests/corpus.rs`) puts a player in each
 of the 996 live rooms that hold residents or a random creature and plays a
-dozen turns of waiting and wandering. With one creature phase a round
-(2.2) and a room door into another room ending the turn (movement 2.3;
-November 2026), creatures take 14,232 turns, make 7,112 steps, go through
-425 doors, square up to someone 8,356 times, ready 2,424 weapons, pick up
-gold 87 times and treasure 9 times, and make 75 overburdened drops. No
+dozen turns of waiting and wandering. With the region-visit scheduler
+(2.2), a room door into another room ending the turn (movement 2.3) and
+the healing and reversal rules of magic 5 (November 2026), creatures
+take 13,773 turns, make 6,488 steps, go through 343 doors, square up to
+someone 8,277 times, ready 2,314 weapons, pick up gold 72 times and
+treasure 9 times, and make 73 overburdened drops. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another creature, nor with a
 player except on arriving through a door (5.4). The random walks with
@@ -296,11 +305,9 @@ creatures replay exactly.
 
 ## Captures needed
 
-1. Turn order with several players and creatures in one room: captured
-   (2.2, 2.3). Still open: players in different places (U on the map took
-   some 20 turns in a row, then never moved again while T was in a room
-   with creatures); whether a phase also covers rooms players only passed
-   through.
+1. Turn order: captured and researched (2.2, 2.3), players in different
+   places included. Still open: two players in different rooms of one
+   region; what happens to the visit when a player dies.
 2. Random creature square choice and how soon left-behind ones go.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend). Still open: mid-turn, odd Speeds.

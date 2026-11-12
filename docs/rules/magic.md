@@ -203,10 +203,12 @@ magic item after it is used. [unknown]
 ## 5. Power, Life Force and healing over time
 
 1. **Power drifts.** Each turn an individual's Power moves a little toward
-   its Wisdom. [manual] On the C64: 1 point at the end of each of its turns,
+   its Wisdom. [manual] On the C64: 1 point at the top of each of its turns,
    up or down, stopping at Wisdom, every time. [capture: drift, Power 10
    and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
-   reached 20 after 10 turn ends in every run] **Engine:** the same. A
+   reached 20 after 10 turn ends in every run] It takes no roll, and
+   comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] **Engine:** the
+   same, at the top of each turn. A
    player joining an adventure starts with Power equal to its Wisdom, at
    most 27, whatever its saved Power; above 27 it then drifts up to its
    Wisdom like any other Power. [capture: retired
@@ -221,47 +223,68 @@ magic item after it is used. [unknown]
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
    fast as natural healing. [manual] Bit 6 of the parameter set means
-   temporary: +10 with it wore off, +10 without it stayed for 60 turns. A
-   temporary +10 wore off 1 point at a time at random turns, about 1 turn
-   in 3 (10 or 11 ticks over 28 to 39 turns; 31 ticks in 101 turns). In 10
-   of 13 runs an eleventh tick took Life Force to 1 below Constitution, and
-   healing put it back the next turn. [capture: drift, Speed 1, 3 runs and
-   10 more, the profile read every turn] The tick follows turns, not time:
-   a Speed 15 player ticked 8 to 11 times in 40 turns whether it idled its
-   turns out (about 5,300 frames each) or walked them (short ones), about
-   1 turn in 4. [capture: drift and drift --walk, 3 runs each]
-   **Engine:** each individual carries a
-   temporary part of its Life Force (positive or negative). A temporary
-   change moves Life Force and the temporary part together; a permanent one
-   moves only Life Force. At the end of each of its turns, with chance 1 in
-   3, the temporary part moves 1 toward 0, and Life Force with it. The
-   eleventh tick is not understood ([unknown]) and not copied.
+   temporary: +10 with it wore off, +10 without it stayed for 60 turns.
+   [capture: drift] On the C64 a temporary change of N moves Life Force by
+   N at once and queues a reversal: after a die roll of 1 to 6 **rounds**
+   (a round is everyone in play taking a turn,
+   [creatures](creatures.md) 2.2), Life Force moves 1 back toward where it
+   was, and again after a new die each time, for every count from N down
+   to 0. So a temporary +10 is taken back 11 times, once more than it was
+   given: that is the "eleventh tick", which leaves Life Force 1 below
+   where it started until healing (5.3) puts it back. Nothing else changes
+   the delay: not Speed, time, walking or the size of the change. The
+   queue holds 30 reversals; a temporary change made while it is full is
+   never taken back. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random
+   state set to each of its 256 values at the end of a round with a
+   reversal due, the next one fell due 1 to 6 rounds later as that roll
+   predicted, in all 252 runs that needed no redraw. [capture: mem,
+   capture.md 10.12] Every gap between ticks in the 19 earlier temporary
+   +10 runs was 1 to 6 turns of a lone player (one turn a round), and an
+   eleventh fall of 1 showed in every run long enough; it was hidden in
+   3 of 13 when the next turn's healing (5.3) put it back first.
+   [capture: drift and drift --walk] Not settled: an individual out of
+   play when its reversal falls due (the researcher read a 10-round
+   delay), a temporary fall of Life Force (by the rule it ends 1 above
+   where it started), other stats. **Engine:** the rule above: a queue of
+   up to 30 reversals per game, each with its individual, its step (1
+   toward undoing the change) and its count; at the end of each round
+   every due reversal takes its step, then, with count left, counts down
+   and is due again a die roll of rounds later. A dead individual's
+   reversals are dropped. `temporary_life` reports what is still to be
+   taken back (11 just after a temporary +10).
 3. **Natural healing.** Life Force below Constitution heals on its own, about
-   6 times slower than resting. [manual] On the C64 it heals 1 point at the
-   end of every turn while below Constitution, now and then 2 (4 extra
-   points in 35 turns), and the test is on Life Force itself, temporary
-   part and all: the disease stack sat at Constitution, each tick of its
-   temporary part taking Life Force 1 below and the next turn's healing
-   putting it back, until the temporary part was gone. Healing comes before
-   the tick in a turn (a dip shows for one turn). [capture: drift, Life
-   Force 5 against Constitution 20 and the disease stack, 3 runs each]
-   Healing does not follow turns alone, nor time: a Speed 15 player
-   healed from 6 or 7 to 20 in about 12 turns (0 to 5 points a turn) when
-   it let its turns run out, about as much per turn as a Speed 1 player
-   whose turns are 14 times shorter; walking all 15 steps every turn, it
-   healed only 4 to 7 points in 25 turns. Perhaps healing depends on the
-   moves a turn leaves unused, like resting. [capture: drift and drift
-   --walk, 3 runs each] [unknown]
-   **Engine:** at the end of each of its turns, an individual whose Life
-   Force is below its Constitution gains 1, and 1 more with chance 1 in 9,
-   not above Constitution; then the temporary part's tick. Life Force above
-   Constitution from a permanent change stays. [manual, capture] The
-   manual's "twice as fast" does not hold on the C64: healing outpaces the
-   tick about three to one. Rest comes with a later rule set.
-4. These run for players at the end of each of their turns and for creatures
-   at the end of each creature turn, so creatures in rooms no player visits
-   stand still in time, as they do in everything else (creatures 2.3).
-   [unknown] They emit no events; the front end reads the numbers.
+   6 times slower than resting. [manual] On the C64 there are two chances,
+   both only while Life Force (temporary part and all) is below
+   Constitution, 1 point each, never above it:
+   1. each **idle move**, a move of the bar used up by waiting, takes a
+      roll of 0 to (the turn's full moves - 1) and heals on a 0: 1 in the
+      turn's full moves. Walking, using an item or casting takes no such
+      roll. So a turn waited out in full heals 1 on average whatever the
+      Speed (a Speed 1 turn always 1);
+   2. the **top of each turn**, just after drift, rolls a die and heals on
+      a 2: 1 in 6, needed or not.
+   [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
+   its 256 values one idle move before a Speed 15 turn's end (Life Force
+   6, Constitution 20), the idle move's roll and the next turn's die
+   predicted every gain of 0, 1 or 2 in all 253 runs that needed no
+   redraw. [capture: mem, capture.md 10.12] It explains the earlier
+   captures together: a Speed 1 player healed 1 a turn and now and then
+   2; a Speed 15 player healed from 6 to 20 in about 12 turns waiting, 0 to
+   5 a turn, but only 4 to 7 points in 25 turns when walking every square.
+   [capture: drift and drift --walk, 3 runs each] The manual's "twice as
+   fast" does not hold: on average healing gives 7 points in 6 waited
+   turns, the reversal of a temporary +10 1 in 3.5 rounds. **Engine:** the
+   rule above. A `Wait` uses up the turn's remaining moves as idle moves,
+   one healing roll each; a turn ended by walking its last move, casting
+   or readying armor takes none; creatures roll for the moves their turn
+   leaves unused ([research, unconfirmed]: the researcher read that
+   creatures share the players' turn routine). Rest comes with a later
+   rule set.
+4. These run for players and creatures alike, on their own turns, so
+   creatures in rooms no player visits stand still in time, as they do in
+   everything else (creatures 2.3); the reversals of 5.2 go by rounds of
+   the region being visited. [unknown] They emit no events; the front end
+   reads the numbers.
 
 ## 6. Creatures and magic
 
@@ -344,11 +367,9 @@ defense (none). Trait generation is a later rule set.
 
 1. Cast success, a failed cast's cost and a magic item's cost: captured
    (4.1, 4.2), and a use's cost in steps (two).
-2. Power drift, temporary decay and healing rates: captured (5.1-5.3).
-   The tick follows turns. Still open: the eleventh tick of a temporary
-   +10 (10 of 13 runs), and what healing follows (not turns alone, not
-   time: a Speed 15 player healed fast idling its turns out, slowly
-   walking them; try walking 0, 5, 10 and 15 steps a turn).
+2. Power drift, temporary decay and healing: captured, researched and
+   confirmed (5.1-5.3). Still open: creatures' healing, a temporary fall,
+   an individual out of play when its reversal is due.
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
 5. Add to Room: where the thing lands.

@@ -111,8 +111,8 @@ getting the program to the right moment.
 
 | Brief | Status |
 | --- | --- |
-| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass briefed 2026-11-12 (items 7-13: item use, drift, the temporary tick, healing, seeding, rolls between turns, the raster band), inputs ready |
-| [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | Briefed 2026-11-12, inputs ready, not started |
+| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass done 2026-11-12 (items 7-13): healing and the temporary tick confirmed by capture and in the engine. Next: creatures' rolls in a room |
+| [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | First pass done 2026-11-12: the region-visit scheduler confirmed by capture and in the engine. Next: the per-round random checks, two rooms in one region |
 
 ## 6. Templates
 
