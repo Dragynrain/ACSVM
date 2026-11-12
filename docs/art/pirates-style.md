@@ -301,3 +301,14 @@ Steps:
   terrain (the fort's grass is lighter than grassland). Match their edges in
   hand-finishing.
 - Terrains meet with hard square edges, as on the original world map.
+
+**Rooms (November 2026).** Walls and floor spaces are textures too: walls
+"seen straight from the front, flat, no perspective", floors "seen straight
+from above", made seamless and shrunk with `scripts/terrain64.py`. Doors, the
+store counter, the lava vent, gangplank and trapdoor are single squares
+(`--kind place`); cropping to 0.8 removes the white card frame some seeds
+draw. As with terrain, sparse features (sand, mud, cave rock) vanish under
+quilting unless the prompt says "covered all over". The one room floor is
+kept nearly plain on purpose: it shows in every room. Doors carry their own
+wall, which rarely matches the room's wall picture; match it in
+hand-finishing.
