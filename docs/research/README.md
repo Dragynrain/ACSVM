@@ -36,11 +36,26 @@ what capture can't settle:
 | Random, and statistics can't separate the candidate rules (60 runs a point gives about ±10 points) | Research the rule, then confirm it exactly by capture |
 | The harness needs a hidden value it can't see (the random state, a stat not on any screen) | Research its address, for the harness only |
 | Edge cases capture can't reach (clamps, rounding, overflow, rare branches) | Research, then a targeted capture |
+| Deterministic and visible, but the rule depends on many cases at once (goal choice, path tie-breaks, turn scheduling across places) | Capture a few cases first; if they don't fit a simple rule, research the rule from the cases seen, then confirm it with a few targeted captures |
 | The manual or the data already says it | Neither: cite it |
 
 The cast chance is the worked example. The statistical fit was within 10
 points everywhere the grids looked, and it was still the wrong rule: the
 program never goes above 90% or below 14%.
+
+**When to stop capturing.** Hand a question to research when a capture
+series has run two rounds of cases without converging on a rule (each
+new case needs a new hypothesis), when the rule needs more than about a
+dozen hand-built scenarios to pin down, or when the candidate rules
+differ only in cases the harness can't set up. The healing rate
+(magic 5.3) and players in different places (creatures 2.3) went that
+way: a few captures each showed behaviour no simple rule fits.
+
+**What a pass needs.** The cheapest input is a snapshot taken just
+before the behaviour (`acs-capture snap`, capture.md 10.11), with the
+captured runs it must explain. The first pass found the generator in a
+few hours from such a snapshot; without one, much of a pass goes on
+getting the program to the right moment.
 
 ## 3. The loop
 
@@ -97,6 +112,7 @@ program never goes above 90% or below 14%.
 | Brief | Status |
 | --- | --- |
 | [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass briefed 2026-11-12 (items 7-13: item use, drift, the temporary tick, healing, seeding, rolls between turns, the raster band), inputs ready |
+| [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | Briefed 2026-11-12, inputs ready, not started |
 
 ## 6. Templates
 

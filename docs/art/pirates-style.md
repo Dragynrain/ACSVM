@@ -222,6 +222,14 @@ adventure that uses the whole kit needs an Extended picture limit near 180.
 Left out on purpose: more terrain (16 is the Classic limit) and food or
 mundane items (no ACS rule uses them).
 
+**KP objects (November 2026):** the 17 non-character KP pictures exist as
+raw picks, made like the kit (LoRA v3, three seeds each). Two needed a new
+prompt: a pink pearl in a pink shell vanished into the magenta background
+(keep subjects off pink and purple, or they go with the background when
+cut out), and a "brown sailcloth" log looked like the kit's book (a KP
+object must differ from every kit picture in colour as well as shape). The
+portrait is a placeholder until Governor Vail's own picture fixes his look.
+
 ## 9. Consistency
 
 1. Pick one reference figure from a character batch: the model sheet.

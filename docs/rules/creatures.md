@@ -67,7 +67,7 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    140 million instructions, some 9 minutes of play), then T and the
    room's creatures took round after round with U never moving again: 5
    of T's turns in 3 runs, 15 in 2 more. [capture: turns, case split] Why is not known
-   ([unknown]; it needs research). **Engine:** still alternates the
+   ([unknown]; research brief `docs/research/turn-order.md`). **Engine:** still alternates the
    players strictly, wherever they are.
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] How often is not given.
