@@ -161,9 +161,10 @@ pub struct MoveBasic {
     pub item: Option<(u8, u8)>,
     /// A second retired player of ours, in the second slot.
     pub player2: Option<Player>,
-    /// Treasures of weight 1 (things `TAKE`, `TAKE` + 1, ..) on these room
-    /// squares.
+    /// Treasures (things `TAKE`, `TAKE` + 1, ..) on these room squares, of
+    /// weight 1 unless `take_weights` gives their first two property bytes.
     pub takes: Vec<(u8, u8)>,
+    pub take_weights: Vec<(u8, u8)>,
     /// A one-way portal (thing `EXIT`) on this room square, to world map
     /// point 32 at the second cell (door table entry 1).
     pub exit: Option<((u8, u8), (u8, u8))>,
@@ -261,6 +262,21 @@ pub fn weight_bytes(w: u16) -> Result<(u8, u8), String> {
     }
 }
 
+/// A take weight: `N` (as `weight_bytes`) or `x20:N`, stored as N / 20
+/// with the x20 bit even when N fits in a byte.
+pub fn take_weight(spec: &str) -> Result<(u8, u8), String> {
+    match spec.strip_prefix("x20:") {
+        Some(n) => {
+            let w: u16 = n.parse().map_err(|_| format!("{spec}: bad weight"))?;
+            if w % 20 != 0 || w / 20 > 255 {
+                return Err(format!("{spec}: a multiple of 20, at most 5,100"));
+            }
+            Ok((0x01 | 0x40, (w / 20) as u8))
+        }
+        None => weight_bytes(spec.parse().map_err(|_| format!("{spec}: bad weight"))?),
+    }
+}
+
 /// The master thing slot our obstacle takes (over the builder set's).
 pub const OBSTACLE: u8 = 100;
 
@@ -281,6 +297,7 @@ impl Default for MoveBasic {
             item: None,
             player2: None,
             takes: Vec::new(),
+            take_weights: Vec::new(),
             exit: None,
             lock: None,
         }
@@ -528,10 +545,11 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     }
     for (i, &(x, y)) in s.takes.iter().enumerate() {
         let n = TAKE + i as u8;
+        let (b0, b1) = s.take_weights.get(i).copied().unwrap_or((0x01, 1));
         f.thing(
             n as usize,
             &format!("THING{}", i + 1),
-            [0x01, 1, 1, PIC_DOOR as u8],
+            [b0, b1, 1, PIC_DOOR as u8],
         );
         items.push((x, y, n, 1));
     }
@@ -698,6 +716,23 @@ mod tests {
                 y: 7
             })
         ));
+    }
+
+    #[test]
+    fn take_weights_decode() {
+        let mut s = MoveBasic::loose("", false, false).unwrap();
+        s.take_weights = vec![take_weight("x20:240").unwrap(), take_weight("240").unwrap()];
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        for (n, raw) in [(TAKE, (0x41, 12)), (TAKE + 1, (0x01, 240))] {
+            match &adv.things[n as usize - 1].kind {
+                acs_core::model::ThingKind::Treasure { carry, .. } => assert_eq!(carry.weight, 240),
+                k => panic!("{k:?}"),
+            }
+            assert_eq!(s.take_weights[(n - TAKE) as usize], raw);
+        }
+        assert!(take_weight("x20:250").is_err());
     }
 
     #[test]

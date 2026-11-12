@@ -132,12 +132,12 @@ impl Runner<'_> {
         }))
     }
 
-    /// Walks the turn out: east on even turns, west on odd ones, until the
-    /// next turn's bar shows (the stick let go at once, so the new turn
-    /// keeps its steps). A Speed 15 player's 15 squares fit the field both
-    /// ways from the start.
+    /// Walks the turn out: east on odd turns (the first after the cast is
+    /// turn 1), west on even ones, until the next turn's bar shows (the
+    /// stick let go at once, so the new turn keeps its steps). A Speed 15
+    /// player's 15 squares fit the field east of the start and back.
     fn walk_turn(&mut self, turn: usize) -> Result<Option<u64>, String> {
-        let dir = if turn % 2 == 0 { "e" } else { "w" };
+        let dir = if turn % 2 == 1 { "e" } else { "w" };
         let mut last = self.look()?.bar;
         self.joy(dir)?;
         let mut t = 0;

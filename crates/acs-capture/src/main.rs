@@ -121,6 +121,10 @@ enum Cmd {
         /// loose: the player owns no magic item (it carries nothing).
         #[arg(long)]
         no_item: bool,
+        /// loose: weights of the things to take (comma-separated; N, or
+        /// x20:N to store it with the x20 bit), the rest weigh 1.
+        #[arg(long, value_delimiter = ',')]
+        take_weights: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -251,6 +255,7 @@ fn main() {
             key,
             lock_destroy,
             no_item,
+            take_weights,
         } => {
             let player2 = player2.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
             let spells: Vec<scenario::Spell> = spell
@@ -293,6 +298,10 @@ fn main() {
                     if no_item {
                         s.item = None;
                     }
+                    s.take_weights = take_weights
+                        .iter()
+                        .map(|w| scenario::take_weight(w).unwrap_or_else(|e| fail(&e)))
+                        .collect();
                     scenario::move_basic(&s, template.as_deref())
                 }
                 other => fail(&format!("unknown scenario {other}")),
