@@ -196,6 +196,8 @@ acs-capture run refuse --snapshot C/runs/refuse/start.vsf --disk C/runs/refuse/d
 # statistical runs: the wide jitter (10.5), split over VICE processes
 acs-capture run cast --snapshot C/runs/cc-20-60/start.vsf --disk C/runs/cc-20-60/disk.d64 \
     --out C/runs/cc-20-60/wide --runs 60 --jobs 8 --jitter-step 3708203 --jitter-range 6000000
+# outcome only, sampled from a menu snapshot (10.7): about 22 s for the 60
+acs-capture run cast ... --runs 60 --jobs 8 --from-menu --jitter-step 3708203 --jitter-range 6000000
 acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # re-distil a runs.jsonl
 ```
 
@@ -665,5 +667,19 @@ In this order (planned November 2026):
    exactly one step, both against a control; the first
    take after entering a room ending the turn, the obstacle's 1-pixel
    drain, a room door back out, a locked door, retired slot 2).
-7. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+7. **Sampling a roll from just before it** (`run cast --from-menu`, done
+   November 2026). A run that replays the setup each time pays for the
+   setup on every sample. So the menu is opened and the spell chosen once,
+   from the first-turn snapshot, and saved as `OUT/menu.vsf` (without
+   disks); each run restores it, idles its jitter there (the menu pauses
+   the drain, so any range fits in the turn) and taps the button; the run
+   ends at the outcome screen (no Power or turn readings: run without the
+   flag for those). About 4 million instructions a run against 28.
+   Does the jitter still reach the roll with the menu open? Yes, with
+   short streaks along the jitter (wide range, 60 runs each, 8 jobs, 22 s
+   a grid): Power 20 against cost 60 worked 20 times (33%; Power /
+   (cost + 1) = 33%), against cost 30 36 times (60%; 65%). Use it for the
+   statistical captures that only need an outcome; any roll reached
+   through menus can be sampled this way.
+8. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.

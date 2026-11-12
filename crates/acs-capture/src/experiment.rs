@@ -678,11 +678,21 @@ impl Runner<'_> {
     /// later: the spell's long message means it worked, the map still
     /// showing means it failed. Then the button, the bars again, and the
     /// bars once more at the start of the next turn.
-    pub fn cast_run(&mut self, run: usize, jitter: u64) -> Result<(), String> {
+    /// `--from-menu` (docs/capture.md 10.7): from the run's snapshot (no
+    /// jitter), opens the menu, goes to the spell in SELECT SPELL and saves
+    /// `path` there, without disks; later runs start from it.
+    pub fn prepare_cast_menu(&mut self, path: &Path) -> Result<(), String> {
         self.place = Place::Map;
-        self.reset(jitter)?;
-        let start = self.look()?;
+        self.reset(0)?;
         self.open_menu()?;
+        self.choose_spell()?;
+        self.s.line(&format!("dump {} nodisk", path.display()))?;
+        self.snapshot = path.display().to_string();
+        Ok(())
+    }
+
+    /// From the open command menu to our spell in SELECT SPELL.
+    fn choose_spell(&mut self) -> Result<(), String> {
         // Use Power: one column right, two rows down. Then short taps: a
         // held button would pick the list's first entry, NONE.
         self.menu_tap("e")?;
@@ -690,7 +700,20 @@ impl Runner<'_> {
         self.menu_tap("s")?;
         self.menu_tap("fire")?;
         // "SELECT SPELL": NONE, then the spell.
-        self.menu_tap("s")?;
+        self.menu_tap("s")
+    }
+
+    /// `quick` (with `prepare_cast_menu`): the snapshot already has the
+    /// spell chosen, the jitter is idled there, and the run ends at the
+    /// outcome screen.
+    pub fn cast_run(&mut self, run: usize, jitter: u64, quick: bool) -> Result<(), String> {
+        self.place = Place::Map;
+        self.reset(jitter)?;
+        let start = self.look()?;
+        if !quick {
+            self.open_menu()?;
+            self.choose_spell()?;
+        }
         let chosen = self.look()?;
         self.menu_tap("fire")?;
         let f = self.s.frame().map_err(|e| e.to_string())?;
@@ -703,6 +726,13 @@ impl Runner<'_> {
         let name = format!("cast-{kind}-{outcome_hash:016x}");
         if !self.s.out.join(format!("{name}.png")).exists() {
             self.s.shot(&name).map_err(|e| e.to_string())?;
+        }
+        if quick {
+            return self.write(json!({
+                "kind": "cast", "run": run, "jitter": jitter, "from_menu": true,
+                "start": start, "chosen": chosen, "worked": worked, "outcome": outcome,
+                "outcome_hash": format!("{outcome_hash:016x}"),
+            }));
         }
         self.button()?;
         self.step(10_000_000)?;

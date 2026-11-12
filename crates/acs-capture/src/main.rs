@@ -136,6 +136,11 @@ enum Cmd {
         /// OUT/part0.. on copies of the disk, and join their output.
         #[arg(long, default_value_t = 1)]
         jobs: usize,
+        /// cast: open the menu and choose the spell once, save OUT/menu.vsf
+        /// there, and start every run from it (jitter idled in the menu);
+        /// each run ends at the outcome screen (docs/capture.md 10.7).
+        #[arg(long)]
+        from_menu: bool,
         /// Jitter of run n: n x step mod range idle instructions before the
         /// run's input (docs/capture.md 4.3, 10.5).
         #[arg(long, default_value_t = 7_919)]
@@ -259,6 +264,7 @@ fn main() {
             runs,
             first,
             jobs,
+            from_menu,
             weight_items,
             jitter_step,
             jitter_range,
@@ -300,6 +306,13 @@ fn main() {
                 out: file,
                 glyphs,
             };
+            if from_menu {
+                if name != "cast" {
+                    fail("--from-menu is for the cast experiment");
+                }
+                r.prepare_cast_menu(&out.join("menu.vsf"))
+                    .unwrap_or_else(|e| fail(&e));
+            }
             let mut timer = RunTimer::new(&out, &r.s.vice.mon.stats);
             let mut result = Ok(());
             'outer: for run in first..first + runs {
@@ -320,7 +333,7 @@ fn main() {
                     continue;
                 }
                 if name == "cast" {
-                    result = r.cast_run(run, jitter);
+                    result = r.cast_run(run, jitter, from_menu);
                     if result.is_err() {
                         break 'outer;
                     }
