@@ -55,6 +55,7 @@ python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our g
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
 python scripts/palsnap.py docs/art/pirates-palette.json OUTDIR IMG.png... --sheet s.png  # snap to kit ramps
+python scripts/tidy.py docs/art/pirates-palette.json OUTDIR TILE.png... --sheet s.png  # specks, strays, outline
 ```
 
 Write CLI output and viewer screenshots for real adventures outside the repo

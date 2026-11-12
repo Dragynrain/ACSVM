@@ -7,7 +7,8 @@ For each IMAGE (a figure on a flat background, as the prompt templates in
 docs/art/ ask for):
 
 1. Cut out: background connected to the image border becomes transparent,
-   plus any strongly magenta fringe pixels left by anti-aliasing.
+   plus strongly magenta fringe pixels left by anti-aliasing within a few
+   pixels of it (not inside the subject, which may be purple).
 2. Crop to the figure and shrink it so its longer side is --fig px, with
    k-centroid downscaling: each output pixel takes the dominant colour of its
    source block (k-means, largest cluster), not the average, so outlines stay
@@ -31,6 +32,7 @@ from PIL import Image, ImageDraw
 
 BOARD = (96, 96, 104)
 MARKER = (1, 254, 3)  # flood-fill marker; not a colour the art uses
+FRINGE = 3  # px from the background where magenta anti-aliasing is removed
 
 
 def cut_out(im):
@@ -50,7 +52,19 @@ def cut_out(im):
     a = np.array(rgb)
     bg = np.all(np.array(work) == MARKER, axis=2)
     r, g, b = (a[..., i].astype(int) for i in range(3))
-    fringe = (r > 120) & (b > 100) & (g < 0.55 * np.minimum(r, b))
+    # Magenta fringe only next to the background: a purple subject (a
+    # kraken arm) has the same colours inside it and must keep them.
+    near = bg.copy()
+    for _ in range(FRINGE):
+        n = near.copy()
+        n[1:] |= near[:-1]; n[:-1] |= near[1:]; n[:, 1:] |= near[:, :-1]; n[:, :-1] |= near[:, 1:]
+        near = n
+    magentaish = (r > 120) & (b > 100) & (g < 0.55 * np.minimum(r, b))
+    # Background pockets enclosed by the subject (between ropes or spokes)
+    # are true magenta: red about as strong as blue (purple is bluer) and
+    # blue at least 0.4 of red (crimson coats and parrots are redder).
+    pocket = magentaish & (r > 150) & (r >= 0.9 * b) & (b >= 0.4 * r)
+    fringe = (near & magentaish) | pocket
     alpha = np.where(bg | fringe, 0, 255).astype(np.uint8)
     return np.dstack([a, alpha])
 

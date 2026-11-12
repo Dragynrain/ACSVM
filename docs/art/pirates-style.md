@@ -225,6 +225,9 @@ against the stories section 1 says the kit must serve, such as a ghost-ship
 horror. Generate these after the hand-finishing pass and LoRA v4, except the
 ship, which *The King's Pardon* needs sooner. About 41 pictures, so a pirate
 adventure that uses the whole kit needs an Extended picture limit near 180.
+The two ships are done: the anchorage square is the intact ship from the
+first wreck attempt (section 11), and the portal ship asked for "a small
+patch of blue water" (seeds that ran the sea to the edges cut out badly).
 
 | Group | Pictures | Contents | Why |
 | --- | --- | --- | --- |
@@ -280,6 +283,21 @@ batch) is only for trying things out. Averaging
 the whole frame down, as the first contact sheets did, smears outlines and
 faces; cropping first does most of the good. Faces are still about 4 px
 wide at 64, so eyes and mouths get hand-placed pixels.
+
+**Purple subjects.** The cutter also drops magenta anti-aliasing. It once
+did that everywhere in the picture and so cut the kraken arm's purple body
+away, leaving outline and suckers; the snap hid it. Now magenta fringe is
+dropped only within 3 px of the background, and anywhere else only true
+magenta pockets (red about equal to blue, blue at least 0.4 of red: the
+background caught between ropes or a pole and a leg). Purple is bluer and
+crimson redder, so both stay.
+
+**Tidy before hand-finishing.** `scripts/tidy.py PALETTE.json OUTDIR
+IMG...` does the part of finishing a rule can: removes lone specks, gives a
+stray pixel (no neighbour shares its colour, three of four share another)
+its neighbours' colour, and adds the 1 px `outline0` outside every edge that
+is not already dark, so figures keep their size. Faces, hands and held items
+still need a person.
 
 ## 10. Kit LoRA
 
