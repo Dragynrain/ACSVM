@@ -28,8 +28,9 @@ const REFILL: usize = 4;
 pub struct Look {
     /// The name strip's first word: who is moving ("" between turns).
     pub mover: String,
-    /// "room" or "map" from the strip's place name, if it shows.
-    pub place: Option<&'static str>,
+    /// The strip's place name (TEST FIELD, TEST ROOM, SIDE ROOM), if it
+    /// shows.
+    pub place: Option<String>,
     /// Squares of the players' 16 x 16 boxes (two players on one square
     /// show as one).
     pub players: Vec<(i32, i32)>,
@@ -40,21 +41,49 @@ pub struct Look {
 /// A room square, counted from the room's top-left wall square.
 pub type Square = (i32, i32);
 
+/// The place names of our scenarios (docs/capture.md 7, 10.10.3).
+const PLACES: [&str; 3] = ["TEST FIELD", "TEST ROOM", "SIDE ROOM"];
+
+fn is_room(place: &Option<String>) -> bool {
+    place.as_deref().is_some_and(|p| p.ends_with("ROOM"))
+}
+
+/// A route: (direction, squares) moves, walked in order.
+pub type Route = Vec<(String, u32)>;
+
+/// `NAME=e3,s1` to the player's name and route.
+pub fn parse_route(spec: &str) -> Result<(String, Route), String> {
+    let (name, moves) = spec.split_once('=').ok_or(format!("{spec}: want NAME=MOVES"))?;
+    let mut route = Vec::new();
+    for m in moves.split(',').map(str::trim).filter(|m| !m.is_empty()) {
+        let split = m
+            .find(|c: char| c.is_ascii_digit())
+            .ok_or(format!("{m}: want e3"))?;
+        let (dir, n) = m.split_at(split);
+        if crate::script::joy_bits(dir).is_none() {
+            return Err(format!("{m}: bad direction"));
+        }
+        let n: u32 = n.parse().map_err(|_| format!("{m}: bad count"))?;
+        route.push((dir.to_string(), n));
+    }
+    Ok((name.to_string(), route))
+}
+
 fn square(x0: usize, y0: usize) -> Square {
     ((x0 as i32 - VIEW_X) / CELL, (y0 as i32 - VIEW_Y) / CELL)
 }
 
 /// Reads the name strip (white name, yellow place name): inner rows
 /// `STRIP_Y`, on whichever character grid matches the table best.
-pub fn strip(f: &Frame, t: &g::Table) -> (String, Option<&'static str>) {
+pub fn strip(f: &Frame, t: &g::Table) -> (String, Option<String>) {
     let yellow = f.palette.get(7).copied().unwrap_or([255, 255, 0]);
     let s = g::Screen::from_frame(f, &[g::INK, yellow], &[]).rows(STRIP_Y.0, STRIP_Y.1);
     let text = g::read(&s, t);
-    // The line with the place name; failing that, the fullest one.
+    // The line with a place name; failing that, the fullest one.
     let line = text
         .lines
         .iter()
-        .find(|l| l.contains("TEST"))
+        .find(|l| PLACES.iter().any(|p| l.contains(p)))
         .or_else(|| text.lines.iter().max_by_key(|l| l.trim().len()))
         .cloned()
         .unwrap_or_default();
@@ -62,17 +91,13 @@ pub fn strip(f: &Frame, t: &g::Table) -> (String, Option<&'static str>) {
 }
 
 /// The mover and place from one line of the strip.
-fn strip_line(line: &str) -> (String, Option<&'static str>) {
-    let place = if line.contains("ROOM") {
-        Some("room")
-    } else if line.contains("FIELD") {
-        Some("map")
-    } else {
-        None
-    };
-    // The first word, unless it is the place name (the strip names nobody).
+fn strip_line(line: &str) -> (String, Option<String>) {
+    let place = PLACES.iter().find(|p| line.contains(*p)).map(|p| p.to_string());
+    // The first word, unless the line starts with the place name (the
+    // strip names nobody).
+    let starts_with_place = PLACES.iter().any(|p| line.trim_start().starts_with(p));
     let mover = match line.split_whitespace().next() {
-        Some(w) if !line.trim_start().starts_with("TEST") => w.to_string(),
+        Some(w) if !starts_with_place => w.to_string(),
         _ => String::new(),
     };
     (mover, place)
@@ -113,7 +138,7 @@ impl Runner<'_> {
             .as_ref()
             .ok_or("no glyph table (--glyphs or ACSVM_CAPTURE_GLYPHS)")?;
         let (mover, place) = strip(&f, t);
-        let (players, creatures) = if place == Some("room") {
+        let (players, creatures) = if is_room(&place) {
             individuals(&f)
         } else {
             (Vec::new(), Vec::new())
@@ -128,6 +153,52 @@ impl Runner<'_> {
             },
             bar,
         ))
+    }
+
+    /// Walks `route` from the current square, letting go of the stick as
+    /// soon as the player's square changes (a held stick queues another
+    /// step, 10.8) and ending a move early when the place changes (a door).
+    /// Returns each move's (direction, squares walked, place after), the
+    /// instructions and the frames spent.
+    fn walk_route(&mut self, route: &Route) -> Result<(Vec<serde_json::Value>, u64, u64), String> {
+        const MOVE_LIMIT: u64 = 40_000_000;
+        let (mut t, mut frames) = (0u64, 0u64);
+        let mut done = Vec::new();
+        for (dir, n) in route {
+            let (start, _) = self.turns_look()?;
+            let mut at = start.players.first().copied();
+            let mut moved = 0;
+            let mut spent = 0;
+            let mut place = start.place.clone();
+            self.joy(dir)?;
+            while moved < *n && spent < MOVE_LIMIT {
+                frames += self.s.run_counting_frames(LOOK).map_err(|e| e.to_string())?;
+                spent += LOOK;
+                let (look, _) = self.turns_look()?;
+                if look.place.is_some() && look.place != start.place {
+                    // Through a door: the move ends.
+                    self.joy("none")?;
+                    moved += 1;
+                    place = look.place;
+                    break;
+                }
+                let now = look.players.first().copied();
+                if now.is_some() && now != at {
+                    self.joy("none")?;
+                    moved += 1;
+                    at = now;
+                    frames += self.s.run_counting_frames(60_000).map_err(|e| e.to_string())?;
+                    spent += 60_000;
+                    if moved < *n {
+                        self.joy(dir)?;
+                    }
+                }
+            }
+            self.joy("none")?;
+            t += spent;
+            done.push(json!({"dir": dir, "squares": moved, "place": place}));
+        }
+        Ok((done, t, frames))
     }
 
     /// `turns` (10.10.1): from the run's snapshot, after its jitter, looks
@@ -145,6 +216,7 @@ impl Runner<'_> {
         jitter: u64,
         players: &[&str],
         enter: &[&str],
+        routes: &[(String, Route)],
         rounds: usize,
     ) -> Result<(), String> {
         const LIMIT: u64 = 2_000_000_000;
@@ -158,7 +230,8 @@ impl Runner<'_> {
         let mut last: Option<Look> = None;
         let mut current = String::new();
         let (mut t, mut frames, mut firsts, mut last_bar) = (0u64, 0u64, 0usize, 0usize);
-        let mut last_place: Option<&'static str> = None;
+        let mut last_place: Option<String> = None;
+        let mut walked = Vec::new();
         while t < LIMIT {
             let (look, bar) = self.turns_look()?;
             // A new turn: another mover, or the same one's bar refilled
@@ -173,7 +246,7 @@ impl Runner<'_> {
             let refilled = player && bar > last_bar + REFILL && !movers.is_empty() && same_place;
             last_bar = bar;
             if look.place.is_some() && !look.mover.is_empty() {
-                last_place = look.place;
+                last_place = look.place.clone();
             }
             if !look.mover.is_empty() && (look.mover != current || refilled) {
                 if holding.take().is_some() {
@@ -194,7 +267,7 @@ impl Runner<'_> {
                     }
                 }
                 if let Some(i) = players.iter().position(|p| *p == current) {
-                    if !entered[i] && enter.contains(&current.as_str()) && look.place != Some("room") {
+                    if !entered[i] && enter.contains(&current.as_str()) && !is_room(&look.place) {
                         self.joy("s")?;
                         holding = Some(i);
                     }
@@ -206,10 +279,17 @@ impl Runner<'_> {
                 }
             }
             if let Some(i) = holding {
-                if look.place == Some("room") {
+                if is_room(&look.place) {
                     self.joy("none")?;
                     entered[i] = true;
                     holding = None;
+                    // The player's route, on the same turn.
+                    if let Some((_, route)) = routes.iter().find(|(n, _)| n == players[i]) {
+                        let (done, spent, f) = self.walk_route(route)?;
+                        walked.push(json!({"player": players[i], "t": t, "moves": done}));
+                        t += spent;
+                        frames += f;
+                    }
                 }
             }
             if last.as_ref() != Some(&look) {
@@ -225,7 +305,7 @@ impl Runner<'_> {
         self.joy("none")?;
         self.write(json!({
             "kind": "turns", "run": run, "jitter": jitter, "players": players, "enter": enter,
-            "movers": movers, "turns": turns, "ended": t < LIMIT, "rows": rows,
+            "movers": movers, "turns": turns, "routes": walked, "ended": t < LIMIT, "rows": rows,
         }))
     }
 }
@@ -264,19 +344,35 @@ mod tests {
 
     #[test]
     fn strip_names_the_mover_and_the_place() {
+        let p = |s: &str| Some(s.to_string());
         assert_eq!(
             strip_line("          T          TEST ROOM"),
-            ("T".into(), Some("room"))
+            ("T".into(), p("TEST ROOM"))
         );
         assert_eq!(
             strip_line("     AA        TEST FIELD"),
-            ("AA".into(), Some("map"))
+            ("AA".into(), p("TEST FIELD"))
+        );
+        assert_eq!(
+            strip_line("     AA        SIDE ROOM"),
+            ("AA".into(), p("SIDE ROOM"))
         );
         assert_eq!(
             strip_line("               TEST ROOM"),
-            (String::new(), Some("room"))
+            (String::new(), p("TEST ROOM"))
         );
         assert_eq!(strip_line(""), (String::new(), None));
+        assert!(is_room(&p("SIDE ROOM")) && !is_room(&p("TEST FIELD")));
+    }
+
+    #[test]
+    fn routes_parse() {
+        assert_eq!(
+            parse_route("T=e3,s1").unwrap(),
+            ("T".to_string(), vec![("e".to_string(), 3), ("s".to_string(), 1)])
+        );
+        assert!(parse_route("T=x3").is_err());
+        assert!(parse_route("e3").is_err());
     }
 
     #[test]

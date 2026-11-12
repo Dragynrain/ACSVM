@@ -157,7 +157,18 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    the nearest inside square with no individual and no thing (rings of
    growing distance, scanned top row first, left to right); with none free
    it stays where it is and its turn ends. [unknown] Baber notes that a creature following a player can share
-   the player's square for a moment. [designer] **Engine:** never shares.
+   the player's square for a moment. [designer] On the C64, a friend of
+   ours (Speed 6) that followed the player through a portal into another
+   room vanished from the first room on the step onto the portal, its turn
+   ending there, and showed in the new room on its next turn on the
+   portal's destination square, on top of the player standing there; it
+   then stepped off. [capture: turns, case follow, 2 runs, capture.md
+   10.10.3] **Engine:** taking a door costs the step and ends the
+   creature's turn; it arrives on the destination square even when a
+   player stands there, sharing it until one of them moves. When a
+   creature stands there it arrives on the nearest free square as above
+   ([unknown]). The original keeps the creature out of sight until its
+   next turn; the engine places it at once.
 5. A creature sent through a door into a deleted room is banished.
    [manual] **Engine:** removed (`CreatureRemoved`, reason `banished`) with
    what it carries.
@@ -267,11 +278,13 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 The corpus test (`crates/acs-engine/tests/corpus.rs`) puts a player in each
 of the 996 live rooms that hold residents or a random creature and plays a
 dozen turns of waiting and wandering. With one creature phase a round
-(2.2; November 2026), creatures take 14,066 turns, make 7,026 steps, go
-through 402 doors, square up to someone 8,242 times, ready 2,384 weapons,
-pick up gold 85 times and treasure 9 times, and make 75 overburdened
-drops. No creature leaves its region, stands on a wall after moving,
-shares a square or breaks a carry limit. The random walks with
+(2.2) and a room door into another room ending the turn (movement 2.3;
+November 2026), creatures take 14,232 turns, make 7,112 steps, go through
+425 doors, square up to someone 8,356 times, ready 2,424 weapons, pick up
+gold 87 times and treasure 9 times, and make 75 overburdened drops. No
+creature leaves its region, stands on a wall after moving or breaks a
+carry limit; none shares a square with another creature, nor with a
+player except on arriving through a door (5.4). The random walks with
 creatures replay exactly.
 
 ## 10. Left for later
@@ -300,6 +313,10 @@ creatures replay exactly.
    `Rules::diagonals`, so they step straight too.) Seen in the turn order
    runs: creatures stepped straight, and a slinker friend used its whole
    bar, stepping past a square beside the player.
-6. A creature following through a door: where it lands, and whether its
-   turn goes on in the new room.
+6. A creature following through a door: captured (5.4: the step ends its
+   turn; it lands on the destination square, sharing it with a player).
+   Still open: a destination held by a creature. Seen in the same runs:
+   creatures' paths and goals varied from run to run (a friend sometimes
+   took the portal with the player still in the room), so goal choice
+   takes a roll (items 4 and 5; the random-rolls brief, item 12).
 7. The overburdened drop: what, where, how much gold, how often.

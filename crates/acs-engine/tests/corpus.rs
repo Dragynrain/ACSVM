@@ -461,6 +461,7 @@ fn creatures_in_every_room_follow_the_rules() {
                     },
                 );
                 let mut pick = Rng::new(reg.number as u64 * 100 + room.number as u64);
+                let mut arrived = std::collections::HashSet::new();
                 for i in 0..12 {
                     let cmd = if i % 2 == 0 {
                         Command::Wait
@@ -471,6 +472,19 @@ fn creatures_in_every_room_follow_the_rules() {
                     };
                     let evs = g.apply(cmd);
                     let last = format!("{evs:?}");
+                    // Creatures 5.4: a creature that came through a door
+                    // may share the player's square until it moves.
+                    for e in &evs {
+                        match e {
+                            Event::CreatureTookDoor { region, slot, .. } => {
+                                arrived.insert((*region, *slot));
+                            }
+                            Event::CreatureMoved { region, slot, .. } => {
+                                arrived.remove(&(*region, *slot));
+                            }
+                            _ => {}
+                        }
+                    }
                     for e in evs {
                         let k = format!("{e:?}");
                         let k = k.split([' ', '{']).next().unwrap();
@@ -523,7 +537,7 @@ fn creatures_in_every_room_follow_the_rules() {
                             }
                             let pl = g.current_player().at;
                             // The dead stand nowhere (magic 7.4).
-                            if moved && g.current_player().alive {
+                            if moved && g.current_player().alive && !arrived.contains(&(greg.number, s)) {
                                 assert_ne!(
                                     pl,
                                     Location::Room {

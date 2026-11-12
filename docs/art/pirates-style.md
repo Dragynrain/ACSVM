@@ -199,6 +199,25 @@ Creature rules for the named eight: each needs a silhouette no generic role
 shares (section 3), and house guards must read apart from navy marines, since
 the story turns on who serves Vail.
 
+**The named eight (briefs, November 2026).** Roles are working guesses from
+the asset list until the adventure is written; looks are fixed.
+
+| Character | Role | Look | Silhouette |
+| --- | --- | --- | --- |
+| Meg Harrow | Retired pirate captain, harbour fence | Woman, mid-fifties, weathered tan skin, long grey braid, patched knee-length captain's coat, wide hat with one feather | Wide hat over long coat; lantern and big iron key |
+| Jory Fenn | Swamp boatman and guide | Man, early twenties, light brown skin, curly hair under a frayed straw hat, open waistcoat, rolled trousers, barefoot | Punt pole taller than him, straw hat |
+| Abel Quill | Silversmith | Man, sixties, dark brown skin, short white beard, round spectacles, leather apron over a waistcoat, slightly stooped | Silver goblet and small hammer |
+| Cass Quill | Abel's daughter, keeps the books | Woman, thirties, dark brown skin, yellow headscarf, plain blue dress, rolled sleeves | The green ledger (the KP ledger picture) |
+| Sabine Duroc | French privateer captain | Woman, forties, pale skin, short black hair, deep crimson frock coat, black bicorne worn sideways | The only bicorne; rapier and spyglass |
+| Hob Varrick | Vail's enforcer or harbour master | Man, forties, olive skin, shaved head, thick red beard, very broad, tar-stained sea-grey greatcoat | Bigger than anyone; iron chain over one shoulder |
+| Governor Vail | Governor | Man, fifties, pale skin, tall and thin, powdered white wig, long dark-blue coat with gold embroidery | Tall and thin; cane and a sealed pardon. His portrait matches. |
+| Warden Kesi | Warden of the fort | Woman, sixties, deep brown skin, grey hair in a bun, short and stout, buff coat with a red sash | Ring of keys and walking staff |
+
+Kesi is drawn apart from the generic house guard (also a dark-skinned woman
+in a grey coat) by age, build, coat colour and held item; Hob apart from the
+boarder (also big and bald) by beard, greatcoat and chain. Keep coats off
+burgundy and purple: they cut away with the magenta background.
+
 **Kit, second round (planned November 2026).** The first 109 cover the list
 above but leave gaps against what Kit 4 in [design](../design.md) promises
 (ships as portals, a cursed compass, a mermaid's charm, a ghost crew) and

@@ -130,6 +130,10 @@ enum Cmd {
         /// --player stats (docs/capture.md 10.10).
         #[arg(long)]
         creature: Vec<String>,
+        /// A second room (SIDE ROOM) and a one-way portal to its square
+        /// 2,4 on room square 7,4 (docs/capture.md 10.10.3).
+        #[arg(long)]
+        side_room: bool,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -188,6 +192,11 @@ enum Cmd {
         /// turns: the players that walk into the room (default: all).
         #[arg(long)]
         enter: Option<String>,
+        /// turns: a player's route after the map door, on the same turn:
+        /// NAME=MOVES, moves like e3 (3 squares east) separated by commas;
+        /// a move ends early when the place changes. Repeatable.
+        #[arg(long)]
+        route: Vec<String>,
         /// drift: walk each turn out (east, then west) instead of idling it.
         #[arg(long)]
         walk: bool,
@@ -291,7 +300,9 @@ fn main() {
             no_item,
             take_weights,
             creature,
+            side_room,
         } => {
+            let side = side_room.then_some(((7, 4), (2, 4)));
             let residents: Vec<scenario::Resident> = creature
                 .iter()
                 .map(|c| scenario::Resident::parse(c).unwrap_or_else(|e| fail(&e)))
@@ -323,6 +334,7 @@ fn main() {
                         item,
                         player2,
                         residents: residents.clone(),
+                        side,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -336,6 +348,7 @@ fn main() {
                     s.player2 = player2;
                     s.spells = spells.clone();
                     s.residents = residents.clone();
+                    s.side = side;
                     if no_item {
                         s.item = None;
                     }
@@ -371,7 +384,12 @@ fn main() {
             walk,
             players,
             enter,
+            route,
         } => {
+            let routes: Vec<(String, acs_capture::turns::Route)> = route
+                .iter()
+                .map(|r| acs_capture::turns::parse_route(r).unwrap_or_else(|e| fail(&e)))
+                .collect();
             let table_name = if name == "refuse" {
                 "refuse".to_string()
             } else {
@@ -435,7 +453,7 @@ fn main() {
                     };
                     result = match name.as_str() {
                         "item" => r.item_run(run, jitter),
-                        "turns" => r.turns_run(run, jitter, &names, &enter, turns),
+                        "turns" => r.turns_run(run, jitter, &names, &enter, &routes, turns),
                         "drift" => r.drift_run(run, jitter, &plan, turns, walk),
                         _ => r.profile_check(run, jitter),
                     };

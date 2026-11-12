@@ -54,9 +54,16 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    (owners of a key) to another square of the same room, each took one
    step, and the turn went on in the new place; the same room is drawn
    again with the bar hidden, as after a region load. [capture: acts,
-   tables exit and lock, 10 and 5 runs] **Engine:** one step; the
-   character then stands on the destination square and keeps its
-   remaining moves.
+   tables exit and lock, 10 and 5 runs] A room door into **another room**
+   is different: it costs the step and ends the turn, and the player shows
+   in the new room only when its next turn starts. A Speed 12 player that
+   walked 3 squares, the map door and 3 squares east onto a one-way portal
+   into a second room of the region had 5 steps left; the room's creatures
+   moved next, and the player was next seen in the new room at the top of
+   its following turn. [capture: turns, case follow, 3 runs, capture.md
+   10.10.3] **Engine:** one step; the character then stands on the
+   destination square and keeps its remaining moves, except through a
+   room door into a different room, which ends the turn.
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,

@@ -406,6 +406,11 @@ impl Game {
                     // Creatures 6.4: creatures left behind chase through it.
                     self.turn_exits.push((region, room, nx, ny));
                     self.travel(p, from, item.destination, Some(item.thing), ev);
+                    // 2.3: a room door into another room ends the turn.
+                    let at = self.players[p].at;
+                    if at.room().is_some() && at.room() != from.room() {
+                        self.players[p].moves_left = 1;
+                    }
                     self.spend(ev);
                 }
             },

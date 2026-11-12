@@ -649,7 +649,19 @@ impl Game {
             self.remove_creature(region, slot, RemovalReason::Banished, ev);
             return;
         }
-        let Some((lx, ly)) = self.landing(region, room, x, y) else {
+        // Creatures 5.4: it may share the destination with a player, not
+        // with another creature.
+        let creature_there = self.region(region).is_some_and(|reg| {
+            reg.residents
+                .iter()
+                .any(|o| o.in_use && o.room == room && o.x == x && o.y == y)
+        });
+        let landing = if creature_there {
+            self.landing(region, room, x, y)
+        } else {
+            Some((x, y))
+        };
+        let Some((lx, ly)) = landing else {
             return; // Nowhere to stand: it stays and its turn ends.
         };
         // Access "owners of" with "destroy needed thing" uses one up.

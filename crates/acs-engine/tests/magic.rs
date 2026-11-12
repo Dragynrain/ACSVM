@@ -1080,11 +1080,14 @@ fn creatures_set_off_door_and_drop_spells() {
             }];
         });
         let mut g = start(a, 8, 4, setup());
-        let ev = mv(&mut g, Dir::SE);
+        // A door into another room ends the turn (movement 2.3), so the
+        // creature phase comes with the move.
+        let mut ev = mv(&mut g, Dir::SE);
         assert!(ev.contains(&Event::Music { number: 3 }), "{ev:?}");
-        let ev = g.apply(Command::Wait);
+        ev.extend(g.apply(Command::Wait));
         // The friend follows through the music door and sets it off.
-        assert!(ev.contains(&Event::Music { number: 3 }), "{ev:?}");
+        let music = ev.iter().filter(|e| **e == Event::Music { number: 3 }).count();
+        assert_eq!(music, 2, "{ev:?}");
         let bomb = ev.iter().any(|e| {
             matches!(
                 e,

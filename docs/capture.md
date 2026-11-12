@@ -516,6 +516,26 @@ turn in turns 14 times shorter); perhaps it depends on the moves left
 unused. The Speed 1 runs showed the eleventh tick (one turn at 19, then
 20) in 8 of 10, 10 of 13 with the first three.
 
+**Following through a door** (experiment `turns`, section 10.10.3;
+November 2026; `C/runs/turns/follow/`). T (Speed 12) with the route east
+onto the portal into SIDE ROOM (`route`, 3 runs) or staying on the entry
+square (`stay`, 3 runs); AA a friend (Speed 6), CC a neutral (Speed 4).
+
+| Seen | Runs |
+| --- | --- |
+| T's turn ended on the step onto the portal, with 5 steps left; T showed in SIDE ROOM at the top of its next turn | 3 of 3 |
+| A creature stepping onto the portal vanished at once and the next creature moved | every time (AA in 2 route runs and 1 stay run, CC in 1 stay run) |
+| AA showed in SIDE ROOM on its next turn on the portal's destination, over T, then stepped off | 2 of 2 |
+| Creatures stepped straight, never diagonally | all |
+| Paths and goals differed between runs from the same start: AA went for T, for the portal, or wandered, with T still in the room | all 6 |
+
+The side room is drawn centred, so its squares read 3 right and 1 down
+of their true place (T on 2,4 read as 5,5). The engine now ends a
+player's turn on a room door into another room and lets a creature
+arriving through a door share a player's square (movement 2.3, creatures
+5.4). The varying paths point to a roll in goal or path choice: that
+waits for the random-rolls pass (item 12).
+
 **Turn order and the adjacency slowdown** (experiment `turns`, section
 10.10; November 2026; disks and runs in `C/runs/turns/`). Each run's
 movers come from the name strip; the creatures' bars from the left bar.
@@ -847,9 +867,10 @@ In this order (planned November 2026):
    About 35 s a pair at 6 jobs. Any other roll the researcher describes
    can be checked the same way, from a snapshot just before it.
 10. **Creatures** ([creatures](rules/creatures.md) "Captures needed"),
-   November 2026: turn order and the adjacency slowdown done (results in
-   section 7); players in different places, creature paths and goals
-   later.
+   November 2026: turn order, the adjacency slowdown and following
+   through a door done (results in section 7); players in different places
+   (research brief `turn-order.md`), creature paths and goals (they take a
+   roll) later.
    **Creatures of ours.** `acs-capture scenario ... --creature SPEC`
    (repeatable) puts a resident of ours in the room, in resident slots 0,
    1, .. of region 1: `name`, `x`, `y`, `align` (thief, neutral, enemy,
@@ -913,6 +934,23 @@ In this order (planned November 2026):
       A slowdown with the enemy and none in the controls settles who
       hinders and how much; whether it is applied at the turn's start or
       while walking up to one waits for a later case.
+   3. *Following through a door* (done; creatures 5.4, 6.4; "Captures needed"
+      6; experiment `turns` with a route). The scenario gets a second
+      room (`--side-room`): room 1 of region 1, 10 x 8, named SIDE ROOM,
+      and a one-way portal of ours on room 0's square 7,4 leading to its
+      square 2,4. The strip's place name now tells the two rooms apart.
+      `--route NAME=MOVES` gives a player's first turn in the room a
+      route: after the map door, `e3` walks 3 squares east (onto the
+      portal, so into the side room); the player then idles there. T has
+      Speed 12, so its first turn covers the map door (4 steps) and the
+      route (3 more). Creatures of ours in room 0: AA, a peaceful friend
+      (seeks a player, then an exit), Speed 6, on 10,2; CC, a peaceful
+      neutral (seeks an exit), Speed 4, on 12,7. 3 runs, 4 of T's turns.
+      The timeline shows whether either takes the portal, the square it
+      lands on (T stands on the destination), whether its turn goes on in
+      the side room, and every step on the way (paths, items 4 and 5).
+      A control disk without the route (`follow-stay`: T stays on 4,4)
+      shows what the same creatures do with the player still in the room.
 11. **Snapshots just before a roll** (`acs-capture snap MOMENT`, done
    November 2026), for the researcher's inputs and for state sweeps.
    From a scenario's first-turn snapshot, optionally after a drift plan's

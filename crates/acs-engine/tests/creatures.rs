@@ -290,23 +290,21 @@ fn creatures_follow_a_player_through_the_door_they_took() {
         let mut a = adventure(p);
         put(&mut a, 1, spec(0, 4, 3, Alignment::Enemy, true));
         let mut g = start(a, 0, 8, 2);
-        // Through the east door onto EAST (1,3), then end the turn.
-        g.apply(Command::Move { dir: Dir::SE });
+        // Through the east door onto EAST (1,3): a door into another room
+        // ends the turn (movement 2.3), so the creature phase follows.
+        let ev = g.apply(Command::Move { dir: Dir::SE });
         assert_eq!(g.current_player().at, at(1, 1, 3));
-        let ev = wait(&mut g);
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }), "{ev:?}");
         let took = ev.iter().find_map(|e| match e {
             Event::CreatureTookDoor {
                 slot: 1, from, to, ..
             } => Some((*from, *to)),
             _ => None,
         });
-        // 5.4: the player stands on the destination, so it lands next to it.
+        // 5.4: it lands on the destination, sharing the player's square.
         let (from, to) = took.expect("followed");
         assert_eq!(from, at(0, 9, 3));
-        let Location::Room { room: 1, x, y, .. } = to else {
-            panic!("{to:?}")
-        };
-        assert!(adjacent((x, y), (1, 3)));
+        assert_eq!(to, at(1, 1, 3));
         // Next round it acts in EAST and squares up.
         let ev = wait(&mut g);
         assert!(ev
@@ -555,9 +553,9 @@ fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
         assert!((1..9).contains(&x) && (1..6).contains(&y));
         assert_ne!((x, y), (5, 5));
         assert_ne!((x, y), (1, 3));
-        // Back west: the bat cannot move, is left behind and goes (2.4).
-        g.apply(Command::Move { dir: Dir::W });
-        let ev = wait(&mut g);
+        // Back west (the door into another room ends the turn, movement
+        // 2.3): the bat cannot move, is left behind and goes (2.4).
+        let ev = g.apply(Command::Move { dir: Dir::W });
         assert!(ev.contains(&Event::CreatureRemoved {
             region: 1,
             slot: 0,

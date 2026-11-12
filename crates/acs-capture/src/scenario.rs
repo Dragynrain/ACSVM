@@ -253,6 +253,10 @@ pub struct MoveBasic {
     pub lock: Option<Lock>,
     /// Creatures of ours in the room, resident slots 0, 1, ..
     pub residents: Vec<Resident>,
+    /// A second room (room 1, 10 x 8, SIDE ROOM) and a one-way portal
+    /// (thing `SIDE`, door table entry 3) on this room 0 square leading to
+    /// the second square, in room 1.
+    pub side: Option<((u8, u8), (u8, u8))>,
 }
 
 /// A locked one-way room door of ours.
@@ -275,6 +279,8 @@ pub const KEY: u8 = 69;
 /// The exit portal and the locked portal.
 pub const EXIT: u8 = 101;
 pub const LOCK: u8 = 102;
+/// The portal into the side room.
+pub const SIDE: u8 = 103;
 
 /// One spell of ours: its cost and what it does (action code, parameter).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -383,6 +389,7 @@ impl Default for MoveBasic {
             exit: None,
             lock: None,
             residents: Vec::new(),
+            side: None,
         }
     }
 }
@@ -601,11 +608,17 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     }
     // The door table: entry 0 unused (as C64 adventures leave it), 1 the
     // exit to map point 32, 2 the locked door's square in this room.
+    // 3 the side room's square.
     let mut portals = Vec::new();
-    if s.exit.is_some() || s.lock.is_some() {
+    if s.exit.is_some() || s.lock.is_some() || s.side.is_some() {
         portals.push([0, 0]);
         portals.push([0, 0x20]);
         portals.push(s.lock.map_or([0, 0], |k| [1 << 4, k.to.0 << 4 | k.to.1]));
+    }
+    if let Some((_, to)) = s.side {
+        portals.push([1 << 4 | 1, to.0 << 4 | to.1]);
+        f.thing(SIDE as usize, "SIDEDOOR", [0x07, PIC_DOOR as u8, 0, 0]);
+        no_messages(&mut f, SIDE as usize);
     }
     if let Some((_, cell)) = s.exit {
         f.put(w + wm::POINTS + 32 * 2, &[cell.0, cell.1]);
@@ -658,6 +671,9 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     if let Some(k) = s.lock {
         items.push((k.at.0, k.at.1, LOCK, 2));
     }
+    if let Some((at, _)) = s.side {
+        items.push((at.0, at.1, SIDE, 3));
+    }
     // Residents: pictures 65, 66, .. (the players' is 64).
     let residents = s
         .residents
@@ -669,16 +685,26 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         })
         .collect();
     // One region with one full-size room behind the map door.
+    let mut rooms = vec![RoomSpec {
+        name: "TEST ROOM",
+        w: 15,
+        h: 10,
+        wall: PIC_WALL as u8,
+        items,
+        ..RoomSpec::default()
+    }];
+    if s.side.is_some() {
+        rooms.push(RoomSpec {
+            name: "SIDE ROOM",
+            w: 10,
+            h: 8,
+            wall: PIC_WALL as u8,
+            ..RoomSpec::default()
+        });
+    }
     f.region(RegionSpec {
         name: "TEST REGION",
-        rooms: vec![RoomSpec {
-            name: "TEST ROOM",
-            w: 15,
-            h: 10,
-            wall: PIC_WALL as u8,
-            items,
-            ..RoomSpec::default()
-        }],
+        rooms,
         portals,
         residents,
         ..RegionSpec::default()
@@ -811,6 +837,37 @@ mod tests {
             (pb.pixel(1, 3), pb.pixel(6, 3), pb.pixel(7, 3), pb.pixel(6, 6)),
             (3, 3, 0, 0)
         );
+    }
+
+    #[test]
+    fn side_room_and_its_portal() {
+        use acs_core::model::ThingKind;
+        let s = MoveBasic {
+            side: Some(((7, 4), (2, 4))),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let r = &adv.regions[0];
+        assert!(!r.rooms[1].deleted && r.rooms[2].deleted);
+        assert_eq!(
+            (r.rooms[1].name.as_str(), r.rooms[1].width, r.rooms[1].height),
+            ("SIDE ROOM", 10, 8)
+        );
+        let door = r.rooms[0]
+            .items
+            .iter()
+            .find(|it| (it.x, it.y) == (7, 4))
+            .expect("portal");
+        assert_eq!(door.thing, u16::from(SIDE));
+        assert!(
+            matches!(adv.things[SIDE as usize - 1].kind, ThingKind::Portal { .. }),
+            "{:?}",
+            adv.things[SIDE as usize - 1].kind
+        );
+        // Region 1, room 1; square 2,4.
+        assert_eq!(r.portal_table[3], [0x11, 0x24]);
     }
 
     #[test]
