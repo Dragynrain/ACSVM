@@ -1,0 +1,59 @@
+# From a start.vsf made with start-retired.txt on a disk that also has a
+# second retired player of ours (--player2, name U): adds U during the
+# first player's first turn (docs/capture.md 10.10): menu, ADD SOMEONE
+# (three columns right), the button; "I will add a player as soon as
+# possible", the button; the add-player screen shows when the turn ends.
+# There a tap down and one east reach U, then the button three times (the
+# pick, the joystick, the saved game). Saves ${OUT}/two.vsf at the next turn.
+run 2m
+joy 1 fire
+run 1m
+joy 1 none
+settle 10m
+shot add-menu
+joy 1 e
+run 25k
+joy 1 none
+settle 10m
+joy 1 e
+run 25k
+joy 1 none
+settle 10m
+joy 1 e
+run 25k
+joy 1 none
+settle 10m
+shot add-someone     # the cursor on ADD SOMEONE
+joy 1 fire
+run 25k
+joy 1 none
+run 100m             # "I will add a player as soon as possible"
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # the turn runs out
+settle 50m
+shot add-screen      # CREATE NEW PLAYER, DON'T ADD A PLAYER; U below
+joy 1 s
+run 25k
+joy 1 none
+settle 10m
+joy 1 e
+run 25k
+joy 1 none
+settle 10m
+shot add-u           # the cursor on U
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # "press button of the joystick that will control..."
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # the adventure has been saved
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # the next turn
+shot two-map
+dump ${OUT}/two.vsf

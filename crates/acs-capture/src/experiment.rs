@@ -46,9 +46,9 @@ pub(crate) const RANDOM_STATE: u16 = 0x1CC9;
 /// A pixel inside the command menu's cursor on MOVE (cyan), which shows
 /// only while the menu is open.
 const MENU_CURSOR: (usize, usize) = (15, 170);
-const CELL: i32 = 16;
-const VIEW_X: i32 = 28;
-const VIEW_Y: i32 = -1;
+pub(crate) const CELL: i32 = 16;
+pub(crate) const VIEW_X: i32 = 28;
+pub(crate) const VIEW_Y: i32 = -1;
 
 pub const DIRS: [&str; 8] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
@@ -717,6 +717,9 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
     let mut counted: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
     // cast: per outcome, counts of each reading.
     let mut cast: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> = BTreeMap::new();
+    // turns: movers per run, and the fullest bar per turn by mover.
+    let mut order: Vec<String> = Vec::new();
+    let mut full_bars: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
     for line in text.lines() {
         let v: serde_json::Value = match serde_json::from_str(line) {
             Ok(v) => v,
@@ -796,6 +799,23 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
                     drain.push(f);
                 }
             }
+            Some("turns") => {
+                // Each run's movers in order, and per mover the fullest bar
+                // of each of its turns (counted).
+                let names: Vec<&str> = v["movers"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(|m| m.as_str()).collect())
+                    .unwrap_or_default();
+                order.push(names.join(" "));
+                for t in v["turns"].as_array().into_iter().flatten() {
+                    let who = t["mover"].as_str().unwrap_or("?").to_string();
+                    *full_bars
+                        .entry(who)
+                        .or_default()
+                        .entry(t["full_bar"].to_string())
+                        .or_default() += 1;
+                }
+            }
             _ => {}
         }
     }
@@ -812,6 +832,8 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
         })
         .collect();
     Ok(json!({
+        "turn_order": order,
+        "full_bar_by_mover": full_bars,
         "cast": cast,
         "refuse": refuse,
         "counted_steps": counted,

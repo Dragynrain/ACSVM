@@ -128,6 +128,86 @@ impl Player {
     }
 }
 
+/// The box (width, height in screen pixels) of resident 0, 1, ..
+/// pictures, `RESIDENT_INSET` pixels in from the square's top-left corner
+/// and short of its other edges, so it never touches a neighbour's; past
+/// the list they are solid 16 x 16.
+pub const RESIDENT_BOXES: [(usize, usize); 6] = [(4, 12), (12, 4), (4, 4), (8, 12), (12, 8), (8, 8)];
+pub const RESIDENT_INSET: usize = 2;
+
+/// A creature of ours living in the scenario's room (a resident slot of
+/// region 1), for the creature captures (docs/capture.md 10.10).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resident {
+    /// Name and stats, as for a player (`name` up to 10 letters).
+    pub stats: Player,
+    /// Its room square, counted from the room's top-left wall square.
+    pub at: (u8, u8),
+    /// 0 thief, 1 neutral, 2 enemy, 3 friend (as the decoder reads them).
+    pub alignment: u8,
+    pub aggressive: bool,
+    pub brave: bool,
+}
+
+impl Resident {
+    /// `key=value` pairs separated by commas: `x`, `y`, `align` (thief,
+    /// neutral, enemy, friend), `aggressive` and `brave` (0 or 1), and any
+    /// stat `Player::with` takes. Default: a Speed 3 peaceful, cautious
+    /// friend named A with Constitution and Life Force 10.
+    pub fn parse(spec: &str) -> Result<Self, String> {
+        let mut r = Resident {
+            stats: Player::default().with("name=A,spd=3,con=10,lf=10")?,
+            at: (8, 2),
+            alignment: 3,
+            aggressive: false,
+            brave: false,
+        };
+        let mut rest = Vec::new();
+        for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let (k, v) = kv.split_once('=').ok_or(format!("{kv}: want key=value"))?;
+            let flag = || match v {
+                "0" => Ok(false),
+                "1" => Ok(true),
+                _ => Err(format!("{kv}: 0 or 1")),
+            };
+            let num = || v.parse::<u8>().map_err(|_| format!("{kv}: bad number"));
+            match k {
+                "x" => r.at.0 = num()?,
+                "y" => r.at.1 = num()?,
+                "align" => {
+                    r.alignment = match v {
+                        "thief" => 0,
+                        "neutral" => 1,
+                        "enemy" => 2,
+                        "friend" => 3,
+                        _ => return Err(format!("{kv}: thief, neutral, enemy or friend")),
+                    }
+                }
+                "aggressive" => r.aggressive = flag()?,
+                "brave" => r.brave = flag()?,
+                _ => rest.push(kv),
+            }
+        }
+        r.stats = r.stats.with(&rest.join(","))?;
+        Ok(r)
+    }
+
+    /// The resident record: the player record's stats on its square, the
+    /// strategy in byte 4 with the Speed, room 0 of region 1, picture
+    /// `picture` (64..109, all solid in our scenarios).
+    pub fn record(&self, picture: u8) -> [u8; 37] {
+        let mut r = self.stats.record(self.at);
+        r[0x01] = self.stats.strength;
+        r[0x04] = self.stats.speed
+            | self.alignment << 4
+            | u8::from(self.aggressive) << 6
+            | u8::from(self.brave) << 7;
+        r[0x10] = 1 << 4;
+        r[0x16] = picture + 2;
+        r
+    }
+}
+
 /// The map cell the player starts on, and the open field around it.
 pub struct MoveBasic {
     pub start: (u8, u8),
@@ -171,6 +251,8 @@ pub struct MoveBasic {
     /// A portal open only to owners of the key (thing `LOCK`, door table
     /// entry 2).
     pub lock: Option<Lock>,
+    /// Creatures of ours in the room, resident slots 0, 1, ..
+    pub residents: Vec<Resident>,
 }
 
 /// A locked one-way room door of ours.
@@ -300,6 +382,7 @@ impl Default for MoveBasic {
             take_weights: Vec::new(),
             exit: None,
             lock: None,
+            residents: Vec::new(),
         }
     }
 }
@@ -382,9 +465,25 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     // Room floors show master thing 127's picture: make it the blank one.
     let floor = l.things + acs_core::layout::things::PROPS + 126 * 4 + 1;
     f.data[floor] = (f.data[floor] & 0xC0) | PIC_FLOOR as u8;
-    // Creature pictures 64..109: solid colour 3.
+    // Creature pictures 64..109: solid colour 3. Residents get 65.. with
+    // their own box shapes (`RESIDENT_BOXES`), so the observer can tell
+    // them from the players (64, 16 x 16) and from each other.
     for n in 64..110 {
         picture(&mut f, n, [0xFF; 16], [0xFF; 16]);
+    }
+    for (i, &(w, h)) in RESIDENT_BOXES.iter().enumerate() {
+        // A byte is 4 double-width pixels: 8 screen pixels of one half,
+        // the first in the top two bits. Colour 3 is bit pair 11.
+        let (a, b) = (RESIDENT_INSET, RESIDENT_INSET + w);
+        let byte = |half: usize| -> u8 {
+            (0..4)
+                .filter(|k| (a..b).contains(&(half * 8 + k * 2)))
+                .fold(0, |m, k| m | 0b11 << (6 - 2 * k))
+        };
+        let on = |r: usize| (RESIDENT_INSET..RESIDENT_INSET + h).contains(&r);
+        let rows: [u8; 16] = std::array::from_fn(|r| if on(r) { byte(0) } else { 0 });
+        let right: [u8; 16] = std::array::from_fn(|r| if on(r) { byte(1) } else { 0 });
+        picture(&mut f, 65 + i, rows, right);
     }
 
     let w = l.world_map;
@@ -559,6 +658,16 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     if let Some(k) = s.lock {
         items.push((k.at.0, k.at.1, LOCK, 2));
     }
+    // Residents: pictures 65, 66, .. (the players' is 64).
+    let residents = s
+        .residents
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            let name: &'static str = Box::leak(c.stats.name.clone().into_boxed_str());
+            (i, name, c.record(65 + i as u8))
+        })
+        .collect();
     // One region with one full-size room behind the map door.
     f.region(RegionSpec {
         name: "TEST REGION",
@@ -571,6 +680,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             ..RoomSpec::default()
         }],
         portals,
+        residents,
         ..RegionSpec::default()
     });
     f.build()
@@ -656,6 +766,51 @@ mod tests {
             .collect();
         assert_eq!(got, vec![(5, 400), (6, 100), (7, 1)]);
         assert!(weight_bytes(401).is_err());
+    }
+
+    #[test]
+    fn residents_decode_where_and_as_written() {
+        use acs_core::model::Alignment;
+        let s = MoveBasic {
+            residents: vec![
+                Resident::parse("name=A,x=8,y=2").unwrap(),
+                Resident::parse("name=BB,x=2,y=7,spd=5,align=enemy,aggressive=1,brave=1").unwrap(),
+            ],
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let live: Vec<_> = adv.regions[0].residents.iter().filter(|c| c.in_use).collect();
+        let [a, b] = live.as_slice() else {
+            panic!("two residents, got {}", live.len());
+        };
+        assert_eq!((a.name.as_str(), a.x, a.y, a.room, a.region), ("A", 8, 2, 0, 1));
+        assert_eq!(
+            (a.speed, a.strategy.alignment, a.strategy.aggressive),
+            (3, Alignment::Friend, false)
+        );
+        assert_eq!((b.name.as_str(), b.x, b.y, b.speed), ("BB", 2, 7, 5));
+        assert_eq!(b.strategy.alignment, Alignment::Enemy);
+        assert!(b.strategy.aggressive && b.strategy.brave);
+        assert_eq!((a.constitution, a.life_force), (10, 10));
+        assert!(Resident::parse("align=pirate").is_err());
+        // Resident 0's picture is 4 x 12 screen pixels from 2,2, resident
+        // 1's 12 x 4 (pixels are double width: 8 a row).
+        let pa = &adv.pictures[65];
+        assert_eq!(
+            (pa.pixel(0, 5), pa.pixel(1, 5), pa.pixel(2, 5), pa.pixel(3, 5)),
+            (0, 3, 3, 0)
+        );
+        assert_eq!(
+            (pa.pixel(1, 1), pa.pixel(1, 2), pa.pixel(1, 13), pa.pixel(1, 14)),
+            (0, 3, 3, 0)
+        );
+        let pb = &adv.pictures[66];
+        assert_eq!(
+            (pb.pixel(1, 3), pb.pixel(6, 3), pb.pixel(7, 3), pb.pixel(6, 6)),
+            (3, 3, 0, 0)
+        );
     }
 
     #[test]

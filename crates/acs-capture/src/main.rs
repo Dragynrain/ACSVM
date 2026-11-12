@@ -125,6 +125,11 @@ enum Cmd {
         /// x20:N to store it with the x20 bit), the rest weigh 1.
         #[arg(long, value_delimiter = ',')]
         take_weights: Vec<String>,
+        /// A creature of ours in the room (repeatable; resident slots 0,
+        /// 1, ..): key=value pairs, x, y, align, aggressive, brave and the
+        /// --player stats (docs/capture.md 10.10).
+        #[arg(long)]
+        creature: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -177,6 +182,12 @@ enum Cmd {
         /// drift: what to cast first (none, spell1, spell1-spell2).
         #[arg(long, default_value = "none")]
         plan: String,
+        /// turns: the players' names, first player first (comma-separated).
+        #[arg(long, default_value = "T")]
+        players: String,
+        /// turns: the players that walk into the room (default: all).
+        #[arg(long)]
+        enter: Option<String>,
         /// drift: walk each turn out (east, then west) instead of idling it.
         #[arg(long)]
         walk: bool,
@@ -279,7 +290,12 @@ fn main() {
             lock_destroy,
             no_item,
             take_weights,
+            creature,
         } => {
+            let residents: Vec<scenario::Resident> = creature
+                .iter()
+                .map(|c| scenario::Resident::parse(c).unwrap_or_else(|e| fail(&e)))
+                .collect();
             let player2 = player2.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
             let spells: Vec<scenario::Spell> = spell
                 .iter()
@@ -306,6 +322,7 @@ fn main() {
                         spells: spells.clone(),
                         item,
                         player2,
+                        residents: residents.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -318,6 +335,7 @@ fn main() {
                             .unwrap_or_else(|e| fail(&e));
                     s.player2 = player2;
                     s.spells = spells.clone();
+                    s.residents = residents.clone();
                     if no_item {
                         s.item = None;
                     }
@@ -351,6 +369,8 @@ fn main() {
             glyphs,
             table,
             walk,
+            players,
+            enter,
         } => {
             let table_name = if name == "refuse" {
                 "refuse".to_string()
@@ -363,9 +383,8 @@ fn main() {
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_GLYPHS").map(PathBuf::from))
                 .map(|p| acs_capture::glyphs::Table::load(&p).unwrap_or_else(|e| fail(&e)));
             let place = match name.as_str() {
-                "move-basic" | "refuse" | "acts" | "weight" | "cast" | "profile-check" | "item" | "drift" => {
-                    experiment::Place::Map
-                }
+                "move-basic" | "refuse" | "acts" | "weight" | "cast" | "profile-check" | "item" | "drift"
+                | "turns" => experiment::Place::Map,
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -408,9 +427,15 @@ fn main() {
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * jitter_step) % jitter_range;
-                if matches!(name.as_str(), "profile-check" | "item" | "drift") {
+                if matches!(name.as_str(), "profile-check" | "item" | "drift" | "turns") {
+                    let names: Vec<&str> = players.split(',').map(str::trim).collect();
+                    let enter: Vec<&str> = match &enter {
+                        Some(e) => e.split(',').map(str::trim).collect(),
+                        None => names.clone(),
+                    };
                     result = match name.as_str() {
                         "item" => r.item_run(run, jitter),
+                        "turns" => r.turns_run(run, jitter, &names, &enter, turns),
                         "drift" => r.drift_run(run, jitter, &plan, turns, walk),
                         _ => r.profile_check(run, jitter),
                     };

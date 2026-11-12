@@ -817,8 +817,70 @@ In this order (planned November 2026):
    (cost + 1)) is refuted: it makes Power 20 against cost 10 certain.
    About 35 s a pair at 6 jobs. Any other roll the researcher describes
    can be checked the same way, from a snapshot just before it.
-10. **The rest of the captures-needed lists** in `docs/rules/`: turn order
-   and creature phases, the adjacency slowdown, creature paths.
+10. **Creatures** ([creatures](rules/creatures.md) "Captures needed"),
+   planned November 2026: turn order and creature phases first, then the
+   adjacency slowdown; creature paths later.
+   **Creatures of ours.** `acs-capture scenario ... --creature SPEC`
+   (repeatable) puts a resident of ours in the room, in resident slots 0,
+   1, .. of region 1: `name`, `x`, `y`, `align` (thief, neutral, enemy,
+   friend), `aggressive`, `brave` and the `--player` stats; by default a
+   Speed 3, peaceful, cautious friend with Constitution and Life Force 10.
+   Each resident's picture has its own box shape (8 x 16, 16 x 8, 8 x 8,
+   4 x 16, 16 x 4, 12 x 12, from the top-left corner of the square), so
+   the observer tells the creatures from the players (16 x 16) and from
+   each other. A peaceful, cautious friend is a slinker that seeks a
+   player, then an exit (creatures 6.1); the room has no door out, so it
+   walks up to a player and stops.
+   **What the screen shows** (trial, November 2026, one player and three
+   such creatures): the name strip under the view names whoever is
+   moving, players and creatures alike, and a creature's turn has its own
+   movement bar on the left, draining as it walks. After the player's
+   turn ran out, the creatures moved one after another in slot order (AA,
+   BB, CC, slots 0 to 2, not by Speed or distance), then the player's
+   turn came again. A second player joins in the game: menu, ADD
+   SOMEONE ("I will add a player as soon as possible"), and when the
+   current turn ends the add-player screen shows; from CREATE NEW PLAYER,
+   a tap down and one east reach the retired player U, then the button
+   three times (the joystick, saving). On the map T and U then alternate.
+   1. *Turn order* (experiment `turns`). From a first-turn snapshot each
+      run samples the screen every 20,000 instructions and writes a
+      timeline: a row whenever the name strip's mover, the place (room or
+      map, from the strip's place name) or a square in the room changes,
+      with the instructions and frames since the run began, the bar, and
+      each individual's room square by box shape. A player's first turn
+      walks it south through the map door into the room (the stick let go
+      as soon as the strip shows the room or another mover); after that
+      every turn is idled out. The run ends after the given number of
+      the first player's turns. The summary gives each run's sequence of
+      movers. Cases, each its own disk:
+      - `one`: T (Speed 6) and three creatures, AA (12,2, Speed 3), BB
+        (2,7, Speed 5), CC (12,7, Speed 4, a neutral, which with no exit
+        stays put); 6 of T's turns. Who moves after T, in what order, how
+        often, and whether creatures move while T is still on the map.
+      - `slots`: the same squares with the slots swapped (BB in slot 0 on
+        12,2, AA in slot 1 on 2,7): slot order, not name or square.
+      - `two`: T and U (Speed 4) and the same three creatures; U added on
+        T's first turn as above; both walk into the room on their first
+        turns. Does each player's turn give the creatures a phase (the
+        engine's choice, creatures 2.2), or one phase a round; do the
+        creatures move after U's turn while U is still on the map; where
+        U arrives when T stands on the entry square.
+   2. *The adjacency slowdown* (creatures 2.6; experiment `turns`, 3 of
+      T's turns). T has Speed 12 (a full bar of 96 pixels), Constitution
+      and Life Force 40, and walks into the room on its first turn; one
+      creature of ours with Speed 0 (it never moves) and Strength 1 stands
+      near the entry square 4,4. The bar at the top of T's next turns,
+      against Speed 12's 96 pixels, shows any slowdown; the timeline shows
+      any attack. Cases, each its own disk:
+      - `adj-enemy`: an aggressive enemy on 5,4, next to the entry;
+      - `adj-diag`: the same on 5,5, diagonally next to it;
+      - `adj-far`: the same on 6,4, two squares away;
+      - `adj-friend`: an aggressive friend on 5,4;
+      - `adj-peaceful`: a peaceful enemy on 5,4;
+      - `adj-neutral`: an aggressive neutral on 5,4.
+      A slowdown with the enemy and none in the controls settles who
+      hinders and how much; whether it is applied at the turn's start or
+      while walking up to one waits for a later case.
 11. **Snapshots just before a roll** (`acs-capture snap MOMENT`, done
    November 2026), for the researcher's inputs and for state sweeps.
    From a scenario's first-turn snapshot, optionally after a drift plan's

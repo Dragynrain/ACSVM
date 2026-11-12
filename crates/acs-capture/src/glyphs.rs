@@ -46,6 +46,12 @@ impl Screen {
         Screen { w, h, px }
     }
 
+    /// Rows `y0..y0 + h` of this screen (a strip of it to read alone).
+    pub fn rows(&self, y0: usize, h: usize) -> Screen {
+        let h = h.min(self.h.saturating_sub(y0));
+        Screen::new(self.w, h, self.px[y0 * self.w..(y0 + h) * self.w].to_vec())
+    }
+
     /// A live frame's inner area, classified by the colours it shows as.
     pub fn from_frame(f: &Frame, ink: &[[u8; 3]], mask: &[[u8; 3]]) -> Self {
         let (_, _, w, h) = f.inner();
