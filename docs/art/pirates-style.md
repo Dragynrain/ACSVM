@@ -56,7 +56,7 @@ Characters drift most between realistic, cartoon and anime, so these are fixed.
 
 ## 5. Palette
 
-55 colours in hue-shifted ramps, light to dark. Mid-tones saturated, darks
+56 colours in hue-shifted ramps, light to dark. Mid-tones saturated, darks
 muted and cooler, lights warmer: bright without looking like candy. The hex
 values are in [pirates-palette.json](pirates-palette.json); they may still
 move once tiles are hand-finished.
@@ -66,7 +66,7 @@ move once tiles are hand-finished.
 | Outline | 2 | Dark warm brown; near-black for black cloth, flags, cave mouths |
 | Sea | 9 | Foam to deep night blue, plus a muted teal for blue cloth |
 | Sand | 3 | Sand, canvas, light skin |
-| Skin | 4 | Skin tones |
+| Skin | 5 | Skin tones, pale to deep |
 | Wood | 4 | Sun-bleached to dark tarred wood |
 | Leather | 3 | Red-brown leather, book covers, jerkins |
 | Rust red | 5 | Coral orange to crimson: coats, bandanas, marines, lava |
@@ -299,6 +299,25 @@ its neighbours' colour, and adds the 1 px `outline0` outside every edge that
 is not already dark, so figures keep their size. Faces, hands and held items
 still need a person.
 
+**Faces at 64 px (first pass, November 2026, 16 people).** A head is about
+6 px wide and 6 tall; place pixels by coordinate on a zoomed grid, not by
+eye on the full tile.
+
+- **Eyes:** two `outline0` pixels on one row, with one or two skin columns
+  between them for the nose. Raw tiles often have a dark band there instead
+  (hat shadow, a brow line); thin it to two pixels or it reads as
+  sunglasses.
+- **Brows:** one pixel above each eye, one skin step darker, or grey for
+  grey hair. Leave them out under a hat brim; on a 5 px face they make
+  clutter.
+- **Mouth:** one or two pixels, two skin steps darker, two rows under the
+  eyes. Hidden in a beard, it can be left out.
+- **Nose:** one pixel one skin step darker between and under the eyes.
+- **Dark skin** needs nothing extra: `outline0` eyes read on the deepest
+  skin steps, and a lighter step around them is not needed.
+- **Pale skin snapped to the kraken pink** before the skin ramp had a pale
+  step (section 5). Check every pale face for kraken pixels and swap them
+  to the pale skin step.
 ## 10. Kit LoRA
 
 **v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
