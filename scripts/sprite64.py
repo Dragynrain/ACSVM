@@ -8,12 +8,12 @@ docs/art/ ask for):
 
 1. Cut out: background connected to the image border becomes transparent,
    plus any strongly magenta fringe pixels left by anti-aliasing.
-2. Crop to the figure and shrink it to --fig px tall with k-centroid
-   downscaling: each output pixel takes the dominant colour of its source
-   block (k-means, largest cluster), not the average, so outlines stay dark
-   and small features keep their colour.
+2. Crop to the figure and shrink it so its longer side is --fig px, with
+   k-centroid downscaling: each output pixel takes the dominant colour of its
+   source block (k-means, largest cluster), not the average, so outlines stay
+   dark and small features keep their colour.
 3. Place it on a --tile square transparent tile, centred, feet on the
-   bottom row but one. Wider-than-tile figures are clipped at the right.
+   bottom row but one.
 
 --palette N snaps every tile to one N-colour palette shared by the batch
 (median cut, no dither) and writes it as OUTDIR/palette.png. --sheet writes
@@ -40,8 +40,12 @@ def cut_out(im):
     work = rgb.copy()
     seeds = [(x, y) for x in range(0, w, 16) for y in (0, h - 1)]
     seeds += [(x, y) for y in range(0, h, 16) for x in (0, w - 1)]
+    # Start only from border pixels that look like the background (the
+    # median border colour), so a subject touching the edge is not flooded.
+    bgc = np.median(np.array([rgb.getpixel(xy) for xy in seeds]), axis=0)
     for xy in seeds:
-        if work.getpixel(xy) != MARKER:
+        px = work.getpixel(xy)
+        if px != MARKER and np.abs(np.array(px) - bgc).sum() < 110:
             ImageDraw.floodfill(work, xy, MARKER, thresh=110)
     a = np.array(rgb)
     bg = np.all(np.array(work) == MARKER, axis=2)
@@ -72,8 +76,8 @@ def to_tile(rgba, tile, fig):
         raise ValueError("nothing left after cutting out the background")
     crop = rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
     h, w = crop.shape[:2]
-    bs = h / fig
-    oh, ow = fig, max(1, round(w / bs))
+    bs = max(h, w) / fig  # the longer side fits, so wide objects are not clipped
+    oh, ow = max(1, round(h / bs)), max(1, round(w / bs))
     out = np.zeros((oh, ow, 4), np.uint8)
     for oy in range(oh):
         for ox in range(ow):
