@@ -250,7 +250,7 @@ before anyone knows what the original does. Extended rooms larger than
   `x << 4 | y` in the destination room. Region 0 means the world map: then
   `y | x << 4` indexes the 64-entry world map point table. Over 2,624 C64 room
   doors, every destination region and room slot exists and the links come in
-  matching pairs. One door (THE BLOOD SWORD) leads to a deleted room, which the
+  matching pairs. One door leads to a deleted room, which the
   manual describes as legal (players are sent back to the start).
 - **World map points** (world map + 0x20, 64 x/y pairs, 0xFF = unused): points
   0-31 are door locations on the map; points 32-63 are the extra exit points.
