@@ -56,7 +56,7 @@ Characters drift most between realistic, cartoon and anime, so these are fixed.
 
 ## 5. Palette
 
-54 colours in hue-shifted ramps, light to dark. Mid-tones saturated, darks
+55 colours in hue-shifted ramps, light to dark. Mid-tones saturated, darks
 muted and cooler, lights warmer: bright without looking like candy. The hex
 values are in [pirates-palette.json](pirates-palette.json); they may still
 move once tiles are hand-finished.
@@ -70,7 +70,7 @@ move once tiles are hand-finished.
 | Wood | 4 | Sun-bleached to dark tarred wood |
 | Leather | 3 | Red-brown leather, book covers, jerkins |
 | Rust red | 5 | Coral orange to crimson: coats, bandanas, marines, lava |
-| Brass and gold | 3 | Coins, hilts, buttons |
+| Brass and gold | 4 | Lemon yellow cloth, coins, hilts, buttons |
 | Jungle green | 6 | Bright grass to dark canopy |
 | Moss | 3 | Muted olive: swamp, olive cloth |
 | Bone and stone | 8 | Bone white, rock, steel and charcoal, cool in the darks |
@@ -247,7 +247,18 @@ prompt: a pink pearl in a pink shell vanished into the magenta background
 (keep subjects off pink and purple, or they go with the background when
 cut out), and a "brown sailcloth" log looked like the kit's book (a KP
 object must differ from every kit picture in colour as well as shape). The
-portrait is a placeholder until Governor Vail's own picture fixes his look.
+portrait is a Qwen-Image-Edit of Vail's own picture ("a head and shoulders
+portrait of this same man inside a gilded frame, same flat cel-shaded
+style"), so the two match.
+
+**The named eight (November 2026)** were made from the briefs below, three
+seeds each. Five came out right first time. LoRA v3 puts a tricorn on
+anyone called a pirate, whatever the prompt asks; Harrow's wide hat and
+Duroc's bicorne came from a one-property Qwen-Image-Edit ("replace only her
+hat ... keep everything else exactly the same"). Cass's yellow headwrap
+read as blonde hair until the prompt said "all her hair wrapped up and
+hidden in a bright yellow cloth headwrap tied in a knot on top", and then
+snapped to lime until the gold ramp got its lemon-yellow step.
 
 ## 9. Consistency
 
