@@ -43,7 +43,7 @@ scripts/web.sh serve                                    # trunk dev server, :808
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
-cargo run -p acs-capture -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN  # docs/capture.md 4
+cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 ```
 
@@ -74,7 +74,11 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary
   monitor; scenario disks are our blocks over the user's blank adventure
   disk (`ACSVM_CAPTURE_TEMPLATE`); scripts in `scripts/`. All its output goes
-  to `ACSVM-research/capture/`. See `docs/capture.md`.
+  to `ACSVM-research/capture/`. See `docs/capture.md`. `run --jobs N`
+  (`jobs.rs`) splits runs over N VICE processes; every run writes
+  `timing.jsonl` (`timing.rs`). Menu inputs wait for the screen to settle
+  (`Runner::settle`), never a fixed count; check `timing.jsonl` before
+  adding a long fixed wait.
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in

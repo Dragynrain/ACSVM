@@ -153,7 +153,16 @@ lists at the end of each `docs/rules/` spec.
    number of instructions set by the run index (jitter: run × 7,919 mod
    1,000,000, which moves the noise sources: SID voice 3, the CIA timers and
    the raster), plays the experiment's input and writes one JSON line per
-   observation to `runs.jsonl`.
+   observation to `runs.jsonl`, and its timing to `timing.jsonl` (2.7). A
+   run's result depends only on its index, so `--jobs N` splits the runs
+   into N blocks of consecutive indices, each in its own process and VICE
+   in `OUT/partK` (on its own copy of the disk, its stderr in
+   `OUT/partK.log`), and joins their `runs.jsonl` and `timing.jsonl` in run
+   order. The joined file is byte for byte what one process gives (checked
+   on Power 20's 60-run cast grid with 4 and 8 jobs). Screenshots stay in
+   the part folders. On the project's 12-thread machine that grid took
+   139 s with 4 jobs and 87 s with 8 (about 6 minutes in one process):
+   instances slow each other, but 8 still gain.
 4. **Distil**: `summary.json` holds counts and distributions, plus our
    engine's outcome for the same scenario with default rules. The numbers,
    the scenario name and the run count go into the rule's spec.
@@ -162,8 +171,8 @@ lists at the end of each `docs/rules/` spec.
 
 With `C` = the research folder's `capture/`, `ACSVM_VICE` set, and
 `C/boot/program1.d64` a copy of program disk 1 (the chain to `start.vsf`
-takes about two minutes, 20 runs about six; every step is deterministic,
-and two runs of the chain give the same screens):
+takes about two minutes; a run takes 5 to 90 s alone, see 2.7; every
+step is deterministic, and two runs of the chain give the same screens):
 
 ```bash
 acs-capture script crates/acs-capture/scripts/boot.txt --boot C/boot/program1.d64 --out C/boot --var OUT=C/boot
@@ -182,8 +191,12 @@ acs-capture scenario move-basic C/runs/speed-15/disk.d64 --player spd=15
 acs-capture script crates/acs-capture/scripts/start-retired.txt --disk C/runs/speed-15/disk.d64     --snapshot C/boot/play-nodisk.vsf --out C/runs/speed-15 --var OUT=C/runs/speed-15
 acs-capture run move-basic --snapshot C/runs/speed-15/start.vsf --disk C/runs/speed-15/disk.d64     --out C/runs/speed-15 --runs 20 --speed 15
 # refused moves and door cost: the same with --obstacle, then
-acs-capture run refuse --snapshot C/runs/refuse/start.vsf --disk C/runs/refuse/disk.d64     --out C/runs/refuse/part0 --runs 5 --first 0 --speed 15   # parts 0-3 side by side, then
-acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # over the parts' runs.jsonl joined
+acs-capture run refuse --snapshot C/runs/refuse/start.vsf --disk C/runs/refuse/disk.d64 \
+    --out C/runs/refuse --runs 20 --jobs 4 --speed 15
+# statistical runs: the wide jitter (10.5), split over VICE processes
+acs-capture run cast --snapshot C/runs/cc-20-60/start.vsf --disk C/runs/cc-20-60/disk.d64 \
+    --out C/runs/cc-20-60/wide --runs 60 --jobs 8 --jitter-step 3708203 --jitter-range 6000000
+acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # re-distil a runs.jsonl
 ```
 
 **Making the template** (once, by hand with `acs-capture script`): main menu

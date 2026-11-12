@@ -11,6 +11,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+/// Distils `OUT/runs.jsonl` into `OUT/summary.json` and prints it.
+fn write_summary(out: &Path, speed: u8) {
+    let summary = experiment::summarize(&out.join("runs.jsonl"), speed).expect("summary");
+    let text = serde_json::to_string_pretty(&summary).unwrap_or_default();
+    std::fs::write(out.join("summary.json"), &text).expect("summary.json");
+    println!("{text}");
+}
+
 /// Per-run timing (docs/capture.md 2.7): one line per run in `timing.jsonl`
 /// next to `runs.jsonl`, and a short line on stderr.
 struct RunTimer {
@@ -124,6 +132,10 @@ enum Cmd {
         /// several VICE sessions.
         #[arg(long, default_value_t = 0)]
         first: usize,
+        /// Split the runs over this many VICE processes side by side, in
+        /// OUT/part0.. on copies of the disk, and join their output.
+        #[arg(long, default_value_t = 1)]
+        jobs: usize,
         /// Jitter of run n: n x step mod range idle instructions before the
         /// run's input (docs/capture.md 4.3, 10.5).
         #[arg(long, default_value_t = 7_919)]
@@ -246,6 +258,7 @@ fn main() {
             out,
             runs,
             first,
+            jobs,
             weight_items,
             jitter_step,
             jitter_range,
@@ -266,6 +279,12 @@ fn main() {
                 other => fail(&format!("unknown experiment {other}")),
             };
             std::fs::create_dir_all(&out).expect("out folder");
+            if jobs > 1 {
+                let args: Vec<String> = std::env::args().skip(1).collect();
+                acs_capture::jobs::run(&args, &disk, &out, first, runs, jobs).unwrap_or_else(|e| fail(&e));
+                write_summary(&out, speed);
+                return;
+            }
             let opts = Options {
                 drive8: Some(disk),
                 ..Options::default()
@@ -347,10 +366,7 @@ fn main() {
             if let Err(e) = result {
                 fail(&e);
             }
-            let summary = experiment::summarize(&out.join("runs.jsonl"), speed).expect("summary");
-            let text = serde_json::to_string_pretty(&summary).unwrap_or_default();
-            std::fs::write(out.join("summary.json"), &text).expect("summary.json");
-            println!("{text}");
+            write_summary(&out, speed);
         }
         Cmd::Summarize { runs, speed } => {
             let summary = experiment::summarize(&runs, speed).unwrap_or_else(|e| fail(&e.to_string()));
