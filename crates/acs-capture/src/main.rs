@@ -189,6 +189,23 @@ enum Cmd {
         /// turns: the players' names, first player first (comma-separated).
         #[arg(long, default_value = "T")]
         players: String,
+        /// mem: bytes to watch, hex, comma-separated (researcher addresses,
+        /// docs/capture.md section 9).
+        #[arg(long)]
+        watch: Option<String>,
+        /// mem: bytes to set first, ADDR=VALUE (hex address, decimal value).
+        /// Repeatable.
+        #[arg(long)]
+        set: Vec<String>,
+        /// mem: instructions to run (default 40 million).
+        #[arg(long, default_value_t = 40_000_000)]
+        run_for: u64,
+        /// mem: stop when the movement bar refills (the next turn).
+        #[arg(long)]
+        until_refill: bool,
+        /// turns: bytes to read at each turn's start, hex, comma-separated.
+        #[arg(long)]
+        peek: Option<String>,
         /// turns: the players that walk into the room (default: all).
         #[arg(long)]
         enter: Option<String>,
@@ -385,7 +402,20 @@ fn main() {
             players,
             enter,
             route,
+            watch,
+            set,
+            run_for,
+            until_refill,
+            peek,
         } => {
+            let watch = acs_capture::memwatch::parse_addrs(watch.as_deref().unwrap_or(""))
+                .unwrap_or_else(|e| fail(&e));
+            let peek = acs_capture::memwatch::parse_addrs(peek.as_deref().unwrap_or(""))
+                .unwrap_or_else(|e| fail(&e));
+            let sets: Vec<(u16, u8)> = set
+                .iter()
+                .map(|s| acs_capture::memwatch::parse_set(s).unwrap_or_else(|e| fail(&e)))
+                .collect();
             let routes: Vec<(String, acs_capture::turns::Route)> = route
                 .iter()
                 .map(|r| acs_capture::turns::parse_route(r).unwrap_or_else(|e| fail(&e)))
@@ -402,7 +432,7 @@ fn main() {
                 .map(|p| acs_capture::glyphs::Table::load(&p).unwrap_or_else(|e| fail(&e)));
             let place = match name.as_str() {
                 "move-basic" | "refuse" | "acts" | "weight" | "cast" | "profile-check" | "item" | "drift"
-                | "turns" => experiment::Place::Map,
+                | "turns" | "mem" => experiment::Place::Map,
                 "move-room" => experiment::Place::Room,
                 other => fail(&format!("unknown experiment {other}")),
             };
@@ -435,7 +465,11 @@ fn main() {
                 r.prepare_cast_menu(&out.join("menu.vsf"))
                     .unwrap_or_else(|e| fail(&e));
             }
-            if set_random_state && (!from_menu || first + runs > 256) {
+            let sweep = set_random_state && name == "mem";
+            if sweep && first + runs > 256 {
+                fail("--set-random-state needs run indices 0..255");
+            }
+            if set_random_state && !sweep && (!from_menu || first + runs > 256) {
                 fail("--set-random-state needs --from-menu and run indices 0..255");
             }
             let mut timer = RunTimer::new(&out, &r.s.vice.mon.stats);
@@ -453,10 +487,29 @@ fn main() {
                     };
                     result = match name.as_str() {
                         "item" => r.item_run(run, jitter),
-                        "turns" => r.turns_run(run, jitter, &names, &enter, &routes, turns),
+                        "turns" => r.turns_run(
+                            run,
+                            jitter,
+                            &acs_capture::turns::TurnsSetup {
+                                players: names.clone(),
+                                enter: enter.clone(),
+                                routes: routes.clone(),
+                                peek: peek.clone(),
+                            },
+                            turns,
+                        ),
                         "drift" => r.drift_run(run, jitter, &plan, turns, walk),
                         _ => r.profile_check(run, jitter),
                     };
+                    if result.is_err() {
+                        break 'outer;
+                    }
+                    timer.done(run, &r.s.vice.mon.stats);
+                    continue;
+                }
+                if name == "mem" {
+                    let state = sweep.then_some(run as u8);
+                    result = r.mem_run(run, state, &sets, &watch, run_for, until_refill);
                     if result.is_err() {
                         break 'outer;
                     }

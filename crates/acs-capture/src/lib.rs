@@ -7,6 +7,7 @@ pub mod acts;
 pub mod experiment;
 pub mod glyphs;
 pub mod jobs;
+pub mod memwatch;
 pub mod monitor;
 pub mod observe;
 pub mod power;

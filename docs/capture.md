@@ -617,10 +617,17 @@ screen offers next to "create new player".
 | --- | --- | --- |
 | `$DC00`, `$DC01` | CIA 1 ports A and B (joystick lines), read only while setting up the joystick | Documented C64 hardware |
 | `LIN`, `CYC` registers | VIC-II raster line and cycle in the line, for counting frames (2.6) | VICE's register list |
-| `$1CC9` | The original's random state, one byte; written before a cast by `--set-random-state` (10.9) | Clean-room researcher, findings of 2026-11-11 (`docs/research/random-rolls.md`) |
+| `$1CC9` | The original's random state, one byte; written before a cast by `--set-random-state` (10.9), and before other rolls by `mem` (10.12) | Clean-room researcher, findings of 2026-11-11 (`docs/research/random-rolls.md`) |
+| `$F5A2` | The first player's Life Force (low 6 bits), read by `mem` (10.12) | Researcher, random-rolls second pass, 2026-11-12 |
+| `$F65B`, `$F65C` | The round counter (16 bits) | Researcher, random-rolls second pass and turn-order first pass, 2026-11-12 |
+| `$F65F` | The first entry of the queue of things due later: its due round, low byte (10.12) | Researcher, random-rolls second pass, 2026-11-12 |
+| `$397C` | The region being visited by the turn scheduler (0 the world map) | Researcher, turn-order first pass, 2026-11-12 (`docs/research/turn-order.md`) |
+| `$71FA` | The number of the individual whose turn it is | Researcher, turn-order first pass, 2026-11-12 |
 
-`$1CC9` is the only address in the original program in use, and it comes
-from the researcher, never from the harness's own reading of the program.
+These are the only addresses in the original program in use, and they
+come from the researcher, never from the harness's own reading of the
+program. The harness reads them (and writes `$1CC9`) only to check a
+finding; the engine depends on none of them.
 
 ## 10. Next
 
@@ -964,3 +971,45 @@ In this order (planned November 2026):
    about 3 minutes: item use, the turn's end for drift, the temporary
    tick and healing at Speed 1, and healing at Speed 15 idled and walked
    (`C/runs/rr2/`).
+12. **Confirming the random-rolls second pass** (`acs-capture run mem`,
+   November 2026). `mem` restores a snapshot, sets bytes (`--set
+   ADDR=VALUE`) and, with `--set-random-state`, the random state to the
+   run's index, then logs every change of the watched bytes (`--watch`,
+   section 9 addresses) every 20,000 instructions, for `--run-for`
+   instructions or until 600,000 after the movement bar refills
+   (`--until-refill`). `scripts/linefit.py` then tries every pair of
+   raster lines for the draws involved, with the researcher's generator,
+   and reports the pairs that predict every run that needs no redraw: as
+   10.9, one pair should fit all and the rest fail.
+   1. *Natural healing* (magic 5.3): from `heal15-turn-end-idle.vsf`
+      (Speed 15, Life Force about 6 under Constitution 20, one idle move
+      left), 256 states, until the next turn's top. Draw 1 is the idle
+      move's roll of 0..14 (heals on 0), draw 2 the top-of-turn die
+      (heals on 2); Life Force should gain 0, 1 or 2 as predicted.
+   2. *The temporary tick* (magic 5.2): from `lf-temp-turn-end.vsf`
+      (Speed 1, one entry due in round 71, the counter at 70), 256
+      states. Draw 1 is the idle move's roll (of 0..0), draw 2 the tick's
+      die: the entry's new due round should be 71 + the die.
+   3. *Seeding*: the state in `boot/play.vsf` should read 5.
+   Results (November 2026, 256 runs each, 5 jobs, a few minutes):
+   healing, 253 of the 253 runs that needed no redraw gained exactly what
+   the two rolls predicted (0 in 198 runs, 1 in 55, 2 in 3). The raw
+   numbers are the states the watch saw, so the rolls' mappings were
+   checked on every run directly; the line fit then found the first draw
+   on raster line 230 in 252 runs, and the second on line 153 or 159, or
+   15 when the first draw had healed (healing takes time before the
+   turn's top): one fixed pair can't fit, since the second draw's moment
+   depends on the first's outcome. The tick: 252 of 252 runs exact, the
+   entry due 1 to 6 rounds on as the die said, with one line pair (8, 18;
+   or 136, 146, the same lines' other half). The seed read 5. All three
+   confirm the findings (magic 5.2, 5.3).
+13. **Confirming the turn-order first pass** (`turns --peek`): the split
+   case from `two.vsf` run to 25 of T's turns, reading the scheduler's
+   region (`$397C`), the round counter and the current individual at each
+   turn's start. The finding predicts U on the map until about 152
+   million instructions (19 turns), then blocks of exactly 10 rounds,
+   room and map in turn. Result (2 runs, to 25 of T's turns): U alone in
+   rounds 21 to 39 (region 0), T, AA, BB, CC in rounds 40 to 49 (region
+   1), U in 50 to 59, the room from 60 on, in both runs, the individual
+   numbers 1, 2 and 16 to 18 as reported. The earlier `split` runs had
+   only stopped before U's second block. Confirmed (creatures 2.2).

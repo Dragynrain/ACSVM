@@ -48,6 +48,18 @@ fn is_room(place: &Option<String>) -> bool {
     place.as_deref().is_some_and(|p| p.ends_with("ROOM"))
 }
 
+/// Who plays a `turns` run, and how.
+pub struct TurnsSetup<'a> {
+    /// The players' names, first player first.
+    pub players: Vec<&'a str>,
+    /// The players that walk into the room (the rest stay on the map).
+    pub enter: Vec<&'a str>,
+    /// Routes after the map door, by player.
+    pub routes: Vec<(String, Route)>,
+    /// Bytes read at each turn's start (researcher addresses).
+    pub peek: Vec<u16>,
+}
+
 /// A route: (direction, squares) moves, walked in order.
 pub type Route = Vec<(String, u32)>;
 
@@ -214,12 +226,17 @@ impl Runner<'_> {
         &mut self,
         run: usize,
         jitter: u64,
-        players: &[&str],
-        enter: &[&str],
-        routes: &[(String, Route)],
+        setup: &TurnsSetup,
         rounds: usize,
     ) -> Result<(), String> {
         const LIMIT: u64 = 2_000_000_000;
+        let TurnsSetup {
+            players,
+            enter,
+            routes,
+            peek,
+        } = setup;
+        let (players, enter, peek) = (&players[..], &enter[..], &peek[..]);
         self.reset(jitter)?;
         let mut rows = Vec::new();
         let mut movers: Vec<String> = Vec::new();
@@ -259,7 +276,14 @@ impl Runner<'_> {
                     let name = format!("turn{run}-{:02}-{safe}", movers.len());
                     self.s.shot(&name).map_err(|e| e.to_string())?;
                 }
-                turns.push(json!({"mover": current, "t": t, "frames": frames, "full_bar": bar}));
+                let mut peeked = serde_json::Map::new();
+                for &a in peek {
+                    let b = self.s.vice.mon.mem_read(a, a, false).map_err(|e| e.to_string())?;
+                    peeked.insert(format!("{a:04X}"), b.first().copied().unwrap_or(0).into());
+                }
+                turns.push(
+                    json!({"mover": current, "t": t, "frames": frames, "full_bar": bar, "peek": peeked}),
+                );
                 if Some(current.as_str()) == players.first().copied() {
                     firsts += 1;
                     if firsts > rounds {
