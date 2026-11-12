@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Where a run's wall time goes: calls and time per binary monitor command,
-//! and the instructions advanced (docs/capture.md 2.8). Time outside the
+//! and the instructions advanced (docs/capture.md 2.7). Time outside the
 //! monitor is the harness's own work (frame analysis, glyph reading, files).
 
 use crate::monitor::cmd;

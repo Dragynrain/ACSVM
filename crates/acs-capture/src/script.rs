@@ -13,7 +13,7 @@
 //! attach scen.d64   # disk image into drive 8
 //! ```
 
-use crate::monitor::Result;
+use crate::monitor::{Error, Result};
 use crate::screen::Frame;
 use crate::vice::Vice;
 use std::path::{Path, PathBuf};
@@ -25,7 +25,23 @@ pub struct Session {
     /// Instructions stepped since the session (or last undump) began.
     pub clock: u64,
     pub log: Vec<String>,
-    lin_id: Option<u8>,
+    /// Register ids of LIN and CYC, once looked up.
+    beam_ids: Option<(u8, u8)>,
+}
+
+/// PAL C64: 63 cycles a raster line, 312 lines a frame.
+const PAL_LINE_CYCLES: u64 = 63;
+const PAL_FRAME_CYCLES: u64 = PAL_LINE_CYCLES * 312;
+
+/// Frames begun while `instructions` ran, the beam going from cycle `from`
+/// to cycle `to` of the frame: the elapsed cycles are the shortest
+/// distance of at least 2 per instruction (see `run_counting_frames`).
+fn frames_passed(from: u64, to: u64, instructions: u64) -> u64 {
+    let mut elapsed = (to + PAL_FRAME_CYCLES - from) % PAL_FRAME_CYCLES;
+    if elapsed < 2 * instructions {
+        elapsed += PAL_FRAME_CYCLES;
+    }
+    (from + elapsed) / PAL_FRAME_CYCLES
 }
 
 pub fn parse_count(s: &str) -> Option<u64> {
@@ -109,7 +125,7 @@ impl Session {
             palette: None,
             clock: 0,
             log: Vec::new(),
-            lin_id: None,
+            beam_ids: None,
         }
     }
 
@@ -130,36 +146,51 @@ impl Session {
         Ok(())
     }
 
-    /// Steps `n` instructions in small chunks and counts the frames that
-    /// pass (raster wraparounds), so instruction counts can be turned into
-    /// emulated time (PAL: 50.125 frames per second).
+    /// Steps `n` instructions in chunks and counts the frames that pass
+    /// (beam wraparounds), so instruction counts can be turned into emulated
+    /// time (PAL: 50.125 frames per second). Exact (docs/capture.md 2.6):
+    /// the beam's cycle in the frame is read after each chunk, and a chunk
+    /// of c instructions takes at least 2c cycles (no 6502 instruction is
+    /// shorter), so a chunk that seems to take fewer went once more round
+    /// the frame. That holds while a chunk takes under a frame plus 2c
+    /// cycles, almost 12 cycles an instruction at 2,000 (the slowest
+    /// instruction takes 8, plus the VIC-II's stolen cycles).
     pub fn run_counting_frames(&mut self, n: u64) -> Result<u64> {
-        const CHUNK: u64 = 1_000;
+        const CHUNK: u64 = 2_000;
         let mut frames = 0;
-        let mut last = self.raster()?;
+        let mut last = self.beam()?;
         let mut done = 0;
         while done < n {
             let c = CHUNK.min(n - done);
             self.run(c)?;
             done += c;
-            let now = self.raster()?;
-            if now < last {
-                frames += 1;
-            }
+            let now = self.beam()?;
+            frames += frames_passed(last, now, c);
             last = now;
         }
         Ok(frames)
     }
 
-    /// The VIC-II raster line, from the monitor's register list.
-    pub fn raster(&mut self) -> Result<u16> {
-        if self.lin_id.is_none() {
+    /// The beam's cycle within the PAL frame: raster line x 63 + the cycle
+    /// in the line, from the monitor's register list (LIN, CYC).
+    pub fn beam(&mut self) -> Result<u64> {
+        if self.beam_ids.is_none() {
             let names = self.vice.mon.registers_available()?;
-            self.lin_id = names.iter().find(|(_, n)| n == "LIN").map(|(i, _)| *i);
+            let id = |want: &str| names.iter().find(|(_, n)| n == want).map(|(i, _)| *i);
+            match (id("LIN"), id("CYC")) {
+                (Some(l), Some(c)) => self.beam_ids = Some((l, c)),
+                _ => return Err(Error::Protocol("no LIN or CYC register".into())),
+            }
         }
-        let id = self.lin_id.unwrap_or(0xFF);
+        let (lin, cyc) = self.beam_ids.unwrap();
         let regs = self.vice.mon.registers()?;
-        Ok(regs.iter().find(|(i, _)| *i == id).map(|(_, v)| *v).unwrap_or(0))
+        let get = |id| {
+            regs.iter()
+                .find(|(i, _)| *i == id)
+                .map(|(_, v)| *v as u64)
+                .unwrap_or(0)
+        };
+        Ok((get(lin) * PAL_LINE_CYCLES + get(cyc)) % PAL_FRAME_CYCLES)
     }
 
     pub fn shot(&mut self, name: &str) -> Result<PathBuf> {
@@ -365,6 +396,18 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frames_passed_uses_the_two_cycle_floor() {
+        const F: u64 = PAL_FRAME_CYCLES;
+        // 2,000 instructions, 8,000 cycles, no wrap and one wrap.
+        assert_eq!(frames_passed(100, 8_100, 2_000), 0);
+        assert_eq!(frames_passed(F - 100, 7_900, 2_000), 1);
+        // Seems to take 1,000 cycles, under 2 per instruction: once more
+        // round the frame.
+        assert_eq!(frames_passed(100, 1_100, 2_000), 1);
+        assert_eq!(frames_passed(F - 500, 500, 2_000), 2);
+    }
 
     #[test]
     fn counts_and_inputs() {

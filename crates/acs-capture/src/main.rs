@@ -11,7 +11,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-/// Per-run timing (docs/capture.md 2.8): one line per run in `timing.jsonl`
+/// Per-run timing (docs/capture.md 2.7): one line per run in `timing.jsonl`
 /// next to `runs.jsonl`, and a short line on stderr.
 struct RunTimer {
     file: std::fs::File,

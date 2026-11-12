@@ -76,9 +76,17 @@ lists at the end of each `docs/rules/` spec.
    "advance" command) and looks again. Runs are exactly reproducible from a
    snapshot and an input script. About 5 million instructions run per second
    of host time. Emulated time comes from counting frames: the harness steps
-   in 1,000-instruction chunks and counts raster wraparounds (the `LIN`
-   register). A PAL frame is 1/50.125 s.
-8. **Timing.** `acs-capture run` writes `timing.jsonl` next to
+   in 2,000-instruction chunks and reads the beam's cycle in the frame
+   after each (`LIN` x 63 + `CYC`; 19,656 cycles a PAL frame, 1/50.125 s).
+   No 6502 instruction takes under 2 cycles, so a chunk that seems to take
+   fewer than 2 per instruction went once more round the frame. The count
+   is exact while a chunk averages under about 12 cycles an instruction
+   (the slowest takes 8, plus the cycles the VIC-II steals). Until November
+   2026 the chunks were 1,000 instructions and only `LIN` was read; one
+   `refuse` and one `weight` run gave identical output both ways. VICE
+   3.10's registers have no running cycle total. Runs that record no
+   frames (`weight`) don't count them.
+7. **Timing.** `acs-capture run` writes `timing.jsonl` next to
    `runs.jsonl`: one line per run and a `"total"` line, with the wall time,
    the instructions advanced, instructions per host second (overall and
    inside advances), and calls and seconds per monitor command
@@ -89,7 +97,10 @@ lists at the end of each `docs/rules/` spec.
    advances at 4.4 million a second, so its fixed waits are the cost; a
    `weight` run is 312 million in 94 s, of which about 8 s are 101,000
    register reads and 9 s 14,000 frame grabs from counting frames in
-   1,000-instruction chunks.
+   1,000-instruction chunks. With item 6's counting, `weight` takes 77 s
+   (no frames counted) and one `refuse` run 90 s against 96 s; refuse's
+   cost is now mostly its 25,000 frame grabs (a look every 20,000
+   instructions).
 
    **Waiting for the screen, not the clock.** A trace of the cast flow
    (each fixed wait watched for screen changes) showed every menu
@@ -106,7 +117,7 @@ lists at the end of each `docs/rules/` spec.
    million instructions sooner after the jitter, so the roll is sampled at
    other moments: cost 60 worked 13 of 60 (19 before), cost 30 44 of 60
    (40 before), within the ten points section 7 gives each figure.
-9. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
+8. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
    route. It needs IBM BIOS ROMs and the MS-DOS program, which the project
    doesn't have yet. Not built.
 
@@ -115,7 +126,7 @@ lists at the end of each `docs/rules/` spec.
 | Piece | Does |
 | --- | --- |
 | `monitor.rs` | Binary monitor client: memory, advance, resume, snapshot dump and undump, display, palette, registers, joystick, keyboard feed, reset, quit. |
-| `timing.rs` | Calls and time per monitor command, instructions advanced (2.8). |
+| `timing.rs` | Calls and time per monitor command, instructions advanced (2.7). |
 | `vice.rs` | Starts `x64sc` with the flags above, connects, `attach` through the text monitor; shuts VICE down on drop and on errors. |
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
@@ -235,7 +246,7 @@ So the player is the one 16 x 16 green box on the map.
 
 Under `ACSVM-research/capture/`: `template-fantasy.d64`, `boot/` (program disk
 copy, `play.vsf`), `scenarios/`, and `runs/NAME/` (`disk.d64`, `start.vsf`,
-`room.vsf` for move-room, `runs.jsonl`, `timing.jsonl` (2.8), `summary.json`, start-up
+`room.vsf` for move-room, `runs.jsonl`, `timing.jsonl` (2.7), `summary.json`, start-up
 screenshots).
 
 ## 7. First scenarios: move-basic and move-room
@@ -573,7 +584,7 @@ In this order (planned November 2026):
    the ratio, the difference or neither). Each run, from the first turn:
    1. reads the movement, Power and Life Force bars;
    2. casts the spell as in item 4;
-   3. waits for the screen to settle (2.8; it was 10 million instructions
+   3. waits for the screen to settle (2.7; it was 10 million instructions
       for the grid above): the long message means it worked, the
       map still showing means it failed (a screenshot of each new kind of
       outcome screen, in case a cost above Power is refused another way);

@@ -92,7 +92,7 @@ pub struct Monitor {
     /// Program counter from the last "stopped" event.
     pub last_stop_pc: Option<u16>,
     pub running: bool,
-    /// Calls and time per command (docs/capture.md 2.8).
+    /// Calls and time per command (docs/capture.md 2.7).
     pub stats: crate::timing::Stats,
 }
 

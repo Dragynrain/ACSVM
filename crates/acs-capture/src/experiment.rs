@@ -349,6 +349,9 @@ struct Track {
     frames: u64,
     bar: usize,
     refilled: bool,
+    /// Whether to count frames (each count costs monitor round trips; the
+    /// `weight` run records none).
+    count_frames: bool,
 }
 
 impl Runner<'_> {
@@ -359,7 +362,11 @@ impl Runner<'_> {
         let mut o = self.look()?;
         while done < n {
             let c = (n - done).min(20_000);
-            k.frames += self.s.run_counting_frames(c).map_err(|e| e.to_string())?;
+            if k.count_frames {
+                k.frames += self.s.run_counting_frames(c).map_err(|e| e.to_string())?;
+            } else {
+                self.step(c)?;
+            }
             done += c;
             o = self.look()?;
             if o.bar > k.bar + REFILL {
@@ -388,6 +395,7 @@ impl Runner<'_> {
             frames: 0,
             bar: first.bar,
             refilled: false,
+            count_frames: true,
         };
         let mut log = Vec::new();
         for act in acts {
@@ -487,6 +495,7 @@ impl Runner<'_> {
             frames: 0,
             bar: first.bar,
             refilled: false,
+            count_frames: false,
         };
         let mut steps = Vec::new();
         // Through the door (as in the refuse cases).
@@ -562,7 +571,7 @@ impl Runner<'_> {
 
 impl Runner<'_> {
     /// Runs until the screen has not changed for `quiet` instructions, at
-    /// most `limit` (docs/capture.md 2.8). Returns the instructions run and
+    /// most `limit` (docs/capture.md 2.7). Returns the instructions run and
     /// whether the screen changed at all. Only for screens that hold still
     /// once drawn (the menus, which pause the drain, and messages); on the
     /// map the draining bar keeps changing and this runs to `limit`.
@@ -614,7 +623,7 @@ impl Runner<'_> {
     /// missed, and the menu taps that follow would then walk the player.
     pub(crate) fn open_menu(&mut self) -> Result<(), String> {
         // A press as the turn runs out is lost (the next turn's prompt
-        // shows, no menu): up to three presses (docs/capture.md 2.8).
+        // shows, no menu): up to three presses (docs/capture.md 2.7).
         for _ in 0..3 {
             // First the turn's prompt ("move with the joystick ..."): between
             // turns the status area is blank and a press opens nothing.
