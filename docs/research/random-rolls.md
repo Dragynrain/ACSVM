@@ -347,9 +347,14 @@ goal and step rules predicted all 1,367 creature steps in 128 runs; a
 random creature appeared at chance 75% in 8 and 6 of 10 runs, through the
 map door and a portal, in the lowest free slot with its mark. The
 researcher's arrival-mark condition did not stop the map door case.
-Falling away is in the engine unconfirmed. **Open, for a next pass:**
-fighters (attacks, firing, the second table), the first-step cost of some
-things, falling away by capture, the map encounters, item 18.
+Falling away (item 15), checked later with every draw logged (capture.md
+10.14.3; 256 states, 1,280 round ends, 114 removals, all predicted): the
+slot roll is as found, but the percentile is one roll whenever the slot
+is in use (also with no random creature left), and under 20 every random
+creature in a room with no player at the round's end goes, its room on
+the round's list or not. Creatures 2.4 follows the capture. **Open, for a
+next pass:** fighters (attacks, firing, the second table), the first-step
+cost of some things, the map encounters, item 18.
 
 **Checked by capture** (capture.md 10.12): healing, 253 of 253 runs of a
 256-state sweep exact; the tick's delay, 252 of 252; the seed, 5. Specs:

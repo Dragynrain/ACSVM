@@ -111,8 +111,8 @@ getting the program to the right moment.
 
 | Brief | Status |
 | --- | --- |
-| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass done 2026-11-12 (items 7-13): healing and the temporary tick confirmed by capture and in the engine. Third pass done 2026-11-12: creatures' goals and steps and random creatures appearing confirmed by capture and in the engine. Next: fighters (combat) |
-| [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | First pass done 2026-11-12: the region-visit scheduler confirmed by capture and in the engine. Next: the per-round random checks, two rooms in one region |
+| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass done 2026-11-12 (items 7-13): healing and the temporary tick confirmed by capture and in the engine. Third pass done 2026-11-12: creatures' goals and steps and random creatures appearing confirmed by capture and in the engine; falling away captured, its percentile corrected (one roll; rooms empty at the round's end). Next: fighters (combat) |
+| [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | First pass done 2026-11-12: the region-visit scheduler confirmed by capture and in the engine. Two rooms in one region captured; next: the round a player misses after a portal, a player's death |
 
 ## 6. Templates
 

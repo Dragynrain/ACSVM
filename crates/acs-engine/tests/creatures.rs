@@ -167,9 +167,13 @@ fn item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u16, parameter: u8)
 }
 
 fn start(a: Adventure, room: u8, x: u8, y: u8) -> Game {
+    start_seeded(a, 3, room, x, y)
+}
+
+fn start_seeded(a: Adventure, seed: u64, room: u8, x: u8, y: u8) -> Game {
     let (mut g, _) = Game::new(
         a,
-        3,
+        seed,
         Rules { diagonals: true },
         PlayerSetup {
             speed: 15,
@@ -551,7 +555,8 @@ fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
         assert_ne!((x, y), (1, 3));
         // Back west (the door into another room ends the turn, movement
         // 2.3): the bat cannot move and is left behind. 2.4: each round a
-        // slot roll (1 in 16 hits its slot, the only one in use), then 20%.
+        // slot roll (1 in 16 hits its slot, the only one in use), then one
+        // percentile roll under 20.
         let mut ev = g.apply(Command::Move { dir: Dir::W });
         let gone = |ev: &[Event]| {
             ev.contains(&Event::CreatureRemoved {
@@ -568,6 +573,42 @@ fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
         }
         assert!(g.creature(1, 0).is_none());
         assert!(!g.is_random(1, 0));
+    });
+}
+
+#[test]
+fn a_random_creature_can_go_at_the_end_of_the_round_its_room_was_left() {
+    // 2.4: what counts is no player in its room at the round's end, not
+    // its room being off the round's list (capture.md 10.14.3).
+    both(|p| {
+        let mut a = adventure(p);
+        let mut bat = a.regions[0].residents[0].clone();
+        bat.in_use = true;
+        bat.name = "BAT".into();
+        bat.speed = 0;
+        a.regions[0].random_creatures[2] = bat;
+        a.regions[0].rooms[1].random_chance = 100;
+        a.regions[0].rooms[1].random_creature = 2;
+        let mut first_round = 0;
+        for seed in 0..400 {
+            let mut g = start_seeded(a.clone(), seed, 0, 8, 3);
+            g.apply(Command::Move { dir: Dir::E });
+            assert!(g.is_random(1, 0), "seed {seed}: appeared");
+            let ev = g.apply(Command::Move { dir: Dir::W });
+            if ev.iter().any(|e| {
+                matches!(
+                    e,
+                    Event::CreatureRemoved {
+                        reason: RemovalReason::LeftBehind,
+                        ..
+                    }
+                )
+            }) {
+                first_round += 1;
+            }
+        }
+        // 1 in 16 for the slot, then 1 in 5: about 5 of 400.
+        assert!((1..20).contains(&first_round), "{first_round}");
     });
 }
 

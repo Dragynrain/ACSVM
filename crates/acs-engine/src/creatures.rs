@@ -163,8 +163,9 @@ impl Game {
     }
 
     /// 2.4: after a round in a room region, a roll of 0..15 picks a slot;
-    /// if it holds a creature, each random creature of the region whose
-    /// room was not on the round's list goes on a percentile roll under 20.
+    /// if it holds a creature, one percentile roll, and under 20 every
+    /// random creature of the region in a room with no living player in it
+    /// now goes.
     pub(crate) fn left_behind(&mut self, ev: &mut Vec<Event>) {
         let region = self.sched.region;
         if region == 0 {
@@ -175,6 +176,9 @@ impl Game {
         if pick >= slots || self.creature(region, pick).is_none() {
             return;
         }
+        if !self.rng.percent(LEFT_BEHIND) {
+            return;
+        }
         for (rg, slot) in self.random.clone() {
             if rg != region {
                 continue;
@@ -182,8 +186,12 @@ impl Game {
             let Some(c) = self.creature(region, slot) else {
                 continue;
             };
-            let listed = self.sched.rooms.contains(&c.room);
-            if self.rng.percent(LEFT_BEHIND) && !listed {
+            let room = c.room;
+            let occupied = self
+                .players
+                .iter()
+                .any(|p| p.alive && p.at.room() == Some((region, room)));
+            if !occupied {
                 self.remove_creature(region, slot, RemovalReason::LeftBehind, ev);
             }
         }

@@ -96,7 +96,10 @@ the hand-off reviewed for plain language and accepted). Summary:
 **Checked by capture** (capture.md 10.13): reading the region and round
 counter at every turn's start over 25 of T's turns, in 2 runs, showed
 the predicted blocks exactly. Spec: creatures 2.2, 2.3 tagged [research]
-and [capture]; the engine follows them. **Open:** two players in
-different rooms of one region; the visit after a player dies; the
-per-round random checks (random creatures appearing and falling away);
-individuals 5 to 15 on room lists.
+and [capture]; the engine follows them. **Open:** the visit after a player dies;
+individuals 5 to 15 on room lists. Captured since (capture.md 10.10.4,
+10.14): two players in different rooms of one region go room by room in
+player order, each room's creatures after its players, except that in
+the region's first round a player who had just come through a portal
+into another room had no turn (3 of 3 runs; for a next pass); random
+creatures appearing and falling away (creatures 2.4, 3).

@@ -959,6 +959,19 @@ In this order (planned November 2026):
       the side room, and every step on the way (paths, items 4 and 5).
       A control disk without the route (`follow-stay`: T stays on 4,4)
       shows what the same creatures do with the player still in the room.
+   4. *Two players in different rooms of one region* (`rooms2`, November
+      2026; creatures 2.2; experiment `turns --peek 397C,F65B,F65C,71FA`).
+      The side-room disk with T (Speed 12) and U (Speed 4, added as in
+      `two`), and two peaceful friends of ours (Speed 3) on 2,7 and 2,2,
+      west of the entry, away from the portal. U walks into room 0 on its
+      first turn; T walks in and on through the portal (`--route T=e3`),
+      so both arrive during the map's visit. 3 runs, 8 of T's turns.
+      Result, the same in all 3: round 13, the region's first, went U, AA,
+      BB (individuals 2, 16, 17) and T had no turn; from round 14 on every
+      round went T (side room), then U, AA, BB (room 0). So the rooms go
+      in player order and each room's creatures follow its players, as the
+      turn-order finding says; the round T missed after arriving through
+      the portal is not explained (open: turn-order next pass).
 11. **Snapshots just before a roll** (`acs-capture snap MOMENT`, done
    November 2026), for the researcher's inputs and for state sweeps.
    From a scenario's first-turn snapshot, optionally after a drift plan's
@@ -1039,5 +1052,29 @@ In this order (planned November 2026):
       the room was drawn; through the portal into the side room (T's route
       `e3`) in 6 of 10 as the next round began; always in slot 0 with the
       random mark, on squares spread over the inside.
-   Not captured: random creatures falling away (creatures 2.4), which
-   needs one left in a room no player is in.
+   3. *Random creatures falling away* (creatures 2.4; `fall`, November
+      2026). The side-room disk with seven residents of ours (Speed 0, on
+      the top row and 12,8: slots 0 to 6, so the slot roll hits half the
+      time), the random creature (Speed 0) at room 0's chance 15 and a
+      Speed 7 player, Constitution and Life Force 20. A script walks T
+      into room 0 (the creature showed on 7,1, slot 7) and on through the
+      portal, and saves `rr4/fall/side.vsf` with T in the side room. Then
+      `mem --set-random-state --draws` from there, 256 states, 60 million
+      instructions (five round ends, the first that of the round T left
+      room 0 in), watching the creature's Constitution (`$E2A6`, slot 7),
+      its mark, the round counter, the region and the current
+      individual. `scripts/fallcheck.py` reads each round end's burst of
+      draws: T's last idle move's healing roll (just before every round's
+      end), the slot roll, the percentile when the slot is in use, then
+      the side room's random-creature roll for the next round.
+      Result (256 runs, 8 jobs, about 22 minutes): every one of the
+      1,280 round ends drew what the rule in creatures 2.4 says, and the
+      creature went in exactly the 114 runs, at exactly the round end, the
+      draws predicted (27, 29, 26, 19 and 13 at the first to fifth).
+      The researcher's reading (a percentile only for a random creature
+      whose room was off the round's list) got 154 of the 256 runs wrong: the percentile comes whenever the slot is in use, also with
+      no random creature left, and the creature went at the end of the
+      round T left room 0 in. The watch's reads of `$E2A6` sometimes
+      show another value for one sample and the old one at the next (most
+      likely a read while other memory is banked in); the checker drops
+      those.

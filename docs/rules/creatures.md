@@ -68,10 +68,16 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    stood in the room at a round's start. [capture: turns, capture.md
    10.10] **Engine:** the rule above. A player who dies mid-round ends
    the visit at the round's end; the "restore the last saved game" screen
-   the original then shows is the front end's business. Not settled: two
-   players in different rooms of one region (by the rule: each room's
-   players, then its creatures), the individuals the researcher saw
-   numbered 5 to 15 on room lists.
+   the original then shows is the front end's business.
+   Two players in different rooms of one region: T in the side room, U
+   and two creatures in room 0; every round from the region's second on
+   went T, then U and the creatures, in 3 runs. [capture: turns, case
+   rooms2, capture.md 10.10.4] But in the region's first round, just
+   after T had come through a portal into the side room (during the
+   map's visit), T had no turn: U and the creatures only. [capture]
+   [unknown] **Engine:** lists T as usual. Not settled: that missed
+   round, the individuals the researcher saw numbered 5 to 15 on room
+   lists.
 3. So creatures act only while a player stands in their room at a round's
    start, and move once a round however many players share the room. Two
    players in different places do not alternate: each gets its region's
@@ -80,14 +86,28 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] On the C64, after each round
    in a room region one roll of 0 to 15 picks a slot; if it holds a
-   creature, every random creature (resident ones never) whose room was
-   not on the round's list takes a percentile roll and is removed below
-   20. So a left-behind random creature goes with chance (slots in use /
-   16) x 20% a round. [research: random-rolls third pass, 2026-11-12, `docs/research/random-rolls.md`] Not captured yet
-   ([research, unconfirmed]). **Engine:** the rule above, at the end of
-   each round of a room region's visit, the removed creature taking what
-   it carries (`CreatureRemoved`, reason `left_behind`); what becomes of
-   its things in the original is not known.
+   creature, one percentile roll follows, and under 20 every random
+   creature of the region (resident ones never) in a room with no player
+   in it goes. So a left-behind random creature goes with chance (slots in
+   use / 16) x 20% a round. [research: random-rolls third pass,
+   2026-11-12, `docs/research/random-rolls.md`] The researcher read the
+   percentile as one per random creature whose room was not on the
+   round's list. Captured with every draw logged: the percentile is
+   drawn once whenever the slot is in use, with no random creature left
+   too, and a random creature goes at the end of the very round in which
+   the last player left its room, though that room was on the round's
+   list. So what counts is the room being empty at the round's end.
+   In 256 runs from one snapshot,
+   each with its own random state, the rule predicted all 1,280 round
+   ends' draws and the 114 removals, 27 of them at the end of the round
+   the player left in; the researcher's reading got 154 runs wrong. [capture: mem --draws, case fall,
+   capture.md 10.14.3] Not captured: two random creatures at once (one
+   roll or one each); a player walking into a room mid-round (by the rule
+   above it protects the room's random creatures). **Engine:** the rule
+   above, at the end of each round of a room region's visit, the removed
+   creature taking what it carries (`CreatureRemoved`, reason
+   `left_behind`); what becomes of its things in the original is not
+   known.
 5. **The movement bar.** A creature's turn has a bar like a player's: its
    Speed after the weight slowdown ([inventory](inventory.md) 3.3), using
    the creature's own Strength, Constitution, Life Force and load. On the
@@ -338,11 +358,12 @@ The corpus test (`crates/acs-engine/tests/corpus.rs`) puts a player in each
 of the 996 live rooms that hold residents or a random creature and plays a
 dozen turns of waiting and wandering. With the region-visit scheduler
 (2.2), a room door into another room ending the turn (movement 2.3) and
-the healing and reversal rules of magic 5 (November 2026), creatures
-take 9,179 turns (the falling-away roll and the creatures' own goals and
-steps of section 6, November 2026), make 17,648 steps, go through 173
-doors, square up to someone 4,219 times, ready 1,905 weapons, pick up
-gold 18 times and treasure 11 times, and make 28 overburdened drops. No
+the healing and reversal rules of magic 5 (November 2026), the
+creatures' own goals and steps of section 6 and the falling-away roll as
+captured (2.4, November 2026), creatures take 9,413 turns, make 17,828
+steps, go through 166 doors, square up to someone 4,409 times, ready
+1,896 weapons, pick up gold 17 times and treasure 11 times, and make 27
+overburdened drops; 7 random creatures appear and 2 fall away. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another creature, nor with a
 player except on arriving through a door (5.4). The random walks with
@@ -358,11 +379,11 @@ creatures replay exactly.
 ## Captures needed
 
 1. Turn order: captured and researched (2.2, 2.3), players in different
-   places included. Still open: two players in different rooms of one
-   region; what happens to the visit when a player dies.
-2. Random creatures: appearing captured and researched (3); falling away
-   researched, not captured (2.4: needs one left in a room with no
-   player).
+   places and two players in different rooms of one region included.
+   Still open: the round a player missed after a portal (2.2); what
+   happens to the visit when a player dies.
+2. Random creatures: appearing and falling away captured and researched
+   (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend). Still open: mid-turn, odd Speeds.
 4. Goal choice: researched and captured for slinker friends and neutrals
