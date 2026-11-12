@@ -5,7 +5,8 @@ section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11),
 by a separate Claude session as the researcher; findings below, the cast
 chance confirmed by capture. **Second pass** (items 7 to 13) done
 2026-11-12; healing and the temporary tick confirmed by capture and in
-the engine.
+the engine. **Third pass** (items 14 to 18, creatures in a room) briefed
+2026-11-12, inputs ready.
 
 ## Why
 
@@ -116,6 +117,49 @@ check. Addresses stay for the harness only.
 Enough for this pass: items 10, 12 and 13. Items 7 to 9 and 11 should be
 short once the end of a turn is traced.
 
+### Third pass (briefed 2026-11-12)
+
+The second pass and the turn-order pass (`turn-order.md`) settled the
+generator's users outside rooms and the scheduler. This pass is the rolls
+a room with creatures takes. The creatures' behaviour so far is in
+[creatures](../rules/creatures.md) sections 2, 5 and 6 (most of it the
+engine's guesses, tagged [unknown]); what we captured is in
+`docs/capture.md` section 7 ("Turn order", "Following through a door").
+
+14. **A creature's turn.** Which rolls a creature's turn takes, in order,
+    and what each decides: the goal it picks (the manual's ordered lists
+    by type, creatures 6.1, and "nearer beats better", 6.3: how much
+    nearer), the square it steps to among equally good ones (6.6), when
+    it stops, and whether it ever wanders with no goal. Say whether a
+    creature's turn also takes the players' top-of-turn die and idle-move
+    healing rolls (second pass, item 12, from reading only). Captured:
+    from the same snapshot, a peaceful friend (Speed 6) went for the
+    player in some runs, for the portal (an exit) in others, and once
+    wandered off through it with the player still in the room; a
+    peaceful neutral with no exit walked up to the player; creatures
+    never stepped diagonally.
+15. **The roll at a round's end in a room** (second pass, item 12): the
+    roll of 0 to 15 and the percentile rolls under 20 that may follow.
+    What do they do: random creatures appearing, random creatures
+    falling away ("random creatures in rooms no player occupies are
+    removed now and then", creatures 2.4), something else? The turn-order
+    pass also saw one roll a round against a value of each listed room,
+    and one picking a creature slot with a 1-in-5 roll: the same?
+16. **Random creatures appearing** when a player enters a room: the roll
+    against the room's chance (creatures 3.1), how the square is chosen
+    (3.2: "only on a square with no thing on it"), which slot it takes
+    (3.3), and when left-behind ones go (2.4). None of our scenario rooms
+    has a random creature; reading is enough for a first answer, and say
+    what scenario would let the harness check it.
+17. **The 8 percentile rolls per walked square** (second pass, 11.1): what
+    the table is and what can appear, on the map and in a room.
+18. **From loading to the first turn**: which rolls loading the adventure
+    and choosing the player take (low priority).
+
+Enough for this pass: items 14 and 15. For each roll, say what decides
+its range (a count of goals, of squares, a fixed 100) so the harness can
+sweep the random state just before it, as it did for healing.
+
 ## How the answers come back
 
 1. **Plain language only.** No code, pseudo-code, disassembly, byte dumps
@@ -201,6 +245,27 @@ profile screen read at the top of each turn: `pow`, `lf`, `wis`, `con`):
 
 Each run began from its scenario's `start.vsf` after idling its jitter
 (the `jitter` field, in instructions; capture.md 4.3).
+
+Third pass (`pass3/`): scenarios of ours with creatures of ours in the
+room behind the map door (capture.md 10.10). Every creature is a resident
+of region 1; its picture is a small block whose shape tells it apart.
+
+| File | The moment | Items |
+| --- | --- | --- |
+| `one-room-turn-end.vsf` | T (Speed 6) on the room's entry square 4,4, its bar 1 pixel from empty; the creatures move next: AA (slot 0, 12,2, Speed 3), BB (slot 1, 2,7, Speed 5), both peaceful, cautious friends, and CC (slot 2, 12,7, Speed 4), a peaceful neutral. The room has no door out | 14, 15 |
+| `follow-room-turn-end.vsf` | T (Speed 12) on 4,4, bar about to run out; a one-way portal on 7,4 (an exit) into a second room; AA (slot 0, 10,2, Speed 6, a peaceful friend) and CC (slot 1, 12,7, Speed 4, a peaceful neutral) | 14, 15 |
+| `*-disk.d64`, `*-start.vsf` | each scenario's disk and first turn (on the map) | to replay |
+| `*.png` | screenshots of the snapshots | |
+
+Captured runs (`pass3/runs/`; `turns` experiment, one JSON object a run:
+`movers` in order, and `rows`, a timeline whenever the mover or a square
+changes, `creatures` as [slot, [x, y]]; in the second room squares read 3
+right and 1 down of their true place):
+
+| Folder | What |
+| --- | --- |
+| `one` | the `one` scenario, T idling in the room, 3 runs: the creatures' paths |
+| `follow-stay`, `follow-route` | the follow scenario, T idling on 4,4, or walking onto the portal, 3 runs each: AA's and CC's paths varied between runs |
 
 ## Findings
 
