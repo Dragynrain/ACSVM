@@ -514,9 +514,11 @@ screen offers next to "create new player".
 | Address | What | Source |
 | --- | --- | --- |
 | `$DC00`, `$DC01` | CIA 1 ports A and B (joystick lines), read only while setting up the joystick | Documented C64 hardware |
-| `LIN` register | VIC-II raster line, for counting frames | VICE's register list |
+| `LIN`, `CYC` registers | VIC-II raster line and cycle in the line, for counting frames (2.6) | VICE's register list |
 
-No address in the original program is used.
+No address in the original program is used. The researcher brief on the
+random rolls (`docs/research/random-rolls.md`) asks for the first: where
+the random state lives, so the harness can read and set it.
 
 ## 10. Next
 
@@ -680,6 +682,8 @@ In this order (planned November 2026):
    a grid): Power 20 against cost 60 worked 20 times (33%; Power /
    (cost + 1) = 33%), against cost 30 36 times (60%; 65%). Use it for the
    statistical captures that only need an outcome; any roll reached
-   through menus can be sampled this way.
+   through menus can be sampled this way. Exact rather than statistical
+   rules would need the random state itself: see the researcher brief,
+   `docs/research/random-rolls.md` (waiting for the maintainer).
 8. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.
