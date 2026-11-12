@@ -1,0 +1,15 @@
+{
+  "_note": "Pirate kit palette (docs/art/pirates-style.md section 5): hue-shifted ramps, light to dark. Darks lean cool and muted, lights warm. CC BY 4.0.",
+  "outline": ["#3a1a12", "#1c1419"],
+  "sea": ["#b4f0dc", "#5ee4d2", "#2fb4bc", "#2a8cac", "#3f7a8c", "#22609a", "#1e4878", "#1b3462", "#17223f"],
+  "sand": ["#fbf1cf", "#f2d79c", "#e0b376"],
+  "skin": ["#d69866", "#a8693f", "#76432c", "#4c2a26"],
+  "wood": ["#e8bd7c", "#bf8349", "#8e5631", "#5c3324"],
+  "leather": ["#c8683c", "#a1462a", "#6c2616"],
+  "rust": ["#f27250", "#d83a32", "#b01c26", "#7e2036", "#4e1a30"],
+  "gold": ["#fff2a6", "#f4c443", "#c08a2c"],
+  "jungle": ["#d0ea78", "#9fd462", "#6cae40", "#3c8a3c", "#235a3c", "#173a32"],
+  "moss": ["#a8bc6a", "#7e9c54", "#566e42"],
+  "stone": ["#f6f1e6", "#d4c8bc", "#b0aca8", "#96938f", "#7a7c78", "#5c5e6a", "#3c3e4c", "#2a2b34"],
+  "kraken": ["#f6aca4", "#d86a8c", "#9a3a86", "#5a2668"]
+}

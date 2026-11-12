@@ -56,21 +56,38 @@ Characters drift most between realistic, cartoon and anime, so these are fixed.
 
 ## 5. Palette
 
-About 28 colours in hue-shifted ramps. Mid-tones saturated, darks muted:
-bright without looking like candy. Hex values get fixed after the first
-hand-finished tiles; the ramps are:
+54 colours in hue-shifted ramps, light to dark. Mid-tones saturated, darks
+muted and cooler, lights warmer: bright without looking like candy. The hex
+values are in [pirates-palette.json](pirates-palette.json); they may still
+move once tiles are hand-finished.
 
 | Ramp | Steps | Use |
 | --- | --- | --- |
-| Sea | 4 | Deep blue to teal: water, blue cloth |
-| Sand and skin, light | 3 | Sand, canvas, light skin |
-| Skin, medium and dark | 4 | Skin tones, leather |
+| Outline | 2 | Dark warm brown; near-black for black cloth, flags, cave mouths |
+| Sea | 9 | Foam to deep night blue, plus a muted teal for blue cloth |
+| Sand | 3 | Sand, canvas, light skin |
+| Skin | 4 | Skin tones |
 | Wood | 4 | Sun-bleached to dark tarred wood |
-| Rust red | 3 | Coats, bandanas, marines |
+| Leather | 3 | Red-brown leather, book covers, jerkins |
+| Rust red | 5 | Coral orange to crimson: coats, bandanas, marines, lava |
 | Brass and gold | 3 | Coins, hilts, buttons |
-| Jungle green | 3 | Plants, green cloth |
-| Bone and stone | 3 | Skeletons, rock, steel (with a cool tint) |
-| Outline | 1 | Dark warm brown |
+| Jungle green | 6 | Bright grass to dark canopy |
+| Moss | 3 | Muted olive: swamp, olive cloth |
+| Bone and stone | 8 | Bone white, rock, steel and charcoal, cool in the darks |
+| Kraken | 4 | Pink to purple: the kraken, sea creatures, the supernatural |
+
+The first plan was 28 colours. Snapping the 109 raw kit pictures showed
+where that was too few: grey rock and flagstone turned blotchy with only
+three greys, a black flag turned navy, and shallows, deep sea and blue cloth
+need more blues than one ramp of four. The ramps were grown where
+`_scripts/palgaps.py` (research folder) found the most pixels far from any
+colour, not by fitting a palette to the images.
+
+`scripts/palsnap.py PALETTE.json OUTDIR IMAGE...` snaps tiles to the ramps:
+nearest colour in OKLab with the hue part weighted 1.5 times, so a small
+purple arm stays purple instead of falling to a grey of the same lightness
+(what the automatic 48-colour palette of `sprite64.py --palette` did to the
+kraken). `--sheet` lists the tiles worst first; `--swatch` draws the ramps.
 
 ## 6. Framing
 
@@ -195,8 +212,10 @@ the story turns on who serves Vail.
 **From 1024 px to a tile:** `scripts/sprite64.py` cuts the figure off the
 magenta, crops it, shrinks it to 60 px tall with k-centroid downscaling (each
 pixel takes its block's dominant colour, not the average) and places it on a
-64 px tile with the feet on the baseline; `--palette N` snaps a batch to one
-shared palette, `--sheet` writes a before-and-after contact sheet. Averaging
+64 px tile with the feet on the baseline; `--sheet` writes a
+before-and-after contact sheet. Snap the result to the kit ramps with
+`scripts/palsnap.py` (section 5); `--palette N` (a palette fitted to the
+batch) is only for trying things out. Averaging
 the whole frame down, as the first contact sheets did, smears outlines and
 faces; cropping first does most of the good. Faces are still about 4 px
 wide at 64, so eyes and mouths get hand-placed pixels.
