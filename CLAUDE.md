@@ -7,7 +7,9 @@ Plan: `docs/design.md`. Current phase: 3, the behavior capture harness
 (rules engine from the manual: movement, inventory, creatures outside combat
 and magic) is done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
-[capture] or [unknown] with the engine's choice; write the spec before the code.
+[capture], [research] or [unknown] with the engine's choice; write the spec
+before the code. Rules capture can't settle (random formulas, edge cases,
+hidden state) go through clean-room research: `docs/research/README.md`.
 
 ## Hard rules
 
@@ -18,7 +20,12 @@ Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 - Research material lives outside the repo in `D:\projects\ACSVM-research`
   (manual OCR: paraphrase only; Boris draft; C64 corpus). `advcnst*.d64` are
   EA's program disks (advcnst2 holds EA's *Rivers of Light*): never decode them
-  for analysis.
+  for analysis. Only a researcher session (a separate one, started in the
+  research folder by the maintainer) may; sessions here are implementers.
+- **Clean room** (`docs/research/README.md`): never open, list or search
+  `ACSVM-research/research/*/notes/`; read only a pass's `findings.md`,
+  confirm it by capture, then spec it, then code it. Never implement from
+  anything but the spec.
 - `corpus/pc/ACS.FPY` is EA's *Rivers of Light* from the user's own MS-DOS
   copy: fine to decode locally, never commit anything derived from it.
 - ACS Viewer (`danlb2000/ACSViewer`, GPL-3.0) may be ported with credit

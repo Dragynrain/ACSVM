@@ -53,6 +53,13 @@ There are three kinds of knowledge, handled differently:
    implements a rule from that spec must not have read the original code for
    it. Say in your pull request which role you had.
 
+   The working process is `docs/research/README.md`: a brief, a research
+   pass in the research folder, a plain-language findings file as the only
+   hand-off, confirmation by capture, then the spec (tagged [research]) and
+   only then the code. An AI researcher is a separate, fresh session used
+   for nothing else; a session that has read the program's code is a
+   researcher from then on and doesn't implement what it read.
+
 ## 4. Provenance
 
 Every outside source (documents, code, palettes, measurements) goes into

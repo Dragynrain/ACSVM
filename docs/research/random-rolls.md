@@ -76,7 +76,11 @@ start.
 
 ## Before starting
 
-These are the maintainer's decisions, not the researcher's:
+These were the maintainer's decisions, not the researcher's. Decided
+2026-11-11: the researcher is a separate, fresh Claude session started in
+the research folder; the program-disk exception is in CLAUDE.md for
+researcher sessions only; the C64 version first. The process is now
+`README.md` in this folder.
 
 1. **Who the researcher is.** It must be someone who will not implement the
    rules they report, in the engine or the harness. The person or AI
