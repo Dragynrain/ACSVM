@@ -200,3 +200,54 @@ shared palette, `--sheet` writes a before-and-after contact sheet. Averaging
 the whole frame down, as the first contact sheets did, smears outlines and
 faces; cropping first does most of the good. Faces are still about 4 px
 wide at 64, so eyes and mouths get hand-placed pixels.
+
+## 10. Kit LoRA
+
+**v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
+40 picked raw generations (14 crew, 26 objects and creatures), not yet on
+hand-finished tiles as section 9 plans.
+
+- **Captions** say what is in the picture and nothing about the style, so the
+  style goes into the trigger: "acspirates style. <subject line>. On a plain
+  flat magenta background." Where the model drifted, the caption describes the
+  result, not the request.
+- **Training:** OneTrainer's "z-image DeTurbo LoRA 16GB" preset on
+  ostris's Z-Image De-Turbo (de-distilled Turbo, so the LoRA suits 8-step
+  Turbo; Base-trained LoRAs are reported to come out soft on Turbo), int8
+  weights, rank 16, alpha 16, learning rate 1e-4, batch 1, buckets 512 and
+  768, no flip (light stays top left), no crop jitter. About 1.3 steps a
+  second on a 16 GB card. Checkpoints at 600, 1200 and 1800 steps; the run
+  stopped at epoch 55 of 60, before the 2400-step save.
+- **v1**, the same set on Z-Image Base at 512 and 768 with batch 2 and fp8,
+  spilled out of VRAM (14 to 40 s a step) and was stopped.
+
+**Test** (6 subjects not in the set, seed 401, FP8 Turbo, 8 steps): the
+short trigger prompt alone gives the kit's outline and flat tones, close to
+the full v3 template. 1800 steps is the best so far; at 600 steps new
+subjects (a palm tree) still come out painterly. Two things it learned that
+the sheet doesn't want: a soft ground shadow under every subject (the
+training images had one, and no caption said so) and pirate dress on anyone
+(the fiddler got a red bandana). Next set: caption the shadow or remove it,
+and add non-pirate people.
+
+**v3 (November 2026), the current one.** 54 images: v2's 40 plus 8
+townsfolk (innkeeper, merchant, governor, fisherwoman, blacksmith, fruit
+seller, priest, farmer) and 6 tavern objects. Every background is flattened
+before training: each pixel near the background's hue and connected to the
+image border becomes pure `#FF00FF`, which removes the ground shadow and the
+background's noise but not magenta inside the subject. Same settings as v2,
+run to the end: 45 epochs, 2430 steps, about 40 minutes.
+
+Test (the 6 new subjects, seeds 401 and 402, plus a baker and a scholar):
+
+- **The final save is the best**: no ground shadow, a near-flat magenta
+  background (easier to cut out), crisper outlines than v2.
+- **Townsfolk stay townsfolk** with v2 and v3 alike. The fiddler's bandana
+  and tricorn came from the test prompt itself ("a pirate fiddler"), not the
+  LoRA.
+- **People come out half-length** with the short prompt. Add "full body,
+  standing, feet on the ground" to character prompts, or caption the framing
+  in the next set.
+- **Plants and ground are its weak spot**: the palm tree gets detailed,
+  painterly leaves and sand that runs to the image edges. The set has no
+  plants or terrain; add some before the next round.
