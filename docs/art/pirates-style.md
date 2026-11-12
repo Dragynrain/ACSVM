@@ -76,7 +76,7 @@ hand-finished tiles; the ramps are:
 
 | Group | Framing |
 | --- | --- |
-| Terrain | Fills the tile edge to edge, seen from above, no border; seams fixed by half-shift and inpaint. |
+| Terrain | Fills the tile edge to edge, seen from above, no border; repeating terrains made seamless by quilting (section 11). |
 | Objects | Front view tilted slightly from above so chests and barrels show their tops; centred with a small margin. |
 | Weapons | Diagonal, point up and to the right. |
 | Creatures | As characters: front-facing, feet on the baseline. |
@@ -251,3 +251,53 @@ Test (the 6 new subjects, seeds 401 and 402, plus a baker and a scholar):
 - **Plants and ground are its weak spot**: the palm tree gets detailed,
   painterly leaves and sand that runs to the image edges. The set has no
   plants or terrain; add some before the next round.
+
+## 11. Terrain squares
+
+**Recipe (November 2026).** The 16 terrain pictures are 64 px squares that
+fill the square edge to edge. Two kinds:
+
+- **Repeating terrains** (deep sea, shallows, reef, beach, jungle, cliff,
+  swamp, volcanic rock, grassland) tile across the map, so they must be
+  seamless.
+- **Places** (reef channel, port town, fort, island village, wreck, sea-cave
+  mouth, hidden cove) are one picture on one square.
+
+Steps:
+
+1. **Generate a texture, not a tile**, with LoRA v3: "acspirates style.
+   <terrain>, zoomed in: <a few bold, dark-outlined features>, evenly spread
+   across the whole image with no empty areas. Seen straight from above. A
+   seamless game map texture that fills the entire image edge to edge, no
+   border, no frame, no horizon, no single central object." plus the flat
+   cel-shading words. Asking for a tile gave a framed square; asking for a
+   texture fills the frame. Places say "a game world map location that fills
+   the whole square image edge to edge" instead. The LoRA matched the kit
+   better than plain Z-Image, whose textures were busy, repeating patterns.
+2. **Make it seamless** with `scripts/quilt.py` (image quilting, no AI): roll
+   by half, cover the seam cross with three patches of the image's own
+   seam-free parts, each cut along the path of least difference. SwarmUI's
+   Seamless Tileable works only on SDXL and crashed in its tiling node here;
+   inpainting the seam with Z-Image left ghosted trees and visible band edges.
+3. **Shrink** with `scripts/terrain64.py`, which crops, quilts and shrinks in
+   one go (`--candidates` writes every combination and a contact sheet).
+   Crop the centre to 0.5 to 0.75 first, or the features are too small for
+   64 px. Bold outlined shapes (waves, tufts, tree crowns) stay crisp with
+   k-centroid shrinking; small thin ones (shells, starfish) need the plain
+   average, which k-centroid breaks into dots.
+
+**What the runs taught:**
+
+- **Prompt for features spread all over.** Quilting replaces the middle with
+  the image's own seam-free parts, so sparse features near the edges vanish;
+  two beaches came out blank sand.
+- **Ask for "calm", "sparse", "low contrast" on the sea.** Bold wave crests
+  made strong stripes that dominated the map.
+- **"Strong contrast, saturated colours"** fixed washed-out shallows and
+  near-black volcanic rock.
+- **Z-Image will not draw a wreck**: "broken in two, lying on its side" gave
+  an intact ship on four seeds. Edit or hand-finish it.
+- **Places carry their own ground**, which rarely matches the neighbouring
+  terrain (the fort's grass is lighter than grassland). Match their edges in
+  hand-finishing.
+- Terrains meet with hard square edges, as on the original world map.
