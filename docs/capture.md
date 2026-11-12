@@ -403,8 +403,12 @@ outcomes come in streaks along the jitter, so each figure is good to
 about 10 points. Only the two outcome screens were ever seen, so a cost
 above Power is cast and rolled like any other. Every cast ended the turn:
 the next turn came the same 2 million instructions after the button
-whether 5 or 28 pixels of the bar were left. Our engine now rolls the
-same way (magic 4.1).
+whether 5 or 28 pixels of the bar were left. **Superseded** (10.9): the
+program's chance is 90 x Power spent / cost percent, held to 14..90,
+found by the clean-room researcher and confirmed by setting the random
+state. It is within 10 points of Power / (cost + 1) everywhere this grid
+looked, which is why the grid couldn't tell them apart. The engine now
+follows it (magic 4.1).
 
 **Using a magic item** (experiment `item`, section 10.6.2; 3 runs for each
 of two players of ours, Wisdom 10 and 20, two uses a run, November 2026).

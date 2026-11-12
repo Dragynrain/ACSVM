@@ -169,12 +169,14 @@ magic item after it is used. [unknown]
    success: at Power 20 against cost 30, all 60 casts (40 worked, 20
    failed) left Power at 0, read as 1 after the turn's drift; half the
    cost would have left 6. [capture: cast with the profile read back,
-   60 wide-jitter runs] **Engine** (not yet changed to the rule above): a
-   cost of 0 always works; otherwise the spell works when a roll of
-   0..cost (cost + 1 values) is below Power. `SpellCast` reports the
-   chance as a percentage, Power x 100 / (cost + 1) rounded down and at
-   most 100. The cost comes off Power whether or not the spell works (not
-   below 0). Corpus costs run 0..60, median 13. [data]
+   60 wide-jitter runs] **Engine:** the rule above (`cast_chance`,
+   `cast_spend`, `cast_roll`): a cost of 0 always works and spends
+   nothing; otherwise the cost or all of Power comes off first, whether
+   or not the spell works, and a roll of 0..99 below the chance works.
+   `SpellCast` reports that chance (100 for a cost of 0). The engine's
+   roll is its own seeded generator, not the original's (which mixes in
+   the raster line), so only the chance matches, not the sequence.
+   Corpus costs run 0..60, median 13. [data]
 2. *Use Object* uses a magic item that is set to act when used; magic items
    always work. [manual] Some must be dropped instead. [manual] The manual
    says using magic objects lowers Power but gives no amount. On the C64 a
