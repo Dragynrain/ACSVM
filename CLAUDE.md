@@ -88,7 +88,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (`jobs.rs`) splits runs over N VICE processes; every run writes
   `timing.jsonl` (`timing.rs`). Menu inputs wait for the screen to settle
   (`Runner::settle`), never a fixed count; check `timing.jsonl` before
-  adding a long fixed wait.
+  adding a long fixed wait. `snap.rs` saves a snapshot just before a roll
+  (researcher inputs, state sweeps); `turns.rs` logs who moves when from
+  the name strip (`--creature` puts residents of ours in the room).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in

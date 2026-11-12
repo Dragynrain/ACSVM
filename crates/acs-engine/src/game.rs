@@ -180,11 +180,12 @@ pub struct Game {
     /// Region slots holding random creatures (creatures 2.4, 3.3).
     #[serde(default)]
     pub(crate) random: Vec<(u8, usize)>,
-    /// Rooms the current player has been in this turn (creatures 2.2).
+    /// Rooms any player has been in this round (creatures 2.2): the rooms
+    /// whose creatures take the round's creature phase.
     #[serde(default)]
     pub(crate) turn_rooms: Vec<(u8, u8)>,
-    /// Doors the current player left a room by this turn: region, room,
-    /// door square (creatures 6.4).
+    /// Doors players left a room by this round: region, room, door square
+    /// (creatures 6.4).
     #[serde(default)]
     pub(crate) turn_exits: Vec<(u8, u8, u8, u8)>,
     /// Temporary Life Force and turn counts per individual (magic 5).
@@ -370,21 +371,27 @@ impl Game {
         }
     }
 
-    /// Ends the current player's turn, runs the creature phase for the rooms
-    /// that player was in (creatures 2.2), and starts the next turn.
-    /// Then the next living player's turn starts (magic 7.4).
+    /// Ends the current player's turn; after the round's last living player,
+    /// runs the creature phase for the rooms players were in this round
+    /// (creatures 2.2). Then the next living player's turn starts (magic
+    /// 7.4).
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
         let p = self.current;
         ev.push(Event::TurnEnded { player: p });
         // Magic 5.4: drift, decay and healing at the end of a player's turn.
         self.upkeep(crate::Who::Player { player: p }, ev);
-        self.creature_phase(p, ev);
+        let n = self.players.len();
+        let next = (1..=n).map(|k| (p + k) % n).find(|&i| self.players[i].alive);
+        // The round ends when the next living player comes at or before
+        // this one in joining order (or nobody is left).
+        if next.is_none_or(|i| i <= p) {
+            self.creature_phase(ev);
+        }
         if !self.players.iter().any(|pl| pl.alive) {
             self.over = true;
             ev.push(Event::AllPlayersDead);
             return;
         }
-        let n = self.players.len();
         self.current = (1..=n)
             .map(|k| (p + k) % n)
             .find(|&i| self.players[i].alive)
@@ -403,9 +410,11 @@ impl Game {
         if hindered {
             moves = (moves / 2).max(1);
         }
-        let at = self.players[self.current].at;
-        self.turn_rooms = at.room().into_iter().collect();
-        self.turn_exits.clear();
+        if let Some(r) = self.players[self.current].at.room() {
+            if !self.turn_rooms.contains(&r) {
+                self.turn_rooms.push(r);
+            }
+        }
         let p = &mut self.players[self.current];
         p.moves_left = moves;
         p.turn_moves = moves;

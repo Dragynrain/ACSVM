@@ -36,15 +36,39 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    room meanwhile, which is how creatures follow players through doors.
    [manual]
 2. Turns cycle through every player and every creature in the room.
-   [manual] **Engine:** when a player's turn ends there is a **creature
-   phase**: every creature standing in a room that player was in at any
-   point during the turn (the room it started in and each room it entered)
-   takes one turn, in order of region, then slot. A creature takes at most
-   one turn per phase, even if it walks into another visited room. Then the
-   next player's turn starts. [unknown]
-3. So a creature is awake exactly while a player is, or was this turn, in
-   its room. A creature left in a room with no player stops acting. Two
-   players in one room give its creatures two phases a round. [unknown]
+   [manual] On the C64 the players move in turn, in the order they joined,
+   and then each creature in a room with a player moves once, in slot
+   order (not by Speed, distance or name), before the first player moves
+   again: one creature phase a round, however many players share the
+   room. The name strip under the view names whoever is moving, creatures
+   included. With one player and three creatures of ours: T, then slots
+   0, 1, 2, then T, in all 17 phases of 6 runs; with the slots swapped
+   (the names with them), slot order again in all 9 phases of 3 runs.
+   With two players in the room: T, U, then slots 0, 1, 2, once, in all
+   21 phases of 7 runs, and never a phase after T's turn.
+   The phase comes only once a player has ended a turn in the room: with
+   both players walking in from the map, the first phase came after the
+   round in which both were in. [capture: turns, cases one, slots and
+   two, capture.md 10.10.1] **Engine:** players take their turns in
+   order; after the last living player's turn ends there is a **creature
+   phase**: every creature standing in a room that any player was in at
+   some point during the round (where it started a turn, each room it
+   entered) takes one turn, in order of region, then slot. A creature
+   takes at most one turn per phase, even if it walks into another
+   visited room. Then the next round starts. Counting every room visited
+   in the round, not only the rooms players end in, is the engine's
+   choice ([unknown]): it keeps creatures able to follow a player through
+   a door (2.1).
+3. So a creature is awake exactly while a player is, or was this round,
+   in its room. A creature left in a room with no player stops acting.
+   Two players in one room do not give its creatures two phases. [capture]
+   **Players in different places** do not simply alternate: with T in
+   the room and U left on the map, U took about 20 turns in a row (about
+   140 million instructions, some 9 minutes of play), then T and the
+   room's creatures took round after round with U never moving again: 5
+   of T's turns in 3 runs, 15 in 2 more. [capture: turns, case split] Why is not known
+   ([unknown]; it needs research). **Engine:** still alternates the
+   players strictly, wherever they are.
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] How often is not given.
    **Engine:** at the end of every creature phase, each random creature whose
@@ -52,15 +76,29 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    with everything it carries. [unknown]
 5. **The movement bar.** A creature's turn has a bar like a player's: its
    Speed after the weight slowdown ([inventory](inventory.md) 3.3), using
-   the creature's own Strength, Constitution, Life Force and load. [unknown]
+   the creature's own Strength, Constitution, Life Force and load. On the
+   C64 it shows on the left as a player's does, 8 pixels a point of Speed
+   (24, 40 and 32 pixels for Speeds 3, 5 and 4, carrying nothing), and
+   drains as the creature walks. [capture: turns] The slowdown part is
+   [unknown].
    **Engine:** so. A creature with Speed 0 does not move; the manual only
    adds that it does not show its name on its turn. [manual]
 6. **Standing next to an aggressive, unfriendly individual** shortens a
-   player's bar. [manual] By how much is not given. **Engine:** at the start
-   of a player's turn, if any creature on the 8 squares around the player is
-   Aggressive and not a Friend, the bar is halved (after the weight slowdown,
-   rounding down, at least 1; Speed 0 stays 0). The `TurnStarted` event says
-   so (`hindered`). Applied at turn start only. [unknown]
+   player's bar. [manual] By how much is not given. On the C64 the bar is
+   halved, and only for a creature on one of the 4 squares beside the
+   player (north, south, east or west), not diagonally: a Speed 12 player
+   (96 pixels) on the room's entry square showed 48 at the top of each of
+   its next turns with an aggressive enemy or an aggressive neutral (Speed
+   0) on the square east of it, and 96 with the same enemy diagonally next
+   to it or two squares east, with an aggressive friend or a peaceful
+   enemy east of it. [capture: turns, the adj- cases, 2 runs each,
+   capture.md 10.10.2] **Engine:** at the start of a player's turn, if any
+   creature on the 4 squares beside the player is Aggressive and not a
+   Friend, the bar is halved (after the weight slowdown, rounding down,
+   at least 1; Speed 0 stays 0). The `TurnStarted` event says so
+   (`hindered`). Applied at turn start only; whether walking up to such a
+   creature mid-turn shortens the rest of the bar is not captured, nor
+   how odd Speeds round ([unknown]).
 
 ## 3. Random room creatures
 
@@ -228,11 +266,12 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 
 The corpus test (`crates/acs-engine/tests/corpus.rs`) puts a player in each
 of the 996 live rooms that hold residents or a random creature and plays a
-dozen turns of waiting and wandering. Creatures take 18,452 turns, make
-6,649 steps, go through 509 doors, square up to someone 16,631 times, ready
-2,711 weapons, pick up gold 63 times and treasure 9 times, and make 52
-overburdened drops. No creature leaves its region, stands on a wall after
-moving, shares a square or breaks a carry limit. The random walks with
+dozen turns of waiting and wandering. With one creature phase a round
+(2.2; November 2026), creatures take 14,066 turns, make 7,026 steps, go
+through 402 doors, square up to someone 8,242 times, ready 2,384 weapons,
+pick up gold 85 times and treasure 9 times, and make 75 overburdened
+drops. No creature leaves its region, stands on a wall after moving,
+shares a square or breaks a carry limit. The random walks with
 creatures replay exactly.
 
 ## 10. Left for later
@@ -244,13 +283,23 @@ creatures replay exactly.
 
 ## Captures needed
 
-1. Turn order with several players and creatures in one room.
+1. Turn order with several players and creatures in one room: captured
+   (2.2, 2.3). Still open: players in different places (U on the map took
+   some 20 turns in a row, then never moved again while T was in a room
+   with creatures); whether a phase also covers rooms players only passed
+   through.
 2. Random creature square choice and how soon left-behind ones go.
-3. The adjacency slowdown: bar length next to an aggressive unfriendly.
-4. Goal choice when a less favoured goal is closer: how much closer.
+3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
+   and not a friend). Still open: mid-turn, odd Speeds.
+4. Goal choice when a less favoured goal is closer: how much closer. Seen
+   in the turn order runs: a peaceful neutral (Speed 4) in a room with no
+   door out walked up to the player, where the engine's slinker neutral
+   (which seeks only an exit) stands still.
 5. Path tie-breaks and whether creatures move diagonally. (Players can't,
    on the C64: movement 3.2. The engine's creatures follow the same
-   `Rules::diagonals`, so they step straight too.)
+   `Rules::diagonals`, so they step straight too.) Seen in the turn order
+   runs: creatures stepped straight, and a slinker friend used its whole
+   bar, stepping past a square beside the player.
 6. A creature following through a door: where it lands, and whether its
    turn goes on in the new room.
 7. The overburdened drop: what, where, how much gold, how often.

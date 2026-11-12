@@ -251,11 +251,13 @@ fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
             slot: 1,
             target: Who::Player { player: 0 }
         }));
-        // 2.6: next to an aggressive enemy, the bar is halved.
+        // 2.6: beside an aggressive enemy (not diagonally), the bar is
+        // halved.
+        let beside = (x as i16 - 2).abs() + (y as i16 - 2).abs() == 1;
         assert!(ev.contains(&Event::TurnStarted {
             player: 0,
-            moves: 7,
-            hindered: true
+            moves: if beside { 7 } else { 15 },
+            hindered: beside
         }));
         // 6.6: shortest path, so four steps from (7,5).
         let steps = ev
@@ -636,5 +638,70 @@ fn games_with_creatures_replay_exactly() {
         assert!(kinds.contains("CreatureMoved"), "{kinds:?}");
         let r = Game::replay(a, 11, Rules { diagonals: true }, setup, g.log());
         assert_eq!(r, g);
+    });
+}
+
+/// 2.6: an aggressive enemy that never moves (Speed 0) hinders a player
+/// beside it, not one diagonally next to it or two squares away.
+#[test]
+fn only_the_four_squares_beside_the_player_hinder() {
+    both(|p| {
+        for (x, y, hindered) in [(3, 2, true), (2, 3, true), (3, 3, false), (4, 2, false)] {
+            let mut a = adventure(p);
+            put(
+                &mut a,
+                1,
+                Spec {
+                    speed: 0,
+                    ..spec(0, x, y, Alignment::Enemy, true)
+                },
+            );
+            let mut g = start(a, 0, 2, 2);
+            let ev = wait(&mut g);
+            let moves = if hindered { 7 } else { 15 };
+            assert!(
+                ev.contains(&Event::TurnStarted {
+                    player: 0,
+                    moves,
+                    hindered
+                }),
+                "enemy at {x},{y}: {ev:?}"
+            );
+        }
+    });
+}
+
+/// 2.2: two players in a room give its creatures one phase a round, after
+/// the last player's turn, not one after each player's.
+#[test]
+fn two_players_one_creature_phase_a_round() {
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 7, 5, Alignment::Friend, false));
+        let mut g = start(a, 0, 2, 2);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        g.place(1, at(0, 2, 6));
+        let mut phases = Vec::new();
+        for _ in 0..6 {
+            let who = g.current();
+            let ev = wait(&mut g);
+            phases.push((who, ev.iter().any(|e| matches!(e, Event::CreatureTurn { .. }))));
+        }
+        assert_eq!(
+            phases,
+            vec![
+                (0, false),
+                (1, true),
+                (0, false),
+                (1, true),
+                (0, false),
+                (1, true)
+            ]
+        );
     });
 }

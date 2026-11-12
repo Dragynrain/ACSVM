@@ -182,7 +182,8 @@ impl Runner<'_> {
                 current = look.mover.clone();
                 movers.push(current.clone());
                 if movers.len() <= 16 {
-                    let name = format!("turn{run}-{:02}-{current}", movers.len());
+                    let safe: String = current.chars().filter(char::is_ascii_alphanumeric).collect();
+                    let name = format!("turn{run}-{:02}-{safe}", movers.len());
                     self.s.shot(&name).map_err(|e| e.to_string())?;
                 }
                 turns.push(json!({"mover": current, "t": t, "frames": frames, "full_bar": bar}));

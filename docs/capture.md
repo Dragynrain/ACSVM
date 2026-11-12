@@ -136,6 +136,7 @@ lists at the end of each `docs/rules/` spec.
 | `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
 | `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
 | `snap.rs` | `acs-capture snap`: a snapshot just before a roll (10.11). |
+| `turns.rs` | The `turns` experiment: the name strip's mover and each individual's square, as a timeline (10.10). |
 | `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario; walk into the room. |
 
 ## 4. One scenario, end to end
@@ -201,6 +202,10 @@ acs-capture run cast --snapshot C/runs/cc-20-60/start.vsf --disk C/runs/cc-20-60
     --out C/runs/cc-20-60/wide --runs 60 --jobs 8 --jitter-step 3708203 --jitter-range 6000000
 # outcome only, sampled from a menu snapshot (10.7): about 22 s for the 60
 acs-capture run cast ... --runs 60 --jobs 8 --from-menu --jitter-step 3708203 --jitter-range 6000000
+# turn order (10.10): creatures of ours, a second player, who moves when
+acs-capture scenario move-basic C/runs/turns/two/disk.d64 --player spd=6 --player2 name=U,spd=4     --creature name=AA,x=12,y=2,spd=3 --creature name=BB,x=2,y=7,spd=5
+acs-capture script crates/acs-capture/scripts/add-second.txt --disk C/runs/turns/two/disk.d64     --snapshot C/runs/turns/two/start.vsf --out C/runs/turns/two --var OUT=C/runs/turns/two
+acs-capture run turns --snapshot C/runs/turns/two/two.vsf --disk C/runs/turns/two/disk.d64     --out C/runs/turns/two/turns --runs 3 --jobs 3 --turns 4 --players T,U [--enter T]
 # loose ends (10.8): a table of cases on the loose scenario's disk
 acs-capture scenario loose C/runs/lz-key/disk.d64 --key
 acs-capture run acts --table lock --snapshot C/runs/lz-key/start.vsf --disk C/runs/lz-key/disk.d64 \
@@ -511,6 +516,30 @@ turn in turns 14 times shorter); perhaps it depends on the moves left
 unused. The Speed 1 runs showed the eleventh tick (one turn at 19, then
 20) in 8 of 10, 10 of 13 with the first three.
 
+**Turn order and the adjacency slowdown** (experiment `turns`, section
+10.10; November 2026; disks and runs in `C/runs/turns/`). Each run's
+movers come from the name strip; the creatures' bars from the left bar.
+
+| Case | Runs | Seen |
+| --- | --- | --- |
+| `one`: T (Speed 6), AA, BB, CC in slots 0-2 | 6 | after each of T's turns, AA, BB, CC, then T: 17 phases |
+| `slots`: BB in slot 0, AA in slot 1 | 3 | BB, AA, CC: slot order, 9 phases |
+| `two`: T and U in the room | 7 | T, U, then AA, BB, CC once, then T: 21 phases, none after T's turn; no phase until both had ended a turn in the room; U stood on the entry square with T (one box) |
+| `split`: T in the room, U left on the map | 5 | U took about 20 turns in a row (some 140 million instructions), then T and the creatures took round after round (5, and 15, of T's turns) and U never moved again |
+| `adj-enemy`, `adj-neutral`: aggressive, Speed 0, east of T (Speed 12) | 2 each | T's bar 48 pixels at the top of each turn in the room, against 96 |
+| `adj-diag`, `adj-far`, `adj-friend`, `adj-peaceful` | 2 each | 96 |
+
+Creatures' bars were 8 pixels a point of Speed (24, 40, 32). So one
+creature phase comes each round, after the last player, in slot order;
+the bar is halved by an aggressive enemy or neutral on one of the 4
+squares beside the player, not diagonally. Two things in the raw
+timelines are the observer's, not the program's: a creature's bar is
+drawn in two steps, so the first runs split some creature turns in two
+(refills now count only for players), and a few looks between turns read
+the strip as `?` or part of the place name. Our engine ran a phase after
+each player's turn and counted 8 neighbours; it now follows the capture
+(creatures 2.2, 2.6). The split case is not understood (creatures 2.3).
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -818,8 +847,9 @@ In this order (planned November 2026):
    About 35 s a pair at 6 jobs. Any other roll the researcher describes
    can be checked the same way, from a snapshot just before it.
 10. **Creatures** ([creatures](rules/creatures.md) "Captures needed"),
-   planned November 2026: turn order and creature phases first, then the
-   adjacency slowdown; creature paths later.
+   November 2026: turn order and the adjacency slowdown done (results in
+   section 7); players in different places, creature paths and goals
+   later.
    **Creatures of ours.** `acs-capture scenario ... --creature SPEC`
    (repeatable) puts a resident of ours in the room, in resident slots 0,
    1, .. of region 1: `name`, `x`, `y`, `align` (thief, neutral, enemy,
@@ -842,7 +872,7 @@ In this order (planned November 2026):
    current turn ends the add-player screen shows; from CREATE NEW PLAYER,
    a tap down and one east reach the retired player U, then the button
    three times (the joystick, saving). On the map T and U then alternate.
-   1. *Turn order* (experiment `turns`). From a first-turn snapshot each
+   1. *Turn order* (experiment `turns`, done). From a first-turn snapshot each
       run samples the screen every 20,000 instructions and writes a
       timeline: a row whenever the name strip's mover, the place (room or
       map, from the strip's place name) or a square in the room changes,
@@ -865,7 +895,9 @@ In this order (planned November 2026):
         engine's choice, creatures 2.2), or one phase a round; do the
         creatures move after U's turn while U is still on the map; where
         U arrives when T stands on the entry square.
-   2. *The adjacency slowdown* (creatures 2.6; experiment `turns`, 3 of
+      - `split` (added after `two`): the same disk, but only T walks in
+        (`--enter T`); U idles on the map.
+   2. *The adjacency slowdown* (done; creatures 2.6; experiment `turns`, 3 of
       T's turns). T has Speed 12 (a full bar of 96 pixels), Constitution
       and Life Force 40, and walks into the room on its first turn; one
       creature of ours with Speed 0 (it never moves) and Strength 1 stands

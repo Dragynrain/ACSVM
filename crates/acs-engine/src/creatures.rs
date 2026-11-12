@@ -144,8 +144,8 @@ impl Game {
             .any(|p| p.alive && p.at.room() == Some((region, room)))
     }
 
-    /// 2.6: an aggressive creature that is not a Friend stands next to the
-    /// player.
+    /// 2.6: an aggressive creature that is not a Friend stands on one of
+    /// the 4 squares beside the player (not diagonally).
     pub(crate) fn hindered(&self, p: usize) -> bool {
         let Location::Room { region, room, x, y } = self.players[p].at else {
             return false;
@@ -158,18 +158,21 @@ impl Game {
                 && c.room == room
                 && c.strategy.aggressive
                 && c.strategy.alignment != Alignment::Friend
-                && (c.x as i16 - x as i16).abs() <= 1
-                && (c.y as i16 - y as i16).abs() <= 1
-                && (c.x, c.y) != (x, y)
+                && (c.x as i16 - x as i16).abs() + (c.y as i16 - y as i16).abs() == 1
         })
     }
 
-    /// 2.2-2.4: after player `p`'s turn, every creature in a room that player
-    /// was in takes one turn (region order, then slot); then random
-    /// creatures left without a player are removed.
-    pub(crate) fn creature_phase(&mut self, p: usize, ev: &mut Vec<Event>) {
+    /// 2.2-2.4: at the end of a round, every creature in a room a player
+    /// was in during the round takes one turn (region order, then slot);
+    /// then random creatures left without a player are removed.
+    pub(crate) fn creature_phase(&mut self, ev: &mut Vec<Event>) {
         let mut rooms = std::mem::take(&mut self.turn_rooms);
-        if let Some(r) = self.players[p].at.room() {
+        for r in self
+            .players
+            .iter()
+            .filter(|pl| pl.alive)
+            .filter_map(|pl| pl.at.room())
+        {
             if !rooms.contains(&r) {
                 rooms.push(r);
             }

@@ -199,6 +199,29 @@ Creature rules for the named eight: each needs a silhouette no generic role
 shares (section 3), and house guards must read apart from navy marines, since
 the story turns on who serves Vail.
 
+**Kit, second round (planned November 2026).** The first 109 cover the list
+above but leave gaps against what Kit 4 in [design](../design.md) promises
+(ships as portals, a cursed compass, a mermaid's charm, a ghost crew) and
+against the stories section 1 says the kit must serve, such as a ghost-ship
+horror. Generate these after the hand-finishing pass and LoRA v4, except the
+ship, which *The King's Pardon* needs sooner. About 41 pictures, so a pirate
+adventure that uses the whole kit needs an Extended picture limit near 180.
+
+| Group | Pictures | Contents | Why |
+| --- | --- | --- | --- |
+| Ships | 2 | A ship at anchor (map place square), a ship as a portal thing | Ships are the portals between islands |
+| Documents | 1 | Treasure map | The classic quest object; the kit has only a map table |
+| Magic items | 8 | Cursed compass, conch shell, voodoo doll, tiki idol, the black spot, ghost lantern, crystal skull, mermaid's comb | Spells hang on things (364 magic spells and 134 magic items in the corpus); these carry any of the 15 actions without leaving the setting |
+| Treasures | 5 | Loose gems, jewelled idol, jewelled crown, pearl necklace, gold chalice | A quest goal must look unlike every other treasure |
+| Creatures, supernatural | 5 | Ghost pirate (pale, glowing eyes on the emissive layer), drowned captain (boss), skeleton musketeer, skeleton captain, ghost ship's lookout | The supernatural ramp (section 2) has one skeleton so far |
+| Creatures, sea | 5 | Kraken head (boss), giant octopus, jellyfish, moray eel, mermaid | Mermaid written as a person with her own aims, like the island peoples |
+| Creatures, land and cave | 6 | Caiman, giant bat, monkey (a thief), wild boar, giant spider, island jaguar | Swamp, cave and jungle have no creatures of their own |
+| Crew | 9 | Captain (man and woman), quartermaster, cook, surgeon, navigator, cabin boy, powder monkey, bosun | The roles players most want to be, and the obvious bosses |
+| **Total** | **41** | | Creatures reach 47, one over Classic's 46: drop one or share a picture |
+
+Left out on purpose: more terrain (16 is the Classic limit) and food or
+mundane items (no ACS rule uses them).
+
 ## 9. Consistency
 
 1. Pick one reference figure from a character batch: the model sheet.
