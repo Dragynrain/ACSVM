@@ -16,7 +16,7 @@ INK, BODY, LINE = (25, 25, 25), (85, 85, 82), (195, 194, 183)
 BLUE, BLUE_BG = (42, 120, 214), (229, 239, 250)
 GREEN, GREEN_BG = (46, 125, 70), (226, 242, 230)
 
-TITLE = "Eight phases to 1.1: a capture harness before combat, online co-op after 1.0"
+TITLE = "Eight phases to 1.1: capture and clean-room research before combat, co-op after 1.0"
 PHASES = [
     ("Phase 0 \u00b7 Foundations and inspector", "done", [
         "Repo, CI and Rust workspace; disk readers and decoders for PC and C64 (components 1 to 6).",
@@ -26,17 +26,17 @@ PHASES = [
         "WASM build with drag-and-drop loading; walk the map, rooms and portals.",
         "Original render mode with resizing, fullscreen and zoom. Phase 2 and the art kits start alongside."],
      "Gate: walk every room and portal of a test adventure in the browser, from PC and C64 files"),
-    ("Phase 2 \u00b7 Rules engine from the manual", "now", [
+    ("Phase 2 \u00b7 Rules engine from the manual", "done", [
         "Specs from the manual and the data, guesses tagged [unknown]: movement, inventory,",
         "creature turns and AI outside combat, the 15 spell actions. Walk mode plays them in the viewer."],
      "Gate: walk, carry, cast and meet creatures in a built-in adventure in the browser"),
-    ("Phase 3 \u00b7 Behavior capture harness", "next", [
-        "Scripted VICE runs (MAME for PC): test adventures from the original editor, captured traces,",
-        "and the same scenario replayed in our engine with a diff report. Settles Phase 2's [unknown]s."],
+    ("Phase 3 \u00b7 Behavior capture harness", "now", [
+        "VICE runs on scenario disks of our own, read off the screen, in parallel; clean-room research",
+        "sets the random state. Settled so far: movement, weight, casting, Power drift, healing."],
      "Gate: one command runs a scenario in both and diffs them; Phase 2's guesses confirmed or fixed"),
-    ("Phase 4 \u00b7 Combat, formulas and hot-seat", None, [
-        "Measure, specify and implement rule by rule: hit and damage, spell success, skill growth,",
-        "stores, spawns, characters, saves. 1 to 4 hot-seat players. Golden tests run in CI."],
+    ("Phase 4 \u00b7 Combat, formulas and hot-seat", "next", [
+        "Measure, or research and confirm, rule by rule: hit and damage, skill growth, stores, spawns,",
+        "characters, saves. Random formulas get a research brief first. Hot-seat; golden tests in CI."],
      "Gate: golden tests pass, and two players can finish a built-in adventure start to finish"),
     ("Phase 5 \u00b7 Modern client and audio", None, [
         "Message log, panels, touch and accessibility; Smoothed and HD pack render modes.",
@@ -77,14 +77,14 @@ y = 92
 spine_x = 85
 for i, (head, status, lines, gate) in enumerate(PHASES):
     box = (X0, y, X1, y + BOX_H)
-    if status == "next":
+    if status == "now":
         d.rounded_rectangle(box, radius=14, fill=BLUE_BG, outline=BLUE, width=3)
     else:
         d.rounded_rectangle(box, radius=14, fill="white", outline=LINE, width=2)
     d.text((X0 + 29, y + 20), head, font=head_f, fill=INK)
     if status:
-        label = {"done": "DONE", "now": "IN PROGRESS", "next": "NEW \u00b7 NEXT"}[status]
-        fg, bg = {"done": (GREEN, GREEN_BG), "now": (BLUE, BLUE_BG), "next": ("white", BLUE)}[status]
+        label = {"done": "DONE", "now": "IN PROGRESS", "next": "NEXT"}[status]
+        fg, bg = {"done": (GREEN, GREEN_BG), "now": ("white", BLUE), "next": (BLUE, BLUE_BG)}[status]
         hw = d.textlength(head, font=head_f)
         tw = d.textlength(label, font=tag_f)
         tx = X0 + 29 + hw + 16
