@@ -521,10 +521,10 @@ screen offers next to "create new player".
 | --- | --- | --- |
 | `$DC00`, `$DC01` | CIA 1 ports A and B (joystick lines), read only while setting up the joystick | Documented C64 hardware |
 | `LIN`, `CYC` registers | VIC-II raster line and cycle in the line, for counting frames (2.6) | VICE's register list |
+| `$1CC9` | The original's random state, one byte; written before a cast by `--set-random-state` (10.9) | Clean-room researcher, findings of 2026-11-11 (`docs/research/random-rolls.md`) |
 
-No address in the original program is used. The researcher brief on the
-random rolls (`docs/research/random-rolls.md`) asks for the first: where
-the random state lives, so the harness can read and set it.
+`$1CC9` is the only address in the original program in use, and it comes
+from the researcher, never from the harness's own reading of the program.
 
 ## 10. Next
 
@@ -753,5 +753,22 @@ In this order (planned November 2026):
       Speed, so a rate that differs between the two follows time.
    8. *The eleventh tick*: the temporary +10 drift case again with 10 new
       runs.
-9. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+9. **The random state, set** (`run cast --from-menu --set-random-state`,
+   done November 2026). The clean-room researcher reported the random
+   generator and its one byte of state at `$1CC9` (section 9;
+   `docs/research/random-rolls.md`). Each run restores the menu snapshot
+   (10.7) with no jitter, writes its index (0..255) to `$1CC9` and taps
+   the button, so the 256 runs try every state once at one timing. Then a
+   check: for each raster line the draw could fall on, does the reported
+   generator, with magic 4.1's chance, predict every cast whose first raw
+   number needed no redraw? At Power 20 against cost 10, 60 and 90 and
+   Power 10 against cost 20, exactly one line did each time (38, 39, 39,
+   37; inside the reported band) with 0 wrong of 200, and the next best
+   line had 14 to 17 wrong. Worked over the 256 states: 231, 74, 50 and
+   117, against chances of 90, 30, 20 and 45%. So the findings are
+   confirmed for casting, and the earlier statistical fit (Power /
+   (cost + 1)) is refuted: it makes Power 20 against cost 10 certain.
+   About 35 s a pair at 6 jobs. Any other roll the researcher describes
+   can be checked the same way, from a snapshot just before it.
+10. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.

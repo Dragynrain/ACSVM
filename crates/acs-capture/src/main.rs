@@ -154,6 +154,10 @@ enum Cmd {
         /// each run ends at the outcome screen (docs/capture.md 10.7).
         #[arg(long)]
         from_menu: bool,
+        /// cast --from-menu: set the random state byte to the run's index
+        /// (0..255) just before the tap (docs/capture.md 10.9).
+        #[arg(long)]
+        set_random_state: bool,
         /// Jitter of run n: n x step mod range idle instructions before the
         /// run's input (docs/capture.md 4.3, 10.5).
         #[arg(long, default_value_t = 7_919)]
@@ -305,6 +309,7 @@ fn main() {
             first,
             jobs,
             from_menu,
+            set_random_state,
             weight_items,
             jitter_step,
             jitter_range,
@@ -361,6 +366,9 @@ fn main() {
                 r.prepare_cast_menu(&out.join("menu.vsf"))
                     .unwrap_or_else(|e| fail(&e));
             }
+            if set_random_state && (!from_menu || first + runs > 256) {
+                fail("--set-random-state needs --from-menu and run indices 0..255");
+            }
             let mut timer = RunTimer::new(&out, &r.s.vice.mon.stats);
             let mut result = Ok(());
             'outer: for run in first..first + runs {
@@ -381,7 +389,8 @@ fn main() {
                     continue;
                 }
                 if name == "cast" {
-                    result = r.cast_run(run, jitter, from_menu);
+                    let state = set_random_state.then_some(run as u8);
+                    result = r.cast_run(run, jitter, from_menu, state);
                     if result.is_err() {
                         break 'outer;
                     }

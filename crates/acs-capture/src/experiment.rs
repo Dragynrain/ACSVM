@@ -39,6 +39,10 @@ const REFILL: usize = 4;
 /// Instructions to wait for a turn to pass: an idle Speed 15 turn lasts
 /// about 5,400 frames, some 40 million instructions.
 pub(crate) const TURN_LIMIT: u64 = 80_000_000;
+
+/// The original's random state, one byte (docs/capture.md 9: from the
+/// clean-room researcher's findings, November 2026; checked in 10.9).
+pub(crate) const RANDOM_STATE: u16 = 0x1CC9;
 /// A pixel inside the command menu's cursor on MOVE (cyan), which shows
 /// only while the menu is open.
 const MENU_CURSOR: (usize, usize) = (15, 170);
@@ -575,9 +579,23 @@ impl Runner<'_> {
     /// `quick` (with `prepare_cast_menu`): the snapshot already has the
     /// spell chosen, the jitter is idled there, and the run ends at the
     /// outcome screen.
-    pub fn cast_run(&mut self, run: usize, jitter: u64, quick: bool) -> Result<(), String> {
+    /// `state`: the random state byte set just before the tap (10.9).
+    pub fn cast_run(
+        &mut self,
+        run: usize,
+        jitter: u64,
+        quick: bool,
+        state: Option<u8>,
+    ) -> Result<(), String> {
         self.place = Place::Map;
         self.reset(jitter)?;
+        if let Some(s) = state {
+            self.s
+                .vice
+                .mon
+                .mem_set(RANDOM_STATE, &[s])
+                .map_err(|e| e.to_string())?;
+        }
         let start = self.look()?;
         if !quick {
             self.open_menu()?;
@@ -598,7 +616,7 @@ impl Runner<'_> {
         }
         if quick {
             return self.write(json!({
-                "kind": "cast", "run": run, "jitter": jitter, "from_menu": true,
+                "kind": "cast", "run": run, "jitter": jitter, "from_menu": true, "state": state,
                 "start": start, "chosen": chosen, "worked": worked, "outcome": outcome,
                 "outcome_hash": format!("{outcome_hash:016x}"),
             }));

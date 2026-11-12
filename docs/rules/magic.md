@@ -8,8 +8,10 @@ spells can now cause). Licensed CC BY 4.0. The engine implements it in
 
 Tags as in [movement](movement.md): **[manual]** paraphrased from the
 manual, **[data]** from the stored format or corpus counts, **[designer]**
-from Baber's Jadeworld notes, **[unknown]** with the engine's current choice
-as **Engine:**. Counts cover all 15 corpus adventures.
+from Baber's Jadeworld notes, **[research]** from the clean-room
+researcher's plain-language findings (CONTRIBUTING.md 3;
+`docs/research/`), **[unknown]** with the engine's current choice as
+**Engine:**. Counts cover all 15 corpus adventures.
 
 ## 1. Where spells come from
 
@@ -138,26 +140,41 @@ magic item after it is used. [unknown]
 
 1. *Use Power* casts a magic spell the character owns; success depends on
    the spell's cost (0..127) against the caster's Power, and casting uses up
-   Power. [manual] The formula is not given. On the C64 the chance is
-   close to Power / (cost + 1), and certain when the cost is below Power:
-   a roll of 0..cost that works when it is below Power. [capture: cast, 60
-   runs at each of ten Power/cost pairs, jitter over about 16 s; seen
-   against that formula] Power 10: cost 10 85% (91%), cost 20 62% (48%).
-   Power 20: cost 10 100% (100%), 20 92% (95%), 30 67% (65%), 40 58%
-   (49%), 60 32% (33%), 90 10% (22%). Power 27: cost 31 83% (84%), cost
-   62 42% (43%). The engine's earlier Power / (Power + cost) is far off
-   (50% at Power 20, cost 20). The program's roll follows the moment of
-   the cast (outcomes come in streaks along the jitter), so each figure is
-   good to about 10 points. A cost 0 spell always worked; a failure shows
+   Power. [manual] The formula is not given. On the C64: a cost of 0
+   takes no roll, spends nothing and always works. Otherwise Power is
+   spent first, the cost or all of the caster's Power if that is less;
+   the chance in percent is 90 x the Power spent / the cost, rounded
+   down, then raised to 14 if lower and cut to 90 if higher; and the
+   spell works when a roll of 0..99 is below the chance. So a cost at or
+   below Power works 90% of the time, never 100%, and no cost falls below
+   14%. [research: findings of 2026-11-11, `docs/research/random-rolls.md`]
+   Confirmed exactly: with the random state set to each of its 256 values
+   just before the cast, the researcher's generator (the brief's Findings)
+   with this chance predicted every one of 200 first-draw casts
+   at each of Power 20 against cost 10 (90%), 60 (30%) and 90 (20%) and
+   Power 10 against cost 20 (45%); worked over all 256 states: 231, 74,
+   50 and 117. [capture: cast --set-random-state, capture.md 10.9] The
+   earlier statistical fit, a roll of 0..cost below Power, was within 10
+   points wherever the grid looked but is wrong: it makes Power 20 against
+   cost 10 certain, and 25 of 256 such casts failed. [capture: cast, 60
+   runs at each of ten Power/cost pairs, jitter over about 16 s; the
+   90 x Power / cost chance in brackets] Power 10: cost 10 85% (90%),
+   cost 20 62% (45%). Power 20: cost 10 100% (90%), 20 92% (90%), 30 67%
+   (60%), 40 58% (45%), 60 32% (30%), 90 10% (20%). Power 27: cost 31 83%
+   (78%), cost 62 42% (39%). The roll mixes in the raster line at the
+   moment it is taken, and from a given screen only a few lines are
+   reachable, so these grids sampled few distinct rolls (outcomes came in
+   streaks along the jitter). A cost 0 spell always worked; a failure shows
    "A FEW SPARKS FIZZLE BUT ... FAILS." A failure costs as much as a
    success: at Power 20 against cost 30, all 60 casts (40 worked, 20
    failed) left Power at 0, read as 1 after the turn's drift; half the
    cost would have left 6. [capture: cast with the profile read back,
-   60 wide-jitter runs] **Engine:** a cost of 0 always works; otherwise the
-   spell works when a roll of 0..cost (cost + 1 values) is below Power.
-   `SpellCast` reports the chance as a percentage, Power x 100 / (cost +
-   1) rounded down and at most 100. The cost comes off Power whether or not
-   the spell works (not below 0). Corpus costs run 0..60, median 13. [data]
+   60 wide-jitter runs] **Engine** (not yet changed to the rule above): a
+   cost of 0 always works; otherwise the spell works when a roll of
+   0..cost (cost + 1 values) is below Power. `SpellCast` reports the
+   chance as a percentage, Power x 100 / (cost + 1) rounded down and at
+   most 100. The cost comes off Power whether or not the spell works (not
+   below 0). Corpus costs run 0..60, median 13. [data]
 2. *Use Object* uses a magic item that is set to act when used; magic items
    always work. [manual] Some must be dropped instead. [manual] The manual
    says using magic objects lowers Power but gives no amount. On the C64 a

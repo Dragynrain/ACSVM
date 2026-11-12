@@ -1,8 +1,8 @@
 # Research brief: how the original rolls its random numbers
 
 A request to the project's clean-room *researcher* (CONTRIBUTING.md,
-section 3). Licensed CC BY 4.0. Status: **not started; waiting for the
-maintainer's go-ahead** (see "Before starting").
+section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11), by a separate Claude session as
+the researcher; findings below, the cast chance confirmed by capture.
 
 ## Why
 
@@ -94,4 +94,35 @@ These are the maintainer's decisions, not the researcher's:
 
 ## Findings
 
-None yet.
+**First pass, 2026-11-11** (C64, as running in the scenario snapshots;
+brief items 1, 3 and 5, parts of 2 and 4, and 6 for casting only). The
+researcher's own notes stay in the research folder. Summary of the
+plain-language hand-off:
+
+1. **The generator** keeps one byte of state, at `$1CC9`. A step takes the
+   state, combines it bit by bit (exclusive or) with the low 8 bits of the
+   current raster line, multiplies by 69, adds 131 and keeps the remainder
+   after dividing by 256: that is both the raw number (0..255) and the new
+   state. Without the raster part it would visit all 256 values; with it,
+   every draw depends on when it is taken.
+2. **It advances only when a roll is taken**: not on a timer, not while a
+   menu waits. Idling in a menu changes the next roll only by moving the
+   draw to another raster line. From a given screen the draw lands in a
+   narrow band of lines (37 to 42 from the cast menu), which is why the
+   statistical grids came in streaks. A redraw comes almost a frame later.
+3. **A roll of 0..n-1**: step = 256 / n rounded down; raw / step rounded
+   down, drawn again while it is n or more. Even for evenly spread raw
+   numbers. A percentile roll is n = 100 (raw 200..255 are drawn again).
+   Also seen: a 1..6 die and a 3..18 sum of three; users not yet traced.
+4. **Casting**: see `docs/rules/magic.md` 4.1 (cost 0 always works; Power
+   spent first; chance 90 x Power spent / cost held to 14..90; works when
+   the percentile roll is below it).
+5. **Not found yet**: where the state is seeded; why the band falls where
+   it does; whether rolls are taken between turns; the other users of the
+   roll (about 30 call sites: item use, drift, healing, combat, creatures).
+
+**Checked by capture** (capture.md 10.9): setting `$1CC9` to each of its
+256 values before a cast, items 1 and 4 predicted every first-draw
+outcome at four Power/cost pairs, each with exactly one raster line in
+the reported band. Items 2 and 3 agree with the researcher's re-run of
+the 60 menu captures (60 of 60) but weren't tested separately.
