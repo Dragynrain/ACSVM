@@ -159,7 +159,39 @@ pub struct MoveBasic {
     /// A magic item of ours (thing `ITEM`) that acts when used, with this
     /// action and parameter; the retired player owns it.
     pub item: Option<(u8, u8)>,
+    /// A second retired player of ours, in the second slot.
+    pub player2: Option<Player>,
+    /// Treasures of weight 1 (things `TAKE`, `TAKE` + 1, ..) on these room
+    /// squares.
+    pub takes: Vec<(u8, u8)>,
+    /// A one-way portal (thing `EXIT`) on this room square, to world map
+    /// point 32 at the second cell (door table entry 1).
+    pub exit: Option<((u8, u8), (u8, u8))>,
+    /// A portal open only to owners of the key (thing `LOCK`, door table
+    /// entry 2).
+    pub lock: Option<Lock>,
 }
+
+/// A locked one-way room door of ours.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Lock {
+    /// The portal's room square.
+    pub at: (u8, u8),
+    /// Where it leads, in the same room.
+    pub to: (u8, u8),
+    /// "Destroy needed thing": passing takes the key.
+    pub destroy: bool,
+    /// Whether the retired player owns the key (thing `KEY`).
+    pub key_owned: bool,
+}
+
+/// The first master thing slot of the `takes` treasures.
+pub const TAKE: u8 = 60;
+/// The key, a treasure (carriable: 1-80).
+pub const KEY: u8 = 69;
+/// The exit portal and the locked portal.
+pub const EXIT: u8 = 101;
+pub const LOCK: u8 = 102;
 
 /// One spell of ours: its cost and what it does (action code, parameter).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -247,7 +279,33 @@ impl Default for MoveBasic {
             weights: Vec::new(),
             spells: Vec::new(),
             item: None,
+            player2: None,
+            takes: Vec::new(),
+            exit: None,
+            lock: None,
         }
+    }
+}
+
+impl MoveBasic {
+    /// The `loose` scenario (docs/capture.md 10.8): a Speed 6 player of
+    /// ours with Wisdom 20 (and `player` over that) owning the item, two
+    /// things to take west of the room's entry, a door out to the map
+    /// south of it and a locked door north of it.
+    pub fn loose(player: &str, key: bool, destroy: bool) -> Result<Self, String> {
+        Ok(MoveBasic {
+            player: Some(Player::default().with("spd=6,wis=20")?.with(player)?),
+            item: Some((LONG_MESSAGE, 2)),
+            takes: vec![(3, 4), (2, 4)],
+            exit: Some(((4, 5), (20, 12))),
+            lock: Some(Lock {
+                at: (4, 3),
+                to: (6, 7),
+                destroy,
+                key_owned: key,
+            }),
+            ..MoveBasic::default()
+        })
     }
 }
 
@@ -410,12 +468,42 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         // byte, high bit first (as the decoder reads them).
         let owned = (0..s.spells.len())
             .map(|i| SPELL as usize - i)
-            .chain(s.item.map(|_| ITEM as usize));
+            .chain(s.item.map(|_| ITEM as usize))
+            .chain(s.lock.filter(|k| k.key_owned).map(|_| KEY as usize));
         for n in owned {
             let i = n - 33;
             r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
         }
         f.put(c + cr::RETIRED_RECORDS, &r);
+    }
+    if let Some(p) = &s.player2 {
+        // The second slot, as the decoder reads it: the next name and the
+        // next record. Owns nothing.
+        let c = l.creatures;
+        f.packed(c + cr::RETIRED_NAMES + 10, &p.name);
+        f.put(c + cr::RETIRED_RECORDS + cr::RECORD_LEN, &p.record(s.start));
+    }
+    // The door table: entry 0 unused (as C64 adventures leave it), 1 the
+    // exit to map point 32, 2 the locked door's square in this room.
+    let mut portals = Vec::new();
+    if s.exit.is_some() || s.lock.is_some() {
+        portals.push([0, 0]);
+        portals.push([0, 0x20]);
+        portals.push(s.lock.map_or([0, 0], |k| [1 << 4, k.to.0 << 4 | k.to.1]));
+    }
+    if let Some((_, cell)) = s.exit {
+        f.put(w + wm::POINTS + 32 * 2, &[cell.0, cell.1]);
+        // Type 7, one-way (bit 5 clear); the door picture, open to anyone.
+        f.thing(EXIT as usize, "EXIT", [0x07, PIC_DOOR as u8, 0, 0]);
+        no_messages(&mut f, EXIT as usize);
+    }
+    if let Some(k) = s.lock {
+        f.thing(KEY as usize, "KEY", [0x01, 1, 1, PIC_DOOR as u8]);
+        // Access 2 (bits 6-7 of byte 1): open only to owners of byte 3's
+        // thing; byte 2 bit 7: destroy it on passing.
+        let destroy = if k.destroy { 0x80 } else { 0 };
+        f.thing(LOCK as usize, "LOCK", [0x07, 0x80 | PIC_DOOR as u8, destroy, KEY]);
+        no_messages(&mut f, LOCK as usize);
     }
     f.ascii(
         l.adventure + acs_core::layout::adventure::MAP_NAME,
@@ -438,6 +526,21 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         f.thing(n as usize, &format!("LOAD{}", i + 1), [b0, b1, 1, PIC_DOOR as u8]);
         items.push((s.room_entry.0 + 1 + i as u8, s.room_entry.1, n, 1));
     }
+    for (i, &(x, y)) in s.takes.iter().enumerate() {
+        let n = TAKE + i as u8;
+        f.thing(
+            n as usize,
+            &format!("THING{}", i + 1),
+            [0x01, 1, 1, PIC_DOOR as u8],
+        );
+        items.push((x, y, n, 1));
+    }
+    if let Some((at, _)) = s.exit {
+        items.push((at.0, at.1, EXIT, 1));
+    }
+    if let Some(k) = s.lock {
+        items.push((k.at.0, k.at.1, LOCK, 2));
+    }
     // One region with one full-size room behind the map door.
     f.region(RegionSpec {
         name: "TEST REGION",
@@ -449,6 +552,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             items,
             ..RoomSpec::default()
         }],
+        portals,
         ..RegionSpec::default()
     });
     f.build()
@@ -534,6 +638,66 @@ mod tests {
             .collect();
         assert_eq!(got, vec![(5, 400), (6, 100), (7, 1)]);
         assert!(weight_bytes(401).is_err());
+    }
+
+    #[test]
+    fn loose_has_its_doors_things_and_two_players() {
+        use acs_core::model::{Access, ThingKind};
+        let mut s = MoveBasic::loose("", true, true).unwrap();
+        s.player2 = Some(Player::default().with("name=U,spd=3,wis=9").unwrap());
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let [p, q] = adv.retired_players.as_slice() else {
+            panic!("two retired players");
+        };
+        assert_eq!((p.name.as_str(), p.speed, p.wisdom), ("T", 6, 20));
+        assert_eq!((q.name.as_str(), q.speed, q.wisdom), ("U", 3, 9));
+        let mut owned: Vec<u16> = p.possessions.iter().map(|o| o.thing).collect();
+        owned.sort();
+        assert_eq!(owned, vec![KEY as u16, ITEM as u16]);
+        assert!(q.possessions.is_empty());
+        let room = &adv.regions[0].rooms[0];
+        let at = |x, y| {
+            room.items
+                .iter()
+                .find(|it| (it.x, it.y) == (x, y))
+                .map(|it| it.thing)
+        };
+        assert_eq!(at(3, 4), Some(TAKE as u16));
+        assert_eq!(at(2, 4), Some(TAKE as u16 + 1));
+        assert_eq!(at(4, 5), Some(EXIT as u16));
+        assert_eq!(at(4, 3), Some(LOCK as u16));
+        match &adv.things[LOCK as usize - 1].kind {
+            ThingKind::Portal {
+                access,
+                destroy_needed_thing,
+                two_way,
+                ..
+            } => {
+                assert!(matches!(access, Access::OwnersOf { thing } if *thing == KEY as u16));
+                assert!(*destroy_needed_thing);
+                assert!(!two_way);
+            }
+            k => panic!("{k:?}"),
+        }
+        let dest = |x, y| {
+            room.items
+                .iter()
+                .find(|it| (it.x, it.y) == (x, y))
+                .and_then(|it| it.destination)
+        };
+        use acs_core::model::Destination as D;
+        assert_eq!(dest(4, 5), Some(D::WorldMap { x: 20, y: 12 }));
+        assert!(matches!(
+            dest(4, 3),
+            Some(D::Room {
+                region: 1,
+                room: 0,
+                x: 6,
+                y: 7
+            })
+        ));
     }
 
     #[test]

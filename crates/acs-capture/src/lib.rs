@@ -3,6 +3,7 @@
 //! The behavior capture harness (`docs/capture.md`): plays the original
 //! program in VICE as a black box and measures what it shows.
 
+pub mod acts;
 pub mod experiment;
 pub mod glyphs;
 pub mod jobs;

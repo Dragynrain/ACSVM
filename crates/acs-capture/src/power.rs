@@ -48,7 +48,7 @@ pub fn plan(name: &str) -> Result<Plan, String> {
 
 impl Runner<'_> {
     /// A hash of the screen and, once per different screen, a screenshot.
-    fn note_screen(&mut self, prefix: &str) -> Result<String, String> {
+    pub(crate) fn note_screen(&mut self, prefix: &str) -> Result<String, String> {
         let f = self.s.frame().map_err(|e| e.to_string())?;
         let h = format!("{:016x}", f.hash());
         let name = format!("{prefix}-{h}");
@@ -60,14 +60,22 @@ impl Runner<'_> {
 
     /// Use Object: menu e and a tap of the button; SELECT OBJECT (NONE,
     /// then our item): s and a tap; the item's long message; the button.
-    fn use_item(&mut self) -> Result<String, String> {
+    /// `tap`: answer the message with a 25,000-instruction tap (as the
+    /// profile is left) rather than `button`'s 4 million held (10.8.1).
+    pub(crate) fn use_item(&mut self, tap: bool) -> Result<String, String> {
         self.open_menu()?;
         for d in ["e", "fire", "s", "fire"] {
             self.menu_tap(d)?;
         }
         self.settle(10_000_000, 1_000_000)?;
         let screen = self.note_screen("item")?;
-        self.button()?;
+        if tap {
+            self.joy("fire")?;
+            self.step(25_000)?;
+            self.joy("none")?;
+        } else {
+            self.button()?;
+        }
         self.step(1_000_000)?;
         Ok(screen)
     }
@@ -96,12 +104,12 @@ impl Runner<'_> {
         self.reset(jitter)?;
         let p0 = self.profile(None)?;
         let b0 = self.look()?;
-        let screen1 = self.use_item()?;
+        let screen1 = self.use_item(false)?;
         let b1 = self.look()?;
         let p1 = self.profile(None)?;
         let refill1 = self.wait_refill(TURN_LIMIT)?;
         let p2 = self.profile(None)?;
-        let screen2 = self.use_item()?;
+        let screen2 = self.use_item(false)?;
         let b2 = self.look()?;
         let p3 = self.profile(None)?;
         let refill2 = self.wait_refill(TURN_LIMIT)?;
@@ -124,10 +132,42 @@ impl Runner<'_> {
         }))
     }
 
+    /// Walks the turn out: east on even turns, west on odd ones, until the
+    /// next turn's bar shows (the stick let go at once, so the new turn
+    /// keeps its steps). A Speed 15 player's 15 squares fit the field both
+    /// ways from the start.
+    fn walk_turn(&mut self, turn: usize) -> Result<Option<u64>, String> {
+        let dir = if turn % 2 == 0 { "e" } else { "w" };
+        let mut last = self.look()?.bar;
+        self.joy(dir)?;
+        let mut t = 0;
+        while t < TURN_LIMIT {
+            self.step(20_000)?;
+            t += 20_000;
+            let b = self.look()?.bar;
+            if b > last + 4 {
+                self.joy("none")?;
+                // Let the new bar finish drawing.
+                self.step(200_000)?;
+                return Ok(Some(t));
+            }
+            last = b;
+        }
+        self.joy("none")?;
+        Ok(None)
+    }
+
     /// `drift` (10.6.5): at the top of a fresh turn, the profile; the plan's
     /// casts, one a turn; then the profile at the top of each of `turns`
-    /// turns, each left to run out.
-    pub fn drift_run(&mut self, run: usize, jitter: u64, plan: &Plan, turns: usize) -> Result<(), String> {
+    /// turns, each left to run out, or with `walk` walked out (10.8.7).
+    pub fn drift_run(
+        &mut self,
+        run: usize,
+        jitter: u64,
+        plan: &Plan,
+        turns: usize,
+        walk: bool,
+    ) -> Result<(), String> {
         self.reset(jitter)?;
         if self.wait_refill(TURN_LIMIT)?.is_none() {
             return Err("no new turn".into());
@@ -140,12 +180,17 @@ impl Runner<'_> {
                 Some(t) => Some(self.cast_on_self(t)?),
                 None => None,
             };
-            if self.wait_refill(TURN_LIMIT)?.is_none() {
+            let next = if walk && taps.is_none() {
+                self.walk_turn(turn)?
+            } else {
+                self.wait_refill(TURN_LIMIT)?
+            };
+            if next.is_none() {
                 return Err(format!("no new turn after turn {turn}"));
             }
             turn += 1;
             rows.push(self.drift_row(turn, screen)?);
         }
-        self.write(json!({ "kind": "drift", "run": run, "jitter": jitter, "turns": rows }))
+        self.write(json!({ "kind": "drift", "run": run, "jitter": jitter, "walk": walk, "turns": rows }))
     }
 }

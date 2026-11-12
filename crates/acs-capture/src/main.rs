@@ -108,6 +108,19 @@ enum Cmd {
         /// ACTION:PARAM (10:2 shows a long message).
         #[arg(long)]
         item: Option<String>,
+        /// Also write a second retired player (same `key=value` pairs over
+        /// move-basic's player; set name=U).
+        #[arg(long)]
+        player2: Option<String>,
+        /// loose: the player owns the locked door's key.
+        #[arg(long)]
+        key: bool,
+        /// loose: passing the locked door destroys the key.
+        #[arg(long)]
+        lock_destroy: bool,
+        /// loose: the player owns no magic item (it carries nothing).
+        #[arg(long)]
+        no_item: bool,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -156,6 +169,14 @@ enum Cmd {
         /// drift: what to cast first (none, spell1, spell1-spell2).
         #[arg(long, default_value = "none")]
         plan: String,
+        /// drift: walk each turn out (east, then west) instead of idling it.
+        #[arg(long)]
+        walk: bool,
+        /// acts: the table of cases (refuse, use, take, obstacle, exit,
+        /// lock; docs/capture.md 10.8). `run refuse` is `run acts --table
+        /// refuse`.
+        #[arg(long, default_value = "refuse")]
+        table: String,
         /// drift: turns to read after the casts.
         #[arg(long, default_value_t = 40)]
         turns: usize,
@@ -222,7 +243,12 @@ fn main() {
             weights,
             spell,
             item,
+            player2,
+            key,
+            lock_destroy,
+            no_item,
         } => {
+            let player2 = player2.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
             let spells: Vec<scenario::Spell> = spell
                 .iter()
                 .map(|t| scenario::Spell::parse(t).unwrap_or_else(|e| fail(&e)))
@@ -247,8 +273,22 @@ fn main() {
                         weights: weights.clone(),
                         spells: spells.clone(),
                         item,
+                        player2,
                         ..scenario::MoveBasic::default()
                     };
+                    scenario::move_basic(&s, template.as_deref())
+                }
+                // docs/capture.md 10.8: --player goes over its Speed 6,
+                // Wisdom 20 player; its item, things and doors are fixed.
+                "loose" => {
+                    let mut s =
+                        scenario::MoveBasic::loose(player.as_deref().unwrap_or(""), key, lock_destroy)
+                            .unwrap_or_else(|e| fail(&e));
+                    s.player2 = player2;
+                    s.spells = spells.clone();
+                    if no_item {
+                        s.item = None;
+                    }
                     scenario::move_basic(&s, template.as_deref())
                 }
                 other => fail(&format!("unknown scenario {other}")),
@@ -272,13 +312,21 @@ fn main() {
             plan,
             turns,
             glyphs,
+            table,
+            walk,
         } => {
+            let table_name = if name == "refuse" {
+                "refuse".to_string()
+            } else {
+                table
+            };
+            let cases = acs_capture::acts::table(&table_name).unwrap_or_else(|e| fail(&e));
             let plan = acs_capture::power::plan(&plan).unwrap_or_else(|e| fail(&e));
             let glyphs = glyphs
                 .or_else(|| std::env::var_os("ACSVM_CAPTURE_GLYPHS").map(PathBuf::from))
                 .map(|p| acs_capture::glyphs::Table::load(&p).unwrap_or_else(|e| fail(&e)));
             let place = match name.as_str() {
-                "move-basic" | "refuse" | "weight" | "cast" | "profile-check" | "item" | "drift" => {
+                "move-basic" | "refuse" | "acts" | "weight" | "cast" | "profile-check" | "item" | "drift" => {
                     experiment::Place::Map
                 }
                 "move-room" => experiment::Place::Room,
@@ -323,7 +371,7 @@ fn main() {
                 if matches!(name.as_str(), "profile-check" | "item" | "drift") {
                     result = match name.as_str() {
                         "item" => r.item_run(run, jitter),
-                        "drift" => r.drift_run(run, jitter, &plan, turns),
+                        "drift" => r.drift_run(run, jitter, &plan, turns, walk),
                         _ => r.profile_check(run, jitter),
                     };
                     if result.is_err() {
@@ -348,10 +396,9 @@ fn main() {
                     timer.done(run, &r.s.vice.mon.stats);
                     continue;
                 }
-                if name == "refuse" {
-                    let cases = &experiment::REFUSE;
+                if name == "refuse" || name == "acts" {
                     for (case, acts) in cases.iter() {
-                        result = r.refuse_case(run, jitter, case, acts, place);
+                        result = r.case_run(run, jitter, &table_name, case, acts);
                         if result.is_err() {
                             break 'outer;
                         }

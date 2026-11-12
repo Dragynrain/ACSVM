@@ -133,6 +133,8 @@ lists at the end of each `docs/rules/` spec.
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
 | `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
+| `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
+| `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
 | `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario; walk into the room. |
 
 ## 4. One scenario, end to end
@@ -198,6 +200,10 @@ acs-capture run cast --snapshot C/runs/cc-20-60/start.vsf --disk C/runs/cc-20-60
     --out C/runs/cc-20-60/wide --runs 60 --jobs 8 --jitter-step 3708203 --jitter-range 6000000
 # outcome only, sampled from a menu snapshot (10.7): about 22 s for the 60
 acs-capture run cast ... --runs 60 --jobs 8 --from-menu --jitter-step 3708203 --jitter-range 6000000
+# loose ends (10.8): a table of cases on the loose scenario's disk
+acs-capture scenario loose C/runs/lz-key/disk.d64 --key
+acs-capture run acts --table lock --snapshot C/runs/lz-key/start.vsf --disk C/runs/lz-key/disk.d64 \
+    --out C/runs/lz-key/lock --runs 5 --jitter-step 3708203 --jitter-range 6000000
 acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # re-distil a runs.jsonl
 ```
 
@@ -665,10 +671,7 @@ In this order (planned November 2026):
       healing mixed in); natural healing alone at Life Force 5; a permanent
       Life Force +10 at 20 (does it stay; which bit-6 value is temporary);
       the disease stack (temporary +10 on turn 1, permanent -10 on turn 2).
-   Then the loose ends (a use's exact step cost and whether taking costs
-   exactly one step, both against a control; the first
-   take after entering a room ending the turn, the obstacle's 1-pixel
-   drain, a room door back out, a locked door, retired slot 2).
+   Then the loose ends: item 8.
 7. **Sampling a roll from just before it** (`run cast --from-menu`, done
    November 2026). A run that replays the setup each time pays for the
    setup on every sample. So the menu is opened and the spell chosen once,
@@ -685,5 +688,70 @@ In this order (planned November 2026):
    through menus can be sampled this way. Exact rather than statistical
    rules would need the random state itself: see the researcher brief,
    `docs/research/random-rolls.md` (waiting for the maintainer).
-8. **The rest of the captures-needed lists** in `docs/rules/`: turn order
+8. **Loose ends** (planned November 2026). One experiment, `acts`, runs
+   named tables of cases (`--table NAME`); `refuse` (item 2) becomes its
+   first table. Every case starts at the top of a fresh turn and is
+   compared with a control in the same run. Besides item 2's walk, push
+   and into-room, a case can take a thing (push into it, answer the
+   message), use the item, read the profile (the control for a use: it
+   costs nothing, 6.1), wait for the next turn, bump n times (short pushes
+   and releases), idle, go through a door to a given place and square, and
+   **count steps**: hold a direction until the next turn's bar, counting
+   squares and the bar after each. Counting steps right after an act gives
+   the act's cost in whole steps, since walking drains nothing; the bar
+   readings show whether a step needs a full 8 pixels.
+   Three things the first trial runs taught the acts. A walk lets go of the
+   stick as soon as the square changes: a stick still held while the view
+   settles queues one more step, which the program takes later (a walk of
+   one square west, then one east, ended two squares west). After a door
+   the bar is hidden while the region (or the same room) loads; its
+   showing again is not a new turn, so a door act waits for it. And a use's
+   message is answered with a short tap, as the profile is left.
+   The `loose` scenario: move-basic's field and room, a Speed 6 player of
+   ours (Wisdom 20) that owns the magic item (long message 2), and in the
+   room: treasures of weight 1 on 3,4 and 2,4 (west of the entry 4,4);
+   a one-way portal on 4,5 to world map point 32 at 20,12 (door table
+   entry 1); and a portal on 4,3 open only to owners of a key (a treasure of
+   ours, thing 69) leading to room square 6,7 (entry 2). `--key` gives the
+   player the key, `--lock-destroy` sets the lock's "destroy needed thing".
+   Disks: no key, key, key and destroy; also `--no-item` (the player
+   carries nothing) and a Speed 15 player (`--player spd=15`).
+   1. *A use's step cost* (`--table use`, map): use the item, count east;
+      control: the profile, count east. Then three uses against three
+      profiles, on the Speed 15 player.
+   2. *Taking* (`--table take`, room): after the door and a wait for the
+      next turn, take west, count east; control: the same without the take.
+      Why the first take ends the turn: a take right after the door; after
+      the door, a step east and one back; a second take in the turn of the
+      first (take west, step west, take west). On three disks: the Speed 6
+      player that owns the item, one that carries nothing (the `weight`
+      players carried nothing), and the Speed 15 one.
+   3. *The obstacle's pixel* (`--table obstacle`, the `refuse` disk): push
+      into the obstacle for 0.5, 2 and 8 million instructions, bump it five
+      times, and push it after a step west and back (not straight after the
+      door); each against the same into the room wall, which costs nothing.
+      A drain that grows with the push is a slower drain; a fixed one is a
+      cost per bump.
+   4. *A room door out* (`--table exit`): after the door, south onto the
+      portal; the map cell, the bar and whether the turn goes on, then
+      count east on the map; control: after the door, count east.
+   5. *A locked door* (`--table lock`, on each of the three disks): push
+      north into the lock and count east; with the key, through it to 6,7
+      and count east; with destroy, through it, back round to 5,3 and push
+      west into the lock again (refused means the key went).
+   6. *Retired slot 2*: a second retired player of ours (`--player2`, name
+      U, other stats) in the second slot (name + 10, record + 37, as the
+      decoder reads them). The add-player screen lists U right of T, under
+      "don't add a player", so `start-retired2.txt` taps east once (a tap
+      down went to an empty row, and the button then picked T);
+      `profile-check` reads U's stats back, and T's on a copy started with
+      `start-retired.txt`.
+   7. *Turns or time* (`drift --walk`): a Speed 15 player, Wisdom and
+      Constitution 20, Life Force -15 or a temporary +10 on the first turn;
+      the profile each turn, then either idling the turn out (about 5,300
+      frames) or walking its 15 steps east and back (short turns). The same
+      Speed, so a rate that differs between the two follows time.
+   8. *The eleventh tick*: the temporary +10 drift case again with 10 new
+      runs.
+9. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.

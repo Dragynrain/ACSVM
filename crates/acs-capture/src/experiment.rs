@@ -317,47 +317,20 @@ impl Runner<'_> {
     }
 }
 
-/// One step of a `refuse` case (docs/capture.md 10.2).
-#[derive(Debug, Clone, Copy)]
-pub enum Act {
-    /// Hold the stick until the player has moved this many squares.
-    Walk(&'static str, i32),
-    /// Hold the stick for this many instructions; the player should not move.
-    Push(&'static str, u64),
-    /// Hold the stick until the room behind the map door shows.
-    IntoRoom(&'static str),
-}
-
-/// The `refuse` cases, all from the map's first turn: name and acts. The
-/// room cases go through the door first, so they start on the entry
-/// square; `door` is their control.
-pub const REFUSE: [(&str, &[Act]); 7] = [
-    ("map-wall", &[Act::Walk("w", 6), Act::Push("w", 2_000_000)]),
-    ("map-walk", &[Act::Walk("w", 6)]),
-    ("door", &[Act::IntoRoom("s")]),
-    ("map-walk-s3", &[Act::Walk("s", 3)]),
-    (
-        "room-wall",
-        &[Act::IntoRoom("s"), Act::Walk("w", 3), Act::Push("w", 2_000_000)],
-    ),
-    ("room-walk", &[Act::IntoRoom("s"), Act::Walk("w", 3)]),
-    ("room-obstacle", &[Act::IntoRoom("s"), Act::Push("e", 2_000_000)]),
-];
-
 /// A case's running state: frames since the turn started, and what was seen.
-struct Track {
-    frames: u64,
-    bar: usize,
-    refilled: bool,
+pub(crate) struct Track {
+    pub(crate) frames: u64,
+    pub(crate) bar: usize,
+    pub(crate) refilled: bool,
     /// Whether to count frames (each count costs monitor round trips; the
     /// `weight` run records none).
-    count_frames: bool,
+    pub(crate) count_frames: bool,
 }
 
 impl Runner<'_> {
     /// Runs `n` instructions in 20,000-instruction looks, counting frames and
     /// noting a bar refill (a new turn).
-    fn tick(&mut self, k: &mut Track, n: u64) -> Result<Obs, String> {
+    pub(crate) fn tick(&mut self, k: &mut Track, n: u64) -> Result<Obs, String> {
         let mut done = 0;
         let mut o = self.look()?;
         while done < n {
@@ -375,110 +348,6 @@ impl Runner<'_> {
             k.bar = o.bar;
         }
         Ok(o)
-    }
-
-    /// One `refuse` case from the top of a fresh turn: plays its acts, reads
-    /// the bar once settled, then counts frames until the turn ends.
-    pub fn refuse_case(
-        &mut self,
-        run: usize,
-        jitter: u64,
-        name: &str,
-        acts: &[Act],
-        start_place: Place,
-    ) -> Result<(), String> {
-        self.place = start_place;
-        self.reset(jitter)?;
-        self.wait_refill(TURN_LIMIT)?;
-        let first = self.look()?;
-        let mut k = Track {
-            frames: 0,
-            bar: first.bar,
-            refilled: false,
-            count_frames: true,
-        };
-        let mut log = Vec::new();
-        for act in acts {
-            let before = self.look()?.cell;
-            match *act {
-                Act::Walk(dir, n) => {
-                    self.joy(dir)?;
-                    let mut cell = before;
-                    let mut moved = 0;
-                    let mut t = 0;
-                    while moved < n && t < TURN_LIMIT {
-                        let o = self.tick(&mut k, 20_000)?;
-                        t += 20_000;
-                        if o.cell.is_some() && o.cell != cell {
-                            // Let the view settle before counting the square.
-                            let o2 = self.tick(&mut k, 60_000)?;
-                            t += 60_000;
-                            match (cell, o2.cell) {
-                                (Some(a), Some(b)) if a != b => {
-                                    moved += (b.0 - a.0).abs() + (b.1 - a.1).abs();
-                                    cell = o2.cell;
-                                }
-                                (None, Some(_)) => cell = o2.cell,
-                                _ => {}
-                            }
-                        }
-                    }
-                    self.joy("none")?;
-                    log.push(json!({"act": "walk", "dir": dir, "squares": moved,
-                        "from": before, "to": cell, "frames": k.frames, "bar": k.bar}));
-                }
-                Act::Push(dir, n) => {
-                    let bar0 = k.bar;
-                    self.joy(dir)?;
-                    let o = self.tick(&mut k, n)?;
-                    self.joy("none")?;
-                    log.push(json!({"act": "push", "dir": dir, "from": before, "to": o.cell,
-                        "bar_before": bar0, "frames": k.frames, "bar": k.bar}));
-                }
-                Act::IntoRoom(dir) => {
-                    let bar0 = k.bar;
-                    let mut bars = vec![bar0];
-                    self.joy(dir)?;
-                    let mut t = 0;
-                    let mut entered = None;
-                    while t < TURN_LIMIT {
-                        self.tick(&mut k, 20_000)?;
-                        t += 20_000;
-                        if bars.last() != Some(&k.bar) {
-                            bars.push(k.bar);
-                        }
-                        let f = self.s.frame().map_err(|e| e.to_string())?;
-                        let on_map = observe(&f, &self.scen, Place::Map).cell;
-                        let in_room = observe(&f, &self.scen, Place::Room).cell;
-                        if on_map.is_none() && in_room == Some(room_entry(&self.scen)) {
-                            entered = Some(k.frames);
-                            break;
-                        }
-                    }
-                    self.joy("none")?;
-                    self.place = Place::Room;
-                    log.push(json!({"act": "into_room", "dir": dir, "from": before,
-                        "entered_at_frame": entered, "bars": bars,
-                        "refilled_before_entry": k.refilled, "frames": k.frames, "bar": k.bar}));
-                }
-            }
-        }
-        // Settle: the bar is redrawn a few frames after a move.
-        let settled = self.tick(&mut k, 300_000)?;
-        let refilled_during = k.refilled;
-        let at_settle = k.frames;
-        // Count on until the bar refills: the end of the turn.
-        k.refilled = false;
-        while !k.refilled && k.frames < at_settle + 20_000 {
-            self.tick(&mut k, 25_000)?;
-        }
-        self.write(json!({
-            "kind": "refuse", "case": name, "run": run, "jitter": jitter,
-            "full_bar": first.bar, "start_cell": first.cell, "acts": log,
-            "settled_frame": at_settle, "settled_bar": settled.bar, "settled_cell": settled.cell,
-            "refilled_before_settle": refilled_during,
-            "turn_frames": if k.refilled { Some(k.frames) } else { None },
-        }))
     }
 }
 
@@ -813,7 +682,7 @@ impl Runner<'_> {
     }
 }
 
-fn room_entry(s: &MoveBasic) -> (i32, i32) {
+pub(crate) fn room_entry(s: &MoveBasic) -> (i32, i32) {
     (s.room_entry.0 as i32, s.room_entry.1 as i32)
 }
 
@@ -827,6 +696,7 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
     let mut full: BTreeMap<String, usize> = BTreeMap::new();
     // refuse cases: settled bars (counted) and turn lengths, per case.
     let mut refuse: BTreeMap<String, (BTreeMap<String, usize>, Vec<u64>)> = BTreeMap::new();
+    let mut counted: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
     // cast: per outcome, counts of each reading.
     let mut cast: BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>> = BTreeMap::new();
     for line in text.lines() {
@@ -855,10 +725,24 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
                 }
                 *full.entry(v["bars"][0].to_string()).or_default() += 1;
             }
-            Some("refuse") => {
-                let e = refuse
-                    .entry(v["case"].as_str().unwrap_or("?").to_string())
-                    .or_default();
+            Some("refuse") | Some("acts") => {
+                let case = match v["table"].as_str() {
+                    Some(t) => format!("{t}/{}", v["case"].as_str().unwrap_or("?")),
+                    None => v["case"].as_str().unwrap_or("?").to_string(),
+                };
+                // Steps counted at the end of a case (10.8).
+                if let Some(c) = v["acts"]
+                    .as_array()
+                    .and_then(|a| a.last())
+                    .filter(|a| a["act"] == "count_steps")
+                {
+                    *counted
+                        .entry(case.clone())
+                        .or_default()
+                        .entry(c["squares"].to_string())
+                        .or_default() += 1;
+                }
+                let e = refuse.entry(case).or_default();
                 *e.0.entry(v["settled_bar"].to_string()).or_default() += 1;
                 if let Some(f) = v["turn_frames"].as_u64() {
                     e.1.push(f);
@@ -912,6 +796,7 @@ pub fn summarize(path: &Path, speed: u8) -> std::io::Result<serde_json::Value> {
     Ok(json!({
         "cast": cast,
         "refuse": refuse,
+        "counted_steps": counted,
         "speed": speed,
         "engine_default_rules": engine_predictions(acs_engine::Rules::default(), speed),
         "directions": dirs,

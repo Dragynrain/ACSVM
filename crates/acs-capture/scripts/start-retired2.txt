@@ -1,0 +1,36 @@
+# Like start-retired.txt, but picks the second retired player of ours
+# (acs-capture scenario ... --player2): one tap east at the add-player
+# screen, where it is listed right of the first, under "don't add a
+# player" (docs/capture.md 10.8.6). Start VICE with --disk SCENARIO
+# --snapshot boot/play-nodisk.vsf; saves ${OUT}/start.vsf at the first turn.
+reset 8              # the drive re-reads the new disk at a fixed point
+run 5m
+joy 1 fire
+run 4m
+joy 1 none
+run 100m             # title screen
+shot start-title
+joy 1 fire
+run 4m
+joy 1 none
+run 60m              # add player
+shot start-add       # both retired players listed, the cursor on the first
+joy 1 e
+run 25k
+joy 1 none
+run 4m
+shot start-add2      # the cursor on the second
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # "press button of the joystick that will control..."
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # saving game
+joy 1 fire
+run 4m
+joy 1 none
+run 160m             # first turn
+shot start-map
+dump ${OUT}/start.vsf
