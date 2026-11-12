@@ -82,7 +82,7 @@ impl Runner<'_> {
 
     /// Use Power, the spell `taps` reaches from NONE, and the button at the
     /// target prompt (its cursor starts on the caster).
-    fn cast_on_self(&mut self, taps: &[&str]) -> Result<String, String> {
+    pub(crate) fn cast_on_self(&mut self, taps: &[&str]) -> Result<String, String> {
         self.open_menu()?;
         for d in ["e", "s", "s", "fire"] {
             self.menu_tap(d)?;

@@ -214,6 +214,29 @@ enum Cmd {
         #[arg(long)]
         profile: bool,
     },
+    /// Save a snapshot just before a roll (docs/capture.md 10.11): from a
+    /// scenario's first-turn snapshot, play up to MOMENT (item-menu,
+    /// turn-end, turn-end-walked, next-turn) and save OUT there, with disks.
+    Snap {
+        moment: String,
+        #[arg(long)]
+        snapshot: PathBuf,
+        #[arg(long)]
+        disk: PathBuf,
+        /// The snapshot to write (outside the repository); a screenshot of
+        /// the same name goes beside it.
+        #[arg(long)]
+        out: PathBuf,
+        /// turn-end-walked: squares to walk east first.
+        #[arg(long, default_value_t = 1)]
+        walk: i32,
+        /// turn-end: stop once the movement bar is this many pixels or fewer.
+        #[arg(long, default_value_t = 1)]
+        bar_left: usize,
+        /// Cast first, as drift does (none, spell1, spell1-spell2).
+        #[arg(long, default_value = "none")]
+        plan: String,
+    },
     /// Run a line script (see `script.rs`) against a fresh VICE.
     Script {
         /// The script file, or `-` for stdin.
@@ -517,6 +540,40 @@ fn main() {
                     }
                 }
                 other => fail(&format!("glyphs {other}: learn or read")),
+            }
+        }
+        Cmd::Snap {
+            moment,
+            snapshot,
+            disk,
+            out,
+            walk,
+            bar_left,
+            plan,
+        } => {
+            let m = acs_capture::snap::Moment::parse(&moment).unwrap_or_else(|e| fail(&e));
+            let plan = acs_capture::power::plan(&plan).unwrap_or_else(|e| fail(&e));
+            let dir = out.parent().map(Path::to_path_buf).unwrap_or_default();
+            std::fs::create_dir_all(&dir).expect("out folder");
+            let opts = Options {
+                drive8: Some(disk),
+                ..Options::default()
+            };
+            let vice = Vice::start(&opts).unwrap_or_else(|e| fail(&e.to_string()));
+            let mut s = Session::new(vice, dir.clone());
+            let log = std::fs::File::create(out.with_extension("jsonl")).expect("log");
+            let mut r = experiment::Runner {
+                s: &mut s,
+                snapshot: snapshot.display().to_string(),
+                scen: scenario::MoveBasic::default(),
+                place: experiment::Place::Map,
+                out: log,
+                glyphs: None,
+            };
+            let abs = std::path::absolute(&out).unwrap_or(out.clone());
+            match r.snap(m, &plan, walk, bar_left, &abs) {
+                Ok(note) => println!("wrote {}: {note}", out.display()),
+                Err(e) => fail(&e),
             }
         }
         Cmd::Script {

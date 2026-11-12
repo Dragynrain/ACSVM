@@ -135,6 +135,7 @@ lists at the end of each `docs/rules/` spec.
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
 | `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
 | `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
+| `snap.rs` | `acs-capture snap`: a snapshot just before a roll (10.11). |
 | `scripts/*.txt` | Boot to the "insert adventure disk" prompt; start a scenario; walk into the room. |
 
 ## 4. One scenario, end to end
@@ -204,6 +205,8 @@ acs-capture run cast ... --runs 60 --jobs 8 --from-menu --jitter-step 3708203 --
 acs-capture scenario loose C/runs/lz-key/disk.d64 --key
 acs-capture run acts --table lock --snapshot C/runs/lz-key/start.vsf --disk C/runs/lz-key/disk.d64 \
     --out C/runs/lz-key/lock --runs 5 --jitter-step 3708203 --jitter-range 6000000
+# a snapshot just before a roll (10.11): the turn's end after the plan's casts
+acs-capture snap turn-end --plan spell1 --snapshot C/runs/d-heal/start.vsf --disk C/runs/d-heal/disk.d64     --out C/runs/rr2/heal-turn-end.vsf
 acs-capture summarize C/runs/refuse/runs.jsonl --speed 15       # re-distil a runs.jsonl
 ```
 
@@ -816,3 +819,16 @@ In this order (planned November 2026):
    can be checked the same way, from a snapshot just before it.
 10. **The rest of the captures-needed lists** in `docs/rules/`: turn order
    and creature phases, the adjacency slowdown, creature paths.
+11. **Snapshots just before a roll** (`acs-capture snap MOMENT`, done
+   November 2026), for the researcher's inputs and for state sweeps.
+   From a scenario's first-turn snapshot, optionally after a drift plan's
+   casts (`--plan`, one a turn, then the top of the next turn), it plays
+   up to the moment and saves a snapshot with disks and a screenshot:
+   `item-menu` (Use Object, the item highlighted: one tap from the use),
+   `turn-end` (idling until the bar is `--bar-left` pixels, default 1:
+   the turn's end a few frames away), `turn-end-walked` (`--walk N`
+   squares east first) and `next-turn` (the bar just refilled). The
+   random-rolls second pass's inputs were made this way, 7 in parallel in
+   about 3 minutes: item use, the turn's end for drift, the temporary
+   tick and healing at Speed 1, and healing at Speed 15 idled and walked
+   (`C/runs/rr2/`).

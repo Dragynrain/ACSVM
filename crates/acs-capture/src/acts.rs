@@ -183,7 +183,12 @@ const STUCK: u64 = 20_000_000;
 
 impl Runner<'_> {
     /// Holds `dir` until the player has moved `n` squares (or `TURN_LIMIT`).
-    fn walk(&mut self, k: &mut Track, dir: &str, n: i32) -> Result<(i32, Option<(i32, i32)>), String> {
+    pub(crate) fn walk(
+        &mut self,
+        k: &mut Track,
+        dir: &str,
+        n: i32,
+    ) -> Result<(i32, Option<(i32, i32)>), String> {
         let mut cell = self.look()?.cell;
         self.joy(dir)?;
         let mut moved = 0;

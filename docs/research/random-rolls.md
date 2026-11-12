@@ -1,8 +1,10 @@
 # Research brief: how the original rolls its random numbers
 
 A request to the project's clean-room *researcher* (CONTRIBUTING.md,
-section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11), by a separate Claude session as
-the researcher; findings below, the cast chance confirmed by capture.
+section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11),
+by a separate Claude session as the researcher; findings below, the cast
+chance confirmed by capture. **Second pass** (items 7 to 13) briefed
+2026-11-12, inputs ready.
 
 ## Why
 
@@ -55,6 +57,64 @@ Write "not found" or "unsure" wherever that is the honest answer. A
 partial answer to items 1, 3 and 5 is already enough for the harness to
 start.
 
+### Second pass (briefed 2026-11-12)
+
+The first pass answered items 1, 3 and 5, and 4 and 6 for casting (see
+Findings). This pass takes the other rolls we have captured, so each
+answer can be checked, and the open questions about the generator. All
+of it is the C64 version, in the snapshots under Inputs.
+
+7. **Using a magic item.** Does a use take a roll at all? If so, how
+   many, of what range, and what is it compared against? Captured: every
+   use worked; a use costs 2 Power at Wisdom 10 and 20, and two steps of
+   the movement bar; it does not end the turn ([magic](../rules/magic.md)
+   4.2).
+8. **Power drift.** Does the end of a turn take a roll for drift?
+   Captured: Power moved exactly 1 toward Wisdom at the end of every turn,
+   in every run, from 10 and from 30 (magic 5.1). We expect no roll; say
+   so if there is one.
+9. **Temporary Life Force wearing off.** The roll, its range and what it
+   is compared with; when in the turn it is taken; whether anything else
+   (Speed, time, the size of the temporary part) changes the chance.
+   Captured: a temporary +10 lost 1 point at about 1 turn in 3 for a
+   Speed 1 player and 1 in 4 for a Speed 15 one, idling or walking alike
+   (magic 5.2). Also the **eleventh tick**: in 10 of 13 runs, after the
+   10 points were gone, one more tick took Life Force to 1 below
+   Constitution and healing put it back the next turn. Why?
+10. **Natural healing**, the open one (magic "Captures needed" 2). When
+    is healing checked (the end of a turn, each step or frame, the moves
+    a turn leaves unused, something else), what is rolled, and how much
+    is healed? No per-turn rule fits the captures: a Speed 1 player
+    healed 1 a turn, now and then 2 (4 extra in 35 turns); a Speed 15
+    player that let its turns run out healed from 6 to 20 in about 12
+    turns, 0 to 5 points a turn; walking all 15 squares every turn, it
+    healed only 4 to 7 points in 25 turns (magic 5.3). The rule should
+    explain all three. Is the test made on Life Force itself, temporary
+    part and all, as it seems?
+11. **Seeding.** The random state's value at power-on, and whether
+    anything on the way to the first turn sets it (loading the program,
+    the title, loading the adventure, creating or choosing a player, the
+    first turn's start) or only advances it by taking rolls.
+12. **Rolls between turns.** Which rolls are taken between one player
+    turn and the next: in our scenarios (one player, no creatures in the
+    room), and per creature in a room with creatures (the kind and number
+    of rolls a creature's turn takes outside combat: square choice, goal
+    choice, random creatures appearing, removal of left-behind random
+    creatures). Combat rolls wait for a later pass.
+13. **The raster band.** Why a draw from the cast menu lands on raster
+    lines 37 to 42 (what the program does between the button and the
+    draw), and whether rolls taken at the end of a turn or from other
+    screens have such a band too, so the harness can predict the line it
+    will mix in for each roll it sweeps.
+
+For items 9 and 10, if the rule depends on hidden state (a counter, the
+temporary part of Life Force, a timer), give its address too, as for the
+random state: the harness then sets it, as it sets `$1CC9`, for an exact
+check. Addresses stay for the harness only.
+
+Enough for this pass: items 10, 12 and 13. Items 7 to 9 and 11 should be
+short once the end of a turn is traced.
+
 ## How the answers come back
 
 1. **Plain language only.** No code, pseudo-code, disassembly, byte dumps
@@ -96,6 +156,51 @@ researcher sessions only; the C64 version first. The process is now
    second version (MS-DOS, which we would first need a copy of) would only
    come later, to check whether the ports roll the same way.
 
+## Inputs
+
+In `ACSVM-research/research/random-rolls/inputs/`. Every snapshot is a
+VICE 3.10 `x64sc` snapshot of a scenario of ours (`docs/capture.md`
+section 7: an open field of the world map, start 12,12, a room south
+through a map door), saved with its disk images, so it loads on its own.
+The players are retired players of ours (capture.md section 8) with the
+stats named; control port 2 has VICE's I/O simulation device in it, as
+capture.md 2.2 says.
+
+First pass (top level): `first-turn.vsf` and `scenario-disk.d64` (Power
+20, a cost-60 spell), `menu-spell-chosen.vsf` (the spell chosen in
+SELECT SPELL: the next button tap casts), `from-menu-runs.jsonl` (60
+captured casts from that snapshot, with their jitter).
+
+Second pass (`pass2/`, made with `acs-capture snap`, capture.md 10.11):
+
+| File | The moment | Items |
+| --- | --- | --- |
+| `item-menu.vsf` | Wisdom 20, owns a magic item of ours (shows a long message when used): Use Object chosen and the item highlighted in SELECT OBJECT; the next button tap uses it | 7 |
+| `pow-down-turn-end.vsf` | Speed 1, Wisdom 20, Power 10 (a cost-0 spell of ours took 10 off on turn 1), idling: the movement bar 1 pixel from empty, the turn about to end | 8, 12, 13 |
+| `lf-temp-turn-end.vsf` | Speed 1, Constitution 20, Life Force 30 of which 10 temporary (a spell on turn 1), idling, the turn about to end | 9, 12, 13 |
+| `heal-turn-end.vsf` | Speed 1, Constitution 20, Life Force about 6 (a permanent -15 on turn 1), idling, the turn about to end | 10, 12 |
+| `heal15-turn-end-idle.vsf` | Speed 15, Constitution 20, Life Force about 6, idling, the turn about to end | 10 |
+| `heal15-turn-end-walked.vsf` | the same player after walking 14 squares east this turn: 1 step left | 10 |
+| `heal15-next-turn.vsf` | the same player at the top of the turn after the spell | 10 |
+| `play.vsf` | the program booted from program disk 1, at "put your adventure disk in" (no adventure loaded yet) | 11 |
+| `*-start.vsf`, `*-disk.d64` | each scenario's first player turn and its disk (`it-20`, `d-pow-down`, `d-lf-temp`, `d-heal`, `heal15`) | 11, and to replay |
+| `*.png` | a screenshot of each snapshot | |
+
+Captured runs to check against (`pass2/runs/`, `runs.jsonl` with one
+JSON object a line, and `summary.json`; in drift runs `turns` lists the
+profile screen read at the top of each turn: `pow`, `lf`, `wis`, `con`):
+
+| Folder | What | Spec |
+| --- | --- | --- |
+| `item-10`, `item-20` | two uses a run, Wisdom 10 and 20, 3 runs each: Power before and after each use | magic 4.2 |
+| `drift-pow-down`, `drift-pow-up` | Power 10 and 30 against Wisdom 20, 60 turns, 3 runs | magic 5.1 |
+| `drift-lf-temp`, `drift-lf-perm`, `drift-disease`, `tick11` | the temporary +10, a permanent +10, the disease stack; `tick11` is 10 more runs of the temporary +10 | magic 5.2 |
+| `drift-heal` | Speed 1, healing from about 6, 3 runs | magic 5.3 |
+| `heal15-idle`, `heal15-walk`, `temp15-idle`, `temp15-walk` | Speed 15: healing, and the temporary +10, turns idled out or walked (15 squares), 3 runs each | magic 5.2, 5.3 |
+
+Each run began from its scenario's `start.vsf` after idling its jitter
+(the `jitter` field, in instructions; capture.md 4.3).
+
 ## Findings
 
 **First pass, 2026-11-11** (C64, as running in the scenario snapshots;
@@ -124,6 +229,7 @@ plain-language hand-off:
 5. **Not found yet**: where the state is seeded; why the band falls where
    it does; whether rolls are taken between turns; the other users of the
    roll (about 30 call sites: item use, drift, healing, combat, creatures).
+   These are the second pass, items 7 to 13.
 
 **Checked by capture** (capture.md 10.9): setting `$1CC9` to each of its
 256 values before a cast, items 1 and 4 predicted every first-draw

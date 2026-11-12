@@ -13,5 +13,6 @@ pub mod power;
 pub mod scenario;
 pub mod screen;
 pub mod script;
+pub mod snap;
 pub mod timing;
 pub mod vice;

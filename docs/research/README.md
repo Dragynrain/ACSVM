@@ -96,7 +96,7 @@ program never goes above 90% or below 14%.
 
 | Brief | Status |
 | --- | --- |
-| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Next: the other users of the roll |
+| [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass briefed 2026-11-12 (items 7-13: item use, drift, the temporary tick, healing, seeding, rolls between turns, the raster band), inputs ready |
 
 ## 6. Templates
 
