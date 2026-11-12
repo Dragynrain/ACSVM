@@ -78,7 +78,35 @@ lists at the end of each `docs/rules/` spec.
    of host time. Emulated time comes from counting frames: the harness steps
    in 1,000-instruction chunks and counts raster wraparounds (the `LIN`
    register). A PAL frame is 1/50.125 s.
-7. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
+8. **Timing.** `acs-capture run` writes `timing.jsonl` next to
+   `runs.jsonl`: one line per run and a `"total"` line, with the wall time,
+   the instructions advanced, instructions per host second (overall and
+   inside advances), and calls and seconds per monitor command
+   (`advance`, `display`, `registers`, ...). `harness_s` is the time
+   outside the monitor (frame analysis, files). A short line per run goes
+   to stderr. First readings (November 2026, one instance alone): a `cast`
+   run is about 112 million instructions in 25 s, 99.5% of it inside
+   advances at 4.4 million a second, so its fixed waits are the cost; a
+   `weight` run is 312 million in 94 s, of which about 8 s are 101,000
+   register reads and 9 s 14,000 frame grabs from counting frames in
+   1,000-instruction chunks.
+
+   **Waiting for the screen, not the clock.** A trace of the cast flow
+   (each fixed wait watched for screen changes) showed every menu
+   reaction within 300,000 instructions of the input, and the menus
+   holding still after that (they pause the drain). So a menu tap waits
+   until the screen has not changed for a million instructions (at most
+   10 million), and a tap that changes nothing stops the run with a
+   screenshot (`tap-missed.png`). Opening the menu ends the same way, and
+   presses again, up to three times, when the menu doesn't show: a press
+   just as the turn runs out is lost. Waits on the map, where the draining
+   bar keeps changing the screen, stay fixed. A cast run went from about
+   112 to 28 million instructions; Power 20's wide grid (60 runs, four
+   instances) from about 10.5 minutes to 2.2. The cast now comes some 85
+   million instructions sooner after the jitter, so the roll is sampled at
+   other moments: cost 60 worked 13 of 60 (19 before), cost 30 44 of 60
+   (40 before), within the ten points section 7 gives each figure.
+9. **PC: MAME 0.289 (`ibm5150`/`ibm5160`) with a Lua script** is the second
    route. It needs IBM BIOS ROMs and the MS-DOS program, which the project
    doesn't have yet. Not built.
 
@@ -87,6 +115,7 @@ lists at the end of each `docs/rules/` spec.
 | Piece | Does |
 | --- | --- |
 | `monitor.rs` | Binary monitor client: memory, advance, resume, snapshot dump and undump, display, palette, registers, joystick, keyboard feed, reset, quit. |
+| `timing.rs` | Calls and time per monitor command, instructions advanced (2.8). |
 | `vice.rs` | Starts `x64sc` with the flags above, connects, `attach` through the text monitor; shuts VICE down on drop and on errors. |
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
@@ -206,7 +235,7 @@ So the player is the one 16 x 16 green box on the map.
 
 Under `ACSVM-research/capture/`: `template-fantasy.d64`, `boot/` (program disk
 copy, `play.vsf`), `scenarios/`, and `runs/NAME/` (`disk.d64`, `start.vsf`,
-`room.vsf` for move-room, `runs.jsonl`, `summary.json`, start-up
+`room.vsf` for move-room, `runs.jsonl`, `timing.jsonl` (2.8), `summary.json`, start-up
 screenshots).
 
 ## 7. First scenarios: move-basic and move-room
@@ -544,7 +573,8 @@ In this order (planned November 2026):
    the ratio, the difference or neither). Each run, from the first turn:
    1. reads the movement, Power and Life Force bars;
    2. casts the spell as in item 4;
-   3. waits 10 million instructions: the long message means it worked, the
+   3. waits for the screen to settle (2.8; it was 10 million instructions
+      for the grid above): the long message means it worked, the
       map still showing means it failed (a screenshot of each new kind of
       outcome screen, in case a cost above Power is refused another way);
    4. presses the button, waits 10 million instructions and reads the

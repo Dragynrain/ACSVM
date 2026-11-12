@@ -3,10 +3,62 @@
 //! `acs-capture`: the behavior capture harness's command line.
 
 use acs_capture::script::Session;
+use acs_capture::timing::Stats;
 use acs_capture::vice::{Options, Vice};
 use acs_capture::{experiment, scenario};
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
+
+/// Per-run timing (docs/capture.md 2.8): one line per run in `timing.jsonl`
+/// next to `runs.jsonl`, and a short line on stderr.
+struct RunTimer {
+    file: std::fs::File,
+    started: Instant,
+    at_start: Stats,
+    run_started: Instant,
+    before: Stats,
+}
+
+impl RunTimer {
+    fn new(out: &Path, stats: &Stats) -> RunTimer {
+        RunTimer {
+            file: std::fs::File::create(out.join("timing.jsonl")).expect("timing.jsonl"),
+            started: Instant::now(),
+            at_start: stats.clone(),
+            run_started: Instant::now(),
+            before: stats.clone(),
+        }
+    }
+
+    fn start(&mut self, stats: &Stats) {
+        self.run_started = Instant::now();
+        self.before = stats.clone();
+    }
+
+    fn done(&mut self, run: usize, stats: &Stats) {
+        let wall = self.run_started.elapsed();
+        let d = stats.since(&self.before);
+        let mut j = d.to_json(wall);
+        j["run"] = run.into();
+        let _ = writeln!(self.file, "{j}");
+        eprintln!(
+            "run {run} done ({:.0}s): {}",
+            self.started.elapsed().as_secs_f64(),
+            d.line(wall)
+        );
+    }
+
+    fn total(&mut self, stats: &Stats) {
+        let wall = self.started.elapsed();
+        let d = stats.since(&self.at_start);
+        let mut j = d.to_json(wall);
+        j["run"] = "total".into();
+        let _ = writeln!(self.file, "{j}");
+        eprintln!("all runs: {}", d.line(wall));
+    }
+}
 
 #[derive(Parser)]
 #[command(about = "Drive VICE over its binary monitor to measure the original program")]
@@ -229,9 +281,10 @@ fn main() {
                 out: file,
                 glyphs,
             };
-            let started = std::time::Instant::now();
+            let mut timer = RunTimer::new(&out, &r.s.vice.mon.stats);
             let mut result = Ok(());
             'outer: for run in first..first + runs {
+                timer.start(&r.s.vice.mon.stats);
                 // Jitter: a different number of idle instructions before each
                 // run moves the machine's noise sources (docs/capture.md 4.3).
                 let jitter = (run as u64 * jitter_step) % jitter_range;
@@ -244,7 +297,7 @@ fn main() {
                     if result.is_err() {
                         break 'outer;
                     }
-                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    timer.done(run, &r.s.vice.mon.stats);
                     continue;
                 }
                 if name == "cast" {
@@ -252,7 +305,7 @@ fn main() {
                     if result.is_err() {
                         break 'outer;
                     }
-                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    timer.done(run, &r.s.vice.mon.stats);
                     continue;
                 }
                 if name == "weight" {
@@ -260,7 +313,7 @@ fn main() {
                     if result.is_err() {
                         break 'outer;
                     }
-                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    timer.done(run, &r.s.vice.mon.stats);
                     continue;
                 }
                 if name == "refuse" {
@@ -271,7 +324,7 @@ fn main() {
                             break 'outer;
                         }
                     }
-                    eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                    timer.done(run, &r.s.vice.mon.stats);
                     continue;
                 }
                 for dir in experiment::DIRS {
@@ -286,8 +339,9 @@ fn main() {
                 if result.is_err() {
                     break;
                 }
-                eprintln!("run {run} done ({:.0}s)", started.elapsed().as_secs_f64());
+                timer.done(run, &r.s.vice.mon.stats);
             }
+            timer.total(&r.s.vice.mon.stats);
             drop(r);
             drop(s);
             if let Err(e) = result {

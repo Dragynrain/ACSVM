@@ -561,13 +561,51 @@ impl Runner<'_> {
 }
 
 impl Runner<'_> {
+    /// Runs until the screen has not changed for `quiet` instructions, at
+    /// most `limit` (docs/capture.md 2.8). Returns the instructions run and
+    /// whether the screen changed at all. Only for screens that hold still
+    /// once drawn (the menus, which pause the drain, and messages); on the
+    /// map the draining bar keeps changing and this runs to `limit`.
+    pub(crate) fn settle(&mut self, limit: u64, quiet: u64) -> Result<(u64, bool), String> {
+        let now = self.s.frame().map_err(|e| e.to_string())?.hash();
+        self.settle_from(now, limit, quiet)
+    }
+
+    /// `settle`, where a change is counted against the screen hash `before`
+    /// (taken before an input that may already have changed the screen).
+    fn settle_from(&mut self, before: u64, limit: u64, quiet: u64) -> Result<(u64, bool), String> {
+        const CHUNK: u64 = 50_000;
+        let mut last = self.s.frame().map_err(|e| e.to_string())?.hash();
+        let mut changed = last != before;
+        let (mut t, mut changed_at) = (0, 0);
+        while t < limit && t - changed_at < quiet {
+            self.step(CHUNK)?;
+            t += CHUNK;
+            let h = self.s.frame().map_err(|e| e.to_string())?.hash();
+            if h != last {
+                last = h;
+                changed_at = t;
+                changed = true;
+            }
+        }
+        Ok((t, changed))
+    }
+
     /// Taps the stick for 25,000 instructions (the menu cursor repeats
-    /// after about 40,000) and lets the menu settle.
+    /// after about 40,000) and waits for the menu to settle: a million
+    /// instructions with no change, at most 10 million (every reaction
+    /// traced came within 300,000). A tap that changes nothing was missed.
     pub(crate) fn menu_tap(&mut self, dir: &str) -> Result<(), String> {
+        let before = self.s.frame().map_err(|e| e.to_string())?.hash();
         self.joy(dir)?;
         self.step(25_000)?;
         self.joy("none")?;
-        self.step(10_000_000)
+        let (_, changed) = self.settle_from(before, 10_000_000, 1_000_000)?;
+        if !changed {
+            self.s.shot("tap-missed").map_err(|e| e.to_string())?;
+            return Err(format!("menu tap {dir} changed nothing (tap-missed.png)"));
+        }
+        Ok(())
     }
 
     /// Opens the command menu from the map: the button held for a million
@@ -575,26 +613,30 @@ impl Runner<'_> {
     /// let go), then waits for the menu's cursor on MOVE. A short tap can be
     /// missed, and the menu taps that follow would then walk the player.
     pub(crate) fn open_menu(&mut self) -> Result<(), String> {
-        // First the turn's prompt ("move with the joystick ..."): between
-        // turns the status area is blank and a press opens nothing.
-        let mut t = 0;
-        while !self.prompt_shows()? {
-            if t > 40_000_000 {
-                self.s.shot("no-prompt").map_err(|e| e.to_string())?;
-                return Err("no turn prompt (no-prompt.png)".into());
+        // A press as the turn runs out is lost (the next turn's prompt
+        // shows, no menu): up to three presses (docs/capture.md 2.8).
+        for _ in 0..3 {
+            // First the turn's prompt ("move with the joystick ..."): between
+            // turns the status area is blank and a press opens nothing.
+            let mut t = 0;
+            while !self.prompt_shows()? {
+                if t > 40_000_000 {
+                    self.s.shot("no-prompt").map_err(|e| e.to_string())?;
+                    return Err("no turn prompt (no-prompt.png)".into());
+                }
+                self.step(100_000)?;
+                t += 100_000;
             }
-            self.step(100_000)?;
-            t += 100_000;
-        }
-        self.joy("fire")?;
-        self.step(1_000_000)?;
-        self.joy("none")?;
-        for _ in 0..60 {
-            self.step(500_000)?;
-            let f = self.s.frame().map_err(|e| e.to_string())?;
-            let c = f.palette.get(f.at(MENU_CURSOR.0, MENU_CURSOR.1) as usize);
-            if c == Some(&crate::glyphs::MASK[0]) {
-                return self.step(5_000_000);
+            self.joy("fire")?;
+            self.step(1_000_000)?;
+            self.joy("none")?;
+            for _ in 0..20 {
+                self.step(500_000)?;
+                let f = self.s.frame().map_err(|e| e.to_string())?;
+                let c = f.palette.get(f.at(MENU_CURSOR.0, MENU_CURSOR.1) as usize);
+                if c == Some(&crate::glyphs::MASK[0]) {
+                    return self.settle(5_000_000, 1_000_000).map(|_| ());
+                }
             }
         }
         self.s.shot("menu-unopened").map_err(|e| e.to_string())?;
@@ -631,8 +673,7 @@ impl Runner<'_> {
         self.place = Place::Map;
         self.reset(jitter)?;
         let start = self.look()?;
-        self.button()?;
-        self.step(30_000_000)?;
+        self.open_menu()?;
         // Use Power: one column right, two rows down. Then short taps: a
         // held button would pick the list's first entry, NONE.
         self.menu_tap("e")?;

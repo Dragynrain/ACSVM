@@ -5,7 +5,7 @@
 
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const STX: u8 = 0x02;
 const API: u8 = 0x02;
@@ -28,6 +28,8 @@ pub mod cmd {
     pub const QUIT: u8 = 0xBB;
     pub const RESET: u8 = 0xCC;
     pub const AUTOSTART: u8 = 0xDD;
+    pub const REGISTERS_GET: u8 = 0x31;
+    pub const REGISTERS_AVAILABLE: u8 = 0x83;
     pub const STOPPED: u8 = 0x62;
     pub const RESUMED: u8 = 0x63;
 }
@@ -90,6 +92,8 @@ pub struct Monitor {
     /// Program counter from the last "stopped" event.
     pub last_stop_pc: Option<u16>,
     pub running: bool,
+    /// Calls and time per command (docs/capture.md 2.8).
+    pub stats: crate::timing::Stats,
 }
 
 impl Monitor {
@@ -102,6 +106,7 @@ impl Monitor {
             next_id: 1,
             last_stop_pc: None,
             running: true,
+            stats: Default::default(),
         })
     }
 
@@ -137,6 +142,13 @@ impl Monitor {
 
     /// Sends a command and waits for its response (events in between are noted).
     pub fn request(&mut self, command: u8, body: &[u8]) -> Result<Vec<u8>> {
+        let t0 = Instant::now();
+        let r = self.request_untimed(command, body);
+        self.stats.call(command, t0.elapsed());
+        r
+    }
+
+    fn request_untimed(&mut self, command: u8, body: &[u8]) -> Result<Vec<u8>> {
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1).max(1);
         let mut frame = Vec::with_capacity(11 + body.len());
@@ -220,7 +232,11 @@ impl Monitor {
         body.extend_from_slice(&count.to_le_bytes());
         self.running = true;
         self.request(cmd::ADVANCE, &body)?;
-        self.wait_stopped()
+        let t0 = Instant::now();
+        let r = self.wait_stopped();
+        self.stats.extend(cmd::ADVANCE, t0.elapsed());
+        self.stats.advanced += count as u64;
+        r
     }
 
     /// Steps `count` instructions in chunks.
@@ -324,7 +340,7 @@ impl Monitor {
 
     /// Register names and ids the CPU exposes (main memory space).
     pub fn registers_available(&mut self) -> Result<Vec<(u8, String)>> {
-        let b = self.request(0x83, &[0])?;
+        let b = self.request(cmd::REGISTERS_AVAILABLE, &[0])?;
         let n = u16::from_le_bytes([b[0], b[1]]) as usize;
         let mut out = Vec::with_capacity(n);
         let mut i = 2;
@@ -341,7 +357,7 @@ impl Monitor {
 
     /// Current register values as (id, value).
     pub fn registers(&mut self) -> Result<Vec<(u8, u16)>> {
-        let b = self.request(0x31, &[0])?;
+        let b = self.request(cmd::REGISTERS_GET, &[0])?;
         let n = u16::from_le_bytes([b[0], b[1]]) as usize;
         let mut out = Vec::with_capacity(n);
         let mut i = 2;

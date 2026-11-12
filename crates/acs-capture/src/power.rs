@@ -65,7 +65,7 @@ impl Runner<'_> {
         for d in ["e", "fire", "s", "fire"] {
             self.menu_tap(d)?;
         }
-        self.step(10_000_000)?;
+        self.settle(10_000_000, 1_000_000)?;
         let screen = self.note_screen("item")?;
         self.button()?;
         self.step(1_000_000)?;
@@ -83,7 +83,7 @@ impl Runner<'_> {
             self.menu_tap(d)?;
         }
         self.menu_tap("fire")?;
-        self.step(10_000_000)?;
+        self.settle(10_000_000, 1_000_000)?;
         let screen = self.note_screen("target")?;
         self.button()?;
         self.step(1_000_000)?;
