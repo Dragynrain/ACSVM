@@ -839,8 +839,11 @@ impl Game {
             }),
             Ok(target) => {
                 self.use_item(Who::Player { player: p }, thing, target, ev);
-                // 4.3: using spends one step; the turn goes on.
+                // 4.2, 4.3: using spends two steps (ending the turn when
+                // fewer are left); otherwise the turn goes on.
                 if self.players[p].alive && !self.over {
+                    let pl = &mut self.players[p];
+                    pl.moves_left = pl.moves_left.saturating_sub(1);
                     self.spend(ev);
                 }
             }

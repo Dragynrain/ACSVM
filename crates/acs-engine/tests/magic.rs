@@ -571,8 +571,9 @@ fn using_items_needs_no_power() {
 }
 
 #[test]
-fn a_use_costs_two_power_and_a_step_and_the_turn_goes_on() {
-    // magic 4.2, 4.3, as captured: 2 Power a use; using doesn't end the turn.
+fn a_use_costs_two_power_and_two_steps_and_the_turn_goes_on() {
+    // magic 4.2, 4.3, as captured: 2 Power and two steps a use; using
+    // doesn't end the turn.
     both(|p| {
         let a = adventure(p);
         let mut g = start(
@@ -585,7 +586,9 @@ fn a_use_costs_two_power_and_a_step_and_the_turn_goes_on() {
                 ..setup()
             },
         );
-        for (power, moves) in [(18, 14), (16, 13)] {
+        assert_eq!(g.current_player().moves_left, 15);
+        // (The rod lowers Life Force: two uses are safe.)
+        for (power, moves) in [(18, 13), (16, 11)] {
             let ev = g.apply(Command::Use {
                 thing: ROD,
                 target: None,

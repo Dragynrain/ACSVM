@@ -42,14 +42,21 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    the bar unchanged. [manual] On the C64, holding the stick into the world
    map's wall ring, a room wall or an obstacle thing leaves the bar as it
    was and the player in place: no step is spent. [capture: refuse, 20 runs
-   each] Being refused by a door or space that bars passage is not
-   described. [unknown] **Engine:** no cost, as for obstacles.
+   each] A room door open only to owners of a thing refuses a non-owner
+   the same way: no step, and nothing drains while the stick is held into
+   it. [capture: acts, table lock, 5 runs] Spaces that bar passage are not
+   captured yet. [unknown] **Engine:** no cost, as for obstacles.
 3. Taking a door costs the one step onto the door square, and the turn goes
    on in the new place. [capture: refuse, 20 runs: a Speed 15 player that
    walks 3 squares and through the map door arrives on the room's entry
-   square with 4 steps spent and the rest of the same turn] **Engine:** one
-   step; the character then stands on the destination square and keeps
-   its remaining moves.
+   square with 4 steps spent and the rest of the same turn] Room doors do
+   the same: a one-way door out to a world map point, and a locked door
+   (owners of a key) to another square of the same room, each took one
+   step, and the turn went on in the new place; the same room is drawn
+   again with the bar hidden, as after a region load. [capture: acts,
+   tables exit and lock, 10 and 5 runs] **Engine:** one step; the
+   character then stands on the destination square and keeps its
+   remaining moves.
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
@@ -58,10 +65,14 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    per point of Speed plus about 17 (369 frames at Speed 1, 5,331 at
    Speed 15). [capture: Speed survey, 20 runs each] The drain runs only
    while the stick is let go: walking spends exactly a step's 8 pixels per
-   square, holding the stick into a wall drains nothing (the turn grows by
-   the time held), and holding it into an obstacle drains about one pixel
-   in 390 frames. Loading a region through a door doesn't drain the bar
-   either. [capture: refuse, 20 runs] **Engine:** no
+   square, and holding the stick into a wall or an obstacle drains nothing
+   (the turn grows by the time held). [capture: refuse, 20 runs; acts,
+   table obstacle, 10 runs: pushes of 0.5, 2 and 8 million instructions and
+   five short bumps, the obstacle against the room wall] The one pixel the
+   first `refuse` run saw against the obstacle went before the push: that
+   case pushed at once on entering the room, while the bar was still
+   hidden. Loading a region through a door doesn't drain the bar either.
+   **Engine:** no
    real-time drain in the rules; a front end may send `Wait` to end the
    turn, and later a timer option can do so on a clock.
 5. With one character and no creatures in the room, the same character moves
@@ -155,9 +166,11 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    non-owners of a thing. When passage is refused, the thing's blocked
    message (if set and shown) appears. [manual]
 7. **Destroy needed thing.** A portal or custom space set this way removes one
-   of the needed thing from the character who passes. [manual] Only "owners
-   of" makes sense here. [unknown] **Engine:** applied only to "owners of"
-   access.
+   of the needed thing from the character who passes. [manual] On the C64
+   a player who passed such a locked door was refused by it the next
+   time; without the setting it passed again. [capture: acts, table lock,
+   5 runs each] Only "owners of" makes sense here. [unknown] **Engine:**
+   applied only to "owners of" access.
 8. **Custom spaces** choose one of two values at placement: either the needed
    thing (then the spell's parameter is fixed in the master list) or the
    spell's parameter (then the needed thing is fixed). Reading the placement
@@ -273,8 +286,9 @@ These need the AI and are listed so the movement code leaves room for them.
 In priority order, for the behaviour-capture harness:
 
 1. Diagonal moves allowed? No, on the map and in rooms (captured).
-2. Bar cost of a refused door/space (captured: walls and obstacles cost
-   nothing; taking a door costs one step).
+2. Bar cost of a refused door/space (captured: walls, obstacles and a
+   locked door cost nothing; taking a door, map or room, costs one step).
+   Still open: a space that bars passage.
 3. Arriving on a space, obstacle or door: does it trigger?
 4. Map encounter roll: before refused moves? Which terrain? Order among
    creatures? Shape of the encounter area.

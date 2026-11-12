@@ -464,6 +464,46 @@ every second turn and healed every fourth on Life Force less its temporary
 part; it now follows the capture (magic 5.2, 5.3). Healing outpaces the
 tick, against the manual's "about twice as fast".
 
+**Loose ends** (experiment `acts`, section 10.8; November 2026). Steps
+are counted by holding the stick after the act until the next turn's bar;
+each case against its control in the same run.
+
+| Case | Seen | Control |
+| --- | --- | --- |
+| Use the item, Speed 15 (10 runs) | 13 steps; after three uses 9 | 15 after one or three profile reads |
+| Use the item, Speed 6 (5 runs) | 4 steps; three uses took the whole turn | 6 |
+| Take a thing of weight 1 after the door and a turn's wait (Speed 6: 10 runs on each of two disks, the player owning the item or nothing) | 5 steps | 6 |
+| Take at once after the door; after a step away and back; a second take in a turn (the same, and 5 runs at Speed 15) | one step less than the control every time; the turn went on in all 125 takes | the same without the take |
+| Through the door out to map point 32 (10 runs) | arrived on 20,12 with 1 step left | 2 steps left after the map door |
+| Push into the locked door, no key (5 runs) | refused; 2 steps left, nothing drained | 2 |
+| The locked door with the key (5 runs each) | passed to 6,7 for one step; without "destroy" it passed again, with it the next push was refused | |
+| Push into the obstacle 0.5, 2 or 8 million instructions after the bar shows (10 runs) | 87 pixels settled, the turn longer by the time held | 87 after the door alone; the room wall likewise 63 against 63 |
+| Retired slot 2 (one run) | U picked, its profile as written | T from slot 1, as written |
+
+So a use costs two steps, a take one, and every door one; a locked door
+refuses at no cost, and "destroy needed thing" takes the key. The
+obstacle costs nothing, like a wall: the pixel the first `refuse` run
+saw went because that case pushed while the room was still loading.
+The first take after the door did not end the turn here, unlike in the
+`weight` runs, because those things were heavy: on three more disks
+(`--take-weights`) whose first thing weighed 400 (stored x20), 240 (x1)
+or 240 (x20), that take ended the turn every time, 15 of 15, wherever it
+came in the turn (with 6 or 2 steps left), while the second thing, of
+weight 1, cost one step. The `weight` runs' takes of 1 to 100 never ended
+it, so the line lies between 101 and 239, or is a share of the capacity
+(900 for these players).
+
+**Healing and the temporary tick at Speed 15** (`drift`, with and without
+`--walk`, 3 runs each; and 10 more Speed 1 runs of the temporary +10).
+Idling its turns out (about 5,300 frames each), a Speed 15 player healed
+from 6 or 7 to 20 in about 12 turns, 0 to 5 points a turn; walking all 15
+steps a turn, 4 to 7 points in 25 turns. The temporary +10 ticked 8 to 11
+times in 40 turns either way. So the tick follows turns, while healing
+follows neither turns alone nor time (a Speed 1 player heals about 1 a
+turn in turns 14 times shorter); perhaps it depends on the moves left
+unused. The Speed 1 runs showed the eleventh tick (one turn at 19, then
+20) in 8 of 10, 10 of 13 with the first three.
+
 ## 8. Players of our own: retired records
 
 The program rolls a new player's stats. Experiments need stats we choose, so
@@ -688,7 +728,7 @@ In this order (planned November 2026):
    through menus can be sampled this way. Exact rather than statistical
    rules would need the random state itself: see the researcher brief,
    `docs/research/random-rolls.md` (waiting for the maintainer).
-8. **Loose ends** (planned November 2026). One experiment, `acts`, runs
+8. **Loose ends** (planned November 2026; results in section 7). One experiment, `acts`, runs
    named tables of cases (`--table NAME`); `refuse` (item 2) becomes its
    first table. Every case starts at the top of a fresh turn and is
    compared with a control in the same run. Besides item 2's walk, push

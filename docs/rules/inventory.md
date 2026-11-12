@@ -38,9 +38,10 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    On the C64 the character **stays where it was**: the thing goes, the
    program shows "NAME TAKES THING" and waits for the button (the bar does
    not drain meanwhile), and the character must step again to enter the
-   square. Taking seems to cost one step: 2 million instructions after the
-   button the bar is 15 pixels lower, against about 9 for the drain alone.
-   [capture: weight, 300 takes] **Engine:** the thing is taken, the
+   square. Taking costs exactly one step: after a take the turn had one
+   step fewer than the same turn without it, every time. [capture: weight,
+   300 takes; acts, table take, 125 takes of things of weight 1]
+   **Engine:** the thing is taken, the
    character stays put, and the take spends one step. Gold piles are taken
    the same way. [unknown for gold]
 2. **At the limit.** If the character already owns as many of that thing as
@@ -92,9 +93,16 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 4. **When it applies.** The next turn's bar starts from the slowed Speed.
    [capture: weight] Whether a pick-up shortens the turn already under way
    beyond the step is [unknown]. **Engine:** a load change counts from the
-   next turn. On the C64 the first take after entering the room also ended
-   the turn under way (20 of 20 in both runs; later takes did not): not
-   understood, not in the engine.
+   next turn. On the C64 a take of a heavy thing ends the turn under way,
+   whatever steps are left: things of weight 240 and 400 did every time
+   (15 takes, with the weight stored x1 or x20 alike), and so did the first
+   take of the `weight` runs (400 and 700); things of weight 1 never did
+   (125 takes), nor the later `weight` takes of 1 to 100. [capture: weight;
+   acts, table take] Whether the line is a weight between 101 and 239 or a
+   share of the capacity (these players could carry 900 to 1,500) is
+   [unknown]. **Engine:** not yet: a take spends one step whatever the
+   weight. (The `weight` runs took the first heavy thing straight after
+   the door, which looked like "the first take after entering".)
 5. For the AI later: at the start, 3 master creatures and 5 residents carry
    more than their capacity, and 5 master and 9 residents more than half.
    [data] An overburdened creature drops a magic item, treasure or gold.
@@ -178,8 +186,9 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 
 ## Captures needed
 
-1. The slowdown: captured (3.3). Still open: whether taking costs exactly
-   one step, and why the first take after entering a room ends the turn.
+1. The slowdown and a take's cost (one step): captured (3.3, 2.1). Still
+   open: where a take starts ending the turn (weight 101 to 239, or a share
+   of the capacity: 4).
 2. Capacity with Life Force above Constitution, and rounding of odd wounds.
 3. Gold pile size against the placement parameter, and a 0 parameter.
 4. Which squares accept a drop, dropping on one's own square, and the cost

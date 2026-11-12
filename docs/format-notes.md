@@ -340,7 +340,7 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   in the corpus points at a weapon or armor of the right kind. All possessions
   point at carriable things.
 
-- **Retired players, first slot confirmed by capture** (C64, November 2026;
+- **Retired players, first two slots confirmed by capture** (C64, November 2026;
   docs/capture.md section 8). Retiring a player on a scenario disk wrote
   retired name 1 at creatures + 0x1700 and retired record 1 at
   creatures + 0x1900, each a copy of player slot 1 in the adventure block
@@ -349,7 +349,12 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   change to the disk, was offered at start-up and played with its stats.
   Choosing the player clears the name's second byte (the first is already
   0 for a one-letter name), so a non-zero name marks the slot as used.
-  Slots after the first are still unchecked. Every stat byte reads as the
+  The second slot follows the decoder's layout too: a name at
+  creatures + 0x170A and a record at + 0x1925, written by us next to a
+  first player, were offered (listed right of the first, under "don't add
+  a player") and played with every stat as written (docs/capture.md
+  10.8.6). Slots past the second, and the page break the decoder assumes
+  after 25 names and 6 records, are unchecked. Every stat byte reads as the
   decoder says (a record with a different value in each, checked on the
   profile screen), except that a player joining play gets Power = Wisdom,
   so byte 5 of a retired record has no visible effect.
@@ -374,7 +379,7 @@ Seen by diffing scenario disks (C64), meaning unknown:
 - Creature bytes 0x0B, 0x0C: need a saved game or an emulator capture.
 - Retired players: AcsLib reads 26 names and 7 records per 256-byte page, which
   overruns the page; the decoder reads 25 and 6. No corpus adventure has any;
-  only the first slot is confirmed (see Creatures).
+  the first two slots are confirmed (see Creatures).
 - PC: only one real file so far, made by EA and possibly with an earlier
   editor (it also contains a room named "I DONT KNOW YET"). Adventures saved
   by the shipped PC editor may differ, e.g. in door numbering.

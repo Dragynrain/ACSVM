@@ -179,20 +179,22 @@ magic item after it is used. [unknown]
    always work. [manual] Some must be dropped instead. [manual] The manual
    says using magic objects lowers Power but gives no amount. On the C64 a
    use costs 2 Power, at Wisdom 10 and 20 alike, and again on a second use;
-   using does not end the turn: the bar goes on draining afterwards, about
-   one step lower. [capture: item, 3 runs at each Wisdom, two uses a run,
-   the profile screen] **Engine:** an item without the "used" trigger
-   refuses (`CastRefused`, `not_usable`); a use costs 2 Power (not below 0)
-   and one step of the bar (the step is approximate: the bar fell 11 to 15
-   pixels across a use beyond the drain the harness waited out). 127 of
-   134 corpus magic items act when used. [data]
+   using does not end the turn: the bar goes on draining afterwards.
+   [capture: item, 3 runs at each Wisdom, two uses a run, the profile
+   screen] A use costs exactly two steps: after one use a Speed 15 player
+   walked 13 squares before its turn ended, after three uses 9, against 15
+   after reading the profile instead; a Speed 6 player walked 4 against 6,
+   and three uses took its whole turn. [capture: acts, table use, 10 and 5
+   runs] **Engine:** an item without the "used" trigger refuses
+   (`CastRefused`, `not_usable`); a use costs 2 Power (not below 0) and
+   two steps. 127 of 134 corpus magic items act when used. [data]
 3. **Cost in moves.** Casting ends the caster's turn, whether the spell
    works or not, however much of the movement bar is left. [capture: cast,
    600 casts with 5 to 28 pixels of bar left; the next turn came at the
    same moment after each] Using a magic item does not end the turn
    (4.2). **Engine:** casting ends the caster's turn, like readying armor
-   (inventory 4.3); using spends one step. A refused command costs
-   nothing.
+   (inventory 4.3); using spends two steps, and ends the turn when
+   fewer are left. A refused command costs nothing.
 4. Magic spells can't be dropped (inventory 5.2), so a spell is only lost by
    disappearing after use, by banishment or by death.
 
@@ -219,15 +221,19 @@ magic item after it is used. [unknown]
    fast as natural healing. [manual] Bit 6 of the parameter set means
    temporary: +10 with it wore off, +10 without it stayed for 60 turns. A
    temporary +10 wore off 1 point at a time at random turns, about 1 turn
-   in 3 (10 or 11 ticks over 28 to 39 turns; 31 ticks in 101 turns). In 2
-   of 3 runs an eleventh tick took Life Force to 1 below Constitution, and
-   healing put it back the next turn. [capture: drift, 3 runs each, the
-   profile read every turn] **Engine:** each individual carries a
+   in 3 (10 or 11 ticks over 28 to 39 turns; 31 ticks in 101 turns). In 10
+   of 13 runs an eleventh tick took Life Force to 1 below Constitution, and
+   healing put it back the next turn. [capture: drift, Speed 1, 3 runs and
+   10 more, the profile read every turn] The tick follows turns, not time:
+   a Speed 15 player ticked 8 to 11 times in 40 turns whether it idled its
+   turns out (about 5,300 frames each) or walked them (short ones), about
+   1 turn in 4. [capture: drift and drift --walk, 3 runs each]
+   **Engine:** each individual carries a
    temporary part of its Life Force (positive or negative). A temporary
    change moves Life Force and the temporary part together; a permanent one
    moves only Life Force. At the end of each of its turns, with chance 1 in
    3, the temporary part moves 1 toward 0, and Life Force with it. The
-   eleventh tick is [unknown] and not copied.
+   eleventh tick is not understood ([unknown]) and not copied.
 3. **Natural healing.** Life Force below Constitution heals on its own, about
    6 times slower than resting. [manual] On the C64 it heals 1 point at the
    end of every turn while below Constitution, now and then 2 (4 extra
@@ -237,6 +243,13 @@ magic item after it is used. [unknown]
    putting it back, until the temporary part was gone. Healing comes before
    the tick in a turn (a dip shows for one turn). [capture: drift, Life
    Force 5 against Constitution 20 and the disease stack, 3 runs each]
+   Healing does not follow turns alone, nor time: a Speed 15 player
+   healed from 6 or 7 to 20 in about 12 turns (0 to 5 points a turn) when
+   it let its turns run out, about as much per turn as a Speed 1 player
+   whose turns are 14 times shorter; walking all 15 steps every turn, it
+   healed only 4 to 7 points in 25 turns. Perhaps healing depends on the
+   moves a turn leaves unused, like resting. [capture: drift and drift
+   --walk, 3 runs each] [unknown]
    **Engine:** at the end of each of its turns, an individual whose Life
    Force is below its Constitution gains 1, and 1 more with chance 1 in 9,
    not above Constitution; then the temporary part's tick. Life Force above
@@ -328,11 +341,12 @@ defense (none). Trait generation is a later rule set.
 ## Captures needed
 
 1. Cast success, a failed cast's cost and a magic item's cost: captured
-   (4.1, 4.2). Still open: a use's exact cost in steps.
+   (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing rates: captured (5.1-5.3).
-   Still open: the eleventh tick of a temporary +10, and whether healing
-   and the tick follow turns or time (Speed 1 turns can't tell them
-   apart).
+   The tick follows turns. Still open: the eleventh tick of a temporary
+   +10 (10 of 13 runs), and what healing follows (not turns alone, not
+   time: a Speed 15 player healed fast idling its turns out, slowly
+   walking them; try walking 0, 5, 10 and 15 steps a turn).
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
 5. Add to Room: where the thing lands.
