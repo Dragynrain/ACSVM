@@ -134,6 +134,15 @@ enum Cmd {
         /// 2,4 on room square 7,4 (docs/capture.md 10.10.3).
         #[arg(long)]
         side_room: bool,
+        /// The region's random creature 0 (the --creature keys) and room
+        /// 0's chance for it, 0..15 (5% each) (docs/capture.md 10.14).
+        #[arg(long)]
+        random_creature: Option<String>,
+        #[arg(long, default_value_t = 0)]
+        room_chance: u8,
+        /// The side room's chance for random creature 0, 0..15.
+        #[arg(long, default_value_t = 0)]
+        side_chance: u8,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -203,6 +212,10 @@ enum Cmd {
         /// mem: stop when the movement bar refills (the next turn).
         #[arg(long)]
         until_refill: bool,
+        /// mem: log every draw of the random state (a checkpoint on stores
+        /// to it): the raw number and the raster line.
+        #[arg(long)]
+        draws: bool,
         /// turns: bytes to read at each turn's start, hex, comma-separated.
         #[arg(long)]
         peek: Option<String>,
@@ -318,7 +331,12 @@ fn main() {
             take_weights,
             creature,
             side_room,
+            random_creature,
+            room_chance,
+            side_chance,
         } => {
+            let random_creature =
+                random_creature.map(|c| scenario::Resident::parse(&c).unwrap_or_else(|e| fail(&e)));
             let side = side_room.then_some(((7, 4), (2, 4)));
             let residents: Vec<scenario::Resident> = creature
                 .iter()
@@ -352,6 +370,9 @@ fn main() {
                         player2,
                         residents: residents.clone(),
                         side,
+                        random_creature: random_creature.clone(),
+                        room_chance,
+                        side_chance,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -406,6 +427,7 @@ fn main() {
             set,
             run_for,
             until_refill,
+            draws,
             peek,
         } => {
             let watch = acs_capture::memwatch::parse_addrs(watch.as_deref().unwrap_or(""))
@@ -509,7 +531,14 @@ fn main() {
                 }
                 if name == "mem" {
                     let state = sweep.then_some(run as u8);
-                    result = r.mem_run(run, state, &sets, &watch, run_for, until_refill);
+                    let setup = acs_capture::memwatch::MemSetup {
+                        sets: sets.clone(),
+                        watch: watch.clone(),
+                        limit: run_for,
+                        until_refill,
+                        draws,
+                    };
+                    result = r.mem_run(run, state, &setup);
                     if result.is_err() {
                         break 'outer;
                     }

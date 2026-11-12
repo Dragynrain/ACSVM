@@ -43,6 +43,8 @@ pub struct RegionSpec {
     pub header_03: Option<u16>,
     /// (slot 0..16, name, record)
     pub residents: Vec<(usize, &'static str, [u8; 37])>,
+    /// (record 0..8, name, record): the region's random creatures.
+    pub random_creatures: Vec<(usize, &'static str, [u8; 37])>,
 }
 
 impl Fixture {
@@ -180,6 +182,10 @@ impl Fixture {
             for (slot, name, rec) in &spec.residents {
                 self.packed(heap + names_ptr + slot * 10, name);
                 self.put(base + rg::RESIDENTS + slot * 37, rec);
+            }
+            for (i, name, rec) in &spec.random_creatures {
+                self.packed(base + rg::RANDOM_NAMES + i * 10, name);
+                self.put(base + rg::RANDOM_CREATURES + i * 37, rec);
             }
             let mut cur = heap + items_ptr;
             for i in 0..rg::MAX_ROOMS {

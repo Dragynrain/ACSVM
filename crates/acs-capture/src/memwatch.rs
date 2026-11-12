@@ -34,21 +34,57 @@ pub fn parse_set(s: &str) -> Result<(u16, u8), String> {
     Ok((a, v))
 }
 
+/// What a `mem` run does (`mem_run`).
+pub struct MemSetup {
+    /// Bytes set before the run.
+    pub sets: Vec<(u16, u8)>,
+    /// Bytes watched.
+    pub watch: Vec<u16>,
+    /// Instructions to run.
+    pub limit: u64,
+    /// Stop shortly after the movement bar refills.
+    pub until_refill: bool,
+    /// Log every draw of the random state.
+    pub draws: bool,
+}
+
 impl Runner<'_> {
     /// One `mem` run: restore, set `sets` and (if `state`) the random state,
     /// then look every 20,000 instructions for `limit` instructions, or until
     /// 600,000 instructions after the movement bar refills (`until_refill`:
     /// the top of the next turn), logging each watched byte's changes.
-    pub fn mem_run(
-        &mut self,
-        run: usize,
-        state: Option<u8>,
-        sets: &[(u16, u8)],
-        watch: &[u16],
-        limit: u64,
-        until_refill: bool,
-    ) -> Result<(), String> {
+    pub fn mem_run(&mut self, run: usize, state: Option<u8>, setup: &MemSetup) -> Result<(), String> {
+        let MemSetup {
+            sets,
+            watch,
+            limit,
+            until_refill,
+            draws,
+        } = setup;
+        let (sets, watch, limit, until_refill, draws) =
+            (&sets[..], &watch[..], *limit, *until_refill, *draws);
         self.reset(0)?;
+        // With `draws`, every store to the random state stops the machine:
+        // the new state (the draw's raw number) and the raster line are
+        // logged, so each roll can be checked on its own (10.14).
+        let lin = if draws {
+            let names = self.s.vice.mon.registers_available().map_err(|e| e.to_string())?;
+            names.iter().find(|(_, n)| n == "LIN").map(|(i, _)| *i)
+        } else {
+            None
+        };
+        let checkpoint = if draws {
+            Some(
+                self.s
+                    .vice
+                    .mon
+                    .watch_store(RANDOM_STATE)
+                    .map_err(|e| e.to_string())?,
+            )
+        } else {
+            None
+        };
+        let mut draw_log = Vec::new();
         for &(a, v) in sets {
             self.s.vice.mon.mem_set(a, &[v]).map_err(|e| e.to_string())?;
         }
@@ -82,7 +118,38 @@ impl Runner<'_> {
             limit
         };
         while t < limit {
-            self.step(LOOK)?;
+            if checkpoint.is_some() {
+                // Chunks short enough that a hit ends one early, then read.
+                let mut done = 0;
+                while done < LOOK {
+                    let before = self.s.vice.mon.checkpoint_hits;
+                    self.s.vice.mon.advance(2_000).map_err(|e| e.to_string())?;
+                    done += 2_000;
+                    if self.s.vice.mon.checkpoint_hits != before {
+                        let raw = self
+                            .s
+                            .vice
+                            .mon
+                            .mem_read(RANDOM_STATE, RANDOM_STATE, false)
+                            .map_err(|e| e.to_string())?;
+                        let line = match lin {
+                            Some(id) => self
+                                .s
+                                .vice
+                                .mon
+                                .registers()
+                                .map_err(|e| e.to_string())?
+                                .iter()
+                                .find(|(i, _)| *i == id)
+                                .map(|(_, v)| *v),
+                            None => None,
+                        };
+                        draw_log.push(json!({"t": t + done, "raw": raw.first(), "line": line}));
+                    }
+                }
+            } else {
+                self.step(LOOK)?;
+            }
             t += LOOK;
             let now = read(self)?;
             for (i, (&a, &b)) in last.iter().zip(&now).enumerate() {
@@ -102,10 +169,13 @@ impl Runner<'_> {
             }
             bar = b;
         }
+        if let Some(n) = checkpoint {
+            self.s.vice.mon.delete_checkpoint(n).map_err(|e| e.to_string())?;
+        }
         let names: Vec<String> = watch.iter().map(|a| format!("{a:04X}")).collect();
         self.write(json!({
             "kind": "mem", "run": run, "state": state, "watch": names, "start": start,
-            "end": last, "changes": changes, "refilled_at": refilled, "ran": t,
+            "end": last, "changes": changes, "draws": draw_log, "refilled_at": refilled, "ran": t,
         }))
     }
 }

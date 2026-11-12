@@ -15,6 +15,9 @@ pub const EVENT_ID: u32 = 0xFFFF_FFFF;
 pub mod cmd {
     pub const MEM_GET: u8 = 0x01;
     pub const MEM_SET: u8 = 0x02;
+    pub const CHECKPOINT_INFO: u8 = 0x11;
+    pub const CHECKPOINT_SET: u8 = 0x12;
+    pub const CHECKPOINT_DELETE: u8 = 0x13;
     pub const DUMP: u8 = 0x41;
     pub const UNDUMP: u8 = 0x42;
     pub const ADVANCE: u8 = 0x71;
@@ -94,6 +97,8 @@ pub struct Monitor {
     pub running: bool,
     /// Calls and time per command (docs/capture.md 2.7).
     pub stats: crate::timing::Stats,
+    /// Checkpoint hits reported so far (`watch_store`).
+    pub checkpoint_hits: u64,
 }
 
 impl Monitor {
@@ -107,6 +112,7 @@ impl Monitor {
             last_stop_pc: None,
             running: true,
             stats: Default::default(),
+            checkpoint_hits: 0,
         })
     }
 
@@ -136,6 +142,8 @@ impl Monitor {
                 }
             }
             cmd::RESUMED => self.running = true,
+            // A checkpoint that stops the machine reports itself first.
+            cmd::CHECKPOINT_INFO if r.id == EVENT_ID => self.checkpoint_hits += 1,
             _ => {}
         }
     }
@@ -247,6 +255,29 @@ impl Monitor {
             count -= n as u64;
         }
         Ok(())
+    }
+
+    /// A checkpoint that stops the machine after any store to `addr`
+    /// (VICE's "watch store"); returns its number. Each hit adds 1 to
+    /// `checkpoint_hits` and ends the advance in progress early.
+    pub fn watch_store(&mut self, addr: u16) -> Result<u32> {
+        let mut body = Vec::new();
+        body.extend_from_slice(&addr.to_le_bytes());
+        body.extend_from_slice(&addr.to_le_bytes());
+        body.push(1); // stop when hit
+        body.push(1); // enabled
+        body.push(0x02); // store
+        body.push(0); // not temporary
+        let b = self.request(cmd::CHECKPOINT_SET, &body)?;
+        let n = b
+            .get(0..4)
+            .ok_or(Error::Protocol("short checkpoint reply".into()))?;
+        Ok(u32::from_le_bytes([n[0], n[1], n[2], n[3]]))
+    }
+
+    pub fn delete_checkpoint(&mut self, number: u32) -> Result<()> {
+        self.request(cmd::CHECKPOINT_DELETE, &number.to_le_bytes())
+            .map(|_| ())
     }
 
     /// Leaves the monitor; the machine runs freely.

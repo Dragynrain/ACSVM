@@ -623,6 +623,7 @@ screen offers next to "create new player".
 | `$F65F` | The first entry of the queue of things due later: its due round, low byte (10.12) | Researcher, random-rolls second pass, 2026-11-12 |
 | `$397C` | The region being visited by the turn scheduler (0 the world map) | Researcher, turn-order first pass, 2026-11-12 (`docs/research/turn-order.md`) |
 | `$71FA` | The number of the individual whose turn it is | Researcher, turn-order first pass, 2026-11-12 |
+| `$E1A3` on | The visited region's creature slots, 37 bytes each: +0 Constitution (0 when free), +6 bit 7 the random mark, +13 and +14 the square | Researcher, random-rolls third pass, 2026-11-12 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1013,3 +1014,30 @@ In this order (planned November 2026):
    1), U in 50 to 59, the room from 60 on, in both runs, the individual
    numbers 1, 2 and 16 to 18 as reported. The earlier `split` runs had
    only stopped before U's second block. Confirmed (creatures 2.2).
+14. **Confirming the random-rolls third pass** (November 2026).
+   **Every draw logged.** `mem --draws` sets a VICE checkpoint on stores
+   to the random state (section 9) and steps in 2,000-instruction chunks,
+   each hit ending one early; at each hit it logs the state and the raster
+   line. A draw stores twice, state XOR line and then the raw number, so
+   the log gives every roll's raw number and line directly, with no line
+   fit. `scripts/creaturecheck.py` replays the researcher's goal and step
+   rules on those numbers and compares the creatures' squares (their
+   record bytes, section 9; the program also writes passing values there,
+   so only inside squares count).
+   1. *Goals and steps* (creatures 6): from `rr3/one-room-turn-end.vsf`
+      (two peaceful friends, a peaceful neutral, no door) and
+      `rr3/follow-room-turn-end.vsf` (a friend and a neutral, a portal),
+      64 states each, 12 million instructions (one round). Result: every
+      step predicted in every run, 768 and 599 steps (the friends going
+      for the player, the neutral for the portal or, with no goal,
+      wandering round its start).
+   2. *Random creatures appearing* (creatures 3): `--random-creature
+      SPEC` writes the region's random creature 0 (picture 70, an 8 x 8
+      box) and `--room-chance` / `--side-chance` room 0's or the side
+      room's chance (0..15, 5% each). At chance 15, `turns` with the slot's
+      record peeked: through the map door one appeared in 8 of 10 runs as
+      the room was drawn; through the portal into the side room (T's route
+      `e3`) in 6 of 10 as the next round began; always in slot 0 with the
+      random mark, on squares spread over the inside.
+   Not captured: random creatures falling away (creatures 2.4), which
+   needs one left in a room no player is in.

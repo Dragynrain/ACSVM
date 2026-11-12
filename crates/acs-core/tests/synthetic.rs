@@ -141,6 +141,7 @@ fn sample(platform: Platform) -> Fixture {
         extra_door_entries: 0xA8,
         header_03: None,
         residents: vec![(0, "GUARD", guard)],
+        random_creatures: Vec::new(),
     });
     f
 }

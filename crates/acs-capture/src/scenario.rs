@@ -257,6 +257,12 @@ pub struct MoveBasic {
     /// (thing `SIDE`, door table entry 3) on this room 0 square leading to
     /// the second square, in room 1.
     pub side: Option<((u8, u8), (u8, u8))>,
+    /// The region's random creature 0 (picture 70, `RESIDENT_BOXES[5]`)
+    /// and room 0's chance for it, 0..15 (5% each).
+    pub random_creature: Option<Resident>,
+    pub room_chance: u8,
+    /// The side room's chance for random creature 0.
+    pub side_chance: u8,
 }
 
 /// A locked one-way room door of ours.
@@ -390,6 +396,9 @@ impl Default for MoveBasic {
             lock: None,
             residents: Vec::new(),
             side: None,
+            random_creature: None,
+            room_chance: 0,
+            side_chance: 0,
         }
     }
 }
@@ -691,14 +700,25 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         h: 10,
         wall: PIC_WALL as u8,
         items,
+        // Low 4 bits the chance, the next 3 which random creature (0).
+        random: s.room_chance & 0x0F,
         ..RoomSpec::default()
     }];
+    let random_creatures = s
+        .random_creature
+        .iter()
+        .map(|c| {
+            let name: &'static str = Box::leak(c.stats.name.clone().into_boxed_str());
+            (0, name, c.record(70))
+        })
+        .collect();
     if s.side.is_some() {
         rooms.push(RoomSpec {
             name: "SIDE ROOM",
             w: 10,
             h: 8,
             wall: PIC_WALL as u8,
+            random: s.side_chance & 0x0F,
             ..RoomSpec::default()
         });
     }
@@ -707,6 +727,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         rooms,
         portals,
         residents,
+        random_creatures,
         ..RegionSpec::default()
     });
     f.build()
@@ -837,6 +858,23 @@ mod tests {
             (pb.pixel(1, 3), pb.pixel(6, 3), pb.pixel(7, 3), pb.pixel(6, 6)),
             (3, 3, 0, 0)
         );
+    }
+
+    #[test]
+    fn random_creature_and_room_chance() {
+        let s = MoveBasic {
+            random_creature: Some(Resident::parse("name=RR,spd=2").unwrap()),
+            room_chance: 15,
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let r = &adv.regions[0];
+        assert_eq!((r.rooms[0].random_chance, r.rooms[0].random_creature), (75, 0));
+        let c = &r.random_creatures[0];
+        assert!(c.in_use);
+        assert_eq!((c.name.as_str(), c.speed), ("RR", 2));
     }
 
     #[test]
