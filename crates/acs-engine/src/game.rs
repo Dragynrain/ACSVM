@@ -223,6 +223,22 @@ pub(crate) struct Schedule {
     pub round: u32,
     /// Living players when the round began.
     pub living: usize,
+    /// The rooms on this round's list (creatures 2.2, 2.4).
+    pub rooms: Vec<u8>,
+}
+
+/// The rooms of `region` with a living player, at most `ROUND_ROOMS`, in
+/// player order (creatures 2.2).
+fn rooms_of(players: &[Player], region: u8) -> Vec<u8> {
+    let mut rooms = Vec::new();
+    for p in players.iter().filter(|p| p.alive) {
+        if let Some((rg, rm)) = p.at.room() {
+            if rg == region && !rooms.contains(&rm) && rooms.len() < ROUND_ROOMS {
+                rooms.push(rm);
+            }
+        }
+    }
+    rooms
 }
 
 /// Rounds a region visit lasts at most (creatures 2.2).
@@ -414,6 +430,11 @@ impl Game {
             }
         }
         self.sched.list = list;
+        self.sched.rooms = if region == 0 {
+            Vec::new()
+        } else {
+            rooms_of(&self.players, region)
+        };
         self.sched.pos = 0;
         self.sched.living = self.players.iter().filter(|p| p.alive).count();
     }

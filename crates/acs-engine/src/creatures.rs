@@ -11,6 +11,12 @@ use crate::{Dir, Event, Location, RemovalReason, Who};
 use acs_core::model::ThingId;
 use acs_core::model::{Adventure, Alignment, Creature, ThingKind};
 
+/// A left-behind random creature goes on a percentile roll under this
+/// (2.4).
+pub const LEFT_BEHIND: u8 = 20;
+/// Tries for a random creature's square (3.2).
+pub const PLACE_TRIES: usize = 5;
+
 /// Fighter or slinker (4.2).
 pub fn is_fighter(c: &Creature) -> bool {
     c.strategy.aggressive && (c.strategy.brave || c.life_force >= c.constitution)
@@ -138,12 +144,6 @@ impl Game {
             .any(|o| o.x == x && o.y == y)
     }
 
-    fn player_in_room(&self, region: u8, room: u8) -> bool {
-        self.players
-            .iter()
-            .any(|p| p.alive && p.at.room() == Some((region, room)))
-    }
-
     /// 2.6: an aggressive creature that is not a Friend stands on one of
     /// the 4 squares beside the player (not diagonally).
     pub(crate) fn hindered(&self, p: usize) -> bool {
@@ -162,14 +162,28 @@ impl Game {
         })
     }
 
-    /// 2.4: at the end of a round, random creatures in rooms no player
-    /// occupies are removed.
+    /// 2.4: after a round in a room region, a roll of 0..15 picks a slot;
+    /// if it holds a creature, each random creature of the region whose
+    /// room was not on the round's list goes on a percentile roll under 20.
     pub(crate) fn left_behind(&mut self, ev: &mut Vec<Event>) {
-        for (region, slot) in self.random.clone() {
+        let region = self.sched.region;
+        if region == 0 {
+            return;
+        }
+        let slots = self.slots(region);
+        let pick = self.rng.below(16) as usize;
+        if pick >= slots || self.creature(region, pick).is_none() {
+            return;
+        }
+        for (rg, slot) in self.random.clone() {
+            if rg != region {
+                continue;
+            }
             let Some(c) = self.creature(region, slot) else {
                 continue;
             };
-            if !self.player_in_room(region, c.room) {
+            let listed = self.sched.rooms.contains(&c.room);
+            if self.rng.percent(LEFT_BEHIND) && !listed {
                 self.remove_creature(region, slot, RemovalReason::LeftBehind, ev);
             }
         }
@@ -193,27 +207,29 @@ impl Game {
         ev.push(Event::CreatureRemoved { region, slot, reason });
     }
 
-    /// 3.2, 3.3: copies random creature `which` onto a uniformly chosen
-    /// empty inside square, in the lowest free slot.
+    /// 3.2, 3.3: copies random creature `which` onto a random inside square
+    /// with no individual and no thing (up to `PLACE_TRIES` tries), in the
+    /// lowest free slot.
     pub(crate) fn place_random(&mut self, region: u8, room: u8, which: u8) -> Option<(usize, Location)> {
         let r = self.room(region, room)?;
         let (w, h) = (r.width, r.height);
-        let mut free = Vec::new();
-        for y in 1..h.saturating_sub(1) {
-            for x in 1..w.saturating_sub(1) {
-                let has_item = r.items.iter().any(|it| it.x == x && it.y == y);
-                if !has_item && !self.occupied(region, room, x, y) {
-                    free.push((x, y));
-                }
-            }
-        }
-        if free.is_empty() {
+        if w < 3 || h < 3 {
             return None;
         }
+        let items: Vec<(u8, u8)> = r.items.iter().map(|it| (it.x, it.y)).collect();
+        let mut spot = None;
+        for _ in 0..PLACE_TRIES {
+            let x = self.rng.below(u32::from(w) - 2) as u8 + 1;
+            let y = self.rng.below(u32::from(h) - 2) as u8 + 1;
+            if !items.contains(&(x, y)) && !self.occupied(region, room, x, y) {
+                spot = Some((x, y));
+                break;
+            }
+        }
+        let (x, y) = spot?;
         let reg = self.region(region)?;
         let slot = reg.residents.iter().position(|c| !c.in_use)?;
         let mut c = reg.random_creatures.get(which as usize)?.clone();
-        let (x, y) = free[self.rng.below(free.len() as u32) as usize];
         c.in_use = true;
         c.number = slot as u16 + 1;
         c.region = region;

@@ -4,77 +4,64 @@
 //! a goal and walking towards it. Spec: `docs/rules/creatures.md` sections
 //! 5-8 and `docs/rules/magic.md` section 6.
 
-use crate::creatures::{self, is_fighter, is_foe, is_wounded, Other};
+use crate::creatures::{self, is_fighter, is_foe, Other};
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT, PILE_LIMIT};
 use crate::magic::{self, add_possession, take_possession, Spell};
 use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
 use acs_core::model::{Access, Alignment, Creature, Destination, SpellActionKind, ThingKind};
-use std::collections::VecDeque;
 
 use acs_core::model::ThingId;
 use Alignment::{Enemy, Friend, Neutral, Thief};
 
-/// A goal category from the manual's lists (6.1).
-#[derive(Debug, Clone, Copy)]
-enum Cat {
-    Player,
-    /// Another creature of one of these alignments, Aggressive or not.
-    Ind(&'static [Alignment], bool),
-    Exit,
-    Gold,
-    Treasure,
+/// A rank that never makes a goal (6.3, 6.4).
+const NONE: u16 = u16::MAX;
+/// A best score at or above this is no goal (6.2).
+const NO_GOAL: u16 = 200;
+
+/// 6.3: the rank of individual `o` for creature `c` (lower is more wanted).
+fn rank_individual(c: &Creature, o: &Other) -> u16 {
+    let fighter = is_fighter(c);
+    // Columns: player, A friend, P friend, A enemy, P enemy, A neutral,
+    // P neutral, A thief, P thief.
+    let col = match o.alignment {
+        None => 0,
+        Some(a) => {
+            let base = match a {
+                Friend => 1,
+                Enemy => 3,
+                Neutral => 5,
+                Thief => 7,
+            };
+            base + usize::from(!o.aggressive)
+        }
+    };
+    const N: u16 = NONE;
+    let row: [u16; 9] = match (c.strategy.alignment, fighter) {
+        (Enemy, true) => [0, 4, 6, N, N, 80, 84, 80, 84],
+        (Friend, true) => [32, N, N, 0, 4, 3, N, 5, N],
+        (Neutral, true) => [1, 0, 4, 0, 4, 6, 8, 2, 6],
+        (Enemy, false) => [N, N, N, 29, 25, N, N, N, N],
+        (Friend, false) => [26, N, N, N, N, N, N, N, N],
+        (Thief, _) | (Neutral, false) => [N; 9],
+    };
+    row[col]
 }
 
-/// Each type's list: ranks in order, categories within a rank equal.
-type List = &'static [&'static [Cat]];
-
-const FIGHTER_ENEMY: List = &[
-    &[Cat::Player],
-    &[Cat::Ind(&[Friend], true)],
-    &[Cat::Ind(&[Friend], false)],
-    &[Cat::Exit],
-    &[Cat::Ind(&[Neutral, Thief], true)],
-    &[Cat::Ind(&[Neutral, Thief], false)],
-    &[Cat::Gold],
-];
-const SLINKER_ENEMY: List = &[
-    &[Cat::Ind(&[Enemy], false)],
-    &[Cat::Ind(&[Enemy], true)],
-    &[Cat::Exit],
-    &[Cat::Gold],
-];
-const FIGHTER_FRIEND: List = &[
-    &[Cat::Ind(&[Enemy], true)],
-    &[Cat::Ind(&[Neutral], true)],
-    &[Cat::Ind(&[Enemy], false)],
-    &[Cat::Ind(&[Thief], true)],
-    &[Cat::Player],
-    &[Cat::Exit],
-];
-const SLINKER_FRIEND: List = &[&[Cat::Player], &[Cat::Exit]];
-const FIGHTER_NEUTRAL: List = &[
-    &[Cat::Ind(&[Friend, Enemy], true)],
-    &[Cat::Ind(&[Thief], true)],
-    &[Cat::Ind(&[Friend, Enemy], false)],
-    &[Cat::Ind(&[Thief], false), Cat::Ind(&[Neutral], true)],
-    &[Cat::Ind(&[Neutral], false)],
-    &[Cat::Gold],
-    &[Cat::Exit],
-];
-const SLINKER_NEUTRAL: List = &[&[Cat::Exit]];
-const THIEF: List = &[&[Cat::Treasure, Cat::Gold], &[Cat::Exit]];
-
-fn list(c: &Creature) -> List {
+/// 6.4: the ranks of an exit, gold and other treasure for creature `c`.
+fn rank_things(c: &Creature) -> (u16, u16, u16) {
     match (c.strategy.alignment, is_fighter(c)) {
-        (Enemy, true) => FIGHTER_ENEMY,
-        (Enemy, false) => SLINKER_ENEMY,
-        (Friend, true) => FIGHTER_FRIEND,
-        (Friend, false) => SLINKER_FRIEND,
-        (Neutral, true) => FIGHTER_NEUTRAL,
-        (Neutral, false) => SLINKER_NEUTRAL,
-        (Thief, _) => THIEF,
+        (Enemy, true) => (96, 128, NONE),
+        (Neutral, true) => (96, 96, NONE),
+        (Friend, true) => (96, NONE, NONE),
+        (Thief, _) => (96, 32, 32),
+        (Enemy, false) => (32, 96, NONE),
+        (Friend, false) | (Neutral, false) => (32, NONE, NONE),
     }
+}
+
+fn steps(a: (u8, u8), b: (u8, u8)) -> u16 {
+    (a.0.abs_diff(b.0) + a.1.abs_diff(b.1)) as u16
 }
 
 /// What a square is to a creature (5.1-5.3).
@@ -88,24 +75,15 @@ enum Sq {
     Closed,
 }
 
-/// What the creature is heading for.
+/// A turn's goal (6.2): its square, and the individual when it is one.
 #[derive(Debug, Clone, Copy)]
-enum Target {
-    Individual(Other),
-    /// A door or a thing to pick up: reached by stepping on it.
-    Square,
+struct Goal {
+    at: (u8, u8),
+    individual: Option<Other>,
 }
 
-struct Choice {
-    target: Target,
-    dist: u16,
-    /// Squares that count as reaching the goal.
-    ends: Vec<(u8, u8)>,
-    /// The goal was a player (for 7.3).
-    player: bool,
-}
-
-const FAR: u16 = u16::MAX;
+/// The 4 squares beside, in the order a step looks at them (6.5).
+const STEP_DIRS: [Dir; 4] = [Dir::S, Dir::N, Dir::E, Dir::W];
 
 impl Game {
     /// One creature's turn (2.5, 8.1, 8.2, 6.6), with drift and the healing
@@ -133,9 +111,15 @@ impl Game {
         if self.creature_magic(region, slot, ev) {
             return None;
         }
+        // 6.2: one goal for the whole turn.
+        let goal = self
+            .squares(region, slot)
+            .and_then(|(grid, w, h)| self.choose_goal(region, slot, &grid, w, h));
+        let start = self.creature(region, slot).map(|c| (c.x, c.y))?;
+        let mut stood = vec![start];
         let mut left = moves;
         while left > 0 {
-            if !self.creature_step(region, slot, ev) {
+            if !self.creature_step(region, slot, goal, start, &mut stood, ev) {
                 break;
             }
             left -= 1;
@@ -159,10 +143,11 @@ impl Game {
         let Some((grid, w, h)) = self.squares(region, slot) else {
             return false;
         };
-        let Some(choice) = self.choose(region, slot, &grid, w, h) else {
-            return false;
-        };
-        let Target::Individual(goal) = choice.target else {
+        let Some(Goal {
+            individual: Some(goal),
+            ..
+        }) = self.choose_goal(region, slot, &grid, w, h)
+        else {
             return false;
         };
         let foe = is_foe(&c, &goal);
@@ -327,217 +312,137 @@ impl Game {
         }
     }
 
-    fn dirs(&self) -> impl Iterator<Item = Dir> + '_ {
-        Dir::ALL
-            .into_iter()
-            .filter(|d| self.rules.diagonals || !d.is_diagonal())
-    }
-
-    /// Breadth-first distances from `sources` over open squares; door and
-    /// take squares are entered but doors are not passed through.
-    fn bfs(&self, grid: &[Sq], w: u8, h: u8, sources: &[(u8, u8)]) -> Vec<u16> {
-        let mut dist = vec![FAR; grid.len()];
-        let mut q = VecDeque::new();
-        for &(x, y) in sources {
-            let k = y as usize * w as usize + x as usize;
-            if dist[k] == FAR {
-                dist[k] = 0;
-                q.push_back((x, y));
-            }
-        }
-        while let Some((x, y)) = q.pop_front() {
-            let k = y as usize * w as usize + x as usize;
-            if matches!(grid[k], Sq::Door(_)) && dist[k] > 0 {
-                continue;
-            }
-            for d in self.dirs() {
-                let (dx, dy) = d.delta();
-                let (nx, ny) = (x as i16 + dx as i16, y as i16 + dy as i16);
-                if !(0..w as i16).contains(&nx) || !(0..h as i16).contains(&ny) {
-                    continue;
-                }
-                let n = ny as usize * w as usize + nx as usize;
-                if grid[n] != Sq::Closed && dist[n] == FAR {
-                    dist[n] = dist[k] + 1;
-                    q.push_back((nx as u8, ny as u8));
-                }
-            }
-        }
-        dist
-    }
-
-    /// 6.1-6.5: the nearest goal on the creature's list.
-    fn choose(&self, region: u8, slot: usize, grid: &[Sq], w: u8, h: u8) -> Option<Choice> {
+    /// 6.2-6.4: the candidate with the lowest rank plus steps from the
+    /// creature's square; individuals first (players, then creatures by
+    /// slot), then the room's things in order; none under 200, no goal.
+    fn choose_goal(&self, region: u8, slot: usize, grid: &[Sq], w: u8, _h: u8) -> Option<Goal> {
         let c = self.creature(region, slot)?;
         let me = Who::Creature { region, slot };
         let here = (c.x, c.y);
-        let dist = self.bfs(grid, w, h, &[here]);
-        let at = |x: u8, y: u8| y as usize * w as usize + x as usize;
-        let others = self.others_in_room(region, c.room, Some(me));
         let r = self.room(region, c.room)?;
-
-        let mut ranks: Vec<&[Cat]> = list(c).to_vec();
-        if !is_fighter(c) && is_wounded(c) {
-            // 6.2: a wounded slinker heads for an exit first.
-            ranks.insert(0, &[Cat::Exit]);
-        }
-        // (distance, rank, order, is an exit, choice)
-        let mut found: Vec<(u16, usize, usize, bool, Choice)> = Vec::new();
-        let mut offer = |rank: usize, order: usize, exit: bool, choice: Choice| {
-            if choice.dist != FAR {
-                found.push((choice.dist, rank, order, exit, choice));
+        let mut best: Option<(u16, Goal)> = None;
+        let mut offer = |score: u16, goal: Goal| {
+            if best.is_none_or(|(b, _)| score < b) {
+                best = Some((score, goal));
             }
         };
-        let individual = |o: &Other| -> (u16, Vec<(u8, u8)>) {
-            let mut ends = Vec::new();
-            let mut d = FAR;
-            for dir in Dir::ALL {
-                let (dx, dy) = dir.delta();
-                let (nx, ny) = (o.x as i16 + dx as i16, o.y as i16 + dy as i16);
-                if !(0..w as i16).contains(&nx) || !(0..h as i16).contains(&ny) {
-                    continue;
-                }
-                let (nx, ny) = (nx as u8, ny as u8);
-                if !matches!(grid[at(nx, ny)], Sq::Open | Sq::Take(_)) {
-                    continue;
-                }
-                ends.push((nx, ny));
-                d = d.min(dist[at(nx, ny)]);
-            }
-            (d, ends)
-        };
-        let mut order = 0;
-        for (rank, cats) in ranks.iter().enumerate() {
-            for cat in cats.iter() {
-                match *cat {
-                    Cat::Player | Cat::Ind(..) => {
-                        for o in &others {
-                            let wanted = match (*cat, o.alignment) {
-                                (Cat::Player, None) => true,
-                                (Cat::Ind(al, aggr), Some(a)) => al.contains(&a) && aggr == o.aggressive,
-                                _ => false,
-                            };
-                            order += 1;
-                            if wanted {
-                                let (d, ends) = individual(o);
-                                offer(
-                                    rank,
-                                    order,
-                                    false,
-                                    Choice {
-                                        target: Target::Individual(*o),
-                                        dist: d,
-                                        ends,
-                                        player: o.alignment.is_none(),
-                                    },
-                                );
-                            }
-                        }
-                        if matches!(cat, Cat::Player) {
-                            // 6.4: a player who left by a door is sought there.
-                            for &(rg, rm, x, y) in &self.turn_exits {
-                                order += 1;
-                                if (rg, rm) == (region, c.room) && matches!(grid[at(x, y)], Sq::Door(_)) {
-                                    offer(
-                                        rank,
-                                        order,
-                                        false,
-                                        Choice {
-                                            target: Target::Square,
-                                            dist: dist[at(x, y)],
-                                            ends: vec![(x, y)],
-                                            player: false,
-                                        },
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    Cat::Exit | Cat::Gold | Cat::Treasure => {
-                        for y in 0..h {
-                            for x in 0..w {
-                                order += 1;
-                                let wanted = match (*cat, grid[at(x, y)]) {
-                                    (Cat::Exit, Sq::Door(_)) => true,
-                                    (Cat::Gold, Sq::Take(i)) => r.items[i].thing == GOLD,
-                                    (Cat::Treasure, Sq::Take(i)) => r.items[i].thing != GOLD,
-                                    _ => false,
-                                };
-                                if wanted {
-                                    offer(
-                                        rank,
-                                        order,
-                                        matches!(cat, Cat::Exit),
-                                        Choice {
-                                            target: Target::Square,
-                                            dist: dist[at(x, y)],
-                                            ends: vec![(x, y)],
-                                            player: false,
-                                        },
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
+        for o in self.others_in_room(region, c.room, Some(me)) {
+            let rank = rank_individual(c, &o);
+            if rank != NONE {
+                offer(
+                    rank.saturating_add(steps(here, (o.x, o.y))),
+                    Goal {
+                        at: (o.x, o.y),
+                        individual: Some(o),
+                    },
+                );
             }
         }
-        // 6.3: an exit counts only when nothing ranked above it is reachable.
-        let exit_rank = ranks
-            .iter()
-            .position(|r| r.iter().any(|c| matches!(c, Cat::Exit)));
-        let above = found.iter().any(|f| !f.3 && exit_rank.is_some_and(|e| f.1 < e));
-        found
-            .into_iter()
-            .filter(|f| !(above && f.3))
-            .min_by_key(|f| (f.0, f.1, f.2))
-            .map(|f| f.4)
+        let (exit, gold, treasure) = rank_things(c);
+        for (i, it) in r.items.iter().enumerate() {
+            let k = it.y as usize * w as usize + it.x as usize;
+            let rank = match grid.get(k) {
+                Some(Sq::Door(j)) if *j == i => exit,
+                Some(Sq::Take(j)) if *j == i => {
+                    if it.thing == GOLD {
+                        gold
+                    } else {
+                        treasure
+                    }
+                }
+                _ => NONE,
+            };
+            if rank != NONE {
+                offer(
+                    rank.saturating_add(steps(here, (it.x, it.y))),
+                    Goal {
+                        at: (it.x, it.y),
+                        individual: None,
+                    },
+                );
+            }
+        }
+        best.filter(|(score, _)| *score < NO_GOAL).map(|(_, g)| g)
     }
 
-    /// One step (or the end of the turn). True if the creature moved and may
-    /// go on.
-    fn creature_step(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
+    /// One step (6.5) or an action that ends the turn (7). True if the
+    /// creature moved and may go on.
+    fn creature_step(
+        &mut self,
+        region: u8,
+        slot: usize,
+        goal: Option<Goal>,
+        start: (u8, u8),
+        stood: &mut Vec<(u8, u8)>,
+        ev: &mut Vec<Event>,
+    ) -> bool {
         let Some((grid, w, h)) = self.squares(region, slot) else {
             return false;
-        };
-        let Some(choice) = self.choose(region, slot, &grid, w, h) else {
-            return false; // 6.6: nothing to seek; stays put.
         };
         let Some(c) = self.creature(region, slot).cloned() else {
             return false;
         };
-        if choice.dist == 0 {
-            if let Target::Individual(o) = choice.target {
-                // 7.3: a friend next to the player it sought.
-                if choice.player && c.strategy.alignment == Friend {
-                    self.friend_drop(region, slot, o, ev);
+        // 7.1, 7.3: beside the individual it chose.
+        if let Some(Goal {
+            individual: Some(o), ..
+        }) = goal
+        {
+            if steps((c.x, c.y), (o.x, o.y)) == 1 {
+                if o.alignment.is_none()
+                    && c.strategy.alignment == Friend
+                    && self.friend_drop(region, slot, o, ev)
+                {
+                    return false;
                 }
-                // 7.1: a fighter next to a foe.
                 if is_fighter(&c) && is_foe(&c, &o) {
                     ev.push(Event::CreatureConfronts {
                         region,
                         slot,
                         target: o.who,
                     });
+                    return false;
                 }
             }
-            return false; // 7.2
         }
-        let back = self.bfs(&grid, w, h, &choice.ends);
-        let at = |x: u8, y: u8| y as usize * w as usize + x as usize;
-        let step = self.dirs().find_map(|d| {
+        let target = goal.map_or(start, |g| g.at);
+        let (exit_cost, ..) = if is_fighter(&c) { (3u16, 0, 0) } else { (1, 0, 0) };
+        let (_, gold_rank, treasure_rank) = rank_things(&c);
+        let r = self.room(region, c.room).cloned();
+        let mut best: Option<(u16, u8, u8, Sq)> = None;
+        for d in STEP_DIRS {
             let (dx, dy) = d.delta();
             let (nx, ny) = (c.x as i16 + dx as i16, c.y as i16 + dy as i16);
             if !(0..w as i16).contains(&nx) || !(0..h as i16).contains(&ny) {
-                return None;
+                continue;
             }
             let (nx, ny) = (nx as u8, ny as u8);
-            let k = at(nx, ny);
-            (grid[k] != Sq::Closed && back[k] == choice.dist - 1).then_some((nx, ny, grid[k]))
-        });
-        let Some((nx, ny, sq)) = step else {
-            return false;
+            let sq = grid[ny as usize * w as usize + nx as usize];
+            if sq == Sq::Closed {
+                continue;
+            }
+            let roll = self.rng.below(3) as u16;
+            let cost = if goal.is_some_and(|g| g.at == (nx, ny)) {
+                1
+            } else {
+                match sq {
+                    Sq::Door(_) => exit_cost,
+                    Sq::Take(i) => {
+                        let gold = r.as_ref().is_some_and(|r| r.items[i].thing == GOLD);
+                        (if gold { gold_rank } else { treasure_rank }) / 32
+                    }
+                    _ if stood.contains(&(nx, ny)) => 4,
+                    _ => 2,
+                }
+            };
+            let score = 3 * steps((nx, ny), target) + 5 * cost + 4 * roll;
+            if best.is_none_or(|b| score < b.0) {
+                best = Some((score, nx, ny, sq));
+            }
+        }
+        let Some((_, nx, ny, sq)) = best else {
+            return false; // nowhere open: it stands (6.5)
         };
+        stood.push((nx, ny));
         let from = Location::Room {
             region,
             room: c.room,
@@ -853,9 +758,10 @@ impl Game {
     }
 
     /// 7.3: the lowest-numbered magic item, next to the player if possible.
-    fn friend_drop(&mut self, region: u8, slot: usize, player: Other, ev: &mut Vec<Event>) {
+    /// True if it dropped one (which ends its turn).
+    fn friend_drop(&mut self, region: u8, slot: usize, player: Other, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
-            return;
+            return false;
         };
         let mut items: Vec<ThingId> = c
             .possessions
@@ -866,10 +772,10 @@ impl Game {
             .collect();
         items.sort_unstable();
         let Some(&thing) = items.first() else {
-            return;
+            return false;
         };
         let Some(r) = self.room(region, c.room) else {
-            return;
+            return false;
         };
         let (w, h) = (r.width, r.height);
         let accepts = |x: u8, y: u8| {
@@ -912,5 +818,6 @@ impl Game {
             at: Some(at),
         });
         self.creature_drop_spell(region, slot, thing, at, ev);
+        true
     }
 }

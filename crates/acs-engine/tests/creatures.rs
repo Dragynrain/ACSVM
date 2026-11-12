@@ -198,6 +198,7 @@ fn xy(g: &Game, slot: usize) -> (u8, u8, u8) {
     (c.room, c.x, c.y)
 }
 
+#[allow(dead_code)]
 fn adjacent(a: (u8, u8), b: (u8, u8)) -> bool {
     a != b && (a.0 as i16 - b.0 as i16).abs() <= 1 && (a.1 as i16 - b.1 as i16).abs() <= 1
 }
@@ -244,27 +245,28 @@ fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
             slot: 1,
             moves: 15
         }));
+        // 6.5: steps only to the 4 squares beside; 7.1: beside its foe, it
+        // squares up and its turn ends.
         let (_, x, y) = xy(&g, 1);
-        assert!(adjacent((x, y), (2, 2)), "ended at {x},{y}");
+        let beside = (x as i16 - 2).abs() + (y as i16 - 2).abs() == 1;
+        assert!(beside, "ended at {x},{y}");
         assert!(ev.contains(&Event::CreatureConfronts {
             region: 1,
             slot: 1,
             target: Who::Player { player: 0 }
         }));
-        // 2.6: beside an aggressive enemy (not diagonally), the bar is
-        // halved.
-        let beside = (x as i16 - 2).abs() + (y as i16 - 2).abs() == 1;
+        // 2.6: beside an aggressive enemy, the bar is halved.
         assert!(ev.contains(&Event::TurnStarted {
             player: 0,
-            moves: if beside { 7 } else { 15 },
-            hindered: beside
+            moves: 7,
+            hindered: true
         }));
-        // 6.6: shortest path, so four steps from (7,5).
-        let steps = ev
-            .iter()
-            .filter(|e| matches!(e, Event::CreatureMoved { .. }))
-            .count();
-        assert_eq!(steps, 4);
+        for e in &ev {
+            if let Event::CreatureMoved { from, to, .. } = e {
+                let (a, b) = (from.xy(), to.xy());
+                assert_eq!(a.0.abs_diff(b.0) + a.1.abs_diff(b.1), 1, "{e:?}");
+            }
+        }
     });
 }
 
@@ -287,11 +289,13 @@ fn friends_do_not_hinder_and_do_not_confront_players() {
 #[test]
 fn creatures_follow_a_player_through_the_door_they_took() {
     both(|p| {
+        // On 6,3: the east door (3 steps) is its nearest exit, not the
+        // west one into the deleted room (6).
         let mut a = adventure(p);
-        put(&mut a, 1, spec(0, 4, 3, Alignment::Enemy, true));
+        put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
         let mut g = start(a, 0, 8, 2);
         // Through the east door onto EAST (1,3): a door into another room
-        // ends the turn (movement 2.3), so the creature phase follows.
+        // ends the turn (movement 2.3), so the creature's turn follows.
         let ev = g.apply(Command::Move { dir: Dir::SE });
         assert_eq!(g.current_player().at, at(1, 1, 3));
         assert!(ev.contains(&Event::TurnEnded { player: 0 }), "{ev:?}");
@@ -301,7 +305,8 @@ fn creatures_follow_a_player_through_the_door_they_took() {
             } => Some((*from, *to)),
             _ => None,
         });
-        // 5.4: it lands on the destination, sharing the player's square.
+        // 6.2: the player has left, so its goal is the exit (rank 96); 5.4:
+        // it lands on the destination, sharing the player's square.
         let (from, to) = took.expect("followed");
         assert_eq!(from, at(0, 9, 3));
         assert_eq!(to, at(1, 1, 3));
@@ -346,28 +351,19 @@ fn slinker_neutrals_head_for_the_nearest_exit_they_may_take() {
 }
 
 #[test]
-fn nearer_beats_better_and_gold_is_picked_up() {
+fn nearer_beats_better_by_rank_and_steps() {
     both(|p| {
-        // A fighter enemy wants the player first and gold last, but the gold
-        // is one step away and the player six (6.3).
+        // 6.2-6.4: a slinker friend scores the player 26 + 9 steps = 35 and
+        // the east door 32 + 1 = 33: it takes the door.
         let mut a = adventure(p);
-        put(&mut a, 1, spec(0, 7, 4, Alignment::Enemy, true));
-        item(&mut a, 0, 8, 4, GOLD, 12);
+        put(&mut a, 1, spec(0, 8, 3, Alignment::Friend, false));
         let mut g = start(a, 0, 1, 1);
         let ev = wait(&mut g);
-        assert_eq!(
-            ev.iter().find(|e| matches!(
-                e,
-                Event::CreatureMoved { .. } | Event::CreatureGoldPickedUp { .. }
-            )),
-            Some(&Event::CreatureGoldPickedUp {
-                region: 1,
-                slot: 1,
-                amount: 12
-            })
+        assert!(
+            ev.iter()
+                .any(|e| matches!(e, Event::CreatureTookDoor { slot: 1, .. })),
+            "{ev:?}"
         );
-        assert_eq!(g.creature(1, 1).unwrap().wealth, 12);
-        assert_eq!(top(&g, 0, 8, 4), None);
     });
 }
 
@@ -406,12 +402,12 @@ fn friends_leave_gold_lying() {
         put(&mut a, 1, spec(0, 7, 4, Alignment::Friend, true));
         item(&mut a, 0, 6, 4, GOLD, 3);
         let mut g = start(a, 0, 2, 4);
-        let ev = wait(&mut g);
-        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureGoldPickedUp { .. })));
+        for _ in 0..3 {
+            let ev = wait(&mut g);
+            assert!(!ev.iter().any(|e| matches!(e, Event::CreatureGoldPickedUp { .. })));
+        }
+        // 5.2: gold is closed to friends, so it walks round it.
         assert_eq!(top(&g, 0, 6, 4), Some(GOLD));
-        // It walked round the gold to the player (6.1: player, then exit).
-        let (_, x, y) = xy(&g, 1);
-        assert!(adjacent((x, y), (2, 4)), "{x},{y}");
     });
 }
 
@@ -554,13 +550,22 @@ fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
         assert_ne!((x, y), (5, 5));
         assert_ne!((x, y), (1, 3));
         // Back west (the door into another room ends the turn, movement
-        // 2.3): the bat cannot move, is left behind and goes (2.4).
-        let ev = g.apply(Command::Move { dir: Dir::W });
-        assert!(ev.contains(&Event::CreatureRemoved {
-            region: 1,
-            slot: 0,
-            reason: RemovalReason::LeftBehind
-        }));
+        // 2.3): the bat cannot move and is left behind. 2.4: each round a
+        // slot roll (1 in 16 hits its slot, the only one in use), then 20%.
+        let mut ev = g.apply(Command::Move { dir: Dir::W });
+        let gone = |ev: &[Event]| {
+            ev.contains(&Event::CreatureRemoved {
+                region: 1,
+                slot: 0,
+                reason: RemovalReason::LeftBehind,
+            })
+        };
+        let mut rounds = 0;
+        while !gone(&ev) {
+            assert!(rounds < 3000, "never removed");
+            ev = wait(&mut g);
+            rounds += 1;
+        }
         assert!(g.creature(1, 0).is_none());
         assert!(!g.is_random(1, 0));
     });
@@ -674,8 +679,16 @@ fn only_the_four_squares_beside_the_player_hinder() {
 #[test]
 fn two_players_one_creature_phase_a_round() {
     both(|p| {
+        // Speed 0: it takes a turn but never walks out of the room.
         let mut a = adventure(p);
-        put(&mut a, 1, spec(0, 7, 5, Alignment::Friend, false));
+        put(
+            &mut a,
+            1,
+            Spec {
+                speed: 0,
+                ..spec(0, 7, 5, Alignment::Friend, false)
+            },
+        );
         let mut g = start(a, 0, 2, 2);
         g.apply(Command::AddPlayer {
             setup: PlayerSetup {

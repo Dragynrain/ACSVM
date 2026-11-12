@@ -5,8 +5,9 @@ section 3). Licensed CC BY 4.0. Status: **first pass done** (2026-11-11),
 by a separate Claude session as the researcher; findings below, the cast
 chance confirmed by capture. **Second pass** (items 7 to 13) done
 2026-11-12; healing and the temporary tick confirmed by capture and in
-the engine. **Third pass** (items 14 to 18, creatures in a room) briefed
-2026-11-12, inputs ready.
+the engine. **Third pass** (items 14 to 17) done 2026-11-12; goals,
+steps and random creatures appearing confirmed by capture and in the
+engine.
 
 ## Why
 
@@ -320,6 +321,35 @@ reviewed for plain language and accepted). Summary:
 13. **The raster band** comes from the joystick being read once a frame,
    on line 221; rolls after a button press land some 130 lines later.
    Rolls at a turn's end or while walking fall anywhere in the frame.
+
+**Third pass, 2026-11-12** (items 14 to 17; item 18 not done; the
+hand-off reviewed and accepted: plain language, with rank and cost tables
+as rule values). Summary:
+
+14. **A creature's turn** draws the top-of-turn die, a smartness roll (0
+    to 9, passed below Wisdom - 5) for fighters, friends and enemies, then
+    for each step one roll of 0 to 2 per open square beside it. Its goal,
+    chosen once at the turn's top, is the lowest rank plus straight steps,
+    by tables of type against class (creatures 6.3, 6.4); under 200 or
+    none. Each step goes to the 4-neighbour with the lowest 3 x steps to
+    the goal + 5 x cost + 4 x roll; it steps all its moves.
+15. **After each round in a room** a roll of 0 to 15 picks a slot; if in
+    use, each random creature outside the round's rooms is removed on a
+    percentile roll under 20.
+16. **A random creature appears** on a percentile roll against 5 x the
+    room's chance, in the lowest free slot, on one of up to 5 random
+    inside squares.
+17. **On the world map** each walked square rolls for each of the map's 8
+    random-creature records on its terrain (the encounters).
+
+**Checked by capture** (capture.md 10.14): with every draw logged, the
+goal and step rules predicted all 1,367 creature steps in 128 runs; a
+random creature appeared at chance 75% in 8 and 6 of 10 runs, through the
+map door and a portal, in the lowest free slot with its mark. The
+researcher's arrival-mark condition did not stop the map door case.
+Falling away is in the engine unconfirmed. **Open, for a next pass:**
+fighters (attacks, firing, the second table), the first-step cost of some
+things, falling away by capture, the map encounters, item 18.
 
 **Checked by capture** (capture.md 10.12): healing, 253 of 253 runs of a
 256-state sweep exact; the tick's delay, 252 of 252; the seed, 5. Specs:

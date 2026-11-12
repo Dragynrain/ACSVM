@@ -78,10 +78,16 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    visit of up to 10 rounds in turn. [research, capture]
 
 4. **Random creatures fall away.** Random creatures in rooms no player
-   occupies are removed now and then. [manual] How often is not given.
-   **Engine:** at the end of every creature phase, each random creature whose
-   room holds no player is removed (`CreatureRemoved`, reason `left_behind`),
-   with everything it carries. [unknown]
+   occupies are removed now and then. [manual] On the C64, after each round
+   in a room region one roll of 0 to 15 picks a slot; if it holds a
+   creature, every random creature (resident ones never) whose room was
+   not on the round's list takes a percentile roll and is removed below
+   20. So a left-behind random creature goes with chance (slots in use /
+   16) x 20% a round. [research: random-rolls third pass, 2026-11-12, `docs/research/random-rolls.md`] Not captured yet
+   ([research, unconfirmed]). **Engine:** the rule above, at the end of
+   each round of a room region's visit, the removed creature taking what
+   it carries (`CreatureRemoved`, reason `left_behind`); what becomes of
+   its things in the original is not known.
 5. **The movement bar.** A creature's turn has a bar like a player's: its
    Speed after the weight slowdown ([inventory](inventory.md) 3.3), using
    the creature's own Strength, Constitution, Life Force and load. On the
@@ -111,15 +117,28 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 ## 3. Random room creatures
 
 1. On entering a room there is one roll against the room's chance for its
-   random creature (movement 7.2). [manual]
-2. It appears only on a square with no thing on it. [manual] **Engine:** a
-   uniformly chosen inside square with no room item, no player and no
-   creature, picked with the game's generator; if there is none, nothing
-   appears. The roll comes first, so a full room still uses up the roll.
-   [unknown]
-3. It is a copy of the region's random creature record (traits, possessions,
-   wealth, readied things, strategy), put in the lowest free slot.
-   [unknown] **Engine:** event `RoomEncounter` with the slot and square.
+   random creature (movement 7.2). [manual] On the C64 the chance is 5% a
+   point of the room's 0..15 setting, and the roll comes once a player has
+   walked in: through the map door the creature showed as the room was
+   drawn, through a portal into another room (which ends the turn,
+   [movement](movement.md) 2.3) as the next round began. With the chance
+   at 15 (75%) one appeared in 8 of 10 walks in from the map and 6 of 10
+   through a portal. [research: random-rolls third pass, 2026-11-12, `docs/research/random-rolls.md`] [capture: turns, cases rc-map and
+   rc-side, capture.md 10.14] The researcher read the roll as taken each
+   round as the list is built and counting only while every player in the
+   room has just arrived; the map door case shows it is not lost when the
+   arriving player's turn goes on. **Engine:** one percentile roll against
+   the chance when a player enters a room.
+2. It appears only on a square with no thing on it. [manual] On the C64
+   up to 5 tries: a random column and a random row of the room's inside;
+   a square with an individual or a thing is rejected; after 5 rejections
+   nothing appears. [research] The squares seen were spread over the
+   room's inside. [capture] **Engine:** the same.
+3. It is a copy of the region's random creature record named by the room
+   (one of 8), with the random mark, put in the lowest free slot, and it
+   takes its turns in the room's list like any creature. [research;
+   capture: slot 0 with the mark, 16 of 16 appearances] **Engine:** event
+   `RoomEncounter` with the slot and square.
 4. The roll is skipped when all 16 slots are in use (1.1).
 
 ## 4. Personality
@@ -180,8 +199,8 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
 5. A creature sent through a door into a deleted room is banished.
    [manual] **Engine:** removed (`CreatureRemoved`, reason `banished`) with
    what it carries.
-6. Moves are one square in any of the 8 directions, like players
-   (movement 3.2). [unknown]
+6. Moves are one square to one of the 4 squares beside it, never
+   diagonally (6.5). [research, capture]
 
 ## 6. Goals
 
@@ -198,50 +217,82 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    | Fighter thief | treasure or gold; exit |
    | Slinker thief | treasure or gold; exit |
 
-2. A slinking, wounded creature seeks an exit. [manual] **Engine:** for a
-   wounded slinker, exit moves to the front of its list.
-3. **Nearer beats better.** Most creatures go for a less favoured goal if it
-   is closer than a more desirable one. [manual] **Engine:** every creature
-   takes the nearest reachable goal of any category on its list; the list
-   order only breaks ties of distance, and after that the scan order
-   (players by number, then creatures by slot, then squares top row first).
-   One exception: an *exit* counts only when nothing ranked above it on the
-   list is reachable. Almost every room has a door, so if exits competed on
-   distance, a fighter enemy would usually walk out of the room instead of
-   closing in on the player in it, which is not how the game plays: players
-   flee through doors and only one or two creatures follow. [designer]
-   [unknown]
-4. **What counts as each goal**, all inside the creature's room: [unknown]
-   **Engine:**
-   - *player*, *friend*, *enemy* and so on: another individual in the room,
-     by alignment and Aggressive/Peaceful; never the creature itself;
-   - a player who left the room this turn by a door this creature may take
-     counts as a *player* goal on that door square, so creatures chase the
-     player through the door they took (2.1);
-   - *exit*: a door square the creature may take (5.3);
-   - *gold*: a square whose top is Gold, for creatures that pick it up;
-   - *treasure*: a square whose top is a treasure other than Gold, for
-     thieves.
-5. **Distance** is the number of steps along squares the creature may enter
-   (5.1, 5.2), diagonals counting one (a breadth-first search). An
-   individual goal is reached on any square next to it (8 neighbours); a
-   thing or door goal on its square. Goals with no path are skipped.
-   [unknown]
-6. The creature steps one square along a shortest path, then chooses again,
-   until its bar runs out, it reaches a goal that ends its turn, or no goal
-   is reachable (then it stays put). Among shortest first steps the engine
-   takes the first in direction order N, NE, E, SE, S, SW, W, NW. [unknown]
+2. **Nearer beats better** and a wounded slinker seeks an exit. [manual]
+   On the C64 a creature chooses **one goal at the top of its turn** (after
+   the healing die) and keeps it all turn. Every candidate scores its
+   **rank plus the steps** from the creature's square (columns apart plus
+   rows apart, walls ignored); the lowest score wins, a tie going to the
+   one looked at first (individuals by number, players first, then things
+   in the room's order); nothing under 200 means no goal. Candidates are
+   the other individuals standing in its room, and exits, gold and other
+   treasure on its squares. A player who has left the room is not one, so
+   a friend left behind goes for an exit (often the same door). The
+   wounded slinker's exit is just its type's ranks: a cautious creature
+   that is wounded becomes a slinker. [research: random-rolls third pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed: with each
+   draw logged, the goal and step rules predicted every step of a
+   peaceful friend (the player against a portal) and a peaceful neutral
+   (the portal, or no goal) in all 64 runs from each of two rooms, 1,367
+   steps. [capture: mem --draws, capture.md 10.14]
+3. **Ranks of individuals** by the creature's type (rows) and the other's
+   alignment and setting (columns; A aggressive, P peaceful); lower is more
+   wanted, "-" never: [research]
+
+   | Type | Player | A friend | P friend | A enemy | P enemy | A neutral | P neutral | A thief | P thief |
+   | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+   | Fighter enemy | 0 | 4 | 6 | - | - | 80 | 84 | 80 | 84 |
+   | Fighter friend | 32 | - | - | 0 | 4 | 3 | - | 5 | - |
+   | Fighter neutral | 1 | 0 | 4 | 0 | 4 | 6 | 8 | 2 | 6 |
+   | Fighter thief | - | - | - | - | - | - | - | - | - |
+   | Slinker enemy | - | - | - | 29 | 25 | - | - | - | - |
+   | Slinker friend | 26 | - | - | - | - | - | - | - | - |
+   | Slinker neutral or thief | - | - | - | - | - | - | - | - | - |
+
+4. **Ranks of things** (an exit: a door it may take, 5.3; gold and other
+   treasure it would pick up, 5.2): [research]
+
+   | Type | Exit | Gold | Other treasure |
+   | --- | --- | --- | --- |
+   | Fighter enemy | 96 | 128 | - |
+   | Fighter neutral | 96 | 96 | - |
+   | Fighter friend | 96 | - | - |
+   | Fighter or slinker thief | 96 | 32 | 32 |
+   | Slinker enemy | 32 | 96 | - |
+   | Slinker friend or neutral | 32 | - | - |
+
+   So a slinker friend takes an exit over the player only when the exit is
+   at least 7 steps nearer; a fighter enemy an aggressive friend over the
+   player at 5 steps nearer. Where these differ from the manual's lists
+   (a fighter enemy puts neutrals and thieves above an exit; a fighter
+   neutral seeks players), the numbers are what the C64 does.
+5. **Each step** looks at the 4 squares beside the creature, in the order
+   south, north, east, west, and takes a roll of 0 to 2 for each open one
+   (5.1, 5.2). It steps to the open square with the lowest **3 x the steps
+   from it to the goal + 5 x its cost + 4 x its roll** (a tie to the first
+   looked at). With no goal it steers by the square it started the turn
+   on, so it wanders about there. The cost: 1 for the goal's own square;
+   an exit 1 for a slinker, 3 for a fighter; gold or a treasure it would
+   take, its thing rank / 32; 4 for a square it has stood on this turn
+   (its starting square too); 2 for any other. One step nearer saves 6
+   and the roll adds 0, 4 or 8, so it often steps sideways or back: that
+   is why paths differ from run to run. It steps every move of its bar,
+   **even beside its goal**, unless an action ends its turn (7) or no
+   square beside it is open, when it stands and waits the bar out (each
+   idle move taking magic 5.3's healing roll). [research, capture]
+   Not settled: on a turn's first step some squares holding a thing cost
+   4; one more case in which the step choice gives up. [unknown]
+6. **Engine:** 6.2 to 6.5 as written. Before the goal, a smartness roll
+   decides whether a creature acts smart (magic 6.1).
 
 ## 7. Reaching a goal
 
 1. **A foe.** A fighter loves to attack certain types and may attack others
-   it meets on the way. [manual] **Engine:** a fighter next to the
-   individual it chose emits `CreatureConfronts` when that individual is a
-   foe (7.4), and its turn ends; combat will turn this into an attack.
-   Attacks on individuals met on the way come with combat.
-2. **Anyone else** (a slinker friend next to a player, a slinker enemy next
-   to a fellow enemy): the creature stays there and its turn ends.
-   [unknown]
+   it meets on the way. [manual] How the C64 decides is for the combat
+   pass. **Engine:** a fighter beside (one of the 4 squares) the individual
+   it chose emits `CreatureConfronts` when that individual is a foe (7.4),
+   and its turn ends; combat will turn this into an attack. [unknown]
+2. **Anyone else** (a slinker friend beside a player, a slinker enemy
+   beside a fellow enemy): the creature keeps stepping round it until its
+   bar runs out (6.5). [research, capture]
 3. **A friend next to the player it sought** drops a magic item if it
    carries one. [manual] **Engine:** the lowest-numbered one, onto the first
    square around the player (direction order from N) that is an inside
@@ -288,9 +339,10 @@ of the 996 live rooms that hold residents or a random creature and plays a
 dozen turns of waiting and wandering. With the region-visit scheduler
 (2.2), a room door into another room ending the turn (movement 2.3) and
 the healing and reversal rules of magic 5 (November 2026), creatures
-take 13,773 turns, make 6,488 steps, go through 343 doors, square up to
-someone 8,277 times, ready 2,314 weapons, pick up gold 72 times and
-treasure 9 times, and make 73 overburdened drops. No
+take 9,179 turns (the falling-away roll and the creatures' own goals and
+steps of section 6, November 2026), make 17,648 steps, go through 173
+doors, square up to someone 4,219 times, ready 1,905 weapons, pick up
+gold 18 times and treasure 11 times, and make 28 overburdened drops. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another creature, nor with a
 player except on arriving through a door (5.4). The random walks with
@@ -308,18 +360,15 @@ creatures replay exactly.
 1. Turn order: captured and researched (2.2, 2.3), players in different
    places included. Still open: two players in different rooms of one
    region; what happens to the visit when a player dies.
-2. Random creature square choice and how soon left-behind ones go.
+2. Random creatures: appearing captured and researched (3); falling away
+   researched, not captured (2.4: needs one left in a room with no
+   player).
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend). Still open: mid-turn, odd Speeds.
-4. Goal choice when a less favoured goal is closer: how much closer. Seen
-   in the turn order runs: a peaceful neutral (Speed 4) in a room with no
-   door out walked up to the player, where the engine's slinker neutral
-   (which seeks only an exit) stands still.
-5. Path tie-breaks and whether creatures move diagonally. (Players can't,
-   on the C64: movement 3.2. The engine's creatures follow the same
-   `Rules::diagonals`, so they step straight too.) Seen in the turn order
-   runs: creatures stepped straight, and a slinker friend used its whole
-   bar, stepping past a square beside the player.
+4. Goal choice: researched and captured for slinker friends and neutrals
+   (6.2-6.4). Still open: fighters, thieves, gold and treasure goals.
+5. Paths: researched and captured (6.5: 4 squares, scored with a roll).
+   Still open: the first step's cost of some things.
 6. A creature following through a door: captured (5.4: the step ends its
    turn; it lands on the destination square, sharing it with a player).
    Still open: a destination held by a creature. Seen in the same runs:

@@ -291,7 +291,10 @@ magic item after it is used. [unknown]
 1. Smart creatures (Wisdom above 14) cast spells and use magic items; dumb
    ones (below 6) never do; in between they act smart some of the time, more
    often the higher their Wisdom. [manual] **Engine:** a creature with
-   Wisdom 6..14 counts as smart with chance (Wisdom - 5) x 10%, rolled when
+   Wisdom 6..14 counts as smart with chance (Wisdom - 5) x 10% (on the
+   C64 a roll of 0 to 9 below Wisdom - 5, once a turn at its first
+   decision, for fighters, friends and enemies; [research: random-rolls
+   third pass]), rolled when
    it would otherwise cast. [unknown]
 2. Only fighters cast; slinkers never attack or cast. [manual]
 3. A smart creature casts only when its Power is at least its Wisdom, on the
