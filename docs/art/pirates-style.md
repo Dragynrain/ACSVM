@@ -315,10 +315,28 @@ Steps:
 - **"Strong contrast, saturated colours"** fixed washed-out shallows and
   near-black volcanic rock.
 - **Z-Image will not draw a wreck**: "broken in two, lying on its side" gave
-  an intact ship on four seeds. Edit or hand-finish it.
+  an intact ship on four seeds. Qwen-Image-Edit 2511 (Lightning, 4 steps)
+  fixed it from the best intact ship: "the hull is broken in two with a
+  jagged gap in the middle, both halves tilted and half sunk, the masts
+  snapped off short, the sails torn into rags, a few loose planks floating"
+  plus "keep the same top-down view, water, island corners, style and
+  colours" gave a clear wreck on all four seeds.
+- **Editing works where generating won't.** The cutlass came out nearly
+  straight from Z-Image whatever the prompt said. Asking Qwen-Image-Edit to
+  bend the straight blade went wrong both ways: "like a crescent moon" gave
+  sickles, and "a gentle, even curve" put all the bend in a hook at the tip.
+  Starting from the kit's sabre, which already has the right even curve, and
+  asking for "about twice as broad and a little shorter, keeping exactly the
+  same gentle curve" gave a proper cutlass. Edit from the picture nearest the
+  wanted shape, and change one property at a time.
 - **Places carry their own ground**, which rarely matches the neighbouring
-  terrain (the fort's grass is lighter than grassland). Match their edges in
-  hand-finishing.
+  terrain (the fort's grass is lighter than grassland). Once every tile is
+  snapped to the ramps (section 5), a ground is a few exact palette colours,
+  so matching it is a colour swap: the cove's and cave mouth's moss greens
+  become grassland's greens, the wreck's water becomes the shallows'.
+- **Keep shallow water calm**: the brightest sea step as the base of the
+  shallows was loud next to the deep sea; the base is the third step, with
+  the second only for highlights, in the shallows and in every place on them.
 - Terrains meet with hard square edges, as on the original world map.
 
 **Rooms (November 2026).** Walls and floor spaces are textures too: walls
@@ -329,5 +347,12 @@ store counter, the lava vent, gangplank and trapdoor are single squares
 draw. As with terrain, sparse features (sand, mud, cave rock) vanish under
 quilting unless the prompt says "covered all over". The one room floor is
 kept nearly plain on purpose: it shows in every room. Doors carry their own
-wall, which rarely matches the room's wall picture; match it in
-hand-finishing.
+wall, which rarely matches the room's wall picture, and no single wall suits
+every room. So a door is an overlay: Qwen-Image-Edit 2511 replaces the wall
+around it with flat magenta ("keep only the door itself and its frame or
+arch exactly as they are"), which kept the door untouched on every try. The
+cut-out is shrunk with the same crop as the pick, snapped, and laid over
+each wall picture, one door square per wall. Two more floor fixes are
+colour swaps too: the scorched floor goes from near-black to ash grey (dark
+enough to read as burnt, apart from the lava vent), and the hull wall goes
+one wood step darker so it stands apart from the plank floor.
