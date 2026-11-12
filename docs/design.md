@@ -1,6 +1,6 @@
 # ACSVM: Open Source Engine Design
 
-> Snapshot of the living design doc: https://claude.ai/artifact/RxNSzwZ9jfzxDfBfCHaVKD (exported 2026-11-10). Diagrams are PNG snapshots in docs/images/. Licensed CC BY 4.0.
+> Snapshot of the living design doc: https://claude.ai/artifact/RxNSzwZ9jfzxDfBfCHaVKD (exported 2026-11-10; the living doc was brought up to this copy on 2026-11-12, except its roadmap diagram, which still shows the old five phases). Diagrams are PNG snapshots in docs/images/. Licensed CC BY 4.0.
 
 Nov 10, 2026 · @Dragyn
 
