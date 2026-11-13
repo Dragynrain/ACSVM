@@ -151,6 +151,19 @@ enum Cmd {
         /// Repeatable.
         #[arg(long)]
         gold: Vec<String>,
+        /// Our melee weapon's stats (thing 59): `key=value` pairs power,
+        /// adj (-35..40, multiples of 5), break (0..15), magic, once (0 or
+        /// 1). Who has it: the kit keys of --player and --creature (own=,
+        /// hold=, wear=, md=; docs/capture.md 10.15).
+        #[arg(long)]
+        blade: Option<String>,
+        /// Our missile weapon's stats (thing 41): as --blade, power 0..15,
+        /// and range (2..9).
+        #[arg(long)]
+        bow: Option<String>,
+        /// Our armor's stats (thing 40): as --blade, adj -65..10.
+        #[arg(long)]
+        mail: Option<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -349,7 +362,18 @@ fn main() {
             side_chance,
             thing,
             gold,
+            blade,
+            bow,
+            mail,
         } => {
+            let kit = |k: scenario::Kit, t: Option<String>| {
+                t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
+            };
+            let (blade, bow, mail) = (
+                kit(scenario::Kit::Blade, blade),
+                kit(scenario::Kit::Bow, bow),
+                kit(scenario::Kit::Mail, mail),
+            );
             let nums = |t: &str, n: std::ops::RangeInclusive<usize>| -> Vec<u16> {
                 let v: Vec<u16> = t
                     .split(',')
@@ -420,6 +444,9 @@ fn main() {
                             .collect(),
                         quiet_takes: true,
                         gold: gold.clone(),
+                        blade,
+                        bow,
+                        mail,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -434,6 +461,7 @@ fn main() {
                     s.spells = spells.clone();
                     s.residents = residents.clone();
                     s.side = side;
+                    (s.blade, s.bow, s.mail) = (blade, bow, mail);
                     if no_item {
                         s.item = None;
                     }

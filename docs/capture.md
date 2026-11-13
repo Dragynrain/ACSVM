@@ -624,6 +624,8 @@ screen offers next to "create new player".
 | `$397C` | The region being visited by the turn scheduler (0 the world map) | Researcher, turn-order first pass, 2026-11-12 (`docs/research/turn-order.md`) |
 | `$71FA` | The number of the individual whose turn it is | Researcher, turn-order first pass, 2026-11-12 |
 | `$E1A3` on | The visited region's creature slots, 37 bytes each: +0 Constitution (0 when free), +6 bit 7 the random mark, +13 and +14 the square | Researcher, random-rolls third pass, 2026-11-12 |
+| `$E1A3` on, `$F59F` on | Fighting bytes of a creature slot and of the first player's record (the stored record layout): +0 magic defense (top 2 bits), +2 Dexterity, +3 Life Force, +5 Power, +6 to +10 Dodge, Parry, Armor, Melee, Missile skills, +15 Size, +20 the weapon held, +21 the armor worn; read by `rr8/rounds.sh` (10.15) | Researcher, combat first pass, 2026-11-13 (`docs/research/combat.md`) |
+| `$B799` | The current attack's blows left | Researcher, combat first pass, 2026-11-13 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1197,3 +1199,24 @@ In this order (planned November 2026):
       room (banked memory, as 10.14.3); the checker drops those. Not
       covered: parries, counter-blows, armor, breaking, the player's
       attack and the alignment changes (combat.md, Captures needed).
+15. **Combat kit and the second combat pass's inputs** (2026-11-13).
+   Scenario keys for weapons and armor of ours, for players and creatures
+   alike (`--player`, `--player2`, `--creature`, `--random-creature`):
+   `own=blade+bow+mail` (possession bits), `hold=blade|bow` (record byte
+   0x14), `wear=mail` (0x15), `md=0..3` (magic defense, byte 0's top
+   bits) and `armor=N` (Armor skill, byte 8; 0 before). `sword=P` stays:
+   own and hold the blade, of power P. The things' stats are the
+   scenario's: `--blade`, `--bow`, `--mail` with `power`, `adj` (a
+   multiple of 5: weapons -35..40, armor -65..10), `break` (0..15),
+   `range` (bow, 2..9), `magic` and `once` (disappears after use). Things
+   59 (BLADE), 41 (BOW) and 40 (MAIL), extended records 0, 1 and 2, each
+   written when given or when anyone has it. A retired player keeps the
+   weapon it holds when it joins: T's held weapon (`$F5B3`, combat
+   findings) read 59 at the turn's end, and with both holding the blade
+   EE was hurt (counter-blows) in 2 of 4 runs.
+   `ACSVM-research/capture/runs/rr8/`: `case.sh NAME 'ARGS' [snap|room]`
+   builds one case (the scenario, the retired player's start, the walk
+   into the room, then a turn-end snapshot or the room snapshot itself);
+   `all.sh` the pass's cases (combat brief, pass 2), six VICE processes at
+   a time, about 4 minutes each; `rounds.sh` 16 `mem --draws` runs from
+   each turn-end snapshot with the fighting bytes watched.

@@ -90,6 +90,13 @@ getting the program to the right moment.
 7. **Close the pass.** Summarize the findings, in plain language, under
    "Findings" in the brief, with what was confirmed and what is open.
    Plan the next pass there too.
+8. **A further pass** on the same brief starts again at step 1: a new
+   "Pass N" section in the brief with its numbered questions, what is
+   already captured to check against and its inputs table, and the new
+   inputs copied into `inputs/passN/`. A wish list under "Findings" is not
+   a brief: a researcher started without the section and the inputs has
+   nothing new to work from, and should stop and ask (as one did,
+   2026-11-13).
 
 ## 4. Isolation rules
 
@@ -113,7 +120,7 @@ getting the program to the right moment.
 | --- | --- |
 | [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass done 2026-11-12 (items 7-13): healing and the temporary tick confirmed by capture and in the engine. Third pass done 2026-11-12: creatures' goals and steps and random creatures appearing confirmed by capture and in the engine; falling away captured, its percentile corrected (one roll; rooms empty at the round's end). Next: fighters (combat) |
 | [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | First pass done 2026-11-12: the region-visit scheduler confirmed by capture and in the engine. Two rooms in one region captured; next: the round a player misses after coming in at the map visit's end, a player's death |
-| [combat.md](combat.md): fighters' attack decision, melee, firing, readied weapons, breaking | First pass done 2026-11-13: the attack decision, blows, to-hit and damage confirmed by capture (the `armed` runs) and in the engine with the rest of melee ([research, unconfirmed] where no capture reaches). Next: inputs for parries, armor, magic defense, the player's attack, firing |
+| [combat.md](combat.md): fighters' attack decision, melee, firing, readied weapons, breaking | First pass done 2026-11-13: the attack decision, blows, to-hit and damage confirmed by capture (the `armed` runs) and in the engine with the rest of melee ([research, unconfirmed] where no capture reaches). Pass 2 briefed 2026-11-13 with its inputs (`inputs/pass2/`): parries, breaking, armor, magic defense, firing, the player's attack. Not started |
 
 ## 6. Templates
 
@@ -143,7 +150,9 @@ None yet.
 ```
 
 **The researcher prompt** (pasted by the maintainer into a fresh session
-started in `D:\Projects\ACSVM-research`). Fill in the capitals;
+started in `D:\Projects\ACSVM-research`). Paste all of it, with full paths:
+the researcher starts in the research folder and asks for the
+authorization and time box when they are missing. Fill in the capitals;
 `random-rolls.md`'s first pass used this, with its VICE notes:
 
 ```text

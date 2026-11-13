@@ -44,8 +44,158 @@ pub struct Player {
     pub size: u8,
     pub dodge: u8,
     pub parry: u8,
+    /// Armor skill (record byte 8; 0 in every scenario before the combat
+    /// captures).
+    pub armor_skill: u8,
     pub melee: u8,
     pub missile: u8,
+    /// Weapons and armor of ours it owns, holds and wears, and its magic
+    /// defense (the combat captures, docs/capture.md 10.15).
+    pub gear: Gear,
+}
+
+/// One of our weapons or armor (things `BLADE`, `BOW`, `MAIL`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kit {
+    Blade,
+    Bow,
+    Mail,
+}
+
+impl Kit {
+    pub fn thing(self) -> u8 {
+        match self {
+            Kit::Blade => BLADE,
+            Kit::Bow => BOW,
+            Kit::Mail => MAIL,
+        }
+    }
+
+    fn parse(t: &str) -> Result<Kit, String> {
+        match t {
+            "blade" => Ok(Kit::Blade),
+            "bow" => Ok(Kit::Bow),
+            "mail" | "armor" => Ok(Kit::Mail),
+            _ => Err(format!("{t}: blade, bow or mail")),
+        }
+    }
+}
+
+/// What an individual of ours has of our kit.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Gear {
+    /// Owned (held and worn ones too).
+    pub own: Vec<Kit>,
+    /// The weapon in hand (record byte 0x14).
+    pub hold: Option<Kit>,
+    /// The armor worn (record byte 0x15).
+    pub wear: bool,
+    /// Magic defense 0..3 (record byte 0 bits 6-7).
+    pub magic_defense: u8,
+}
+
+impl Gear {
+    /// Everything owned, held and worn, once each.
+    pub fn owned(&self) -> Vec<Kit> {
+        let mut v: Vec<Kit> = Vec::new();
+        for k in self
+            .own
+            .iter()
+            .copied()
+            .chain(self.hold)
+            .chain(self.wear.then_some(Kit::Mail))
+        {
+            if !v.contains(&k) {
+                v.push(k);
+            }
+        }
+        v
+    }
+}
+
+/// The stats of one of our weapons or armor, the same for everyone who has
+/// it: `key=value` pairs `power`, `adj` (attack adjustment, a multiple of
+/// 5: -35..40 for weapons, -65..10 for armor), `break` (0..15 percent),
+/// `range` (bow, 2..9), `magic` and `once` (disappears after use; 0 or 1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KitSpec {
+    pub power: u8,
+    pub adj: i8,
+    pub break_chance: u8,
+    pub range: u8,
+    pub magic: bool,
+    pub once: bool,
+}
+
+impl KitSpec {
+    /// The defaults: power 10 (armor 2), adjustment 0, no break chance,
+    /// range 5, not magic, kept after use.
+    pub fn default_for(kit: Kit) -> KitSpec {
+        KitSpec {
+            power: if kit == Kit::Mail { 2 } else { 10 },
+            adj: 0,
+            break_chance: 0,
+            range: 5,
+            magic: false,
+            once: false,
+        }
+    }
+
+    pub fn parse(kit: Kit, spec: &str) -> Result<KitSpec, String> {
+        let mut s = KitSpec::default_for(kit);
+        for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let (k, v) = kv.split_once('=').ok_or(format!("{kv}: want key=value"))?;
+            let n: i16 = v.parse().map_err(|_| format!("{kv}: bad number"))?;
+            let flag = || match n {
+                0 | 1 => Ok(n == 1),
+                _ => Err(format!("{kv}: 0 or 1")),
+            };
+            match k {
+                "power" => s.power = n.clamp(0, 31) as u8,
+                "adj" => s.adj = n.clamp(-65, 40) as i8,
+                "break" => s.break_chance = n.clamp(0, 15) as u8,
+                "range" => s.range = n.clamp(2, 9) as u8,
+                "magic" => s.magic = flag()?,
+                "once" => s.once = flag()?,
+                _ => return Err(format!("{k}: power, adj, break, range, magic or once")),
+            }
+        }
+        s.check(kit)?;
+        Ok(s)
+    }
+
+    fn check(&self, kit: Kit) -> Result<(), String> {
+        let (lo, hi) = if kit == Kit::Mail { (-65, 10) } else { (-35, 40) };
+        if self.adj % 5 != 0 || !(lo..=hi).contains(&self.adj) {
+            return Err(format!("adj {}: a multiple of 5 in {lo}..{hi}", self.adj));
+        }
+        if kit == Kit::Bow && self.power > 15 {
+            return Err(format!("bow power {}: at most 15", self.power));
+        }
+        Ok(())
+    }
+
+    /// The four property bytes and the three of the extended record
+    /// `record` (docs/format-notes.md): type 3, 4 or 5 with the "disappears"
+    /// bit, weight 5, value 10; power (a bow's range above it), the
+    /// adjustment code and break chance, then magic, usable by anyone and
+    /// the door picture.
+    fn bytes(&self, kit: Kit, record: u8) -> ([u8; 4], [u8; 3]) {
+        let (code, base) = match kit {
+            Kit::Bow => (0x03, -35),
+            Kit::Blade => (0x04, -35),
+            Kit::Mail => (0x05, -65),
+        };
+        let props = [code | u8::from(self.once) << 4, 5, 10, record];
+        let e0 = match kit {
+            Kit::Bow => (self.range - 2) << 5 | (self.power & 0x0F),
+            _ => self.power & 0x1F,
+        };
+        let adj = ((self.adj as i16 - base) / 5) as u8;
+        let e1 = adj << 4 | (self.break_chance & 0x0F);
+        let e2 = u8::from(self.magic) << 7 | 0x40 | PIC_DOOR as u8;
+        (props, [e0, e1, e2])
+    }
 }
 
 impl Default for Player {
@@ -63,21 +213,54 @@ impl Default for Player {
             size: 9,
             dodge: 30,
             parry: 26,
+            armor_skill: 0,
             melee: 31,
             missile: 22,
+            gear: Gear::default(),
         }
     }
 }
 
 impl Player {
     /// Applies `key=value` pairs separated by commas (con, lf, str, dex,
-    /// spd, wis, pow, size, dodge, parry, melee, missile, name).
+    /// spd, wis, pow, size, dodge, parry, armor, melee, missile, name; and
+    /// the kit: `own=blade+bow+mail`, `hold=blade` or `bow`, `wear=mail`,
+    /// `md=0..3` magic defense).
     pub fn with(mut self, spec: &str) -> Result<Self, String> {
         for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             let (k, v) = kv.split_once('=').ok_or(format!("{kv}: want key=value"))?;
-            if k == "name" {
-                self.name = v.to_string();
-                continue;
+            match k {
+                "name" => {
+                    self.name = v.to_string();
+                    continue;
+                }
+                "own" => {
+                    self.gear.own = v.split('+').map(Kit::parse).collect::<Result<_, _>>()?;
+                    continue;
+                }
+                "hold" => {
+                    let kit = Kit::parse(v)?;
+                    if kit == Kit::Mail {
+                        return Err(format!("{kv}: a weapon (blade or bow)"));
+                    }
+                    self.gear.hold = Some(kit);
+                    continue;
+                }
+                "wear" => {
+                    if Kit::parse(v)? != Kit::Mail {
+                        return Err(format!("{kv}: only mail is worn"));
+                    }
+                    self.gear.wear = true;
+                    continue;
+                }
+                "md" => {
+                    self.gear.magic_defense = match v.parse::<u8>() {
+                        Ok(n) if n <= 3 => n,
+                        _ => return Err(format!("{kv}: 0..3")),
+                    };
+                    continue;
+                }
+                _ => {}
             }
             let n: u8 = v.parse().map_err(|_| format!("{kv}: bad number"))?;
             let (field, max) = match k {
@@ -91,6 +274,7 @@ impl Player {
                 "size" => (&mut self.size, 31),
                 "dodge" => (&mut self.dodge, 127),
                 "parry" => (&mut self.parry, 127),
+                "armor" => (&mut self.armor_skill, 127),
                 "melee" => (&mut self.melee, 127),
                 "missile" => (&mut self.missile, 127),
                 _ => return Err(format!("{k}: unknown stat")),
@@ -117,6 +301,7 @@ impl Player {
         r[0x05] = self.power;
         r[0x06] = self.dodge;
         r[0x07] = self.parry;
+        r[0x08] = self.armor_skill;
         r[0x09] = self.melee;
         r[0x0A] = self.missile;
         r[0x0D] = start.0;
@@ -124,7 +309,36 @@ impl Player {
         r[0x0F] = self.size;
         r[0x11] = self.wisdom;
         r[0x16] = 64 + 2;
+        // The kit: magic defense in byte 0's top bits, owned things in the
+        // possession bits (things 33-80 from byte 0x1F), the weapon held
+        // and the armor worn.
+        r[0x00] |= self.gear.magic_defense << 6;
+        for k in self.gear.owned() {
+            own(&mut r, k.thing());
+        }
+        if let Some(k) = self.gear.hold {
+            r[0x14] = k.thing();
+        }
+        if self.gear.wear {
+            r[0x15] = MAIL;
+        }
         r
+    }
+}
+
+/// Sets the possession bit of thing `n` (33..=80) in a 37-byte record:
+/// eight to a byte from byte 0x1F, high bit first, as the decoder reads
+/// them.
+pub fn own(r: &mut [u8; 37], n: u8) {
+    assert!((33..=80).contains(&n), "thing {n} can't be owned");
+    let i = n as usize - 33;
+    r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
+}
+
+impl Player {
+    /// Whether this individual has `kit` at all.
+    pub fn has(&self, kit: Kit) -> bool {
+        self.gear.owned().contains(&kit)
     }
 }
 
@@ -154,7 +368,8 @@ pub struct Resident {
     /// Treasures of ours it owns, by weight (things `CARRY`.., numbered
     /// across all residents in slot order).
     pub carry: Vec<u16>,
-    /// It owns and holds our melee weapon (thing `BLADE`) of this power.
+    /// It owns and holds our melee weapon (thing `BLADE`) of this power
+    /// (the kit keys, `Player::with`, give the rest).
     pub sword: Option<u8>,
 }
 
@@ -213,6 +428,9 @@ impl Resident {
             }
         }
         r.stats = r.stats.with(&rest.join(","))?;
+        if r.sword.is_some() {
+            r.stats.gear.hold = Some(Kit::Blade);
+        }
         Ok(r)
     }
 
@@ -230,15 +448,8 @@ impl Resident {
         r[0x10] = 1 << 4 | (self.room & 0x0F);
         r[0x12..0x14].copy_from_slice(&self.wealth.to_le_bytes());
         r[0x16] = picture + 2;
-        let owned = (0..self.carry.len())
-            .map(|k| first_carry as usize + k)
-            .chain(self.sword.map(|_| BLADE as usize));
-        for n in owned {
-            let i = n - 33;
-            r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
-        }
-        if self.sword.is_some() {
-            r[0x14] = BLADE;
+        for k in 0..self.carry.len() {
+            own(&mut r, first_carry + k as u8);
         }
         r
     }
@@ -304,6 +515,12 @@ pub struct MoveBasic {
     pub side_chance: u8,
     /// Piles of gold (thing `GOLD`) on room 0 squares: x, y, amount.
     pub gold: Vec<(u8, u8, u16)>,
+    /// The stats of our blade, bow and mail, over `KitSpec::default_for`
+    /// (the blade's power from the first `sword=` otherwise). Each is
+    /// written when given or when anyone has it.
+    pub blade: Option<KitSpec>,
+    pub bow: Option<KitSpec>,
+    pub mail: Option<KitSpec>,
 }
 
 /// A locked one-way room door of ours.
@@ -419,6 +636,11 @@ pub const CARRY: u8 = 50;
 pub const BLADE: u8 = 59;
 /// Its extended record (weapons' records start at offset 0).
 pub const BLADE_RECORD: u8 = 0;
+/// Our missile weapon and our armor, and their extended records.
+pub const BOW: u8 = 41;
+pub const BOW_RECORD: u8 = 1;
+pub const MAIL: u8 = 40;
+pub const MAIL_RECORD: u8 = 2;
 /// Gold: thing 81 in every corpus adventure (docs/format-notes.md).
 pub const GOLD: u8 = 81;
 
@@ -452,6 +674,9 @@ impl Default for MoveBasic {
             room_chance: 0,
             side_chance: 0,
             gold: Vec::new(),
+            blade: None,
+            bow: None,
+            mail: None,
         }
     }
 }
@@ -748,21 +973,48 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         let [lo, hi] = n.to_le_bytes();
         items.push((15, 14, lo, hi));
     }
-    // Our melee weapon: type 4, weight 5, value 10; extended record: its
-    // power, no break chance, attack adjustment 0 (7 x 5 - 35), the door
-    // picture, usable by anyone.
-    if let Some(power) = s
+    // Our blade, bow and mail (`KitSpec::bytes`): written when the
+    // scenario gives their stats or anyone has them.
+    let individuals: Vec<&Player> = s
+        .player
+        .iter()
+        .chain(s.player2.iter())
+        .chain(s.residents.iter().map(|c| &c.stats))
+        .chain(s.random_creature.iter().map(|c| &c.stats))
+        .collect();
+    let sword = s
         .residents
         .iter()
         .chain(s.random_creature.iter())
-        .find_map(|c| c.sword)
-    {
-        f.thing(BLADE as usize, "BLADE", [0x04, 5, 10, BLADE_RECORD]);
-        no_messages(&mut f, BLADE as usize);
-        f.extended(
-            None,
-            BLADE_RECORD as usize,
-            [power & 0x1F, 7 << 4, 0x40 | PIC_DOOR as u8],
+        .find_map(|c| c.sword);
+    let mut top_record = None;
+    for (kit, given, name, record) in [
+        (Kit::Blade, s.blade, "BLADE", BLADE_RECORD),
+        (Kit::Bow, s.bow, "BOW", BOW_RECORD),
+        (Kit::Mail, s.mail, "MAIL", MAIL_RECORD),
+    ] {
+        let used = individuals.iter().any(|p| p.has(kit));
+        if given.is_none() && !used {
+            continue;
+        }
+        let mut spec = given.unwrap_or(KitSpec::default_for(kit));
+        if kit == Kit::Blade && given.is_none() {
+            if let Some(p) = sword {
+                spec.power = p & 0x1F;
+            }
+        }
+        let (props, ext) = spec.bytes(kit, record);
+        f.thing(kit.thing() as usize, name, props);
+        no_messages(&mut f, kit.thing() as usize);
+        f.extended(None, record as usize, ext);
+        top_record = top_record.max(Some(record as usize));
+    }
+    // Our magic item's record sits after the template's weapon records.
+    if let (Some(top), true) = (top_record, s.item.is_some()) {
+        let off = f.data[l.things + acs_core::layout::things::MAGIC_ITEM_OFFSET] as usize;
+        assert!(
+            off >= (top + 1) * 3,
+            "the template's magic item records start at {off}, over our kit's"
         );
     }
     // Treasures residents carry: things CARRY.., never placed.
@@ -882,6 +1134,87 @@ mod tests {
         assert_eq!((p.x, p.y, p.region), (12, 12, 0));
         assert_eq!(p.picture, Some(64));
         assert!(Player::default().with("spd=16").is_err());
+    }
+
+    #[test]
+    fn the_kit_decodes_as_written() {
+        use acs_core::model::{MagicDefense, ThingKind};
+        let s = MoveBasic {
+            player: Some(
+                Player::default()
+                    .with("hold=blade,wear=mail,own=bow,armor=40,md=1")
+                    .unwrap(),
+            ),
+            residents: vec![Resident::parse("name=E,hold=bow,own=blade,md=3").unwrap()],
+            blade: Some(KitSpec::parse(Kit::Blade, "power=12,adj=-10,break=15,once=1").unwrap()),
+            bow: Some(KitSpec::parse(Kit::Bow, "power=6,range=7,adj=20,magic=1").unwrap()),
+            mail: Some(KitSpec::parse(Kit::Mail, "power=4,adj=-30,break=5,magic=1").unwrap()),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let [p] = adv.retired_players.as_slice() else {
+            panic!("one retired player");
+        };
+        let owned = |c: &acs_core::model::Creature| {
+            let mut v: Vec<u16> = c.possessions.iter().map(|p| p.thing).collect();
+            v.sort();
+            v
+        };
+        assert_eq!(
+            (p.weapon, p.armor, p.armor_skill),
+            (BLADE as u16, MAIL as u16, 40)
+        );
+        assert_eq!(p.magic_defense, MagicDefense::NonMagicHalfDamage);
+        assert_eq!(owned(p), vec![MAIL as u16, BOW as u16, BLADE as u16]);
+        let e = adv.regions[0].residents.iter().find(|c| c.in_use).unwrap();
+        assert_eq!((e.weapon, e.armor), (BOW as u16, 0));
+        assert_eq!(e.magic_defense, MagicDefense::MagicHalfDamage);
+        assert_eq!(owned(e), vec![BOW as u16, BLADE as u16]);
+        let kind = |n: u8| adv.things[n as usize - 1].kind.clone();
+        let ThingKind::MeleeWeapon {
+            stats,
+            disappears_after_use,
+            ..
+        } = kind(BLADE)
+        else {
+            panic!("the blade")
+        };
+        assert_eq!(
+            (
+                stats.power,
+                stats.attack_adjustment,
+                stats.break_chance,
+                stats.magic
+            ),
+            (12, -10, 15, false)
+        );
+        assert!(disappears_after_use && stats.usable_by_anyone);
+        let ThingKind::MissileWeapon { stats, .. } = kind(BOW) else {
+            panic!("the bow")
+        };
+        assert_eq!(
+            (stats.power, stats.range, stats.attack_adjustment, stats.magic),
+            (6, Some(7), 20, true)
+        );
+        let ThingKind::Armor { stats, .. } = kind(MAIL) else {
+            panic!("the mail")
+        };
+        assert_eq!(
+            (
+                stats.power,
+                stats.attack_adjustment,
+                stats.break_chance,
+                stats.magic
+            ),
+            (4, -30, 5, true)
+        );
+        assert!(KitSpec::parse(Kit::Blade, "adj=-40").is_err());
+        assert!(KitSpec::parse(Kit::Mail, "adj=-65").is_ok());
+        assert!(KitSpec::parse(Kit::Bow, "power=16").is_err());
+        assert!(Player::default().with("hold=mail").is_err());
+        assert!(Player::default().with("md=4").is_err());
     }
 
     #[test]
