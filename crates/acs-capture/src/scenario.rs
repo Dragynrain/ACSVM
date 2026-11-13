@@ -154,12 +154,15 @@ pub struct Resident {
     /// Treasures of ours it owns, by weight (things `CARRY`.., numbered
     /// across all residents in slot order).
     pub carry: Vec<u16>,
+    /// It owns and holds our melee weapon (thing `BLADE`) of this power.
+    pub sword: Option<u8>,
 }
 
 impl Resident {
     /// `key=value` pairs separated by commas: `x`, `y`, `align` (thief,
     /// neutral, enemy, friend), `aggressive` and `brave` (0 or 1), `room`
     /// (0 or 1), `gold` (wealth), `carry` (treasure weights joined by `+`),
+    /// `sword` (the power of our melee weapon, owned and held),
     /// and any stat `Player::with` takes. Default: a Speed 3 peaceful, cautious
     /// friend named A with Constitution and Life Force 10.
     pub fn parse(spec: &str) -> Result<Self, String> {
@@ -172,6 +175,7 @@ impl Resident {
             room: 0,
             wealth: 0,
             carry: Vec::new(),
+            sword: None,
         };
         let mut rest = Vec::new();
         for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -197,6 +201,7 @@ impl Resident {
                 "aggressive" => r.aggressive = flag()?,
                 "brave" => r.brave = flag()?,
                 "room" => r.room = num()?,
+                "sword" => r.sword = Some(num()?.min(31)),
                 "gold" => r.wealth = v.parse().map_err(|_| format!("{kv}: bad number"))?,
                 "carry" => {
                     r.carry = v
@@ -225,9 +230,15 @@ impl Resident {
         r[0x10] = 1 << 4 | (self.room & 0x0F);
         r[0x12..0x14].copy_from_slice(&self.wealth.to_le_bytes());
         r[0x16] = picture + 2;
-        for k in 0..self.carry.len() {
-            let i = (first_carry as usize + k) - 33;
+        let owned = (0..self.carry.len())
+            .map(|k| first_carry as usize + k)
+            .chain(self.sword.map(|_| BLADE as usize));
+        for n in owned {
+            let i = n - 33;
             r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
+        }
+        if self.sword.is_some() {
+            r[0x14] = BLADE;
         }
         r
     }
@@ -404,6 +415,10 @@ pub fn take_weight(spec: &str) -> Result<(u8, u8), String> {
 /// The first master thing slot of the treasures residents carry (up to
 /// `TAKE`).
 pub const CARRY: u8 = 50;
+/// Our melee weapon, which `sword=` creatures own and hold.
+pub const BLADE: u8 = 59;
+/// Its extended record (weapons' records start at offset 0).
+pub const BLADE_RECORD: u8 = 0;
 /// Gold: thing 81 in every corpus adventure (docs/format-notes.md).
 pub const GOLD: u8 = 81;
 
@@ -729,13 +744,30 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     for &(x, y, n) in &s.gold {
         items.push((x, y, GOLD, n));
     }
+    // Our melee weapon: type 4, weight 5, value 10; extended record: its
+    // power, no break chance, attack adjustment 0 (7 x 5 - 35), the door
+    // picture, usable by anyone.
+    if let Some(power) = s
+        .residents
+        .iter()
+        .chain(s.random_creature.iter())
+        .find_map(|c| c.sword)
+    {
+        f.thing(BLADE as usize, "BLADE", [0x04, 5, 10, BLADE_RECORD]);
+        no_messages(&mut f, BLADE as usize);
+        f.extended(
+            None,
+            BLADE_RECORD as usize,
+            [power & 0x1F, 7 << 4, 0x40 | PIC_DOOR as u8],
+        );
+    }
     // Treasures residents carry: things CARRY.., never placed.
     let mut next = CARRY;
     let mut first_carry = Vec::new();
     for c in s.residents.iter().chain(s.random_creature.iter()) {
         first_carry.push(next);
         for &w in &c.carry {
-            assert!(next < TAKE, "at most {} carried treasures", TAKE - CARRY);
+            assert!(next < BLADE, "at most {} carried treasures", BLADE - CARRY);
             let (b0, b1) = weight_bytes(w).expect("weight");
             f.thing(
                 next as usize,
@@ -957,6 +989,22 @@ mod tests {
         assert_eq!(owned(a), vec![50, 51]);
         assert_eq!((b.room, owned(b)), (1, vec![52]));
         assert_eq!(adv.things[49].name, "BAG1");
+        let s2 = MoveBasic {
+            residents: vec![Resident::parse("name=E,sword=12").unwrap()],
+            ..MoveBasic::default()
+        };
+        let adv2 = acs_core::decode(&move_basic(&s2, None))
+            .expect("decodes")
+            .adventure;
+        let e = adv2.regions[0].residents.iter().find(|c| c.in_use).unwrap();
+        assert_eq!((e.weapon, owned(e)), (u16::from(BLADE), vec![u16::from(BLADE)]));
+        let acs_core::model::ThingKind::MeleeWeapon { stats, .. } = &adv2.things[58].kind else {
+            panic!("{:?}", adv2.things[58].kind)
+        };
+        assert_eq!(
+            (stats.power, stats.break_chance, stats.attack_adjustment),
+            (12, 0, 0)
+        );
         assert_eq!(adv.things[80].name, "GOLD");
         let items = &adv.regions[0].rooms[0].items;
         assert!(items.iter().any(|i| (i.x, i.y, i.thing) == (2, 7, 81)));

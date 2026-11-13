@@ -93,6 +93,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   adding a long fixed wait. `snap.rs` saves a snapshot just before a roll
   (researcher inputs, state sweeps); `turns.rs` logs who moves when from
   the name strip (`--creature` puts residents of ours in the room).
+  `memwatch.rs` is `run mem` (`--draws` logs every roll; `--answer T`
+  presses through the messages creatures' pick-ups show).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in

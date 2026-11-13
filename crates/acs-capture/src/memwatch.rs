@@ -54,18 +54,21 @@ pub struct MemSetup {
 
 /// Rows of the inner screen below the name strip, where messages show.
 const MESSAGE_ROWS: std::ops::Range<usize> = 170..200;
-/// The message area's background, blue.
-const MESSAGE_BG: u8 = 6;
-
-/// Whether the message area holds any text.
+/// Whether the message area holds any text: pixels other than black and
+/// the area's most common colour (its background).
 fn message_shown(f: &crate::screen::Frame) -> bool {
     let (_, _, w, h) = f.inner();
-    let lit = MESSAGE_ROWS
-        .filter(|&y| y < h)
-        .flat_map(|y| (0..w).map(move |x| (x, y)))
-        .filter(|&(x, y)| f.at(x, y) != MESSAGE_BG)
-        .count();
-    lit > 50
+    let mut counts = [0usize; 256];
+    for y in MESSAGE_ROWS.filter(|&y| y < h) {
+        for x in 0..w {
+            counts[f.at(x, y) as usize] += 1;
+        }
+    }
+    // Black (the movement bar's column) doesn't count either.
+    counts[0] = 0;
+    let total: usize = counts.iter().sum();
+    let bg = counts.iter().copied().max().unwrap_or(0);
+    total - bg > 50
 }
 
 impl Runner<'_> {

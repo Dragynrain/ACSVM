@@ -17,6 +17,7 @@ neighbour with the lowest 3 x steps to the goal + 5 x the square's cost +
     python scripts/creaturecheck.py one RUNS.jsonl
     python scripts/creaturecheck.py follow RUNS.jsonl
     python scripts/creaturecheck.py thief RUNS.jsonl [--smart fighters]
+    python scripts/creaturecheck.py fight RUNS.jsonl
 
 `thief` (capture.md 10.14.4) adds things: treasures and gold piles the
 creatures may seek (thing ranks), cost rank / 32 to step on and take; the
@@ -45,6 +46,13 @@ SCENARIOS = {
         "exits": [(7, 4)],
         "creatures": [((10, 2), 6, "slinker friend", 13), ((12, 7), 4, "slinker neutral", 13)],
     },
+    "fight": {
+        "inside": (1, 13, 1, 8),
+        "player": (4, 4),
+        "player_moves": 6,
+        "exits": [],
+        "creatures": [((6, 4), 3, "fighter enemy", 13)],
+    },
     "thief": {
         "inside": (1, 13, 1, 8),
         "player": (4, 4),
@@ -57,8 +65,10 @@ SCENARIOS = {
     },
 }
 # Ranks (random-rolls findings 17.2) for our types: the player, an exit.
-RANK_PLAYER = {"slinker friend": 26}
+RANK_PLAYER = {"slinker friend": 26, "fighter enemy": 0}
 RANK_EXIT = {"slinker friend": 32, "slinker neutral": 32}
+# An unarmed fighter enemy's turn takes one roll more (capture.md 10.14.6).
+EXTRA_ROLL = {"fighter enemy": 10}
 # Thing ranks (creatures 6.4): what each type takes and seeks.
 RANK_THING = {
     "slinker thief": {"gold": 32, "treasure": 32},
@@ -67,6 +77,9 @@ RANK_THING = {
 }
 EXIT_COST = 1  # a slinker's
 FLOOR, STOOD = 2, 4
+# A step onto a thing it takes takes it from the square beside instead,
+# and ends the turn (capture.md 10.14.4); set by --take-beside.
+TAKE_BESIDE = False
 
 
 def roll(raw, n):
@@ -122,6 +135,11 @@ def simulate(sc, draws, smart="friend-enemy"):
         if smart_roll(kind, smart):
             if 6 <= wisdom <= 14:
                 draws.take(10)  # smartness
+        if kind in EXTRA_ROLL:
+            # One more roll before the first step, not reported yet (a
+            # 0..9 here or a die before the top-of-turn die fit all of
+            # capture.md 10.14.6; the combat brief asks).
+            draws.take(EXTRA_ROLL[kind])
         me = at[k]
         # The goal: rank + steps from the turn's start; under 200 or none.
         cands = []
@@ -168,6 +186,13 @@ def simulate(sc, draws, smart="friend-enemy"):
                     best = (score, sq)
             if best is None:
                 break
+            held = [t for t in things if t[0] == best[1]]
+            if TAKE_BESIDE and held:
+                # It takes the thing from where it stands, and its turn ends.
+                for t in held:
+                    things.remove(t)
+                    taken.append((k, t))
+                break
             me = best[1]
             stood.add(me)
             path.append(me)
@@ -190,14 +215,16 @@ def observed(v, sc):
     n = len(sc["creatures"])
     x0, x1, y0, y1 = sc["inside"]
     names = v["watch"]
-    pos = [[v["start"][2 * k], v["start"][2 * k + 1]] for k in range(n)]
+    # Slot k's square: +13 and +14 of its record at $E1A3 + 37 k (section 9).
+    addr = {f"{0xE1A3 + 37 * k + 13 + a:04X}": (k, a) for k in range(n) for a in (0, 1)}
+    start = dict(zip(names, v["start"]))
+    pos = [[start[f"{0xE1A3 + 37 * k + 13:04X}"], start[f"{0xE1A3 + 37 * k + 14:04X}"]] for k in range(n)]
     last = [tuple(p) for p in pos]
     paths = [[] for _ in range(n)]
     for c in v["changes"]:
-        i = names.index(c["addr"])
-        if i >= 2 * n:
+        if c["addr"] not in addr:
             continue
-        k, axis = divmod(i, 2)
+        k, axis = addr[c["addr"]]
         pos[k][axis] = c["to"]
         sq = tuple(pos[k])
         inside = x0 <= sq[0] <= x1 and y0 <= sq[1] <= y1
@@ -215,7 +242,10 @@ def main():
     ap.add_argument("scenario", choices=SCENARIOS)
     ap.add_argument("runs")
     ap.add_argument("--smart", choices=["friend-enemy", "fighters"], default="friend-enemy")
+    ap.add_argument("--take-beside", action="store_true")
     a = ap.parse_args()
+    global TAKE_BESIDE
+    TAKE_BESIDE = a.take_beside
     sc = SCENARIOS[a.scenario]
     right = wrong = steps = 0
     for text in open(a.runs, encoding="utf-8"):
