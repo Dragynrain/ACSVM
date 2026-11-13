@@ -184,6 +184,14 @@ fn start_seeded(a: Adventure, seed: u64, room: u8, x: u8, y: u8) -> Game {
     g
 }
 
+/// Resident `slot` owns the sword (it readies it at its turn's start).
+fn armed(a: &mut Adventure, slot: usize) {
+    a.regions[0].residents[slot].possessions = vec![Possession {
+        thing: SWORD,
+        count: 1,
+    }];
+}
+
 fn at(room: u8, x: u8, y: u8) -> Location {
     Location::Room {
         region: 1,
@@ -238,10 +246,25 @@ fn residents_wait_until_a_player_is_in_their_room() {
 }
 
 #[test]
+fn an_unarmed_fighter_keeps_stepping_round_its_foe() {
+    // 7.1 (capture.md 10.14.6): no readied weapon, no confrontation.
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 7, 5, Alignment::Enemy, true));
+        let mut g = start(a, 0, 2, 2);
+        for _ in 0..3 {
+            let ev = wait(&mut g);
+            assert!(!ev.iter().any(|e| matches!(e, Event::CreatureConfronts { .. })));
+        }
+    });
+}
+
+#[test]
 fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
     both(|p| {
         let mut a = adventure(p);
         put(&mut a, 1, spec(0, 7, 5, Alignment::Enemy, true));
+        armed(&mut a, 1);
         let mut g = start(a, 0, 2, 2);
         let ev = wait(&mut g);
         assert!(ev.contains(&Event::CreatureTurn {
@@ -297,6 +320,7 @@ fn creatures_follow_a_player_through_the_door_they_took() {
         // west one into the deleted room (6).
         let mut a = adventure(p);
         put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
+        armed(&mut a, 1);
         let mut g = start(a, 0, 8, 2);
         // Through the east door onto EAST (1,3): a door into another room
         // ends the turn (movement 2.3), so the creature's turn follows.
@@ -383,10 +407,27 @@ fn thieves_take_treasure_and_gold_but_never_step_on_magic_items() {
         item(&mut a, 0, 4, 2, PILLAR, 0);
         let mut g = start(a, 0, 1, 1);
         let mut stood = Vec::new();
+        // 7.5: where it stood at each pick-up, and whether its turn went on.
+        let mut takes = Vec::new();
+        let mut here = at(0, 2, 3);
         for _ in 0..3 {
-            for e in wait(&mut g) {
-                if let Event::CreatureMoved { slot: 1, to, .. } = e {
-                    stood.push(to);
+            let ev = wait(&mut g);
+            for (i, e) in ev.iter().enumerate() {
+                match e {
+                    Event::CreatureMoved { slot: 1, to, .. } => {
+                        stood.push(*to);
+                        here = *to;
+                    }
+                    Event::CreaturePickedUp { slot: 1, .. } | Event::CreatureGoldPickedUp { slot: 1, .. } => {
+                        let moved_after = ev[i..]
+                            .iter()
+                            .take_while(|e| {
+                                !matches!(e, Event::TurnStarted { .. } | Event::CreatureTurn { .. })
+                            })
+                            .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }));
+                        takes.push((here, moved_after));
+                    }
+                    _ => {}
                 }
             }
         }
@@ -395,6 +436,16 @@ fn thieves_take_treasure_and_gold_but_never_step_on_magic_items() {
         assert_eq!(gem, Some(true), "{c:?}");
         assert_eq!(c.map(|c| c.wealth), Some(5));
         assert!(!stood.contains(&at(0, 4, 3)), "stepped on the wand");
+        // 7.5: it takes from a square beside, and the take ends its turn.
+        assert_eq!(takes.len(), 2, "{takes:?}");
+        for (from, moved_after) in &takes {
+            let Location::Room { x, y, .. } = *from else {
+                panic!("{from:?}")
+            };
+            let beside = |(tx, ty): (u8, u8)| x.abs_diff(tx) + y.abs_diff(ty) == 1;
+            assert!(beside((6, 3)) || beside((6, 5)), "{takes:?}");
+            assert!(!moved_after, "{takes:?}");
+        }
         assert_eq!(top(&g, 0, 4, 3), Some(WAND));
     });
 }
@@ -416,20 +467,38 @@ fn friends_leave_gold_lying() {
 }
 
 #[test]
-fn overburdened_creatures_drop_a_treasure_and_leave_it() {
+fn overburdened_creatures_drop_all_their_gold_then_a_treasure_one_a_turn() {
+    // 8.1 (capture.md 10.14.5): all the gold first, then the
+    // lowest-numbered treasure; a turn with a drop takes no steps.
     both(|p| {
         let mut a = adventure(p);
         let mut s = spec(0, 5, 3, Alignment::Enemy, false);
-        s.speed = 0;
+        s.speed = 2;
         put(&mut a, 1, s);
-        // Capacity (12 - 0) x 100 = 1200; three rocks (600) and 800 gold.
+        // Capacity (3 - 0) x 100 = 300; three rocks (600) and 800 gold.
         let c = &mut a.regions[0].residents[1];
+        c.strength = 3;
         c.possessions = vec![Possession {
             thing: ROCK,
             count: 3,
         }];
         c.wealth = 800;
         let mut g = start(a, 0, 1, 1);
+        let moved = |ev: &[Event]| {
+            ev.iter()
+                .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }))
+        };
+        let ev = wait(&mut g);
+        assert!(ev.contains(&Event::CreatureDropped {
+            region: 1,
+            slot: 1,
+            thing: GOLD,
+            amount: 800,
+            at: Some(at(0, 5, 3))
+        }));
+        assert!(!moved(&ev));
+        assert_eq!(g.creature(1, 1).unwrap().wealth, 0);
+        assert_eq!(top(&g, 0, 5, 3), Some(GOLD));
         let ev = wait(&mut g);
         assert!(ev.contains(&Event::CreatureDropped {
             region: 1,
@@ -438,30 +507,8 @@ fn overburdened_creatures_drop_a_treasure_and_leave_it() {
             amount: 1,
             at: Some(at(0, 5, 3))
         }));
-        let ev = wait(&mut g);
-        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureDropped { .. })));
+        assert!(!moved(&ev));
         assert_eq!(top(&g, 0, 5, 3), Some(ROCK));
-    });
-}
-
-#[test]
-fn overburdened_creatures_drop_just_enough_gold() {
-    both(|p| {
-        let mut a = adventure(p);
-        let mut s = spec(0, 5, 3, Alignment::Enemy, false);
-        s.speed = 0;
-        put(&mut a, 1, s);
-        a.regions[0].residents[1].wealth = 1300;
-        let mut g = start(a, 0, 1, 1);
-        let ev = wait(&mut g);
-        assert!(ev.contains(&Event::CreatureDropped {
-            region: 1,
-            slot: 1,
-            thing: GOLD,
-            amount: 100,
-            at: Some(at(0, 5, 3))
-        }));
-        assert_eq!(g.creature(1, 1).unwrap().wealth, 1200);
     });
 }
 
@@ -516,6 +563,28 @@ fn a_friend_next_to_the_player_drops_a_magic_item_beside_them() {
             at: Some(at(0, 3, 1))
         }));
         assert_eq!(top(&g, 0, 3, 1), Some(WAND));
+    });
+}
+
+#[test]
+fn a_friend_with_no_magic_item_gives_a_treasure_and_keeps_its_gold() {
+    // 7.3 (capture.md 10.14.5): a treasure when it has no magic item.
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 3, 3, Alignment::Friend, false));
+        let c = &mut a.regions[0].residents[1];
+        c.possessions = vec![Possession { thing: GEM, count: 1 }];
+        c.wealth = 40;
+        let mut g = start(a, 0, 3, 2);
+        let ev = wait(&mut g);
+        assert!(ev.contains(&Event::CreatureDropped {
+            region: 1,
+            slot: 1,
+            thing: GEM,
+            amount: 1,
+            at: Some(at(0, 3, 1))
+        }));
+        assert_eq!(g.creature(1, 1).unwrap().wealth, 40);
     });
 }
 

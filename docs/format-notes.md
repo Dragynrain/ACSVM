@@ -314,6 +314,11 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   likely the pile's size: 117 piles hold 0-51 (37 are 0). Other carriable
   placements have parameter 1 (1,228) or 0 (93), with a handful of stray
   values; their meaning is unknown and the engine ignores it.
+  But on the C64 (capture.md 10.14.4) piles our disks placed with
+  parameter 5 and 10 were picked up by creatures as gold worth 512 and
+  1,361, every time: the parameter is not simply the amount, or our
+  disks place piles differently from the editor. Open: a capture of
+  piles with parameters 0 to 51, read off the take message.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
 - **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
   action code 15 (outside 0-14) and power 0. It is never placed; three

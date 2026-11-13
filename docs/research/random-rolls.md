@@ -352,9 +352,18 @@ Falling away (item 15), checked later with every draw logged (capture.md
 slot roll is as found, but the percentile is one roll whenever the slot
 is in use (also with no random creature left), and under 20 every random
 creature in a room with no player at the round's end goes, its room on
-the round's list or not. Creatures 2.4 follows the capture. **Open, for a
-next pass:** fighters (attacks, firing, the second table), the first-step
-cost of some things, the map encounters, item 18.
+the round's list or not. Creatures 2.4 follows the capture.
+Thieves and gold (capture.md 10.14.4; 64 states, 598 steps, all
+predicted): the goal and step rules hold for things too, with two
+additions the findings did not give: an aggressive thief takes the
+smartness roll ("fighters" means every fighter), and a creature whose
+picked square holds a thing it takes takes it from beside, without
+moving, and its turn ends. **Open, for a next pass:** fighters (attacks,
+firing, the second table), the first-step cost of some things, the map
+encounters, item 18; and two seen by capture: the square an
+overburdened creature's (or a friend's) dropped treasure lands on, which
+takes one to five pairs of rolls (capture.md 10.14.5), and what a placed
+gold pile is worth (10 gave 1,361).
 
 **Checked by capture** (capture.md 10.12): healing, 253 of 253 runs of a
 256-state sweep exact; the tick's delay, 252 of 252; the seed, 5. Specs:

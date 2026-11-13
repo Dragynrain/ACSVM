@@ -99,7 +99,7 @@ impl Game {
     /// The turn itself; the moves left unused and the turn's full moves,
     /// unless it cast or used an item (or died).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
-        self.overburdened_drop(region, slot, ev);
+        let dropped = self.overburdened_drop(region, slot, ev);
         self.creature(region, slot)?; // its drop spell may have killed it
         self.creature_ready(region, slot, ev);
         let c = self.creature(region, slot)?;
@@ -107,6 +107,10 @@ impl Game {
         ev.push(Event::CreatureTurn { region, slot, moves });
         self.turn_top(Who::Creature { region, slot }, ev);
         self.creature(region, slot)?;
+        // 8.1: a turn with a drop takes no steps; its moves are idled.
+        if dropped {
+            return Some((moves, moves));
+        }
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
             return None;
@@ -394,7 +398,8 @@ impl Game {
                 {
                     return false;
                 }
-                if is_fighter(&c) && is_foe(&c, &o) {
+                // An unarmed fighter keeps stepping round its foe (7.1).
+                if is_fighter(&c) && is_foe(&c, &o) && c.weapon != 0 {
                     ev.push(Event::CreatureConfronts {
                         region,
                         slot,
@@ -461,15 +466,10 @@ impl Game {
                 false
             }
             Sq::Take(i) => {
+                // 7.5: it takes the thing from where it stands, and its
+                // turn ends.
                 self.creature_pick_up(region, slot, i, ev);
-                self.set_creature_xy(region, slot, nx, ny);
-                ev.push(Event::CreatureMoved {
-                    region,
-                    slot,
-                    from,
-                    to,
-                });
-                true
+                false
             }
             _ => {
                 self.set_creature_xy(region, slot, nx, ny);
@@ -492,6 +492,7 @@ impl Game {
     }
 
     /// 7.5: gold adds to wealth (the rest stays); a treasure is taken.
+    /// The creature stays where it is.
     fn creature_pick_up(&mut self, region: u8, slot: usize, index: usize, ev: &mut Vec<Event>) {
         let Some(room) = self.creature(region, slot).map(|c| c.room) else {
             return;
@@ -642,39 +643,36 @@ impl Game {
         self.nearest_free(region, room, x, y)
     }
 
-    /// 8.1: one drop a turn while load is above capacity.
-    fn overburdened_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
+    /// 8.1: one drop a turn while load is above capacity: all its gold,
+    /// else its lowest-numbered treasure or magic item. True if it dropped.
+    fn overburdened_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
-            return;
+            return false;
         };
         let (load, cap) = (creatures::load(&self.adv, &c), creatures::capacity(&c));
         if load <= cap {
-            return;
+            return false;
         }
         let mut owned: Vec<ThingId> = c
             .possessions
             .iter()
             .filter(|p| p.count > 0)
             .map(|p| p.thing)
+            .filter(|&t| {
+                t != GOLD
+                    && matches!(
+                        self.thing(t).map(|t| &t.kind),
+                        Some(ThingKind::MagicItem { .. } | ThingKind::Treasure { .. })
+                    )
+            })
             .collect();
         owned.sort_unstable();
-        let of_kind = |magic: bool| {
-            owned.iter().copied().find(|&t| {
-                matches!(
-                    (self.thing(t).map(|t| &t.kind), magic),
-                    (Some(ThingKind::MagicItem { .. }), true) | (Some(ThingKind::Treasure { .. }), false)
-                ) && t != GOLD
-            })
-        };
-        let gold_weight = inventory::weight(&self.adv, GOLD);
-        let (thing, amount) = if let Some(t) = of_kind(true).or_else(|| of_kind(false)) {
+        let (thing, amount) = if c.wealth > 0 {
+            (GOLD, c.wealth)
+        } else if let Some(&t) = owned.first() {
             (t, 1)
-        } else if c.wealth > 0 && gold_weight > 0 {
-            let need = ((load - cap) + gold_weight - 1) / gold_weight;
-            let n = (need.max(1) as u16).min(PILE_LIMIT).min(c.wealth);
-            (GOLD, n)
         } else {
-            return;
+            return false;
         };
         if let Some(cm) = self.creature_mut(region, slot) {
             if thing == GOLD {
@@ -697,7 +695,13 @@ impl Game {
             y: c.y,
         };
         if !vanishes {
-            self.put_on_top(region, c.room, c.x, c.y, thing, amount as u8);
+            // Gold in piles of up to 255 (as for the dead, magic 7.2).
+            let mut left = amount;
+            while left > 0 {
+                let n = left.min(PILE_LIMIT);
+                self.put_on_top(region, c.room, c.x, c.y, thing, n as u8);
+                left -= n;
+            }
         }
         ev.push(Event::CreatureDropped {
             region,
@@ -707,6 +711,7 @@ impl Game {
             at: (!vanishes).then_some(at),
         });
         self.creature_drop_spell(region, slot, thing, at, ev);
+        true
     }
 
     /// 8.2: a missile weapon when safe, else a melee weapon; lowest number.
@@ -768,10 +773,21 @@ impl Game {
             .iter()
             .filter(|p| p.count > 0)
             .map(|p| p.thing)
-            .filter(|&t| matches!(self.thing(t).map(|t| &t.kind), Some(ThingKind::MagicItem { .. })))
+            .filter(|&t| t != GOLD)
             .collect();
         items.sort_unstable();
-        let Some(&thing) = items.first() else {
+        // 7.3: its lowest-numbered magic item, else treasure.
+        let of = |magic: bool| {
+            items
+                .iter()
+                .copied()
+                .find(|&t| match self.thing(t).map(|t| &t.kind) {
+                    Some(ThingKind::MagicItem { .. }) => magic,
+                    Some(ThingKind::Treasure { .. }) => !magic,
+                    _ => false,
+                })
+        };
+        let Some(thing) = of(true).or_else(|| of(false)) else {
             return false;
         };
         let Some(r) = self.room(region, c.room) else {

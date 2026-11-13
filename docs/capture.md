@@ -1078,3 +1078,69 @@ In this order (planned November 2026):
       show another value for one sample and the old one at the next (most
       likely a read while other memory is banked in); the checker drops
       those.
+   4. *Thieves and gold* (creatures 6.5, 7.5; `thief`, November 2026).
+      New scenario keys: `--thing X,Y[,W]` puts a treasure of ours on a
+      room 0 square (things 60, 61, ..; no message of its own),
+      `--gold X,Y,N` a pile of gold (thing 81, item parameter N), and a
+      creature of ours takes `room=` (0 or 1), `gold=` (its wealth) and
+      `carry=W1+W2` (treasures of ours it owns, things 50, 51, .. across
+      the residents). The program stops for a message whenever a creature
+      takes something ("XX takes THING1", "YY finds gold worth 512 and now
+      has 512"), so `mem --answer T` presses the button while the name
+      strip names someone other than the players and the message area
+      (inner rows 170 to 199) holds anything besides its background and
+      black, and saves a screenshot of each of the first 8 messages a run.
+      The room: T on 4,4; treasures on 12,2 and 9,7; gold piles of 10 on
+      2,2 and of 5 on 11,6; XX, a peaceful thief (Speed 5) on 8,3, YY, an
+      aggressive thief (Speed 4) on 12,8, ZZ, a peaceful enemy (Speed 4)
+      on 2,5. From `rr5/thief-turn-end.vsf`, 64 states, 14 million
+      instructions, every draw logged, the creatures' squares, gold and
+      possession bytes watched. Result: `scripts/creaturecheck.py thief
+      --smart fighters --take-beside` predicts all 64 runs, 598 steps,
+      once two things are added to the goal and step rules: YY, a fighter
+      thief, takes the smartness roll (with friends and enemies only, 9
+      runs fit), and when the square a creature picks holds a thing it
+      takes, it takes it from beside without moving and its turn ends
+      (the possession bit set while its square stayed beside the thing;
+      no step rolls after). XX's two treasures scored the same (37) and it
+      went for 12,2, the first in the room's order. The gold amounts:
+      YY's pile of 5 gave 512 in all 56 takes, ZZ's pile of 10 gave 1,361
+      in all 42: not the item parameter (format-notes).
+   5. *The overburdened drop* (creatures 8.1, 7.3; `burden`, `burden2`,
+      November 2026). Strength 1, Speed 2 creatures of ours: WA (300
+      gold, treasures of weight 400 and 1, things 50 and 51), WB (2,000
+      gold), WC (treasures of weight 1 and 400, things 52 and 53) and,
+      as a control, WD (Strength 20, 100 gold and a treasure of weight 5).
+      `mem --draws` from the turn's end, 16 states, three rounds; plus
+      screenshots each round. Result, every run alike: WA dropped all 300
+      gold on its first turn and thing 50 on its second; WB all 2,000 on
+      its first; WC thing 52 (weight 1) on its first and 53 on its
+      second; none of them stepped in a turn with a drop, and each walked
+      once under capacity. WD walked up beside T and dropped its treasure
+      (a friend's gift, 7.3), keeping its gold. The gold lay on the
+      dropper's own square (hidden under it until it moved); treasures
+      appeared on a square beside it (north, east or south seen), after
+      one to five pairs of draws: the square looks rolled, with retries.
+      Not settled: that square, magic items in the order, gold's weight.
+   6. *An unarmed fighter* (creatures 7.1; `fight`, November 2026; the
+      first inputs for the combat brief, `docs/research/combat.md`). T
+      (Speed 6, Constitution and Life Force 40) on 4,4, EE an aggressive,
+      brave enemy of ours (Speed 3, Strength 10, Constitution and Life
+      Force 20, no weapon) on 6,4. From `rr6/fight-turn-end.vsf`, 32
+      states, one round, every draw logged, T's Life Force and EE's square
+      watched, messages answered. Result: EE never attacked (T's Life
+      Force stayed 40, no message, 32 of 32); it walked up to T and kept
+      stepping round it. Its steps fit the goal and step rules (fighter
+      enemy, the player at rank 0) in 32 of 32 runs once its turn takes
+      one roll more than the rules so far give, before its first step (a
+      roll of 0 to 9 after the smartness roll, or a die before the
+      top-of-turn die, both fit every run); a few more draws follow its
+      steps. Both are for the combat pass. `--creature ...,sword=P` now
+      gives a creature of ours our melee weapon (thing 59, power P, no
+      break chance, attack adjustment 0), owned and held.
+   7. *An armed fighter* (`armed`, November 2026): the same, EE holding
+      our melee weapon (`sword=10`). From `rr6/armed-turn-end.vsf`, 32
+      states, one round. EE attacked: messages "EE misses T" (or a hit),
+      a button press each, 7 to 13 a run; T's Life Force went from 40 to
+      24..34 in 19 runs and stayed 40 in 13. Copied with `fight` to
+      `research/combat/inputs/` for the combat pass.

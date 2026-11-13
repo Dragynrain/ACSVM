@@ -298,23 +298,46 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    **even beside its goal**, unless an action ends its turn (7) or no
    square beside it is open, when it stands and waits the bar out (each
    idle move taking magic 5.3's healing roll). [research, capture]
+   When the square it picks holds gold or a treasure it takes, it takes
+   the thing from where it stands, without stepping onto it, and its turn
+   ends (7.5). [capture] Confirmed with things: a peaceful thief and an
+   aggressive thief going for treasure and gold, a peaceful enemy for
+   gold, two treasures at the same score going to the first in the room's
+   order, every step and take of 64 runs, 598 steps. [capture: mem
+   --draws, case thief, capture.md 10.14.4]
    Not settled: on a turn's first step some squares holding a thing cost
    4; one more case in which the step choice gives up. [unknown]
 6. **Engine:** 6.2 to 6.5 as written. Before the goal, a smartness roll
-   decides whether a creature acts smart (magic 6.1).
+   decides whether a creature acts smart (magic 6.1). On the C64 that roll
+   is taken at the top of the turn by friends, enemies and every fighter
+   (4.2; a fighter thief too, [capture] 10.14.4),
+   whether or not it has anything to cast; the engine rolls it only when
+   it has.
 
 ## 7. Reaching a goal
 
 1. **A foe.** A fighter loves to attack certain types and may attack others
    it meets on the way. [manual] How the C64 decides is for the combat
-   pass. **Engine:** a fighter beside (one of the 4 squares) the individual
-   it chose emits `CreatureConfronts` when that individual is a foe (7.4),
-   and its turn ends; combat will turn this into an attack. [unknown]
+   pass. An aggressive, brave enemy of ours with no weapon never attacked
+   the player beside it: it kept stepping round it (6.5) in 32 of 32 runs,
+   its turn taking one more roll than a slinker's. [capture: fight,
+   capture.md 10.14.6] The same enemy holding a melee weapon of ours
+   attacked, several times a turn ("EE misses T", a message each), in
+   every run. [capture: armed, 10.14.7] **Engine:** a fighter holding a weapon, beside (one
+   of the 4 squares) the individual it chose, emits `CreatureConfronts`
+   when that individual is a foe (7.4), and its turn ends; combat will
+   turn this into an attack. Without a weapon it steps on as 7.2.
+   [unknown] past the capture.
 2. **Anyone else** (a slinker friend beside a player, a slinker enemy
    beside a fellow enemy): the creature keeps stepping round it until its
    bar runs out (6.5). [research, capture]
 3. **A friend next to the player it sought** drops a magic item if it
-   carries one. [manual] **Engine:** the lowest-numbered one, onto the first
+   carries one. [manual] On the C64 a peaceful friend of ours (Strength
+   20, a treasure of ours and 100 gold, no magic item) dropped the
+   treasure on its turn beside the player and kept its gold, in 16 of 16
+   runs; where it landed took rolls (as 8.1). [capture: burden2,
+   capture.md 10.14.5] **Engine:** its lowest-numbered magic item, else
+   its lowest-numbered treasure (gold never), onto the first
    square around the player (direction order from N) that is an inside
    square accepting drops (inventory 5.4) with no individual on it, else
    onto the friend's own square. A drop spell then acts on the friend
@@ -325,23 +348,45 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    - neutrals and thieves treat every other individual as a foe (a fighter
      neutral is not averse to attacking anybody; thieves show no loyalty to
      other thieves). [manual]
-5. **Gold and treasure.** Stepping onto gold or a treasure it picks up takes
-   it, as for players ([inventory](inventory.md) 2): gold adds the pile to
-   the creature's wealth (up to 25,000, the rest stays), a treasure goes into
-   its possessions within the carry limits. [manual] Its turn goes on.
+5. **Gold and treasure.** A creature picks up gold or a treasure as
+   players do ([inventory](inventory.md) 2): gold adds the pile to the
+   creature's wealth (up to 25,000, the rest stays), a treasure goes into
+   its possessions within the carry limits. [manual] On the C64 it takes
+   the thing from the square beside it, the step it picked (6.5) not
+   taken, and its turn ends; the program shows "(name) takes (thing)" or
+   "(name) finds gold worth N and now has M" and waits for the button.
+   [capture: thief, 64 runs] The gold amounts were not the piles' item
+   parameters as our disks wrote them (5 gave 512, 10 gave 1,361, every
+   time): what a placed pile holds is open (format-notes).
+   **Engine:** takes it from beside, and the turn ends; the pile is the
+   item parameter.
 6. **An exit**: the creature takes the door (5.4).
 
 ## 8. Things creatures do with what they carry
 
 1. **Overburdened creatures** drop a magic item, a treasure or gold.
    [manual] At the start, 3 master creatures and 5 residents carry more than
-   their capacity. [data] **Engine:** at the start of its turn, a creature
-   whose load is above its capacity drops one thing on its own square: the
-   lowest-numbered magic item, else the lowest-numbered treasure, else a
-   pile of gold just big enough to get back under capacity (at most 255, at
-   least 1). Only one drop a turn. A treasure that disappears when dropped
-   vanishes; things that can't be dropped (owner-only) are never chosen.
-   While over capacity it picks nothing up. [unknown]
+   their capacity. [data] On the C64 (Strength 1 creatures of ours, Speed
+   2, 16 runs each, all alike): one with 300 gold and treasures of weight
+   400 (lower number) and 1 dropped **all** its gold on its first turn and
+   the weight 400 one on its second; one with 2,000 gold dropped all
+   2,000 at once; one with treasures of weight 1 (lower number) and 400
+   dropped the weight 1 one first, then the other. So all the gold first,
+   then the lowest-numbered treasure, whatever it weighs; one drop a
+   turn, and a turn with a drop had no steps (they walked again once
+   under capacity). The gold stayed on the creature's square; a treasure
+   landed on a square beside it, chosen with one to five pairs of rolls
+   (a try per pair, seemingly). [capture: burden, burden2, capture.md
+   10.14.5] **Engine:** at the start of its turn, a creature whose load is
+   above its capacity drops all its gold on its own square (piles of up
+   to 255), else its lowest-numbered treasure or magic item there; one
+   drop a turn, after which its moves are idled. A treasure that
+   disappears when dropped vanishes; things that can't be dropped
+   (owner-only) are never chosen. While over capacity it picks nothing
+   up. [unknown] Not settled: the treasure's square (the rolls: a
+   research question), magic items' place in the order, whether the
+   steps are lost to the drop or to the weight slowdown (inventory 3.3),
+   and how gold counts toward the load.
 2. **Readying.** A creature readies an appropriate weapon: when not next to
    a foe, a missile weapon if it has one, otherwise a melee weapon if it has
    one; with several, the lowest item number. [manual] **Engine:** checked
@@ -360,10 +405,13 @@ dozen turns of waiting and wandering. With the region-visit scheduler
 (2.2), a room door into another room ending the turn (movement 2.3) and
 the healing and reversal rules of magic 5 (November 2026), the
 creatures' own goals and steps of section 6 and the falling-away roll as
-captured (2.4, November 2026), creatures take 9,413 turns, make 17,828
-steps, go through 166 doors, square up to someone 4,409 times, ready
-1,896 weapons, pick up gold 17 times and treasure 11 times, and make 27
-overburdened drops; 7 random creatures appear and 2 fall away. No
+captured (2.4, November 2026), and the take from beside and the
+overburdened drop as captured (7.5, 8.1) and no confronting without a
+weapon (7.1, November 2026), creatures take 9,330 turns, make 17,659
+steps, go through 168 doors, square up to someone 4,319 times, ready
+1,897 weapons, pick up gold 19 times and treasure 10 times, and make 40
+drops (overburdened, and friends' gifts);
+7 random creatures appear and 2 fall away. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another creature, nor with a
 player except on arriving through a door (5.4). The random walks with
@@ -387,7 +435,9 @@ creatures replay exactly.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend). Still open: mid-turn, odd Speeds.
 4. Goal choice: researched and captured for slinker friends and neutrals
-   (6.2-6.4). Still open: fighters, thieves, gold and treasure goals.
+   (6.2-6.4), and for thieves and a slinker enemy going for gold and
+   treasure (6.5, 7.5). Still open: fighters' goals among individuals
+   (combat), what a placed gold pile holds.
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll).
    Still open: the first step's cost of some things.
 6. A creature following through a door: captured (5.4: the step ends its
@@ -396,4 +446,6 @@ creatures replay exactly.
    creatures' paths and goals varied from run to run (a friend sometimes
    took the portal with the player still in the room), so goal choice
    takes a roll (items 4 and 5; the random-rolls brief, item 12).
-7. The overburdened drop: what, where, how much gold, how often.
+7. The overburdened drop: captured (8.1: all the gold, then the
+   lowest-numbered treasure, one a turn). Still open: the square a
+   treasure lands on (rolls), magic items, gold's weight.
