@@ -317,7 +317,15 @@ eye on the full tile.
   skin steps, and a lighter step around them is not needed.
 - **Pale skin snapped to the kraken pink** before the skin ramp had a pale
   step (section 5). Check every pale face for kraken pixels and swap them
-  to the pale skin step.
+  to the pale skin step, and the rest of the figure too: arms carried
+  kraken-pink shading, which becomes the next skin step. No person uses
+  the kraken ramp.
+
+**Where the finishing work is.** In the first set of 35, nearly all of it
+was on the 16 people: faces, skin colour, a speckled waistcoat, a held key
+that read as a goblet. After `tidy.py`, 18 of the 19 creatures, objects and
+weapons needed nothing (the crab got two eye-shine pixels). Budget hand time
+for people.
 ## 10. Kit LoRA
 
 **v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
@@ -368,6 +376,30 @@ Test (the 6 new subjects, seeds 401 and 402, plus a baker and a scholar):
 - **Plants and ground are its weak spot**: the palm tree gets detailed,
   painterly leaves and sand that runs to the image edges. The set has no
   plants or terrain; add some before the next round.
+
+**v4 (November 2026), trained on finished pixel art.** The 35 hand-finished
+64 px tiles (section 9), scaled up 16x with nearest neighbour onto flat
+`#FF00FF`, so the LoRA learns finished pixel art rather than raw
+generations. Captions as before, plus the full-body line on people, and they
+describe the finished tile where it differs from the prompt (the cutlass,
+Kesi's key); story names are left out. Same settings as v3, 70 epochs, 2450
+steps, about 45 minutes. Installed as `acspirates/acspirates-v4-final` (and
+`-s1400`).
+
+Test (v3's 6 subjects, seeds 401 and 402, FP8 Turbo, short trigger prompt):
+
+- **It draws pixel art at 1024**: hard-edged blocks about 11 px (not the
+  16 px it was trained on, and not on an exact grid, so shrink with
+  `sprite64.py` as before, not plain nearest neighbour).
+- **Plants fixed**: the palm is flat pixel art, not painterly.
+- **Flat background**: the final save gives near-pure `#FF00FF`; the
+  1400-step save still varies the pink.
+- **Closer to finished at 64 px**: on the 12 test tiles `tidy.py` cleaned
+  141 strays and added 398 outline pixels, against 358 and 591 for v3.
+- **Still drawn in**: a tricorn on anyone called a pirate, and faces that
+  need the section 9 pass.
+
+Use v4-final for new kit pictures.
 
 ## 11. Terrain squares
 
