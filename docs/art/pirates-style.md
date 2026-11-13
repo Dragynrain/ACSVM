@@ -238,8 +238,32 @@ translucent pale blue-green man" came out as a faceless pale blob, fixed by
 and naming the clothing details. Faces (section 9) were placed on the 11
 people who needed them (nine crew, the drowned captain, the mermaid); v4
 already drew some eyes, so half the edits only thinned doubled or stray
-eye pixels. Still to do: a better black spot (it reads as a hole). The
-ghostly lookout was made and then dropped, keeping creatures at 46.
+eye pixels. The ghostly lookout was made and then dropped, keeping
+creatures at 46.
+
+**Re-rolls (November 2026)**, LoRA v4-final, four seeds each. The black spot
+was a black disc on white and read as a hole; "a small torn scrap of
+yellowed parchment ... a smudged black ink circle ... scrawled handwriting
+underneath, lying tilted" reads as paper. Saying "playing card sized" drew
+aces. The rigging was thin and wide at 64 px; "a compact square section ...
+a thick tarred rope net of large square meshes ... as wide as it is tall"
+fixed it. Qwen-Image-Edit fixed the other two: the double door filled its
+whole square, so no wall showed ("make the pair of doors and their frame
+narrower ... plain flat magenta on both sides"), and the anchorage had
+island grass in its corners ("replace the green grass and sand of the
+island corners with the same calm turquoise sea water").
+
+**Outside the list, first drafts (November 2026).** The *Magpie* (player
+picture): a single-masted sloop, black hull with a white band and a
+black-and-white striped sail, so it reads apart from the portal ship. Its
+patch of water is cut away, since a map marker sits on any terrain. Title
+art: the sloop sailing toward an island with a fort and a harbour town, at
+1344 by 768, with no lettering (the engine draws the name, which isn't
+settled yet), and open sky in the upper third for it. Two of four seeds came
+out photographic. The title is not snapped to the ramps: they have no sky
+blue, and snapping turned the sky to grey speckle. It is also softer than
+the kit (gradients in sky and sea), so it's a placeholder. The UI font is
+not started.
 
 | Group | Pictures | Contents | Why |
 | --- | --- | --- | --- |
@@ -332,6 +356,21 @@ eye on the full tile.
   to the pale skin step, and the rest of the figure too: arms carried
   kraken-pink shading, which becomes the next skin step. No person uses
   the kraken ramp.
+
+**Faces, last six (November 2026).** Two needed more than the recipe. Jory
+Fenn's light brown skin had snapped to the leather ramp, the same as his
+trousers, so skin and trousers merged; his skin is now the skin ramp.
+Abel Quill's raw head was a patchwork of wood, leather and white that read
+as a mask, so it was repainted pixel by pixel: dark brown skin, white hair
+at the sides, a light stone pixel over each eye for the spectacles. Also
+watch for:
+
+- **A dark band under a hat brim** reads as sunglasses even with eyes
+  below it; make it a skin-shadow step.
+- **Red pixels on a bare scalp** read as blood; brows on a shaved head go
+  one skin step darker, not the beard's red.
+- **A white cravat right under the chin** reads as a goatee; give the neck
+  a row of skin first.
 
 **Where the finishing work is.** In the first set of 35, nearly all of it
 was on the 16 people: faces, skin colour, a speckled waistcoat, a held key
@@ -494,7 +533,10 @@ every room. So a door is an overlay: Qwen-Image-Edit 2511 replaces the wall
 around it with flat magenta ("keep only the door itself and its frame or
 arch exactly as they are"), which kept the door untouched on every try. The
 cut-out is shrunk with the same crop as the pick, snapped, and laid over
-each wall picture, one door square per wall. Two more floor fixes are
+each wall picture, one door square per wall. A door that is wide for its
+height (the double door) can't fill the square, or no wall shows: it is
+scaled by its own outline to 48 px tall and stood on the bottom edge
+instead of centre-cropped. Two more floor fixes are
 colour swaps too: the scorched floor goes from near-black to ash grey (dark
 enough to read as burnt, apart from the lava vent), and the hull wall goes
 one wood step darker so it stands apart from the plank floor.
