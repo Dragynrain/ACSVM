@@ -310,15 +310,17 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   or 4), the only carriable thing above 80. Every other carriable thing is
   1-80, matching the possession bitmap (2-bit counts for 1-32, one bit for
   33-80); creatures keep gold as the wealth count, at most 3,100.
-- **Gold pile size**: the room item parameter of a placed Gold is most
-  likely the pile's size: 117 piles hold 0-51 (37 are 0). Other carriable
-  placements have parameter 1 (1,228) or 0 (93), with a handful of stray
-  values; their meaning is unknown and the engine ignores it.
-  But on the C64 (capture.md 10.14.4) piles our disks placed with
-  parameter 5 and 10 were picked up by creatures as gold worth 512 and
-  1,361, every time: the parameter is not simply the amount, or our
-  disks place piles differently from the editor. Open: a capture of
-  piles with parameters 0 to 51, read off the take message.
+- **Gold pile size: the next record.** A placed Gold is followed by a
+  record on square 15,14 (square byte 0xFE) whose thing and parameter
+  bytes are the pile's size as a 16-bit number, low byte first (the thing
+  byte's bit 7 included): all 112 corpus piles (110 C64, 2 PC) have one,
+  no such record follows anything else, and sizes run 1 to 7,500. The
+  C64 reads it (capture.md 10.14.8). The decoder folds it into the pile
+  (`RoomItem::gold`, model version 3) and warns about a pile without one
+  or a stray 15,14 record. The pile's own placement parameter (0, 1 or 35
+  in the corpus) is still unknown. Until November 2026 this was read as
+  "the parameter is most likely the pile's size" and the size records as
+  things of their own on square 15,14.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
 - **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
   action code 15 (outside 0-14) and power 0. It is never placed; three

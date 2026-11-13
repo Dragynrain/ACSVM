@@ -15,8 +15,9 @@ use acs_core::model::{Adventure, CustomTrigger, RoomItem, ThingKind};
 pub const GOLD: ThingId = 81;
 /// Most gold pieces anyone may own (1.3).
 pub const GOLD_LIMIT: u16 = 25_000;
-/// Most gold one dropped pile holds: a placement parameter is a byte (5.8).
-pub const PILE_LIMIT: u16 = 255;
+/// Most gold one pile holds: its size is two bytes (5.8), and no one owns
+/// more than `GOLD_LIMIT`.
+pub const PILE_LIMIT: u16 = GOLD_LIMIT;
 
 /// How many of `thing` one individual may own (1.2-1.4).
 pub fn limit(thing: ThingId) -> u16 {
@@ -270,9 +271,28 @@ impl Game {
                     parameter,
                     flag: false,
                     destination: None,
+                    gold: None,
                 },
             );
         }
+    }
+
+    /// A pile of `amount` gold on top of a square's stack (5.8).
+    pub(crate) fn put_gold(&mut self, region: u8, room: u8, x: u8, y: u8, amount: u16) {
+        self.put_on_top(region, room, x, y, GOLD, 0);
+        if let Some(it) = self
+            .region_mut(region)
+            .and_then(|reg| reg.rooms.get_mut(room as usize))
+            .and_then(|r| r.items.first_mut())
+        {
+            it.gold = Some(amount);
+        }
+    }
+
+    /// The pieces in a gold pile: its size (0 is worth 0, as on the C64),
+    /// else (a pile the data gave no size) its parameter, at least 1 (2.5).
+    pub(crate) fn pile_size(item: &RoomItem) -> u16 {
+        item.gold.unwrap_or((item.parameter as u16).max(1))
     }
 
     /// `Drop { thing, dir }` (section 5).
@@ -449,7 +469,7 @@ impl Game {
                         thing: GOLD,
                     });
                 } else {
-                    self.put_on_top(region, room, x, y, GOLD, amount as u8);
+                    self.put_gold(region, room, x, y, amount);
                     ev.push(Event::GoldDropped {
                         player: p,
                         amount,

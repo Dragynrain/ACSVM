@@ -145,12 +145,14 @@ fn refused(ev: &[Event]) -> Option<DropRefusal> {
 }
 
 /// Things lying on a HALL square, top first.
-fn stack(g: &Game, x: u8, y: u8) -> Vec<(u16, u8)> {
+/// Each item's thing and parameter; a gold pile's size in place of the
+/// parameter when it has one (5.8).
+fn stack(g: &Game, x: u8, y: u8) -> Vec<(u16, u16)> {
     g.adventure().regions[0].rooms[0]
         .items
         .iter()
         .filter(|i| (i.x, i.y) == (x, y))
-        .map(|i| (i.thing, i.parameter))
+        .map(|i| (i.thing, i.gold.unwrap_or(i.parameter as u16)))
         .collect()
 }
 
@@ -555,7 +557,7 @@ fn when_dropped_here_spaces_make_vending_machines() {
             }
         );
         assert_eq!(g.current_player().gold, 9);
-        assert_eq!(stack(&g, 6, 1), vec![(CROWN, 1), (SLOT, GOLD as u8)]);
+        assert_eq!(stack(&g, 6, 1), vec![(CROWN, 1), (SLOT, GOLD)]);
 
         // The bin keeps what it is given and casts once for the rock.
         g.place(0, hall(7, 2));
@@ -574,7 +576,7 @@ fn when_dropped_here_spaces_make_vending_machines() {
                 at: hall(7, 1)
             }
         );
-        assert_eq!(stack(&g, 7, 1), vec![(ROCK, 1), (BIN, ROCK as u8)]);
+        assert_eq!(stack(&g, 7, 1), vec![(ROCK, 1), (BIN, ROCK)]);
         // Something else just lands on top.
         g.place(0, hall(6, 2));
         let ev = drop(&mut g, SWORD, Some(Dir::N));

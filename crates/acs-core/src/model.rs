@@ -16,7 +16,7 @@ use crate::limits::{Limits, Profile};
 use serde::{Deserialize, Serialize};
 
 /// Version of the JSON model. Bump when a field changes meaning.
-pub const MODEL_VERSION: u32 = 2;
+pub const MODEL_VERSION: u32 = 3;
 
 /// A thing number. `u16` so Extended adventures can pass 255.
 pub type ThingId = u16;
@@ -587,4 +587,8 @@ pub struct RoomItem {
     /// Resolved destination for portals.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub destination: Option<Destination>,
+    /// Gold (thing 81) only: the pile's size, which the original stores in
+    /// the record after the pile (on square 15,14: low byte, high byte).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gold: Option<u16>,
 }

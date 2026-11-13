@@ -19,6 +19,11 @@ use crate::limits::{Limits, Profile};
 use crate::model::*;
 use crate::text::{decode_ascii, decode_ascii_byte, decode_packed};
 
+/// Gold's thing number (docs/format-notes.md).
+const GOLD_THING: u8 = 81;
+/// The square byte of the record holding a gold pile's size (x 15, y 14).
+const AMOUNT_SQUARE: u8 = 0xFE;
+
 /// A decoded adventure plus everything odd found on the way.
 #[derive(Debug, Clone)]
 pub struct Decoded {
@@ -832,23 +837,49 @@ impl Decoder<'_> {
         }
         let data = self.b.block(*cursor + 2, len - 2, "room items")?;
         *cursor += len;
-        let mut items = Vec::new();
-        for (n, it) in data.chunks_exact(3).enumerate() {
+        let mut items: Vec<RoomItem> = Vec::new();
+        let records: Vec<&[u8]> = data.chunks_exact(3).collect();
+        let mut n = 0;
+        while n < records.len() {
+            let it = records[n];
+            n += 1;
             if it[0] == 0xFF {
                 continue; // deleted
             }
             let thing = it[1] & 0x7F;
-            let item = RoomItem {
+            let mut item = RoomItem {
                 x: field(it[0], 4, 7),
                 y: field(it[0], 0, 3),
                 thing: thing.into(),
                 parameter: it[2],
                 flag: bit(it[1], 7),
                 destination: None,
+                gold: None,
             };
             if thing == 0 {
                 self.diags
-                    .warn(K::BadReference, loc, format!("item {n} has thing number 0"));
+                    .warn(K::BadReference, loc, format!("item {} has thing number 0", n - 1));
+            }
+            // A gold pile's size is the next record, on square 15,14 (byte
+            // 0xFE): its two other bytes, low first (all 112 corpus piles).
+            if thing == GOLD_THING {
+                match records.get(n) {
+                    Some(next) if next[0] == AMOUNT_SQUARE => {
+                        item.gold = Some(u16::from_le_bytes([next[1], next[2]]));
+                        n += 1;
+                    }
+                    _ => self.diags.warn(
+                        K::BadReference,
+                        loc,
+                        format!("gold pile (item {}) has no amount record", n - 1),
+                    ),
+                }
+            } else if it[0] == AMOUNT_SQUARE {
+                self.diags.warn(
+                    K::BadReference,
+                    loc,
+                    format!("item {} on square 15,14 follows no gold pile", n - 1),
+                );
             }
             // Portal destinations are filled in by `resolve_portals`.
             items.push(item);

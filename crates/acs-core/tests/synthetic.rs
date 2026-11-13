@@ -606,3 +606,49 @@ fn door_table_is_fixed_and_indexed_from_zero() {
         );
     }
 }
+
+#[test]
+fn gold_piles_take_their_size_from_the_record_after_them() {
+    // docs/format-notes.md: a pile of gold (thing 81) is followed by a
+    // record on square 15,14 holding its size, low byte then high byte.
+    for p in PLATFORMS {
+        let mut f = Fixture::new(p);
+        f.header("GOLD", "", "");
+        f.thing(81, "GOLD", [0x01, 1, 1, 0]);
+        f.thing(1, "GEM", [0x01, 1, 1, 0]);
+        f.region(RegionSpec {
+            name: "A",
+            rooms: vec![RoomSpec {
+                name: "VAULT",
+                w: 8,
+                h: 8,
+                // 300 gold, then a pile with no size record (a gem comes
+                // next), then a stray size record.
+                items: vec![
+                    (2, 2, 81, 7),
+                    (15, 14, 0x2C, 0x01),
+                    (3, 3, 81, 5),
+                    (4, 4, 1, 1),
+                    (15, 14, 9, 0),
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let d = decode(&f.build()).unwrap();
+        let items = &d.adventure.regions[0].rooms[0].items;
+        assert_eq!(items[0].gold, Some(300), "{p}");
+        assert_eq!((items[0].x, items[0].y, items[0].parameter), (2, 2, 7));
+        // The pile with no record keeps its parameter only; the stray
+        // record stays an item, with a warning each.
+        assert_eq!(items[1].gold, None);
+        assert_eq!(items.len(), 4, "{items:?}");
+        assert_eq!((items[3].x, items[3].y), (15, 14));
+        let warns = d
+            .diagnostics
+            .iter()
+            .filter(|x| x.kind == DiagnosticKind::BadReference)
+            .count();
+        assert_eq!(warns, 2, "{p}");
+    }
+}

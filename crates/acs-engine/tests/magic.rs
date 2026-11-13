@@ -322,6 +322,7 @@ fn put_item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u16, parameter:
             parameter,
             flag: false,
             destination: None,
+            gold: None,
         },
     );
 }
@@ -669,19 +670,15 @@ fn kill_all_spares_owners_and_the_dead_leave_their_things() {
             })
             .collect();
         // The vanishing dust, the owner-only claw and the spell are lost;
-        // gold comes in piles of up to 255.
+        // the gold lands as one pile (a pile's size is two bytes).
         assert_eq!(
             died,
-            vec![(
-                cr(1),
-                hall(5, 3),
-                vec![(GEM, 1), (GEM, 1), (GOLD, 255), (GOLD, 45)]
-            )]
+            vec![(cr(1), hall(5, 3), vec![(GEM, 1), (GEM, 1), (GOLD, 300)])]
         );
         assert!(g.creature(1, 1).is_none());
         assert!(g.creature(1, 2).is_some());
         assert!(g.current_player().alive);
-        assert_eq!(stack(&g, 0, 5, 3), vec![GOLD, GOLD, GEM, GEM]);
+        assert_eq!(stack(&g, 0, 5, 3), vec![GOLD, GEM, GEM]);
     });
 }
 

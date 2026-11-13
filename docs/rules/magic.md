@@ -338,7 +338,7 @@ Combat will reuse this; spells are the first thing that can kill.
 2. The dead drop everything they carried where they died, except on the
    world map, and except things set to disappear. Owner-only weapons and
    armor can't be dropped. [manual] **Engine:** possessions land on the
-   death square, top of the stack, gold as piles of up to 255; treasures
+   death square, top of the stack, gold as one pile (inventory 2.5); treasures
    that vanish when dropped vanish; magic spells and owner-only weapons and
    armor are lost. Drop spells do not go off. [unknown] On the world map
    everything is lost. One `Died` event lists what was left.

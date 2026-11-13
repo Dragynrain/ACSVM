@@ -1011,7 +1011,7 @@ impl Game {
             let mut g = if gold_vanishes { 0 } else { gold };
             while g > 0 {
                 let n = g.min(PILE_LIMIT);
-                self.put_on_top(region, room, x, y, GOLD, n as u8);
+                self.put_gold(region, room, x, y, n);
                 left.push((GOLD, n));
                 g -= n;
             }

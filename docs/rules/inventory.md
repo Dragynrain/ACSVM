@@ -54,13 +54,26 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 4. **Picking up a weapon readies it.** [manual] Whether it replaces a weapon
    already readied: [unknown] **Engine:** yes, missile or melee alike.
    Picking up armor does not ready it. [unknown]
-5. **Gold on the floor.** A gold pile's placement parameter is most likely its
-   size: 117 placed piles hold 0..51, 37 of them 0. [data] Its meaning is
-   [unknown]. **Engine:** the pile holds `parameter` pieces, and 0 counts as
-   1. A pile that would take the character past 25,000 gives what fits and
-   the rest stays on the square. The corpus smoke test steps onto every
-   carriable thing on top of its stack: 791 things and 107 gold piles (485
-   pieces) are picked up, 144 of the things being weapons that get readied.
+5. **Gold on the floor.** A placed pile of gold is two item records: the
+   gold, then a record on square 15,14 whose other two bytes are the
+   pile's size, low byte first. All 112 corpus piles (110 C64, 2 PC) are
+   followed by one, and no 15,14 record follows anything else; sizes run
+   from 1 to 7,500. [data] The C64 reads it so: a creature of ours took
+   piles whose size records we wrote as 1 to 9, and 10, 16, 20, 32, 51,
+   0, 100, 200 and 255: each message seen named that size ("finds gold
+   worth 0" too), and its gold ended at the sums, 45 and 684 [capture:
+   capture.md 10.14.8]; before our disks wrote the record, it read the
+   two bytes after the pile, whatever they were (5 gave 512). The pile's
+   own placement parameter is something else ([unknown]; 0, 1 or 35 in
+   the corpus). **Engine:** the decoder folds the size record into the
+   pile (`RoomItem::gold`); the pile holds that many pieces (a pile the
+   data gives no size: its parameter, and 0 counts as 1); a size of 0 is
+   worth nothing. A pile that
+   would take the character past 25,000 gives what fits and the rest
+   stays on the square. The corpus smoke test steps onto every carriable
+   thing on top of its stack: 791 things and 107 gold piles (47,155
+   pieces) are picked up, 144 of the things being weapons that get
+   readied.
 6. A magic item set to act when picked up casts its spell (`SpellTriggered`,
    source `picked_up`); a spell that applies to individuals acts on the one
    who picked it up. [manual] 3 corpus items do this. [data] The effect is
@@ -157,7 +170,7 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    (`ThingUsedUp`); without it, it lands on top of the space. Dropping
    anything else there just lands on top. [unknown]
 8. **Dropping gold.** **Engine:** `DropGold { amount, dir }` puts down one
-   pile of 1..255 pieces (a placement parameter is one byte). How the
+   pile of 1..25,000 pieces (a pile's size is two bytes, 5). How the
    original asks for the amount is [unknown]. A pile dropped on a matching
    "when dropped here" space casts the spell once.
 9. Dropping costs no moves. [unknown] **Engine:** free.
@@ -190,7 +203,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    open: where a take starts ending the turn (weight 101 to 239, or a share
    of the capacity: 4).
 2. Capacity with Life Force above Constitution, and rounding of odd wounds.
-3. Gold pile size against the placement parameter, and a 0 parameter.
+3. Gold pile size: captured (2.5, the size record). Still open: what the
+   pile's own parameter means.
 4. Which squares accept a drop, dropping on one's own square, and the cost
    of dropping and of readying a weapon.
 5. Whether a non-destroying "when dropped here" space leaves the thing.
