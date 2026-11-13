@@ -1,0 +1,10 @@
+{
+ "_note": "Recolour variants of kit creatures (docs/art/pirates-style.md section 17), built by scripts/variants.py: 'swap' moves every step of one ramp onto a run of another ([from, to, first, last]: step i of 'from' becomes step first + round(i * (last - first) / (len(from) - 1)) of 'to'), or 'mood' applies a mood table from pirates-moods.json to the one tile. A variant costs a picture slot but no drawing. CC BY 4.0.",
+ "marine-blue":     {"base": "kit/marine-502", "swap": [["rust", "sea", 3, 7]], "why": "a rival navy's marines in blue coats"},
+ "parrot-blue":     {"base": "kit/parrot-501", "swap": [["rust", "sea", 1, 5]], "why": "a blue-and-gold macaw, a second Friend"},
+ "crab-blue":       {"base": "kit/crab-503", "swap": [["rust", "sea", 2, 6]], "why": "a blue land crab for beaches"},
+ "serpent-red":     {"base": "kit/serpent-502", "swap": [["sea", "rust", 0, 4]], "why": "a fire serpent for volcanic islands"},
+ "octopus-rose":    {"base": "kit2/octopus-601", "swap": [["rust", "kraken", 1, 3]], "why": "a deep-water octopus in the kraken's rose"},
+ "skeleton-cursed": {"base": "kit/skeleton-502", "mood": "cursed", "why": "an elite cursed skeleton"},
+ "deckhand-night":  {"base": "kit/deckhand-503", "mood": "night", "why": "check: a creature in the night mood keeps its read"}
+}

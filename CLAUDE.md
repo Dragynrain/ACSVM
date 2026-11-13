@@ -57,7 +57,8 @@ python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat
 python scripts/palsnap.py docs/art/pirates-palette.json OUTDIR IMG.png... --sheet s.png  # snap to kit ramps
 python scripts/tidy.py docs/art/pirates-palette.json OUTDIR TILE.png... --sheet s.png  # specks, strays, outline
 python scripts/font.py docs/art/pirates-font.txt OUTDIR   # UI font atlas, BDF, preview (docs/art/pirates-style.md 12)
-python scripts/mood.py|emissive.py|normals.py|animate.py ...   # moods, glow, normal maps, animation (pirates-style.md 13-16; see each --help)
+python scripts/mood.py|emissive.py|normals.py|animate.py|variants.py ...   # moods, glow, normals, animation, recolours (pirates-style.md 13-17; --help)
+python scripts/kitcheck.py KIT OUT; python scripts/pack.py KIT ARTROOT OUT; python scripts/frames64.py PAL IN OUT   # checks, atlas+manifest, frames (18-19)
 ```
 
 Write CLI output and viewer screenshots for real adventures outside the repo

@@ -261,9 +261,10 @@ art: the sloop sailing toward an island with a fort and a harbour town, at
 1344 by 768, with no lettering (the engine draws the name, which isn't
 settled yet), and open sky in the upper third for it. Two of four seeds came
 out photographic. The title is not snapped to the ramps: they have no sky
-blue, and snapping turned the sky to grey speckle. It is also softer than
-the kit (gradients in sky and sea), so it's a placeholder. The UI font is
-not started.
+blue, and snapping turned the sky to grey speckle. Instead it is shrunk to
+336 by 192 and posterized to its own 32 colours with no dithering, which
+gives flat bands like the kit. 16 and 24 colours lost the island's green.
+The UI font is in section 12.
 
 | Group | Pictures | Contents | Why |
 | --- | --- | --- | --- |
@@ -643,3 +644,78 @@ drawing:
 Each animation is frames `<tile>-<t>.png` plus `<tile>.json` with the time
 per frame. Frame 0 is the still tile, so an engine without animation shows
 the same picture.
+
+## 17. Recolour variants
+
+**First version (November 2026).** A variant is a kit creature with one ramp
+moved onto another ([pirates-variants.json](pirates-variants.json),
+`scripts/variants.py`): every step of the source ramp lands on a run of
+steps of the target, on exact kit colours, so the variant stays on the
+palette and needs no drawing. A variant can also apply a mood to one tile:
+a cursed skeleton is the skeleton in the cursed table. Each still costs a
+picture slot.
+
+| Variant | From | Swap |
+| --- | --- | --- |
+| Blue marine | Navy marine | Rust coat to sea blue: a rival navy |
+| Blue parrot | Parrot | Rust to sea: a blue-and-gold macaw |
+| Blue crab | Giant crab | Rust to sea |
+| Fire serpent | Sea serpent | Sea to rust; its water becomes a lava pool |
+| Rose octopus | Giant octopus | Rust to the kraken's rose steps |
+| Cursed skeleton | Skeleton | The cursed mood |
+| Night deckhand | Deckhand | The night mood, as a check that creatures keep their read at night |
+
+The first octopus swap used the kraken ramp from its lightest step and came
+out pale pink; starting one step darker gives a rose that reads apart from
+the orange original.
+
+## 18. Checks and packing
+
+**Checks** (`scripts/kitcheck.py`, design art pipeline step 8): every tile
+at 64 px and at 32 px, in greyscale, and through the three colour-blind
+simulations (Machado 2009), plus a silhouette test. The silhouette test
+compares solid silhouettes, feet on the baseline, by overlap (IoU), and
+only for standing figures. Boxes, barrels and books share shapes by nature
+and are told apart by colour.
+
+First run (November 2026), 175 tiles: nothing to fix. Values separate
+figure from ground in grey. Under deuteranopia, beach and grassland both
+turn pale yellow but keep their lightness and pattern; deep sea and
+shallows, reef and channel, and the three gate documents stay distinct in
+every view. The closest people are the woman captain and the drowned
+captain (IoU 0.86, both captains in long coats), told apart by the drowned
+captain's grey-green. Whole-figure IoU sits around 0.8 for any two adults
+of one height, so the test flags outliers, not the norm.
+
+**Packing** (`scripts/pack.py`, step 9): one atlas of every 64 px tile
+(PNG and lossless WebP, 88 KB for 220 tiles), emissive and normal atlases at
+the same boxes, and a manifest. For each tile the manifest gives its atlas
+box, source file, hand-edit file, layers and licence (CC BY-SA 4.0, as for
+all art), and the generation chain: model, LoRA, seed and prompt, followed
+back through Qwen-Image-Edit sources to the first generation. Terrain and
+room picks were made by scripts that kept no log; those point to their
+pick and the generating script. Door squares point to their door and wall.
+
+## 19. Hero idle loops (not done)
+
+**Tried November 2026, not shipped.** Design (sprite tricks) plans 2 to 4
+real frames for a few hero creatures. Two attempts on the kraken head:
+
+- **Wan 2.2 I2V A14B** (fp8, high and low noise, lightx2v 4-step LoRAs,
+  `_scripts/hero.ps1` in the research folder) ran out of GPU memory at
+  640 px with 17 frames and again at 480 px with 13. SwarmUI keeps the
+  Z-Image base pass loaded beside the two 14B video models, and the card is
+  shared. Try again with the card to itself, or with a workflow that skips
+  the base pass.
+- **Qwen-Image-Edit keyframes** ("change only the tentacles ... keep
+  everything else exactly the same") curled the tentacles, but each edit
+  also moved the shading (one frame's tentacles went brown) or broke shapes
+  (holes in the lower tentacles), and all edits shrank the head against the
+  original. A loop of them flickers. Edit keyframes suit one-off variants,
+  not frames that must match pixel for pixel.
+
+`scripts/frames64.py` is ready for whichever source works: it cuts every
+frame by one shared box and one shrink factor, so the creature keeps its
+place and size, then snaps and tidies each frame like the stills. Until
+then, heroes get the code effects the design lists (breathing, bob) and the
+emissive glow.
