@@ -56,6 +56,7 @@ python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # 
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
 python scripts/palsnap.py docs/art/pirates-palette.json OUTDIR IMG.png... --sheet s.png  # snap to kit ramps
 python scripts/tidy.py docs/art/pirates-palette.json OUTDIR TILE.png... --sheet s.png  # specks, strays, outline
+python scripts/font.py docs/art/pirates-font.txt OUTDIR   # UI font atlas, BDF, preview (docs/art/pirates-style.md 12)
 ```
 
 Write CLI output and viewer screenshots for real adventures outside the repo

@@ -540,3 +540,28 @@ instead of centre-cropped. Two more floor fixes are
 colour swaps too: the scorched floor goes from near-black to ash grey (dark
 enough to read as burnt, apart from the lava vent), and the hull wall goes
 one wood step darker so it stands apart from the plank floor.
+
+## 12. UI font
+
+**First version (November 2026).** An original pixel font, drawn glyph by
+glyph for this kit and copied from no existing font or machine character
+set. The source is [pirates-font.txt](pirates-font.txt), one block of `.`
+and `#` per character, so a glyph is edited as text.
+`scripts/font.py pirates-font.txt OUTDIR` builds an atlas (`font.png`), an
+outlined atlas for text over pictures (`font-outline.png`, 1 px `outline0`),
+`font.json` (glyph boxes, baseline, line height), a BDF and a preview.
+
+- **Metrics:** cells 10 px tall, 8 above the baseline and 2 for descenders;
+  caps and ascenders 7 px, x-height 5 px, line height 11. Proportional, 1
+  to 5 px wide plus 1 px between glyphs. Printable ASCII (95 glyphs).
+- **Look:** plain and readable first, since the log and menus are read for
+  hours. Rounded capitals, a footed `l` and a short `t` keep it from
+  reading as a terminal font. Digits are 4 px wide, so `0` stays apart
+  from `O` (5 px).
+- **Scaling:** integer only, like the tiles. At 64 px tiles, 2x gives 20 px
+  lines.
+- **Ink:** `outline0` on parchment (`sand0`), or `sand0` outlined in
+  `outline1` on dark sea.
+
+Still to do: accented Latin letters for translated adventures, and a
+display weight for title lettering.
