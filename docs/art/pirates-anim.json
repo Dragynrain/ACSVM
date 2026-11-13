@@ -1,0 +1,15 @@
+{
+ "_note": "Simple animation of the pirate kit (docs/art/pirates-style.md section 16), built from the finished tiles by scripts/animate.py, no new drawing. Kinds: wave (rows shift by a sine and wrap; period divides 64, so a repeating terrain stays seamless), cycle (colour cycling: pixels of colour s[0] become s[t mod len] in frame t, inside 'box' if given), bob (whole picture up and down by 'amp' px), flutter (columns of 'box' shift up and down, more toward the free end). 'ms' is the time per frame. CC BY 4.0.",
+ "terrain/deepsea":  {"kind": "wave", "frames": 8, "ms": 220, "amp": 1, "period": 32},
+ "terrain/shallows": {"kind": "wave", "frames": 8, "ms": 200, "amp": 1, "period": 16},
+ "rooms/fwater":     {"kind": "wave", "frames": 8, "ms": 200, "amp": 1, "period": 16},
+ "rooms/lavavent":   {"kind": "cycle", "frames": 3, "ms": 260, "seq": [["g2", "r0", "n2"], ["r0", "n2", "g2"], ["n2", "g2", "r0"]]},
+ "terrain/volcanic": {"kind": "cycle", "frames": 4, "ms": 400, "seq": [["r1", "r0", "r1", "r2"]]},
+ "kit/lantern-503":  {"kind": "cycle", "frames": 4, "ms": 140, "box": [27, 33, 35, 47], "seq": [["g1", "g0", "g1", "g2"], ["g0", "g1", "n0", "g1"]]},
+ "kit2/ghostlantern-601": {"kind": "cycle", "frames": 4, "ms": 300, "box": [22, 31, 41, 49], "seq": [["j0", "s0", "j0", "j1"]]},
+ "kit2/skelcapt-601": {"kind": "cycle", "frames": 4, "ms": 140, "box": [43, 43, 48, 49], "seq": [["g1", "g0", "g1", "g2"]]},
+ "kit/smokerack-503": {"kind": "cycle", "frames": 3, "ms": 160, "box": [24, 40, 42, 52], "seq": [["g1", "g0", "g2"], ["g2", "g1", "r0"], ["r0", "g2", "g1"]]},
+ "kit/flagpole-501": {"kind": "flutter", "frames": 6, "ms": 120, "amp": 1.6, "period": 14, "box": [22, 4, 54, 40]},
+ "kit/ship-502":     {"kind": "bob", "frames": 4, "ms": 350, "amp": 1},
+ "player/magpie-612": {"kind": "bob", "frames": 4, "ms": 300, "amp": 1}
+}

@@ -551,17 +551,95 @@ and `#` per character, so a glyph is edited as text.
 outlined atlas for text over pictures (`font-outline.png`, 1 px `outline0`),
 `font.json` (glyph boxes, baseline, line height), a BDF and a preview.
 
-- **Metrics:** cells 10 px tall, 8 above the baseline and 2 for descenders;
-  caps and ascenders 7 px, x-height 5 px, line height 11. Proportional, 1
-  to 5 px wide plus 1 px between glyphs. Printable ASCII (95 glyphs).
+- **Metrics:** cells 11 px tall: row 0 for accents on capitals, 8 rows
+  above the baseline, 2 for descenders. Caps and ascenders 7 px, x-height
+  5 px, line height 12. Proportional, 1 to 5 px wide plus 1 px between
+  glyphs.
+- **Characters:** printable ASCII and all of Latin-1 (191 glyphs), so
+  French, Spanish, Portuguese, German and the Nordic languages can be
+  written. Accented letters were composed once from base letter and mark,
+  then written into the source, so each can be retouched alone. Accents on
+  capitals sit in row 0 and touch the letter; lowercase accents leave a
+  row free.
 - **Look:** plain and readable first, since the log and menus are read for
   hours. Rounded capitals, a footed `l` and a short `t` keep it from
   reading as a terminal font. Digits are 4 px wide, so `0` stays apart
   from `O` (5 px).
-- **Scaling:** integer only, like the tiles. At 64 px tiles, 2x gives 20 px
+- **Bold (display weight):** built, not drawn. Each glyph is laid over
+  itself 1 px to the right, one px wider (`font-bold.png`). Used at 2x or 3x
+  in `gold1` with an `outline1` outline, it is the title lettering.
+- **Scaling:** integer only, like the tiles. At 64 px tiles, 2x gives 24 px
   lines.
 - **Ink:** `outline0` on parchment (`sand0`), or `sand0` outlined in
   `outline1` on dark sea.
 
-Still to do: accented Latin letters for translated adventures, and a
-display weight for title lettering.
+## 13. Mood ramps
+
+**First version (November 2026).** Section 1 says darkness comes from the
+engine. A mood is a colour table, one entry for each of the 56 kit colours
+([pirates-moods.json](pirates-moods.json)), so recolouring a region is a
+lookup, with no filter and no new art. `scripts/mood.py` computes the tables
+in OKLab from a few parameters per mood (lightness scale, contrast,
+chroma, a tint, how much red survives, and a colour to mix toward), and
+`--preview` shows pictures in every mood.
+
+| Mood | What it does |
+| --- | --- |
+| Night | Half the lightness, cool blue tint, chroma down, a little night blue mixed in. Sand reads as moonlit grey, the sea near black. |
+| Fog | Lights and darks pulled toward a pale grey, chroma halved: low contrast, nothing lost. |
+| Cursed | Desaturated, green-yellow tint, reds cut, contrast up: sickly, still readable. |
+| Underwater | Reds absorbed first (red scale 0.3), teal tint, a quarter of deep water mixed in. |
+
+Glow is not part of a mood: lanterns, eyes and lava keep their colour from
+the emissive layer (section 14). Change the parameters in `mood.py` and
+rebuild the JSON; never edit the tables by hand.
+
+## 14. Emissive layer
+
+**First version (November 2026).** For each tile that gives light, its
+glowing pixels as an image of their own: glow colour and strength, all else
+clear. The engine draws the mood-recoloured tile, then adds this layer at
+full brightness with a soft halo.
+[pirates-emissive.json](pirates-emissive.json) lists the pixels: by kit
+colour, optionally inside a box (only the flame, not the brass of a lantern
+of the same gold), or one by one with their own colour. `scripts/emissive.py`
+writes `<tile>.emit.png`, and with `--preview` shows day, the mood, and the
+mood with glow.
+
+Twelve tiles glow: lantern, ghost lantern, the skeleton captain's lantern,
+the smoke rack's fire, lava vent, volcanic cracks, crystal skull, jellyfish,
+compass needle, kraken eyes, the drowned captain's eyes and the ghost's
+eyes. The ghost had no eyes at all; it got two dark pixels that read by day
+and glow white at night. Glowing eyes are why an emissive pixel can have a
+colour of its own.
+
+## 15. Normal maps
+
+**First version (November 2026).** `scripts/normals.py` makes a normal map
+for every tile, with no painting. Height comes from lightness (the kit is
+lit from the top left, so light faces are the raised ones) plus a 3 px
+bevel inside a figure's silhouette, smoothed 1 px. The normals come from
+its slope. Terrain and walls get lightness only. Under a torch at night,
+flagstone gutters, barrel staves and coat folds catch the light, which is
+all a 64 px tile needs. A tile that lights wrongly can be painted by hand
+later: the engine only reads the image.
+
+## 16. Animation
+
+**First version (November 2026).** Made from the finished tiles by
+`scripts/animate.py` ([pirates-anim.json](pirates-anim.json)), no new
+drawing:
+
+- **Water** (deep sea, shallows, the water floor): rows shift 1 px by a
+  sine and wrap round. The period divides 64, so the tiles stay seamless
+  on the map. 8 frames.
+- **Fire and glow** (lava vent, volcanic cracks, lanterns, the smoke-rack
+  fire): colour cycling on exact kit colours inside a box. 3 or 4 frames.
+- **Flag:** columns of the flag move up and down, from still at the pole
+  to 1.6 px at the free end. 6 frames.
+- **Ships** (the portal ship, the *Magpie*): a 1 px bob. Full sail
+  animation is left for hand drawing; at 64 px a bob reads as sailing.
+
+Each animation is frames `<tile>-<t>.png` plus `<tile>.json` with the time
+per frame. Frame 0 is the still tile, so an engine without animation shows
+the same picture.
