@@ -1176,3 +1176,24 @@ In this order (planned November 2026):
       instructions). Every message read named the size written ("XX
       finds gold worth 0 and now has 129" too), and its gold ended at 45
       and 684, the sums.
+   9. *Confirming the combat first pass* (`docs/rules/combat.md`,
+      2026-11-13). No new runs: `scripts/combatcheck.py` replays the
+      researcher's melee rules on the 32 `armed` runs (10.14.7), every
+      draw logged. A run goes: T's last idle move; EE's turn (the
+      top-of-turn die, two smartness checks of 0 to 9, then its steps
+      with T's square open at cost 1, until it picks T's square: the
+      attack, with its blows from the moves left, each blow's to-hit,
+      Melee check, parry roll and heavy-blow roll); the round's end (the
+      slot roll, a percentile when it picks EE's slot 0, then one more
+      percentile, the room's random-creature roll); T's turn (the die,
+      then its bar waited out, 6 moves, or 3 when EE ended beside it);
+      EE's next turn. Result: all 32 runs right, 31 exactly and one cut
+      off inside a hit's messages: every step, the blows (4 from 3 of 3
+      moves left, 2 from 2, 1 from 1), 122 blows (25 hits, 97 misses) at
+      chances 34, 29, 24, 19, damage 10 or 15 (heavy), T's Life Force
+      after every hit and every healing (46 values), and the button
+      presses (two a miss, three a hit). T's Life Force byte (`$F5A2`)
+      sometimes reads 32 for one sample while EE's square reads off the
+      room (banked memory, as 10.14.3); the checker drops those. Not
+      covered: parries, counter-blows, armor, breaking, the player's
+      attack and the alignment changes (combat.md, Captures needed).

@@ -5,10 +5,10 @@
 use crate::game::Game;
 use crate::magic::amount;
 use crate::{
-    BlockReason, CastRefusal, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot, SpellSource,
-    Stat, Who,
+    BlockReason, BlowOutcome, CastRefusal, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot,
+    SpellSource, Stat, Who,
 };
-use acs_core::model::{SpellAction, SpellActionKind, ThingId};
+use acs_core::model::{Alignment, SpellAction, SpellActionKind, ThingId};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
@@ -89,7 +89,14 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 .and_then(|r| r.residents.get(*resident))
                 .map(|c| c.name.trim().to_string())
                 .unwrap_or_else(|| "someone".into());
-            format!("{} bumps into {name} (combat comes later).", who(player))
+            format!("{} bumps into {name} but has no melee weapon.", who(player))
+        }
+        Event::BumpedPlayer { player, other } => {
+            format!(
+                "{} bumps into {} but has no melee weapon.",
+                who(player),
+                who(other)
+            )
         }
         Event::PickedUp { player, thing: t } => format!("{} picks up {}.", who(player), thing(*t)),
         Event::GoldPickedUp { player, amount } => {
@@ -299,15 +306,62 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         } => {
             format!("{} readies {}.", creature(game, *region, *slot), thing(*t))
         }
-        Event::CreatureConfronts { region, slot, target } => {
-            let other = match *target {
-                Who::Player { player } => who(&player),
-                Who::Creature { region, slot } => creature(game, region, slot),
-            };
+        Event::Attacked {
+            by,
+            target,
+            weapon,
+            blows,
+        } => {
+            let n = if *blows == 1 { "blow" } else { "blows" };
             format!(
-                "{} squares up to {other} (combat comes later).",
-                creature(game, *region, *slot)
+                "{} attacks {} with {} ({blows} {n}).",
+                name(by),
+                name(target),
+                thing(*weapon)
             )
+        }
+        Event::Blow {
+            by,
+            target,
+            counter,
+            chance,
+            outcome,
+        } => {
+            let back = if *counter { " strikes back and" } else { "" };
+            let what = match outcome {
+                BlowOutcome::Miss => format!("misses {}", name(target)),
+                BlowOutcome::Parried => format!("is parried by {}", name(target)),
+                BlowOutcome::Hit { damage: 0, .. } => format!("hits {} but does no harm", name(target)),
+                BlowOutcome::Hit { damage, heavy } => {
+                    let h = if *heavy { " heavily" } else { "" };
+                    format!("hits {}{h} for {damage}", name(target))
+                }
+                BlowOutcome::Stopped => format!("can't harm {}", name(target)),
+            };
+            format!("{}{back} {what} ({chance}%).", name(by))
+        }
+        Event::Broke {
+            who: w,
+            thing: t,
+            used_up,
+        } => {
+            let how = if *used_up { "is used up" } else { "breaks" };
+            format!("{}'s {} {how}.", name(w), thing(*t))
+        }
+        Event::CreatureTurned {
+            region,
+            slot,
+            alignment,
+            aggressive,
+        } => {
+            let setting = if *aggressive { "aggressive" } else { "peaceful" };
+            let side = match alignment {
+                Alignment::Friend => "friend",
+                Alignment::Enemy => "enemy",
+                Alignment::Neutral => "neutral",
+                Alignment::Thief => "thief",
+            };
+            format!("{} is now a {setting} {side}.", creature(game, *region, *slot))
         }
         Event::CreatureUsedUp {
             region,

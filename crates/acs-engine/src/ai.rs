@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! One creature's turn: the overburdened drop, readying, casting, choosing
-//! a goal and walking towards it. Spec: `docs/rules/creatures.md` sections
-//! 5-8 and `docs/rules/magic.md` section 6.
+//! a goal and walking towards it, and stepping into an individual to
+//! attack it. Spec: `docs/rules/creatures.md` sections 5-8,
+//! `docs/rules/magic.md` section 6 and `docs/rules/combat.md` section 2.
 
+use crate::combat::strike_cost;
 use crate::creatures::{self, is_fighter, is_foe, Other};
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
@@ -72,6 +74,9 @@ enum Sq {
     Take(usize),
     /// A door it may take (room item index).
     Door(usize),
+    /// An individual a fighter would strike, at this step cost (combat
+    /// 2.2).
+    Strike(Who, u16),
     Closed,
 }
 
@@ -100,16 +105,19 @@ impl Game {
     /// unless it cast or used an item (or died).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
         let dropped = self.overburdened_drop(region, slot, ev);
-        self.creature(region, slot)?; // its drop spell may have killed it
-        self.creature_ready(region, slot, ev);
-        let c = self.creature(region, slot)?;
+        let c = self.creature(region, slot)?; // its drop spell may have killed it
         let moves = creatures::effective_speed(&self.adv, c);
         ev.push(Event::CreatureTurn { region, slot, moves });
         self.turn_top(Who::Creature { region, slot }, ev);
         self.creature(region, slot)?;
+        // Combat 6.2: readying, a move for each change.
+        let mut left = moves;
+        if self.creature_ready(region, slot, ev) {
+            left = left.saturating_sub(1);
+        }
         // 8.1: a turn with a drop takes no steps; its moves are idled.
         if dropped {
-            return Some((moves, moves));
+            return Some((left, moves));
         }
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
@@ -121,9 +129,8 @@ impl Game {
             .and_then(|(grid, w, h)| self.choose_goal(region, slot, &grid, w, h));
         let start = self.creature(region, slot).map(|c| (c.x, c.y))?;
         let mut stood = vec![start];
-        let mut left = moves;
         while left > 0 {
-            if !self.creature_step(region, slot, goal, start, &mut stood, ev) {
+            if !self.creature_step(region, slot, goal, start, &mut stood, &mut left, moves, ev) {
                 break;
             }
             left -= 1;
@@ -247,11 +254,18 @@ impl Game {
         let mut grid = vec![Sq::Closed; w as usize * h as usize];
         let me = Who::Creature { region, slot };
         let others = self.others_in_room(region, c.room, Some(me));
+        // Combat 2.3: only a fighter owning a melee weapon strikes.
+        let striker = is_fighter(c) && self.owned_melee(me).is_some();
         for y in 0..h {
             for x in 0..w {
                 let edge = x == 0 || y == 0 || x == w - 1 || y == h - 1;
                 let k = y as usize * w as usize + x as usize;
-                if others.iter().any(|o| o.x == x && o.y == y) {
+                if let Some(o) = others.iter().find(|o| o.x == x && o.y == y) {
+                    if striker {
+                        if let Some(cost) = strike_cost(c, o) {
+                            grid[k] = Sq::Strike(o.who, cost);
+                        }
+                    }
                     continue;
                 }
                 let top = r.items.iter().position(|it| it.x == x && it.y == y);
@@ -369,8 +383,10 @@ impl Game {
         best.filter(|(score, _)| *score < NO_GOAL).map(|(_, g)| g)
     }
 
-    /// One step (6.5) or an action that ends the turn (7). True if the
-    /// creature moved and may go on.
+    /// One step (6.5) or an action that ends the turn (7, combat 2), with
+    /// `left` of `full` moves left. True if the creature moved and may go
+    /// on.
+    #[allow(clippy::too_many_arguments)]
     fn creature_step(
         &mut self,
         region: u8,
@@ -378,6 +394,8 @@ impl Game {
         goal: Option<Goal>,
         start: (u8, u8),
         stood: &mut Vec<(u8, u8)>,
+        left: &mut u8,
+        full: u8,
         ev: &mut Vec<Event>,
     ) -> bool {
         let Some((grid, w, h)) = self.squares(region, slot) else {
@@ -386,27 +404,17 @@ impl Game {
         let Some(c) = self.creature(region, slot).cloned() else {
             return false;
         };
-        // 7.1, 7.3: beside the individual it chose.
+        // 7.3: a friend beside the player it chose.
         if let Some(Goal {
             individual: Some(o), ..
         }) = goal
         {
-            if steps((c.x, c.y), (o.x, o.y)) == 1 {
-                if o.alignment.is_none()
-                    && c.strategy.alignment == Friend
-                    && self.friend_drop(region, slot, o, ev)
-                {
-                    return false;
-                }
-                // An unarmed fighter keeps stepping round its foe (7.1).
-                if is_fighter(&c) && is_foe(&c, &o) && c.weapon != 0 {
-                    ev.push(Event::CreatureConfronts {
-                        region,
-                        slot,
-                        target: o.who,
-                    });
-                    return false;
-                }
+            if steps((c.x, c.y), (o.x, o.y)) == 1
+                && o.alignment.is_none()
+                && c.strategy.alignment == Friend
+                && self.friend_drop(region, slot, o, ev)
+            {
+                return false;
             }
         }
         let target = goal.map_or(start, |g| g.at);
@@ -430,6 +438,7 @@ impl Game {
                 1
             } else {
                 match sq {
+                    Sq::Strike(_, cost) => cost,
                     Sq::Door(_) => exit_cost,
                     Sq::Take(i) => {
                         let gold = r.as_ref().is_some_and(|r| r.items[i].thing == GOLD);
@@ -447,6 +456,27 @@ impl Game {
         let Some((_, nx, ny, sq)) = best else {
             return false; // nowhere open: it stands (6.5)
         };
+        if let Sq::Strike(target, _) = sq {
+            // Combat 2.1, 2.6: an attack; a melee weapon owned but not
+            // held is readied first, a move if the weapon in hand changes.
+            let me = Who::Creature { region, slot };
+            if self.held_melee(me).is_none() {
+                if let Some(t) = self.owned_melee(me) {
+                    if self.set_weapon(me, t) {
+                        ev.push(Event::CreatureReadied {
+                            region,
+                            slot,
+                            thing: t,
+                        });
+                        *left = left.saturating_sub(1);
+                    }
+                }
+            }
+            self.attack(me, target, *left, full, ev);
+            // 2.5: attacking ends the turn.
+            *left = 0;
+            return false;
+        }
         stood.push((nx, ny));
         let from = Location::Room {
             region,
@@ -685,14 +715,17 @@ impl Game {
         true
     }
 
-    /// 8.2: a missile weapon when safe, else a melee weapon; lowest number.
-    fn creature_ready(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
+    /// Combat 6.2 (creatures 8.2): with an aggressive foe or a player foe
+    /// on one of the 4 squares beside it, an owned melee weapon it doesn't
+    /// hold; with none beside it, an owned missile weapon; the
+    /// lowest-numbered. True if the weapon in hand changed (a move).
+    fn creature_ready(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
-            return;
+            return false;
         };
         let me = Who::Creature { region, slot };
-        let safe = !self.others_in_room(region, c.room, Some(me)).iter().any(|o| {
-            (o.x as i16 - c.x as i16).abs() <= 1 && (o.y as i16 - c.y as i16).abs() <= 1 && is_foe(&c, o)
+        let threatened = self.others_in_room(region, c.room, Some(me)).iter().any(|o| {
+            steps((o.x, o.y), (c.x, c.y)) == 1 && (o.alignment.is_none() || o.aggressive) && is_foe(&c, o)
         });
         let mut weapons: Vec<ThingId> = c
             .possessions
@@ -714,22 +747,25 @@ impl Game {
                 )
             })
         };
-        let pick = if safe {
-            find(true).or_else(|| find(false))
-        } else {
-            find(false)
+        let holds_melee = matches!(
+            self.thing(c.weapon).map(|t| &t.kind),
+            Some(ThingKind::MeleeWeapon { .. })
+        );
+        let pick = match (threatened, holds_melee) {
+            (true, true) => None,
+            (true, false) => find(false),
+            (false, _) => find(true),
         };
-        if let Some(t) = pick {
-            if t != c.weapon {
-                if let Some(cm) = self.creature_mut(region, slot) {
-                    cm.weapon = t;
-                }
+        match pick {
+            Some(t) if self.set_weapon(me, t) => {
                 ev.push(Event::CreatureReadied {
                     region,
                     slot,
                     thing: t,
                 });
+                true
             }
+            _ => false,
         }
     }
 

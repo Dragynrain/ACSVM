@@ -151,8 +151,12 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    and what it triggers. *Activate All Things* on the top runs the rest; that
    belongs to the magic rules (section 9).
 4. A **resident creature** on the square refuses the move. With a readied
-   melee weapon the move starts a fight instead. [manual] **Engine:** refused
-   with a `BumpedCreature` event; combat comes later.
+   melee weapon the move starts a fight instead. [manual] On the C64 any
+   individual on the square, another player too, makes the move an attack
+   when the player holds or owns a melee weapon, and owning none nothing
+   happens and no move is used ([combat](combat.md) 2.7). [research,
+   unconfirmed] **Engine:** so: an attack (`Attacked`), or `BumpedCreature`
+   / `BumpedPlayer` at no cost.
 5. What the top thing does when moved onto:
 
    | Top thing | Move | Triggers | Source |
@@ -273,10 +277,10 @@ These need the AI and are listed so the movement code leaves room for them.
 
 ## 9. What later rules need from movement
 
-- **Combat:** bumping a creature (event `BumpedCreature`) starts melee when a
-  melee weapon is readied; adjacency to aggressive unfriendlies shortens the
-  bar; missile range counts squares including diagonals and stops at
-  obstacles. Death on the map loses carried things.
+- **Combat:** melee is done in [combat.md](combat.md) (moving into an
+  individual attacks it, 5.4). Still to come: missile range counts squares
+  including diagonals and stops at obstacles. Death on the map loses
+  carried things.
 - **Magic:** done in [magic.md](magic.md): every spell found here (terrain,
   portals, spaces, custom spaces, obstacles, picked-up items) now takes
   effect, including *Activate All Things* running the rest of the stack top

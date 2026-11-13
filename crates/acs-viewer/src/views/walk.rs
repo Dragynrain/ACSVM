@@ -139,6 +139,7 @@ impl Walk {
                 Event::Moved { .. } => Kind::Step,
                 Event::Blocked { .. }
                 | Event::BumpedCreature { .. }
+                | Event::BumpedPlayer { .. }
                 | Event::DropRefused { .. }
                 | Event::ReadyRefused { .. } => Kind::Block,
                 Event::PickedUp { .. }
@@ -170,7 +171,10 @@ impl Walk {
                 | Event::RoomEncounter { .. } => Kind::Spell,
                 Event::LongMessage { .. } => Kind::Message,
                 Event::CastRefused { .. } => Kind::Block,
-                Event::CreatureConfronts { .. }
+                Event::Attacked { .. }
+                | Event::Blow { .. }
+                | Event::Broke { .. }
+                | Event::CreatureTurned { .. }
                 | Event::CreatureRemoved { .. }
                 | Event::Died { .. }
                 | Event::AllPlayersDead => Kind::Foe,

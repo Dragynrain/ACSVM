@@ -12,10 +12,11 @@
 //! the spec tags every rule as coming from the manual, from the data, or as
 //! still unknown, and says what the engine does for the unknown ones.
 //! Implemented so far: movement (`docs/rules/movement.md`), inventory
-//! (`docs/rules/inventory.md`), creatures outside combat
-//! (`docs/rules/creatures.md`) and magic (`docs/rules/magic.md`).
+//! (`docs/rules/inventory.md`), creatures (`docs/rules/creatures.md`), magic
+//! (`docs/rules/magic.md`) and melee combat (`docs/rules/combat.md`).
 
 mod ai;
+pub mod combat;
 pub mod creatures;
 mod describe;
 mod game;
@@ -24,12 +25,13 @@ pub mod magic;
 pub mod rng;
 mod step;
 
+pub use combat::BlowOutcome;
 pub use describe::describe;
 pub use game::{Game, Player, PlayerSetup};
 pub use rng::Rng;
 
-use acs_core::model::SpellAction;
 use acs_core::model::ThingId;
+use acs_core::model::{Alignment, SpellAction};
 use serde::{Deserialize, Serialize};
 
 /// Where a character stands.
@@ -351,7 +353,14 @@ pub enum Event {
         #[serde(skip_serializing_if = "Option::is_none", default)]
         message: Option<String>,
     },
-    /// Walked into a resident creature (combat comes later).
+    /// Walked into another player holding and owning no melee weapon:
+    /// nothing happens (combat 2.7).
+    BumpedPlayer {
+        player: usize,
+        other: usize,
+    },
+    /// Walked into a resident creature holding and owning no melee weapon:
+    /// nothing happens (combat 2.7).
     BumpedCreature {
         player: usize,
         region: u8,
@@ -531,12 +540,40 @@ pub enum Event {
         slot: usize,
         thing: ThingId,
     },
-    /// A fighter stands next to a foe it sought; combat will make this an
-    /// attack (creatures 7.1).
-    CreatureConfronts {
+    /// A melee attack starts (combat 3): `weapon` in hand, `blows` to
+    /// strike. Its blows follow; it ends the attacker's turn.
+    Attacked {
+        by: Who,
+        target: Who,
+        weapon: ThingId,
+        blows: u8,
+    },
+    /// One blow of an attack (combat 3.3), `counter` for a counter-blow.
+    /// `chance` is the hit chance rolled against. Lost Life Force and
+    /// Power follow as `StatChanged`, a death as `Died`.
+    Blow {
+        by: Who,
+        target: Who,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        counter: bool,
+        chance: u8,
+        #[serde(flatten)]
+        outcome: BlowOutcome,
+    },
+    /// A weapon or armor broke (combat 6.3), or was used up (`used_up`,
+    /// 6.4), and is gone from its owner.
+    Broke {
+        who: Who,
+        thing: ThingId,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        used_up: bool,
+    },
+    /// A creature hurt by a player changed its strategy (combat 7).
+    CreatureTurned {
         region: u8,
         slot: usize,
-        target: Who,
+        alignment: Alignment,
+        aggressive: bool,
     },
     /// A door used up a creature's needed thing.
     CreatureUsedUp {

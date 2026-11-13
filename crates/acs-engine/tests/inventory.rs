@@ -283,7 +283,8 @@ fn picking_up_a_weapon_readies_it_and_armor_takes_the_turn() {
         mv(&mut g, Dir::E);
         mv(&mut g, Dir::E);
         assert_eq!(g.current_player().weapon, Some(BOW));
-        // Ready the sword again: free.
+        // Ready the sword again: a change of weapon costs a move (combat
+        // 6.1); readying the weapon in hand costs nothing.
         let left = g.current_player().moves_left;
         let ev = g.apply(Command::Ready { thing: SWORD });
         assert_eq!(
@@ -294,7 +295,9 @@ fn picking_up_a_weapon_readies_it_and_armor_takes_the_turn() {
                 slot: Slot::Weapon
             }]
         );
-        assert_eq!(g.current_player().moves_left, left);
+        assert_eq!(g.current_player().moves_left, left - 1);
+        g.apply(Command::Ready { thing: SWORD });
+        assert_eq!(g.current_player().moves_left, left - 1);
 
         // Refusals cost nothing.
         let ev = g.apply(Command::Ready { thing: SHIELD });

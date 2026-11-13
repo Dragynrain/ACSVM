@@ -11,8 +11,8 @@ manual, **[data]** from the stored format or corpus counts, **[designer]**
 from Baber's Jadeworld notes, **[unknown]** with the engine's current choice
 as **Engine:**. Counts cover all 15 corpus adventures.
 
-Combat is not in this slice. Where a creature would attack, the engine only
-reports it (`CreatureConfronts`) and the creature's turn ends.
+Combat is in [combat](combat.md): who a fighter strikes is part of its
+step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 
 ## 1. Who is in a region
 
@@ -313,22 +313,26 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    is taken at the top of the turn by friends, enemies and every fighter
    (4.2; a fighter thief too, [capture] 10.14.4),
    whether or not it has anything to cast; the engine rolls it only when
-   it has.
+   it has. A fighter friend or enemy whose first check leads to nothing
+   takes a second (helping an ally), right after: the "one roll more" of
+   an unarmed fighter enemy (capture.md 10.14.6). [research: combat first
+   pass; capture: armed, every run] **Engine:** not taken (helping allies
+   comes with a later pass).
 
 ## 7. Reaching a goal
 
 1. **A foe.** A fighter loves to attack certain types and may attack others
-   it meets on the way. [manual] How the C64 decides is for the combat
-   pass. An aggressive, brave enemy of ours with no weapon never attacked
-   the player beside it: it kept stepping round it (6.5) in 32 of 32 runs,
-   its turn taking one more roll than a slinker's. [capture: fight,
-   capture.md 10.14.6] The same enemy holding a melee weapon of ours
-   attacked, several times a turn ("EE misses T", a message each), in
-   every run. [capture: armed, 10.14.7] **Engine:** a fighter holding a weapon, beside (one
-   of the 4 squares) the individual it chose, emits `CreatureConfronts`
-   when that individual is a foe (7.4), and its turn ends; combat will
-   turn this into an attack. Without a weapon it steps on as 7.2.
-   [unknown] past the capture.
+   it meets on the way. [manual] On the C64 a fighter that owns a melee
+   weapon attacks by stepping into the square of the individual it
+   strikes: the squares of individuals count in its step choice (6.5) at a
+   cost by class, or are closed ([combat](combat.md) 2). [research:
+   combat first pass, 2026-11-13] An aggressive, brave enemy of ours with
+   no weapon never attacked the player beside it: it kept stepping round
+   it (6.5) in 32 of 32 runs. [capture: fight, capture.md 10.14.6] Holding
+   a melee weapon of ours, it attacked in every run, every step and blow
+   as combat 2 and 3 say. [capture: armed, 10.14.7, 10.14.9] The one roll
+   more its turn takes is the second smartness check (6.6).
+   **Engine:** combat 2.
 2. **Anyone else** (a slinker friend beside a player, a slinker enemy
    beside a fellow enemy): the creature keeps stepping round it until its
    bar runs out (6.5). [research, capture]
@@ -343,7 +347,7 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    square accepting drops (inventory 5.4) with no individual on it, else
    onto the friend's own square. A drop spell then acts on the friend
    itself, since it lands on no creature ([magic](magic.md) 2.3). [unknown]
-4. **Foes**, for readying and for 7.1: [manual] **Engine:**
+4. **Foes**, for readying (combat 6.2): [manual] **Engine:**
    - an enemy's foes are players and friends;
    - a friend's foes are enemies, aggressive neutrals and aggressive thieves;
    - neutrals and thieves treat every other individual as a foe (a fighter
@@ -388,12 +392,13 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    and how gold counts toward the load.
 2. **Readying.** A creature readies an appropriate weapon: when not next to
    a foe, a missile weapon if it has one, otherwise a melee weapon if it has
-   one; with several, the lowest item number. [manual] **Engine:** checked
-   at the start of each of its turns, free of cost; a change emits
-   `CreatureReadied`. A creature already holding the right kind keeps it
-   only if it is the lowest-numbered of that kind. [unknown]
+   one; with several, the lowest item number. [manual] On the C64: a melee
+   weapon only with a foe beside it (or as it steps into one), a missile
+   weapon with none beside it, a move for each change ([combat](combat.md)
+   2.6, 6.2). [research] **Engine:** combat 6.2, after the top-of-turn
+   drift and die; a change emits `CreatureReadied`.
 3. A safe fighter with a readied missile weapon fires at a foe goal.
-   [manual] Combat.
+   [manual] Not yet: combat 8.
 4. Casting and using magic items: [magic](magic.md) section 6.
 
 ## 9. Corpus check
@@ -405,13 +410,15 @@ dozen turns of waiting and wandering. With the region-visit scheduler
 the healing and reversal rules of magic 5 (November 2026), the
 creatures' own goals and steps of section 6 and the falling-away roll as
 captured (2.4, November 2026), and the take from beside and the
-overburdened drop as captured (7.5, 8.1), no confronting without a
-weapon (7.1), gold piles' sizes (inventory 2.5) and arrivals on a held
-destination (5.4, November 2026), creatures take 9,340 turns, make
-17,646 steps, go through 171 doors, square up to someone 4,331 times,
-ready 1,897 weapons, pick up gold 17 times and treasure 12 times, and
-make 40 drops (overburdened, and friends' gifts);
-7 random creatures appear and 2 fall away. No
+overburdened drop as captured (7.5, 8.1), gold piles' sizes (inventory
+2.5), arrivals on a held destination (5.4) and melee
+([combat](combat.md), 2026-11-13), creatures take 6,365 turns, make
+10,731 steps, go through 122 doors, ready 1,503 weapons, pick up gold 16
+times and treasure 10 times, and make 43 drops (overburdened, and
+friends' gifts); 2,819 attacks strike 9,863 blows (2,159 doing damage,
+2,013 counter-blows) and break 63 weapons or armor. Fewer turns than
+before combat because the touring player (Life Force 11) now dies in 572
+of the 996 rooms. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another individual except on
 arriving through a door (5.4). The random walks with
@@ -419,8 +426,8 @@ creatures replay exactly.
 
 ## 10. Left for later
 
-- **Combat:** attacks on `CreatureConfronts`, attacking those met on the way,
-  missile fire, creatures turning hostile when hurt.
+- **Combat:** melee is in [combat](combat.md); missile fire is not yet
+  (combat 8).
 - **World map:** encounter areas and the creatures in them.
 - **Mimics** copy the opponent they meet: combat.
 
@@ -436,8 +443,8 @@ creatures replay exactly.
    and not a friend). Still open: mid-turn, odd Speeds.
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
-   treasure (6.5, 7.5). Still open: fighters' goals among individuals
-   (combat).
+   treasure (6.5, 7.5), and for a fighter enemy going for the player
+   (combat 2). Still open: fighters' goals among other individuals.
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll).
    Still open: the first step's cost of some things.
 6. A creature following through a door: captured (5.4: the step ends its

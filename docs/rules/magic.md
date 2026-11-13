@@ -360,8 +360,9 @@ defense (none). Trait generation is a later rule set.
 
 ## 9. Left for later
 
-- **Combat:** blows lowering Life Force and Power, magic defense in fights,
-  creatures turning hostile when hurt, death in battle (section 7 is ready).
+- **Combat:** done for melee in [combat.md](combat.md) (blows lowering
+  Life Force and Power, magic defense in fights, creatures turning hostile
+  when hurt, death in battle by section 7).
 - **Rest:** healing 6 times faster than section 5.3.
 - **Stores** (specced in [stores.md](stores.md)) and the world map
   encounter areas.

@@ -239,6 +239,46 @@ impl Game {
         }
     }
 
+    /// Combat 2.7: player `p` moves into `target`. Holding a melee weapon
+    /// it attacks; owning one, it readies its lowest-numbered (a move if
+    /// the weapon in hand changes) and attacks; owning none, nothing
+    /// happens and no move is used. The attack ends the turn (2.5).
+    fn player_attack(&mut self, p: usize, target: Who, ev: &mut Vec<Event>) {
+        let me = Who::Player { player: p };
+        if self.held_melee(me).is_none() {
+            let Some(t) = self.owned_melee(me) else {
+                ev.push(match target {
+                    Who::Creature { region, slot } => Event::BumpedCreature {
+                        player: p,
+                        region,
+                        room: self.creature(region, slot).map_or(0, |c| c.room),
+                        resident: slot,
+                    },
+                    Who::Player { player } => Event::BumpedPlayer {
+                        player: p,
+                        other: player,
+                    },
+                });
+                return;
+            };
+            if self.set_weapon(me, t) {
+                ev.push(Event::Readied {
+                    player: p,
+                    thing: t,
+                    slot: Slot::Weapon,
+                });
+                let pl = &mut self.players[p];
+                pl.moves_left = pl.moves_left.saturating_sub(1);
+            }
+        }
+        let (left, full) = (self.players[p].moves_left, self.players[p].turn_moves);
+        self.attack(me, target, left, full, ev);
+        self.players[p].moves_left = 0;
+        if self.players[p].alive && !self.over {
+            self.end_turn(ev);
+        }
+    }
+
     // ---- rooms (section 5) -----------------------------------------------
 
     #[allow(clippy::too_many_arguments)]
@@ -276,13 +316,19 @@ impl Game {
                 .iter()
                 .position(|c| c.in_use && c.room == room && c.x == nx && c.y == ny)
         });
-        if let Some(resident) = resident {
-            ev.push(Event::BumpedCreature {
-                player: p,
-                region,
-                room,
-                resident,
-            });
+        // Combat 2.7: moving into any individual is an attack.
+        let other = self
+            .players
+            .iter()
+            .enumerate()
+            .position(|(i, o)| i != p && o.alive && o.at == to);
+        let target = match (resident, other) {
+            (Some(slot), _) => Some(Who::Creature { region, slot }),
+            (None, Some(other)) => Some(Who::Player { player: other }),
+            _ => None,
+        };
+        if let Some(target) = target {
+            self.player_attack(p, target, ev);
             return;
         }
 

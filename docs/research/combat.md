@@ -1,7 +1,9 @@
 # Research brief: fighters and combat
 
 A request to the project's clean-room researcher (docs/research/README.md).
-Licensed CC BY 4.0. Status: not started (briefed November 2026).
+Licensed CC BY 4.0. Status: first pass done 2026-11-13 (items 1, 2, 3, 5,
+6, 7, 8; item 4 traced only); melee confirmed by capture where the
+inputs reach and in the engine (`docs/rules/combat.md`).
 
 ## Why
 
@@ -89,4 +91,32 @@ Armor, a player's weapon and a missile case come in a second input set.
 
 ## Findings
 
-None yet.
+First pass (2026-11-13), summarized in plain language; the rules are
+specified in `docs/rules/combat.md`.
+
+- **Who attacks.** A fighter that owns a melee weapon attacks by stepping
+  into the other's square: its step choice scores squares holding
+  individuals by a table of costs by class (1, 3 or closed). Slinkers and
+  fighters owning no melee weapon never strike. Attacking ends the turn.
+  The unarmed enemy's extra roll is a second smartness check (helping an
+  ally). **Confirmed** by capture (`armed`, `fight`, capture.md 10.14.9).
+- **Blows**: 4 x moves left / full moves + Dexterity / 8 - 1, at least 1;
+  a damaging blow uses two. **Confirmed.**
+- **To-hit**: weapon and armor adjustments, Melee, 5 per blow left minus
+  20, a quarter of Power, minus a wound penalty, held to 14..90.
+  **Confirmed** (122 rolls). **Parry** (a held melee weapon only) and the
+  **counter-blow** after a miss: the researcher's runs only.
+- **Damage**: the weapon's Power scaled by Dexterity plus Size, a heavy
+  blow on a roll below Dexterity, at most 1.5 x; Power takes a share,
+  Life Force the rest. **Confirmed** (25 hits). Armor, magic defense,
+  breaking and things that disappear after use: traced only.
+- **Learning**: Melee and Parry up 1 on a roll above the skill; Armor
+  skill on a roll below 65 minus it. Melee **confirmed**.
+- **The player's attack**, readying costs and the alignment changes after
+  a player's blow: traced only.
+- **Firing**: traced only; not in the engine.
+
+Next pass (inputs needed first): a missile case, armor and magic defense,
+a defender holding a weapon (parries and counters by capture), the
+player's attack driven by the joystick (friend, neutral, the alignment
+changes), the dropped treasure's square, and blows on the world map.

@@ -129,12 +129,16 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 2. *New Weapon* and *New Armor* ready a weapon or armor the character carries.
    [manual] **Engine:** `Ready { thing }`; anything else, or a thing not
    carried, is refused (`ReadyRefused`) at no cost.
-3. Readying armor uses up the rest of the turn's moves. [designer]
-   **Engine:** it ends the turn. Readying a weapon costs nothing. [unknown]
+3. Readying armor uses up the rest of the turn's moves. [designer] On the
+   C64 readying a weapon costs one move and readying armor ends the turn,
+   each only when the thing in hand or worn changes ([combat](combat.md)
+   6.1). [research, unconfirmed] **Engine:** so. A weapon readied by
+   picking it up costs only the pick-up's step. [unknown]
 4. When the last copy of a readied thing leaves the character (dropped, or
    used up by a door), nothing is readied in that slot. [unknown] **Engine:**
    so.
-5. What readied things do in a fight belongs to the combat rules.
+5. What readied things do in a fight: [combat](combat.md) (parrying needs a
+   held melee weapon, armor counts only when worn).
 
 ## 5. Dropping
 

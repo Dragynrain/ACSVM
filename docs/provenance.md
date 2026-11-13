@@ -24,9 +24,12 @@ Every outside source used by this project, and how it was used. Licensed CC BY 4
 | Image models for the pirate art kit: Tongyi-MAI's Z-Image Turbo and Z-Image Base, ostris's Z-Image De-Turbo, Qwen-Image 2512 (unsloth Q4_K_M GGUF), Qwen-Image-Edit 2511, lightx2v's Qwen Lightning LoRAs, tarn59's Z-Image pixel-art LoRA (tested, not used), Wan 2.2 I2V A14B (Comfy-Org fp8 repack) with lightx2v's 4-step I2V LoRAs for hero idle loops; trained with OneTrainer | Apache-2.0 (models); AGPL-3.0 (OneTrainer, a tool) | Generating, editing, animating and training the art in `docs/art/pirates-style.md`; no art is committed yet (the packed atlas and its per-tile manifest of model, seed and prompt stay in the research folder until release) | Run locally in SwarmUI and OneTrainer. Inputs are our own prompts and our own generations, never EA or third-party pictures. Raw output stays in the private research folder. |
 | Pirate kit UI font (`docs/art/pirates-font.txt`), mood ramps, emissive, animation and variant specs (`docs/art/pirates-*.json`) | Our own work | The UI font and the per-region moods, glow, animation and recolours | Drawn and written for this project; no font, character set or palette was copied. The accented letters are composed from our own glyphs. |
 | SplitMix64 (Steele, Lea and Flood, 2014) | Published algorithm | The engine's seeded random generator (`crates/acs-engine/src/rng.rs`) | Written from the published constants; a unit test checks its first output for seed 0. |
+| Clean-room researcher's findings (`ACSVM-research/research/*/findings.md`: random rolls, turn order, combat, November 2026) | Plain-language reports by a separate researcher session (`docs/research/README.md`) | Rules tagged [research] in `docs/rules/` (cast chance, healing, goals and steps, the scheduler, melee) and the harness's addresses (`docs/capture.md` 9) | Read as findings only (never the researcher's notes), confirmed by capture where the inputs reach, then specified; the engine is written from the specs. |
 
 ## Clean-room status
 
 No code in this repository was derived from the original ACS program (no
-disassembly has been read). All format work so far comes from ACS Viewer, the
-draft and analysis of adventure data files.
+disassembly has been read by any implementer session). Format work comes
+from ACS Viewer, the draft and analysis of adventure data files; runtime
+rules from the manual, captures and the clean-room researcher's
+plain-language findings.

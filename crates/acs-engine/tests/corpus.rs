@@ -497,12 +497,27 @@ fn creatures_in_every_room_follow_the_rules() {
                             "Music",
                             "LongMessage",
                             "Given",
+                            "Attacked",
+                            "Blow",
+                            "Broke",
                         ];
                         if k.starts_with("Creature") || k == "RoomEncounter" || magic.contains(&k) {
                             *tally.entry(k.to_string()).or_default() += 1;
                         }
                         if let Event::CreatureRemoved { reason, .. } = e {
                             *tally.entry(format!("removed {reason:?}")).or_default() += 1;
+                        }
+                        if let Event::Blow {
+                            outcome: acs_engine::BlowOutcome::Hit { damage, .. },
+                            ..
+                        } = e
+                        {
+                            if damage > 0 {
+                                *tally.entry("damaging blows".into()).or_default() += 1;
+                            }
+                        }
+                        if let Event::Blow { counter: true, .. } = e {
+                            *tally.entry("counter-blows".into()).or_default() += 1;
                         }
                         if let Event::SpellCast { success: true, .. } = e {
                             *tally.entry("cast and worked".into()).or_default() += 1;

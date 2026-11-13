@@ -270,14 +270,15 @@ fn arrivals_land_on_a_door_destination_someone_holds() {
 
 #[test]
 fn an_unarmed_fighter_keeps_stepping_round_its_foe() {
-    // 7.1 (capture.md 10.14.6): no readied weapon, no confrontation.
+    // Combat 2.3 (capture.md 10.14.6): owning no melee weapon, it never
+    // attacks.
     both(|p| {
         let mut a = adventure(p);
         put(&mut a, 1, spec(0, 7, 5, Alignment::Enemy, true));
         let mut g = start(a, 0, 2, 2);
         for _ in 0..3 {
             let ev = wait(&mut g);
-            assert!(!ev.iter().any(|e| matches!(e, Event::CreatureConfronts { .. })));
+            assert!(!ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
         }
     });
 }
@@ -295,16 +296,29 @@ fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
             slot: 1,
             moves: 15
         }));
-        // 6.5: steps only to the 4 squares beside; 7.1: beside its foe, it
-        // squares up and its turn ends.
+        // 6.5: steps only to the 4 squares beside; combat 2.1: it attacks
+        // by stepping into the player's square, readying the sword it owns
+        // on contact (2.6), and its turn ends (2.5).
         let (_, x, y) = xy(&g, 1);
         let beside = (x as i16 - 2).abs() + (y as i16 - 2).abs() == 1;
         assert!(beside, "ended at {x},{y}");
-        assert!(ev.contains(&Event::CreatureConfronts {
+        assert!(ev.contains(&Event::CreatureReadied {
             region: 1,
             slot: 1,
-            target: Who::Player { player: 0 }
+            thing: SWORD
         }));
+        assert!(
+            ev.iter().any(|e| matches!(
+                e,
+                Event::Attacked {
+                    by: Who::Creature { region: 1, slot: 1 },
+                    target: Who::Player { player: 0 },
+                    weapon: SWORD,
+                    ..
+                }
+            )),
+            "{ev:?}"
+        );
         // 2.6: beside an aggressive enemy, the bar is halved.
         assert!(ev.contains(&Event::TurnStarted {
             player: 0,
@@ -321,13 +335,13 @@ fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
 }
 
 #[test]
-fn friends_do_not_hinder_and_do_not_confront_players() {
+fn friends_do_not_hinder_and_do_not_attack_players() {
     both(|p| {
         let mut a = adventure(p);
         put(&mut a, 1, spec(0, 3, 3, Alignment::Friend, true));
         let mut g = start(a, 0, 2, 2);
         let ev = wait(&mut g);
-        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureConfronts { .. })));
+        assert!(!ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
         assert!(ev.contains(&Event::TurnStarted {
             player: 0,
             moves: 15,
@@ -361,11 +375,15 @@ fn creatures_follow_a_player_through_the_door_they_took() {
         let (from, to) = took.expect("followed");
         assert_eq!(from, at(0, 9, 3));
         assert_eq!(to, at(1, 1, 3));
-        // Next round it acts in EAST and squares up.
+        // Next round it acts in EAST and attacks.
         let ev = wait(&mut g);
-        assert!(ev
-            .iter()
-            .any(|e| matches!(e, Event::CreatureConfronts { slot: 1, .. })));
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::Attacked {
+                by: Who::Creature { slot: 1, .. },
+                ..
+            }
+        )));
     });
 }
 

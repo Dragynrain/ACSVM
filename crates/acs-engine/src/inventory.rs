@@ -149,18 +149,22 @@ impl Game {
             }
         };
         let pl = &mut self.players[p];
-        match slot {
-            Slot::Weapon => pl.weapon = Some(thing),
-            Slot::Armor => pl.armor = Some(thing),
-        }
+        let changed = match slot {
+            Slot::Weapon => pl.weapon.replace(thing) != Some(thing),
+            Slot::Armor => pl.armor.replace(thing) != Some(thing),
+        };
         ev.push(Event::Readied {
             player: p,
             thing,
             slot,
         });
-        // 4.3: readying armor uses up the rest of the turn.
-        if slot == Slot::Armor {
-            self.end_turn(ev);
+        // 4.3, combat 6.1: a change of weapon costs a move, of armor the
+        // rest of the turn.
+        if changed {
+            match slot {
+                Slot::Weapon => self.spend(ev),
+                Slot::Armor => self.end_turn(ev),
+            }
         }
     }
 

@@ -2,10 +2,10 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 3, the behavior capture harness
-(`docs/capture.md`; first capture done), before any combat formulas. Phase 2
-(rules engine from the manual: movement, inventory, creatures outside combat
-and magic) is done.
+Plan: `docs/design.md`. Current phase: 4, formulas through research and
+capture; melee is in (`docs/rules/combat.md`, first combat pass), firing
+is not. Phases 2 (rules engine from the manual) and 3 (the capture harness,
+`docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
 before the code. Rules capture can't settle (random formulas, edge cases,
@@ -51,6 +51,7 @@ scripts/web.sh build                                    # static site in target/
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
+python scripts/combatcheck.py RUNS.jsonl [-v]   # melee rules vs `armed` runs, roll by roll (capture.md 10.14.9)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
@@ -82,7 +83,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   order, random creatures and personality, `ai.rs` one creature's turn (goals,
   paths, doors, pick-ups, drops, readying, casting), `magic.rs` the 15 spell
   actions, Cast/Use, Power drift, temporary Life Force, healing and death
-  (`run_spell` is the one place a spell takes effect); `describe` turns
+  (`run_spell` is the one place a spell takes effect), `combat.rs` melee
+  (`attack` and its blows; who strikes whom is the step choice in `ai.rs`
+  and `player_attack` in `step.rs`); `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives

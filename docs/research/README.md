@@ -113,7 +113,7 @@ getting the program to the right moment.
 | --- | --- |
 | [random-rolls.md](random-rolls.md): the generator, its state, rolls, casting | First pass done (November 2026); the cast chance confirmed and in the engine. Second pass done 2026-11-12 (items 7-13): healing and the temporary tick confirmed by capture and in the engine. Third pass done 2026-11-12: creatures' goals and steps and random creatures appearing confirmed by capture and in the engine; falling away captured, its percentile corrected (one roll; rooms empty at the round's end). Next: fighters (combat) |
 | [turn-order.md](turn-order.md): the scheduler, players in different places, creature phases | First pass done 2026-11-12: the region-visit scheduler confirmed by capture and in the engine. Two rooms in one region captured; next: the round a player misses after coming in at the map visit's end, a player's death |
-| [combat.md](combat.md): fighters' attack decision, melee, firing, readied weapons, breaking | Briefed November 2026; first inputs (`fight` unarmed, `armed` with a melee weapon) ready. Not started |
+| [combat.md](combat.md): fighters' attack decision, melee, firing, readied weapons, breaking | First pass done 2026-11-13: the attack decision, blows, to-hit and damage confirmed by capture (the `armed` runs) and in the engine with the rest of melee ([research, unconfirmed] where no capture reaches). Next: inputs for parries, armor, magic defense, the player's attack, firing |
 
 ## 6. Templates
 
