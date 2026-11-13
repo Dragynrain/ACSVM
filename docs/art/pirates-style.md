@@ -223,11 +223,23 @@ above but leave gaps against what Kit 4 in [design](../design.md) promises
 (ships as portals, a cursed compass, a mermaid's charm, a ghost crew) and
 against the stories section 1 says the kit must serve, such as a ghost-ship
 horror. Generate these after the hand-finishing pass and LoRA v4, except the
-ship, which *The King's Pardon* needs sooner. About 41 pictures, so a pirate
+ship, which *The King's Pardon* needs sooner. About 40 pictures, so a pirate
 adventure that uses the whole kit needs an Extended picture limit near 180.
 The two ships are done: the anchorage square is the intact ship from the
 first wreck attempt (section 11), and the portal ship asked for "a small
 patch of blue water" (seeds that ran the sea to the edges cut out badly).
+
+**Second round made (November 2026)** with LoRA v4-final (section 10), three
+seeds each: the 38 others exist as raw picks, snapped and tidied. v4 held
+the style across the set, with people full-length and a flat magenta
+background throughout. Only the two ghosts needed a new prompt: "a
+translucent pale blue-green man" came out as a faceless pale blob, fixed by
+"drawn with a dark teal outline ... a clear face, two glowing white eyes"
+and naming the clothing details. Faces (section 9) were placed on the 11
+people who needed them (nine crew, the drowned captain, the mermaid); v4
+already drew some eyes, so half the edits only thinned doubled or stray
+eye pixels. Still to do: a better black spot (it reads as a hole). The
+ghostly lookout was made and then dropped, keeping creatures at 46.
 
 | Group | Pictures | Contents | Why |
 | --- | --- | --- | --- |
@@ -235,11 +247,11 @@ patch of blue water" (seeds that ran the sea to the edges cut out badly).
 | Documents | 1 | Treasure map | The classic quest object; the kit has only a map table |
 | Magic items | 8 | Cursed compass, conch shell, voodoo doll, tiki idol, the black spot, ghost lantern, crystal skull, mermaid's comb | Spells hang on things (364 magic spells and 134 magic items in the corpus); these carry any of the 15 actions without leaving the setting |
 | Treasures | 5 | Loose gems, jewelled idol, jewelled crown, pearl necklace, gold chalice | A quest goal must look unlike every other treasure |
-| Creatures, supernatural | 5 | Ghost pirate (pale, glowing eyes on the emissive layer), drowned captain (boss), skeleton musketeer, skeleton captain, ghost ship's lookout | The supernatural ramp (section 2) has one skeleton so far |
+| Creatures, supernatural | 4 | Ghost pirate (pale, glowing eyes on the emissive layer), drowned captain (boss), skeleton musketeer, skeleton captain | The supernatural ramp (section 2) has one skeleton so far |
 | Creatures, sea | 5 | Kraken head (boss), giant octopus, jellyfish, moray eel, mermaid | Mermaid written as a person with her own aims, like the island peoples |
 | Creatures, land and cave | 6 | Caiman, giant bat, monkey (a thief), wild boar, giant spider, island jaguar | Swamp, cave and jungle have no creatures of their own |
 | Crew | 9 | Captain (man and woman), quartermaster, cook, surgeon, navigator, cabin boy, powder monkey, bosun | The roles players most want to be, and the obvious bosses |
-| **Total** | **41** | | Creatures reach 47, one over Classic's 46: drop one or share a picture |
+| **Total** | **40** | | Creatures reach Classic's 46 (a ghost ship's lookout was made and dropped to fit) |
 
 Left out on purpose: more terrain (16 is the Classic limit) and food or
 mundane items (no ACS rule uses them).
