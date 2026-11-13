@@ -46,6 +46,26 @@ pub struct MemSetup {
     pub until_refill: bool,
     /// Log every draw of the random state.
     pub draws: bool,
+    /// Answer messages shown on a creature's turn (a creature picking up
+    /// gold, 10.14.4) with the button: the players' names, so a mover not
+    /// among them is a creature. Needs the glyph table.
+    pub answer: Option<Vec<String>>,
+}
+
+/// Rows of the inner screen below the name strip, where messages show.
+const MESSAGE_ROWS: std::ops::Range<usize> = 170..200;
+/// The message area's background, blue.
+const MESSAGE_BG: u8 = 6;
+
+/// Whether the message area holds any text.
+fn message_shown(f: &crate::screen::Frame) -> bool {
+    let (_, _, w, h) = f.inner();
+    let lit = MESSAGE_ROWS
+        .filter(|&y| y < h)
+        .flat_map(|y| (0..w).map(move |x| (x, y)))
+        .filter(|&(x, y)| f.at(x, y) != MESSAGE_BG)
+        .count();
+    lit > 50
 }
 
 impl Runner<'_> {
@@ -60,6 +80,7 @@ impl Runner<'_> {
             limit,
             until_refill,
             draws,
+            answer,
         } = setup;
         let (sets, watch, limit, until_refill, draws) =
             (&sets[..], &watch[..], *limit, *until_refill, *draws);
@@ -85,6 +106,8 @@ impl Runner<'_> {
             None
         };
         let mut draw_log = Vec::new();
+        let mut answered = Vec::new();
+        let mut pressed = false;
         for &(a, v) in sets {
             self.s.vice.mon.mem_set(a, &[v]).map_err(|e| e.to_string())?;
         }
@@ -158,6 +181,31 @@ impl Runner<'_> {
                 }
             }
             last = now;
+            if let Some(players) = answer {
+                if pressed {
+                    self.joy("none")?;
+                    pressed = false;
+                } else {
+                    let f = self.s.frame().map_err(|e| e.to_string())?;
+                    let t_ = self
+                        .glyphs
+                        .as_ref()
+                        .ok_or("no glyph table (--glyphs or ACSVM_CAPTURE_GLYPHS)")?;
+                    let (mover, _) = crate::turns::strip(&f, t_);
+                    if !mover.is_empty() && !players.contains(&mover) && message_shown(&f) {
+                        if answered.len() < 8 {
+                            let png = self
+                                .s
+                                .out
+                                .join(format!("answer{run}-{:02}.png", answered.len() + 1));
+                            f.save_png(&png, false, 2).map_err(|e| e.to_string())?;
+                        }
+                        self.joy("fire")?;
+                        pressed = true;
+                        answered.push(json!({"t": t, "mover": mover}));
+                    }
+                }
+            }
             let b = self.look()?.bar;
             if b > bar + 4 && refilled.is_none() {
                 refilled = Some(t);
@@ -175,7 +223,7 @@ impl Runner<'_> {
         let names: Vec<String> = watch.iter().map(|a| format!("{a:04X}")).collect();
         self.write(json!({
             "kind": "mem", "run": run, "state": state, "watch": names, "start": start,
-            "end": last, "changes": changes, "draws": draw_log, "refilled_at": refilled, "ran": t,
+            "end": last, "changes": changes, "draws": draw_log, "answered": answered, "refilled_at": refilled, "ran": t,
         }))
     }
 }

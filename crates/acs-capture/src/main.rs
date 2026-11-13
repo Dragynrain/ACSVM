@@ -143,6 +143,14 @@ enum Cmd {
         /// The side room's chance for random creature 0, 0..15.
         #[arg(long, default_value_t = 0)]
         side_chance: u8,
+        /// move-basic: a treasure of ours on room 0 square X,Y (weight W,
+        /// default 1): `X,Y[,W]`. Repeatable (things 60, 61, ..).
+        #[arg(long)]
+        thing: Vec<String>,
+        /// A pile of gold (thing 81) on room 0 square X,Y: `X,Y,AMOUNT`.
+        /// Repeatable.
+        #[arg(long)]
+        gold: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -209,6 +217,10 @@ enum Cmd {
         /// mem: instructions to run (default 40 million).
         #[arg(long, default_value_t = 40_000_000)]
         run_for: u64,
+        /// mem: answer messages on creatures' turns with the button; the
+        /// players' names, comma-separated (docs/capture.md 10.14.4).
+        #[arg(long)]
+        answer: Option<String>,
         /// mem: stop when the movement bar refills (the next turn).
         #[arg(long)]
         until_refill: bool,
@@ -334,7 +346,31 @@ fn main() {
             random_creature,
             room_chance,
             side_chance,
+            thing,
+            gold,
         } => {
+            let nums = |t: &str, n: std::ops::RangeInclusive<usize>| -> Vec<u16> {
+                let v: Vec<u16> = t
+                    .split(',')
+                    .map(|x| {
+                        x.trim()
+                            .parse()
+                            .unwrap_or_else(|_| fail(&format!("{t}: numbers")))
+                    })
+                    .collect();
+                if !n.contains(&v.len()) {
+                    fail(&format!("{t}: want {n:?} numbers"));
+                }
+                v
+            };
+            let things: Vec<Vec<u16>> = thing.iter().map(|t| nums(t, 2..=3)).collect();
+            let gold: Vec<(u8, u8, u8)> = gold
+                .iter()
+                .map(|t| {
+                    let v = nums(t, 3..=3);
+                    (v[0] as u8, v[1] as u8, v[2].min(255) as u8)
+                })
+                .collect();
             let random_creature =
                 random_creature.map(|c| scenario::Resident::parse(&c).unwrap_or_else(|e| fail(&e)));
             let side = side_room.then_some(((7, 4), (2, 4)));
@@ -373,6 +409,16 @@ fn main() {
                         random_creature: random_creature.clone(),
                         room_chance,
                         side_chance,
+                        takes: things.iter().map(|v| (v[0] as u8, v[1] as u8)).collect(),
+                        take_weights: things
+                            .iter()
+                            .map(|v| {
+                                scenario::weight_bytes(v.get(2).copied().unwrap_or(1))
+                                    .unwrap_or_else(|e| fail(&e))
+                            })
+                            .collect(),
+                        quiet_takes: true,
+                        gold: gold.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -427,6 +473,7 @@ fn main() {
             set,
             run_for,
             until_refill,
+            answer,
             draws,
             peek,
         } => {
@@ -537,6 +584,9 @@ fn main() {
                         limit: run_for,
                         until_refill,
                         draws,
+                        answer: answer
+                            .as_ref()
+                            .map(|a| a.split(',').map(str::to_string).collect()),
                     };
                     result = r.mem_run(run, state, &setup);
                     if result.is_err() {

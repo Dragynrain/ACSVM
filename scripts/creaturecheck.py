@@ -16,6 +16,13 @@ neighbour with the lowest 3 x steps to the goal + 5 x the square's cost +
 
     python scripts/creaturecheck.py one RUNS.jsonl
     python scripts/creaturecheck.py follow RUNS.jsonl
+    python scripts/creaturecheck.py thief RUNS.jsonl [--smart fighters]
+
+`thief` (capture.md 10.14.4) adds things: treasures and gold piles the
+creatures may seek (thing ranks), cost rank / 32 to step on and take; the
+turn goes on after a take and the goal stays. `--smart` says who takes the
+smartness roll: `friend-enemy` (the default, as the first scenarios) or
+`fighters` (friends, enemies and every aggressive creature).
 """
 import argparse
 import json
@@ -38,10 +45,26 @@ SCENARIOS = {
         "exits": [(7, 4)],
         "creatures": [((10, 2), 6, "slinker friend", 13), ((12, 7), 4, "slinker neutral", 13)],
     },
+    "thief": {
+        "inside": (1, 13, 1, 8),
+        "player": (4, 4),
+        "player_moves": 6,
+        "exits": [],
+        # In the room's order: two treasures, then two gold piles.
+        "things": [((12, 2), "treasure"), ((9, 7), "treasure"), ((2, 2), "gold"), ((11, 6), "gold")],
+        "creatures": [((8, 3), 5, "slinker thief", 13), ((12, 8), 4, "fighter thief", 13),
+                      ((2, 5), 4, "slinker enemy", 13)],
+    },
 }
 # Ranks (random-rolls findings 17.2) for our types: the player, an exit.
 RANK_PLAYER = {"slinker friend": 26}
 RANK_EXIT = {"slinker friend": 32, "slinker neutral": 32}
+# Thing ranks (creatures 6.4): what each type takes and seeks.
+RANK_THING = {
+    "slinker thief": {"gold": 32, "treasure": 32},
+    "fighter thief": {"gold": 32, "treasure": 32},
+    "slinker enemy": {"gold": 96},
+}
 EXIT_COST = 1  # a slinker's
 FLOOR, STOOD = 2, 4
 
@@ -80,15 +103,23 @@ def dist(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
-def simulate(sc, draws):
+def smart_roll(kind, smart):
+    if "friend" in kind or "enemy" in kind:
+        return True
+    return smart == "fighters" and kind.startswith("fighter")
+
+
+def simulate(sc, draws, smart="friend-enemy"):
     x0, x1, y0, y1 = sc["inside"]
     player = sc["player"]
     at = [c[0] for c in sc["creatures"]]
     paths = []
+    things = list(sc.get("things", []))
+    taken = []
     draws.take(sc["player_moves"])  # the player's last idle move
     for k, (start, speed, kind, wisdom) in enumerate(sc["creatures"]):
         draws.take(6)  # the top-of-turn die
-        if "friend" in kind or "enemy" in kind:
+        if smart_roll(kind, smart):
             if 6 <= wisdom <= 14:
                 draws.take(10)  # smartness
         me = at[k]
@@ -99,6 +130,10 @@ def simulate(sc, draws):
         for e in sc["exits"]:
             if kind in RANK_EXIT:
                 cands.append((RANK_EXIT[kind] + dist(me, e), 1, e))
+        ranks = RANK_THING.get(kind, {})
+        for n, (sq, what) in enumerate(things):
+            if what in ranks:
+                cands.append((ranks[what] + dist(me, sq), 2 + n, sq))
         cands.sort()
         has_goal = bool(cands) and cands[0][0] < 200
         # With no goal it steers by its own starting square (not a goal:
@@ -113,10 +148,16 @@ def simulate(sc, draws):
                 sq = (me[0] + d[0], me[1] + d[1])
                 if not (x0 <= sq[0] <= x1 and y0 <= sq[1] <= y1) or sq in others:
                     continue
+                held = [w for t, w in things if t == sq]
+                if held and held[0] not in ranks:
+                    continue  # a thing it won't take: closed (creatures 5.2)
                 r = draws.take(3)
                 if sq in sc["exits"]:
                     cost = EXIT_COST
                 elif has_goal and sq == goal:
+                    cost = 1
+                elif held:
+                    cost = ranks[held[0]] // 32
                     cost = 1
                 elif sq in stood:
                     cost = STOOD
@@ -130,10 +171,14 @@ def simulate(sc, draws):
             me = best[1]
             stood.add(me)
             path.append(me)
+            for t in [t for t in things if t[0] == me]:
+                things.remove(t)
+                taken.append((k, t))
             if me in sc["exits"]:
                 break  # it takes the door; its turn ends
         at[k] = me
         paths.append(path)
+    simulate.taken = taken
     return paths
 
 
@@ -169,6 +214,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scenario", choices=SCENARIOS)
     ap.add_argument("runs")
+    ap.add_argument("--smart", choices=["friend-enemy", "fighters"], default="friend-enemy")
     a = ap.parse_args()
     sc = SCENARIOS[a.scenario]
     right = wrong = steps = 0
@@ -176,7 +222,7 @@ def main():
         v = json.loads(text)
         stores = [d["raw"] for d in v["draws"]]
         try:
-            want = simulate(sc, Draws(stores))
+            want = simulate(sc, Draws(stores), a.smart)
         except IndexError as e:
             print(f"run {v['run']}: {e}")
             wrong += 1

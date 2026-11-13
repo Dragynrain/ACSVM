@@ -147,12 +147,20 @@ pub struct Resident {
     pub alignment: u8,
     pub aggressive: bool,
     pub brave: bool,
+    /// Its room in region 1 (0 the test room, 1 the side room).
+    pub room: u8,
+    /// Gold carried (the wealth count).
+    pub wealth: u16,
+    /// Treasures of ours it owns, by weight (things `CARRY`.., numbered
+    /// across all residents in slot order).
+    pub carry: Vec<u16>,
 }
 
 impl Resident {
     /// `key=value` pairs separated by commas: `x`, `y`, `align` (thief,
-    /// neutral, enemy, friend), `aggressive` and `brave` (0 or 1), and any
-    /// stat `Player::with` takes. Default: a Speed 3 peaceful, cautious
+    /// neutral, enemy, friend), `aggressive` and `brave` (0 or 1), `room`
+    /// (0 or 1), `gold` (wealth), `carry` (treasure weights joined by `+`),
+    /// and any stat `Player::with` takes. Default: a Speed 3 peaceful, cautious
     /// friend named A with Constitution and Life Force 10.
     pub fn parse(spec: &str) -> Result<Self, String> {
         let mut r = Resident {
@@ -161,6 +169,9 @@ impl Resident {
             alignment: 3,
             aggressive: false,
             brave: false,
+            room: 0,
+            wealth: 0,
+            carry: Vec::new(),
         };
         let mut rest = Vec::new();
         for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -185,6 +196,14 @@ impl Resident {
                 }
                 "aggressive" => r.aggressive = flag()?,
                 "brave" => r.brave = flag()?,
+                "room" => r.room = num()?,
+                "gold" => r.wealth = v.parse().map_err(|_| format!("{kv}: bad number"))?,
+                "carry" => {
+                    r.carry = v
+                        .split('+')
+                        .map(|w| w.parse::<u16>().map_err(|_| format!("{kv}: bad weight")))
+                        .collect::<Result<_, _>>()?
+                }
                 _ => rest.push(kv),
             }
         }
@@ -193,17 +212,23 @@ impl Resident {
     }
 
     /// The resident record: the player record's stats on its square, the
-    /// strategy in byte 4 with the Speed, room 0 of region 1, picture
-    /// `picture` (64..109, all solid in our scenarios).
-    pub fn record(&self, picture: u8) -> [u8; 37] {
+    /// strategy in byte 4 with the Speed, its room of region 1, picture
+    /// `picture` (64..109, all solid in our scenarios), its gold, and
+    /// things `first_carry`.. for its `carry` list.
+    pub fn record(&self, picture: u8, first_carry: u8) -> [u8; 37] {
         let mut r = self.stats.record(self.at);
         r[0x01] = self.stats.strength;
         r[0x04] = self.stats.speed
             | self.alignment << 4
             | u8::from(self.aggressive) << 6
             | u8::from(self.brave) << 7;
-        r[0x10] = 1 << 4;
+        r[0x10] = 1 << 4 | (self.room & 0x0F);
+        r[0x12..0x14].copy_from_slice(&self.wealth.to_le_bytes());
         r[0x16] = picture + 2;
+        for k in 0..self.carry.len() {
+            let i = (first_carry as usize + k) - 33;
+            r[0x17 + 8 + i / 8] |= 0x80 >> (i % 8);
+        }
         r
     }
 }
@@ -245,6 +270,9 @@ pub struct MoveBasic {
     /// weight 1 unless `take_weights` gives their first two property bytes.
     pub takes: Vec<(u8, u8)>,
     pub take_weights: Vec<(u8, u8)>,
+    /// The `takes` show no message when taken (the `loose` ones keep the
+    /// template's, which the runs answer).
+    pub quiet_takes: bool,
     /// A one-way portal (thing `EXIT`) on this room square, to world map
     /// point 32 at the second cell (door table entry 1).
     pub exit: Option<((u8, u8), (u8, u8))>,
@@ -263,6 +291,8 @@ pub struct MoveBasic {
     pub room_chance: u8,
     /// The side room's chance for random creature 0.
     pub side_chance: u8,
+    /// Piles of gold (thing `GOLD`) on room 0 squares: x, y, amount.
+    pub gold: Vec<(u8, u8, u8)>,
 }
 
 /// A locked one-way room door of ours.
@@ -371,6 +401,12 @@ pub fn take_weight(spec: &str) -> Result<(u8, u8), String> {
     }
 }
 
+/// The first master thing slot of the treasures residents carry (up to
+/// `TAKE`).
+pub const CARRY: u8 = 50;
+/// Gold: thing 81 in every corpus adventure (docs/format-notes.md).
+pub const GOLD: u8 = 81;
+
 /// The master thing slot our obstacle takes (over the builder set's).
 pub const OBSTACLE: u8 = 100;
 
@@ -392,6 +428,7 @@ impl Default for MoveBasic {
             player2: None,
             takes: Vec::new(),
             take_weights: Vec::new(),
+            quiet_takes: false,
             exit: None,
             lock: None,
             residents: Vec::new(),
@@ -399,6 +436,7 @@ impl Default for MoveBasic {
             random_creature: None,
             room_chance: 0,
             side_chance: 0,
+            gold: Vec::new(),
         }
     }
 }
@@ -672,7 +710,41 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             &format!("THING{}", i + 1),
             [b0, b1, 1, PIC_DOOR as u8],
         );
+        if s.quiet_takes {
+            no_messages(&mut f, n as usize);
+        }
         items.push((x, y, n, 1));
+    }
+    let wealthy = s
+        .residents
+        .iter()
+        .chain(s.random_creature.iter())
+        .any(|c| c.wealth > 0);
+    if !s.gold.is_empty() || wealthy {
+        // A treasure of weight 1 and value 1, the door picture; a placed
+        // pile's item parameter is its size.
+        f.thing(GOLD as usize, "GOLD", [0x01, 1, 1, PIC_DOOR as u8]);
+        no_messages(&mut f, GOLD as usize);
+    }
+    for &(x, y, n) in &s.gold {
+        items.push((x, y, GOLD, n));
+    }
+    // Treasures residents carry: things CARRY.., never placed.
+    let mut next = CARRY;
+    let mut first_carry = Vec::new();
+    for c in s.residents.iter().chain(s.random_creature.iter()) {
+        first_carry.push(next);
+        for &w in &c.carry {
+            assert!(next < TAKE, "at most {} carried treasures", TAKE - CARRY);
+            let (b0, b1) = weight_bytes(w).expect("weight");
+            f.thing(
+                next as usize,
+                &format!("BAG{}", next - CARRY + 1),
+                [b0, b1, 1, PIC_DOOR as u8],
+            );
+            no_messages(&mut f, next as usize);
+            next += 1;
+        }
     }
     if let Some((at, _)) = s.exit {
         items.push((at.0, at.1, EXIT, 1));
@@ -690,7 +762,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         .enumerate()
         .map(|(i, c)| {
             let name: &'static str = Box::leak(c.stats.name.clone().into_boxed_str());
-            (i, name, c.record(65 + i as u8))
+            (i, name, c.record(65 + i as u8, first_carry[i]))
         })
         .collect();
     // One region with one full-size room behind the map door.
@@ -709,7 +781,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         .iter()
         .map(|c| {
             let name: &'static str = Box::leak(c.stats.name.clone().into_boxed_str());
-            (0, name, c.record(70))
+            (0, name, c.record(70, first_carry[s.residents.len()]))
         })
         .collect();
     if s.side.is_some() {
@@ -858,6 +930,39 @@ mod tests {
             (pb.pixel(1, 3), pb.pixel(6, 3), pb.pixel(7, 3), pb.pixel(6, 6)),
             (3, 3, 0, 0)
         );
+    }
+
+    #[test]
+    fn residents_carry_gold_and_treasures_and_gold_lies_in_the_room() {
+        let s = MoveBasic {
+            residents: vec![
+                Resident::parse("name=A,gold=300,carry=400+1").unwrap(),
+                Resident::parse("name=B,room=1,x=3,y=3,carry=20").unwrap(),
+            ],
+            side: Some(((7, 4), (2, 4))),
+            gold: vec![(2, 7, 10)],
+            takes: vec![(12, 2)],
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let live: Vec<_> = adv.regions[0].residents.iter().filter(|c| c.in_use).collect();
+        let [a, b] = live.as_slice() else {
+            panic!("two residents, got {}", live.len());
+        };
+        assert_eq!(a.wealth, 300);
+        let owned =
+            |c: &acs_core::model::Creature| -> Vec<u16> { c.possessions.iter().map(|p| p.thing).collect() };
+        assert_eq!(owned(a), vec![50, 51]);
+        assert_eq!((b.room, owned(b)), (1, vec![52]));
+        assert_eq!(adv.things[49].name, "BAG1");
+        assert_eq!(adv.things[80].name, "GOLD");
+        let items = &adv.regions[0].rooms[0].items;
+        assert!(items.iter().any(|i| (i.x, i.y, i.thing) == (2, 7, 81)));
+        assert!(items
+            .iter()
+            .any(|i| (i.x, i.y, i.thing) == (12, 2, u16::from(TAKE))));
     }
 
     #[test]
