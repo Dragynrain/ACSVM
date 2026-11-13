@@ -196,7 +196,7 @@ impl Runner<'_> {
                         .ok_or("no glyph table (--glyphs or ACSVM_CAPTURE_GLYPHS)")?;
                     let (mover, _) = crate::turns::strip(&f, t_);
                     if !mover.is_empty() && !players.contains(&mover) && message_shown(&f) {
-                        if answered.len() < 8 {
+                        if answered.len() < 16 {
                             let png = self
                                 .s
                                 .out

@@ -343,12 +343,12 @@ impl Game {
                     return;
                 }
                 if item.thing == inventory::GOLD {
-                    // Inventory 2.5: the pile holds `parameter` pieces (0 = 1).
-                    let pile = (item.parameter as u16).max(1);
+                    // Inventory 2.5: the pile's size (its amount record).
+                    let pile = Game::pile_size(&item);
                     let amount = pile.min(limit - self.players[p].gold);
                     self.players[p].gold += amount;
                     if amount < pile {
-                        self.set_item_parameter(region, room, index, (pile - amount) as u8);
+                        self.set_pile(region, room, index, pile - amount);
                     } else {
                         self.remove_item(region, room, index);
                     }
@@ -552,13 +552,14 @@ impl Game {
         }
     }
 
-    fn set_item_parameter(&mut self, region: u8, room: u8, index: usize, parameter: u8) {
+    /// What is left of a gold pile.
+    pub(crate) fn set_pile(&mut self, region: u8, room: u8, index: usize, amount: u16) {
         if let Some(it) = self
             .region_mut(region)
             .and_then(|reg| reg.rooms.get_mut(room as usize))
             .and_then(|r| r.items.get_mut(index))
         {
-            it.parameter = parameter;
+            it.gold = Some(amount);
         }
     }
 
@@ -611,22 +612,12 @@ impl Game {
                 .map(|_| Location::Room { region, room, x, y }),
             _ => None,
         };
-        let Some(mut to) = to else {
+        let Some(to) = to else {
             self.send_to_start(p, from, ev);
             return;
         };
-        // 6.3 / creatures 5.4: a creature on the destination square moves the
-        // arrival to the nearest free square.
-        if let Location::Room { region, room, x, y } = to {
-            if let Some((lx, ly)) = self.landing(region, room, x, y) {
-                to = Location::Room {
-                    region,
-                    room,
-                    x: lx,
-                    y: ly,
-                };
-            }
-        }
+        // 6.3 / creatures 5.4: the arrival lands on the destination even
+        // when someone stands there (capture.md 10.10.5).
         self.players[p].at = to;
         ev.push(Event::TookDoor {
             player: p,

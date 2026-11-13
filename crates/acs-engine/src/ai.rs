@@ -6,7 +6,7 @@
 
 use crate::creatures::{self, is_fighter, is_foe, Other};
 use crate::game::Game;
-use crate::inventory::{self, GOLD, GOLD_LIMIT, PILE_LIMIT};
+use crate::inventory::{self, GOLD, GOLD_LIMIT};
 use crate::magic::{self, add_possession, take_possession, Spell};
 use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
 use acs_core::model::{Access, Alignment, Creature, Destination, SpellActionKind, ThingKind};
@@ -501,20 +501,14 @@ impl Game {
             return;
         };
         if item.thing == GOLD {
-            let pile = (item.parameter as u16).max(1);
+            let pile = Game::pile_size(&item);
             let wealth = self.creature(region, slot).map_or(0, |c| c.wealth);
             let amount = pile.min(GOLD_LIMIT - wealth);
             if let Some(c) = self.creature_mut(region, slot) {
                 c.wealth += amount;
             }
             if amount < pile {
-                if let Some(it) = self
-                    .region_mut(region)
-                    .and_then(|r| r.rooms.get_mut(room as usize))
-                    .and_then(|r| r.items.get_mut(index))
-                {
-                    it.parameter = (pile - amount) as u8;
-                }
+                self.set_pile(region, room, index, pile - amount);
             } else {
                 self.remove_item(region, room, index);
             }
@@ -562,21 +556,9 @@ impl Game {
             self.remove_creature(region, slot, RemovalReason::Banished, ev);
             return;
         }
-        // Creatures 5.4: it may share the destination with a player, not
-        // with another creature.
-        let creature_there = self.region(region).is_some_and(|reg| {
-            reg.residents
-                .iter()
-                .any(|o| o.in_use && o.room == room && o.x == x && o.y == y)
-        });
-        let landing = if creature_there {
-            self.landing(region, room, x, y)
-        } else {
-            Some((x, y))
-        };
-        let Some((lx, ly)) = landing else {
-            return; // Nowhere to stand: it stays and its turn ends.
-        };
+        // Creatures 5.4: it lands on the destination, sharing it with
+        // whoever stands there (capture.md 10.10.5).
+        let (lx, ly) = (x, y);
         // Access "owners of" with "destroy needed thing" uses one up.
         if let Some(ThingKind::Portal {
             access: Access::OwnersOf { thing },
@@ -634,15 +616,6 @@ impl Game {
         });
     }
 
-    /// 5.4: the destination square if no one stands there, else the nearest
-    /// inside square with no individual and no thing.
-    pub(crate) fn landing(&self, region: u8, room: u8, x: u8, y: u8) -> Option<(u8, u8)> {
-        if !self.occupied(region, room, x, y) {
-            return Some((x, y));
-        }
-        self.nearest_free(region, room, x, y)
-    }
-
     /// 8.1: one drop a turn while load is above capacity: all its gold,
     /// else its lowest-numbered treasure or magic item. True if it dropped.
     fn overburdened_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
@@ -695,12 +668,10 @@ impl Game {
             y: c.y,
         };
         if !vanishes {
-            // Gold in piles of up to 255 (as for the dead, magic 7.2).
-            let mut left = amount;
-            while left > 0 {
-                let n = left.min(PILE_LIMIT);
-                self.put_on_top(region, c.room, c.x, c.y, thing, n as u8);
-                left -= n;
+            if thing == GOLD {
+                self.put_gold(region, c.room, c.x, c.y, amount);
+            } else {
+                self.put_on_top(region, c.room, c.x, c.y, thing, 1);
             }
         }
         ev.push(Event::CreatureDropped {

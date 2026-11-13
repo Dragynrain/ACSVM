@@ -63,9 +63,15 @@ pub struct TurnsSetup<'a> {
 /// A route: (direction, squares) moves, walked in order.
 pub type Route = Vec<(String, u32)>;
 
-/// `NAME=e3,s1` to the player's name and route.
+/// `NAME=e3,s1` to the player's name and route. `NAME@K=..` is a route
+/// for the start of the player's K-th turn (counted from the snapshot,
+/// from 1) instead of right after the map door; the name comes back as
+/// `NAME@K`.
 pub fn parse_route(spec: &str) -> Result<(String, Route), String> {
     let (name, moves) = spec.split_once('=').ok_or(format!("{spec}: want NAME=MOVES"))?;
+    if let Some((_, k)) = name.split_once('@') {
+        k.parse::<usize>().map_err(|_| format!("{name}: want NAME@K"))?;
+    }
     let mut route = Vec::new();
     for m in moves.split(',').map(str::trim).filter(|m| !m.is_empty()) {
         let split = m
@@ -291,6 +297,15 @@ impl Runner<'_> {
                     }
                 }
                 if let Some(i) = players.iter().position(|p| *p == current) {
+                    // A route for this turn of the player's (NAME@K).
+                    let k = movers.iter().filter(|m| **m == current).count();
+                    let key = format!("{current}@{k}");
+                    if let Some((_, route)) = routes.iter().find(|(n, _)| *n == key) {
+                        let (done, spent, f) = self.walk_route(route)?;
+                        walked.push(json!({"player": key, "t": t, "moves": done}));
+                        t += spent;
+                        frames += f;
+                    }
                     if !entered[i] && enter.contains(&current.as_str()) && !is_room(&look.place) {
                         self.joy("s")?;
                         holding = Some(i);
@@ -396,6 +411,8 @@ mod tests {
             ("T".to_string(), vec![("e".to_string(), 3), ("s".to_string(), 1)])
         );
         assert!(parse_route("T=x3").is_err());
+        assert_eq!(parse_route("T@3=e3").unwrap().0, "T@3");
+        assert!(parse_route("T@x=e3").is_err());
         assert!(parse_route("e3").is_err());
     }
 

@@ -972,6 +972,25 @@ In this order (planned November 2026):
       in player order and each room's creatures follow its players, as the
       turn-order finding says; the round T missed after arriving through
       the portal is not explained (open: turn-order next pass).
+      Then (`rooms2/later`, 3 runs) T took the portal on its third turn
+      instead (`--route T@3=e3`: a route at the start of a player's K-th
+      turn), so it came in only through the map door in round 12, the
+      map visit's last (U in round 11). T again had no turn in round 13,
+      in all 3 runs; after the portal, taken in round 14, it had its turn
+      in every round. So the missed round goes with coming into the
+      region at the map visit's end, not with the portal. (Single-player
+      runs on a plain side-room disk, `rr7/portal`, couldn't show it: with
+      no other mover the timeline tells turns apart only by the bar
+      refilling, and it both missed and doubled turns there.)
+   5. *A door destination held by a creature* (creatures 5.4, movement
+      6.3; `held`, November 2026). The side-room disk with T (Speed 12,
+      route `e3` into the side room), AA a peaceful friend (Speed 6) on
+      room 0's 10,2, and SS (Speed 0, `room=1`) standing on the portal's
+      destination 2,4 in the side room. 6 wide-jitter runs, 5 of T's
+      turns, the creatures' squares and rooms peeked each turn. Result: T
+      landed on 2,4 with SS in all 6; AA followed in 5 and landed on 2,4
+      too, on both, then stepped off on its next turn (to 1,4, 2,3, 2,5
+      or 3,6).
 11. **Snapshots just before a roll** (`acs-capture snap MOMENT`, done
    November 2026), for the researcher's inputs and for state sweeps.
    From a scenario's first-turn snapshot, optionally after a drift plan's
@@ -1089,7 +1108,7 @@ In this order (planned November 2026):
       has 512"), so `mem --answer T` presses the button while the name
       strip names someone other than the players and the message area
       (inner rows 170 to 199) holds anything besides its background and
-      black, and saves a screenshot of each of the first 8 messages a run.
+      black, and saves a screenshot of each of the first 16 messages a run.
       The room: T on 4,4; treasures on 12,2 and 9,7; gold piles of 10 on
       2,2 and of 5 on 11,6; XX, a peaceful thief (Speed 5) on 8,3, YY, an
       aggressive thief (Speed 4) on 12,8, ZZ, a peaceful enemy (Speed 4)
@@ -1105,7 +1124,8 @@ In this order (planned November 2026):
       no step rolls after). XX's two treasures scored the same (37) and it
       went for 12,2, the first in the room's order. The gold amounts:
       YY's pile of 5 gave 512 in all 56 takes, ZZ's pile of 10 gave 1,361
-      in all 42: not the item parameter (format-notes).
+      in all 42, because our disks lacked the piles' size records (item
+      8).
    5. *The overburdened drop* (creatures 8.1, 7.3; `burden`, `burden2`,
       November 2026). Strength 1, Speed 2 creatures of ours: WA (300
       gold, treasures of weight 400 and 1, things 50 and 51), WB (2,000
@@ -1144,3 +1164,15 @@ In this order (planned November 2026):
       a button press each, 7 to 13 a run; T's Life Force went from 40 to
       24..34 in 19 runs and stayed 40 in 13. Copied with `fight` to
       `research/combat/inputs/` for the combat pass.
+   8. *What a gold pile holds* (inventory 2.5; `ga`, `gb`, November
+      2026). The thief room's amounts (5 gave 512) didn't match the piles'
+      parameters. The corpus showed why: every placed gold is followed by
+      a size record on square 15,14 (format-notes), which our disks
+      lacked, so the program read the next two bytes. `--gold X,Y,N` now
+      writes the gold and its size record. Two disks, nine piles each on
+      row 7 (5,7 to 13,7): sizes 1 to 9, and 10, 16, 20, 32, 51, 0, 100,
+      200 and 255; a thief of ours (Speed 15, Strength 31) beside the row
+      took one a turn (`mem --answer T`, one run, 150 million
+      instructions). Every message read named the size written ("XX
+      finds gold worth 0 and now has 129" too), and its gold ended at 45
+      and 684, the sums.

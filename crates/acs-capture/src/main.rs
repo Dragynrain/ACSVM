@@ -236,7 +236,8 @@ enum Cmd {
         enter: Option<String>,
         /// turns: a player's route after the map door, on the same turn:
         /// NAME=MOVES, moves like e3 (3 squares east) separated by commas;
-        /// a move ends early when the place changes. Repeatable.
+        /// a move ends early when the place changes. NAME@K=MOVES walks
+        /// them at the start of the player's K-th turn instead. Repeatable.
         #[arg(long)]
         route: Vec<String>,
         /// drift: walk each turn out (east, then west) instead of idling it.
@@ -364,11 +365,11 @@ fn main() {
                 v
             };
             let things: Vec<Vec<u16>> = thing.iter().map(|t| nums(t, 2..=3)).collect();
-            let gold: Vec<(u8, u8, u8)> = gold
+            let gold: Vec<(u8, u8, u16)> = gold
                 .iter()
                 .map(|t| {
                     let v = nums(t, 3..=3);
-                    (v[0] as u8, v[1] as u8, v[2].min(255) as u8)
+                    (v[0] as u8, v[1] as u8, v[2])
                 })
                 .collect();
             let random_creature =

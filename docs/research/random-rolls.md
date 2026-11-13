@@ -362,8 +362,9 @@ moving, and its turn ends. **Open, for a next pass:** fighters (attacks,
 firing, the second table), the first-step cost of some things, the map
 encounters, item 18; and two seen by capture: the square an
 overburdened creature's (or a friend's) dropped treasure lands on, which
-takes one to five pairs of rolls (capture.md 10.14.5), and what a placed
-gold pile is worth (10 gave 1,361).
+takes one to five pairs of rolls (capture.md 10.14.5). (What a placed
+gold pile is worth turned out to be data: the record after it,
+inventory 2.5.)
 
 **Checked by capture** (capture.md 10.12): healing, 253 of 253 runs of a
 256-state sweep exact; the tick's delay, 252 of 252; the seed, 5. Specs:

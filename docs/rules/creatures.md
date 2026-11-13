@@ -72,12 +72,14 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    Two players in different rooms of one region: T in the side room, U
    and two creatures in room 0; every round from the region's second on
    went T, then U and the creatures, in 3 runs. [capture: turns, case
-   rooms2, capture.md 10.10.4] But in the region's first round, just
-   after T had come through a portal into the side room (during the
-   map's visit), T had no turn: U and the creatures only. [capture]
-   [unknown] **Engine:** lists T as usual. Not settled: that missed
-   round, the individuals the researcher saw numbered 5 to 15 on room
-   lists.
+   rooms2, capture.md 10.10.4] But in the region's first round T had no
+   turn: U and the creatures only. T had come in through the map door in
+   the map visit's last round (with or without going on through the
+   portal), U a round earlier; taking the portal later, inside the
+   region's visit, cost T no round (3 and 3 runs). [capture] [unknown]
+   **Engine:** lists T as usual. Not settled: that missed round (the
+   turn-order brief), the individuals the researcher saw numbered 5 to
+   15 on room lists.
 3. So creatures act only while a player stands in their room at a round's
    start, and move once a round however many players share the room. Two
    players in different places do not alternate: each gets its region's
@@ -200,22 +202,21 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    spell is Activate All, Rid Room or Add to Room. Other spell doors let them
    pass and the spell goes off for them ([magic](magic.md) 6.6). [unknown]
 4. **Taking a door** costs one step and ends the creature's turn. It arrives
-   on the door's destination square, or if an individual stands there, on
-   the nearest inside square with no individual and no thing (rings of
-   growing distance, scanned top row first, left to right); with none free
-   it stays where it is and its turn ends. [unknown] Baber notes that a creature following a player can share
+   on the door's destination square. Baber notes that a creature following a player can share
    the player's square for a moment. [designer] On the C64, a friend of
    ours (Speed 6) that followed the player through a portal into another
    room vanished from the first room on the step onto the portal, its turn
    ending there, and showed in the new room on its next turn on the
    portal's destination square, on top of the player standing there; it
    then stepped off. [capture: turns, case follow, 2 runs, capture.md
-   10.10.3] **Engine:** taking a door costs the step and ends the
-   creature's turn; it arrives on the destination square even when a
-   player stands there, sharing it until one of them moves. When a
-   creature stands there it arrives on the nearest free square as above
-   ([unknown]). The original keeps the creature out of sight until its
-   next turn; the engine places it at once.
+   10.10.3] With a creature of ours (Speed 0) standing on the destination,
+   the player landed on it too, and the friend that followed landed there
+   as well, three on one square, then stepped off (6 runs, the friend
+   following in 5). [capture: turns, case held, capture.md 10.10.5]
+   **Engine:** taking a door costs the step and ends the creature's turn;
+   it arrives on the destination square whoever stands there, sharing it
+   until they move. The original keeps the creature out of sight until
+   its next turn; the engine places it at once.
 5. A creature sent through a door into a deleted room is banished.
    [manual] **Engine:** removed (`CreatureRemoved`, reason `banished`) with
    what it carries.
@@ -355,11 +356,9 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    the thing from the square beside it, the step it picked (6.5) not
    taken, and its turn ends; the program shows "(name) takes (thing)" or
    "(name) finds gold worth N and now has M" and waits for the button.
-   [capture: thief, 64 runs] The gold amounts were not the piles' item
-   parameters as our disks wrote them (5 gave 512, 10 gave 1,361, every
-   time): what a placed pile holds is open (format-notes).
-   **Engine:** takes it from beside, and the turn ends; the pile is the
-   item parameter.
+   [capture: thief, 64 runs] (The amounts there, 512 and 1,361, came
+   from our disks lacking a pile's size record: inventory 2.5.)
+   **Engine:** takes it from beside, and the turn ends.
 6. **An exit**: the creature takes the door (5.4).
 
 ## 8. Things creatures do with what they carry
@@ -378,8 +377,8 @@ reports it (`CreatureConfronts`) and the creature's turn ends.
    landed on a square beside it, chosen with one to five pairs of rolls
    (a try per pair, seemingly). [capture: burden, burden2, capture.md
    10.14.5] **Engine:** at the start of its turn, a creature whose load is
-   above its capacity drops all its gold on its own square (piles of up
-   to 255), else its lowest-numbered treasure or magic item there; one
+   above its capacity drops all its gold on its own square (one pile),
+   else its lowest-numbered treasure or magic item there; one
    drop a turn, after which its moves are idled. A treasure that
    disappears when dropped vanishes; things that can't be dropped
    (owner-only) are never chosen. While over capacity it picks nothing
@@ -406,15 +405,16 @@ dozen turns of waiting and wandering. With the region-visit scheduler
 the healing and reversal rules of magic 5 (November 2026), the
 creatures' own goals and steps of section 6 and the falling-away roll as
 captured (2.4, November 2026), and the take from beside and the
-overburdened drop as captured (7.5, 8.1) and no confronting without a
-weapon (7.1, November 2026), creatures take 9,330 turns, make 17,659
-steps, go through 168 doors, square up to someone 4,319 times, ready
-1,897 weapons, pick up gold 19 times and treasure 10 times, and make 40
-drops (overburdened, and friends' gifts);
+overburdened drop as captured (7.5, 8.1), no confronting without a
+weapon (7.1), gold piles' sizes (inventory 2.5) and arrivals on a held
+destination (5.4, November 2026), creatures take 9,340 turns, make
+17,646 steps, go through 171 doors, square up to someone 4,331 times,
+ready 1,897 weapons, pick up gold 17 times and treasure 12 times, and
+make 40 drops (overburdened, and friends' gifts);
 7 random creatures appear and 2 fall away. No
 creature leaves its region, stands on a wall after moving or breaks a
-carry limit; none shares a square with another creature, nor with a
-player except on arriving through a door (5.4). The random walks with
+carry limit; none shares a square with another individual except on
+arriving through a door (5.4). The random walks with
 creatures replay exactly.
 
 ## 10. Left for later
@@ -428,8 +428,8 @@ creatures replay exactly.
 
 1. Turn order: captured and researched (2.2, 2.3), players in different
    places and two players in different rooms of one region included.
-   Still open: the round a player missed after a portal (2.2); what
-   happens to the visit when a player dies.
+   Still open: the round a player missed after coming in at the end of
+   the map's visit (2.2); what happens to the visit when a player dies.
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
@@ -437,12 +437,12 @@ creatures replay exactly.
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5). Still open: fighters' goals among individuals
-   (combat), what a placed gold pile holds.
+   (combat).
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll).
    Still open: the first step's cost of some things.
 6. A creature following through a door: captured (5.4: the step ends its
-   turn; it lands on the destination square, sharing it with a player).
-   Still open: a destination held by a creature. Seen in the same runs:
+   turn; it lands on the destination square, sharing it with a player or a
+   creature standing there). Seen in the same runs:
    creatures' paths and goals varied from run to run (a friend sometimes
    took the portal with the player still in the room), so goal choice
    takes a roll (items 4 and 5; the random-rolls brief, item 12).

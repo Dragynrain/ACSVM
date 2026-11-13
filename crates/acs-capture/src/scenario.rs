@@ -303,7 +303,7 @@ pub struct MoveBasic {
     /// The side room's chance for random creature 0.
     pub side_chance: u8,
     /// Piles of gold (thing `GOLD`) on room 0 squares: x, y, amount.
-    pub gold: Vec<(u8, u8, u8)>,
+    pub gold: Vec<(u8, u8, u16)>,
 }
 
 /// A locked one-way room door of ours.
@@ -741,8 +741,12 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         f.thing(GOLD as usize, "GOLD", [0x01, 1, 1, PIC_DOOR as u8]);
         no_messages(&mut f, GOLD as usize);
     }
+    // A pile is two records: the gold, then its size on square 15,14 (low
+    // byte, high byte), as the editor writes them (docs/format-notes.md).
     for &(x, y, n) in &s.gold {
-        items.push((x, y, GOLD, n));
+        items.push((x, y, GOLD, 0));
+        let [lo, hi] = n.to_le_bytes();
+        items.push((15, 14, lo, hi));
     }
     // Our melee weapon: type 4, weight 5, value 10; extended record: its
     // power, no break chance, attack adjustment 0 (7 x 5 - 35), the door
@@ -1007,7 +1011,13 @@ mod tests {
         );
         assert_eq!(adv.things[80].name, "GOLD");
         let items = &adv.regions[0].rooms[0].items;
-        assert!(items.iter().any(|i| (i.x, i.y, i.thing) == (2, 7, 81)));
+        assert!(items
+            .iter()
+            .any(|i| (i.x, i.y, i.thing, i.gold) == (2, 7, 81, Some(10))));
+        assert!(
+            !items.iter().any(|i| (i.x, i.y) == (15, 14)),
+            "amount records folded"
+        );
         assert!(items
             .iter()
             .any(|i| (i.x, i.y, i.thing) == (12, 2, u16::from(TAKE))));

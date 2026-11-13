@@ -162,6 +162,7 @@ fn item(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u16, parameter: u8)
             parameter,
             flag: false,
             destination: None,
+            gold: None,
         },
     );
 }
@@ -242,6 +243,28 @@ fn residents_wait_until_a_player_is_in_their_room() {
             );
         }
         assert_eq!(xy(&g, 1), (1, 5, 3));
+    });
+}
+
+#[test]
+fn arrivals_land_on_a_door_destination_someone_holds() {
+    // Creatures 5.4, movement 6.3 (capture.md 10.10.5): the player and a
+    // creature following both land on the destination, sharing it.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut s = spec(1, 1, 3, Alignment::Friend, false);
+        s.speed = 0;
+        put(&mut a, 2, s);
+        put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
+        let mut g = start(a, 0, 8, 2);
+        let ev = g.apply(Command::Move { dir: Dir::SE });
+        assert_eq!(g.current_player().at, at(1, 1, 3), "{ev:?}");
+        let took = ev.iter().find_map(|e| match e {
+            Event::CreatureTookDoor { slot: 1, to, .. } => Some(*to),
+            _ => None,
+        });
+        assert_eq!(took, Some(at(1, 1, 3)));
+        assert_eq!(xy(&g, 2), (1, 1, 3));
     });
 }
 

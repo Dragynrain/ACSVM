@@ -61,9 +61,7 @@ step (capture.md 10.14.6), which the goal and step rules don't give.
 
 Also, from capture (capture.md 10.14.4, 10.14.5), small ones if they are
 on the way: the square a dropped treasure lands on (an overburdened
-creature's drop and a friend's gift take one to five pairs of rolls), and
-what a placed pile of gold is worth (item parameters 5 and 10 gave 512
-and 1,361).
+creature's drop and a friend's gift take one to five pairs of rolls).
 
 ## How the answers come back
 

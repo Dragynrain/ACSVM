@@ -533,7 +533,16 @@ fn creatures_in_every_room_follow_the_rules() {
                             }
                             for &(t, o) in &live {
                                 let same = t != s && o.room == c.room && (o.x, o.y) == (c.x, c.y);
-                                assert!(!(same && moved), "{file}: two creatures share {},{}", c.x, c.y);
+                                // Except one that just came through a door
+                                // (creatures 5.4).
+                                let door = arrived.contains(&(greg.number, s))
+                                    || arrived.contains(&(greg.number, t));
+                                assert!(
+                                    !(same && moved && !door),
+                                    "{file}: two creatures share {},{}",
+                                    c.x,
+                                    c.y
+                                );
                             }
                             let pl = g.current_player().at;
                             // The dead stand nowhere (magic 7.4).
