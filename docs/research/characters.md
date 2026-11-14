@@ -123,6 +123,69 @@ square still died at once, and when the "retire one of your adventurers"
 refusal shows (our request with 4 slots filled was answered "I will add a
 player as soon as possible").
 
+**Second pass, 2026-11-14** (all five items, traced and run; the hand-off
+reviewed for plain language and accepted). Summary:
+
+1. **Retire** acts at the end of the round it was asked in, on the map or
+   in a room. Save puts the whole record (gold, weapon held, armor worn,
+   every possession) in the disk's first free roster entry, Life Force
+   raised to Constitution, and saves the game. Destroy asks twice, puts
+   nothing down on the map, and in a room puts some of the kit on the
+   square (gold, blade and bow in the researcher's run). Only the slot's
+   first byte is cleared, so the slot is free at once; with the last
+   player gone the add-player screen comes back. Adventure block + 0xE7,
+   0xE8 is the round counter.
+2. **Another adventure's player** keeps its ratings, Life Force, Power and
+   magic defense, loses its possessions, and its gold is raised to at
+   least 1,000 (the first pass had it the wrong way round). It starts on
+   the map's start cell; the other disk loses only the roster name. The
+   disk must carry an identity different from the adventure's.
+3. **Name entry** refuses no key; fed keys are lost because the program
+   empties the keyboard buffer when no key is held, so the harness feeds a
+   key until the cursor (`$4F4F`) moves. Past 15 characters the cursor
+   wraps to the start.
+4. **A slot is living** when its first byte is not zero. The first pass's
+   poked players lived; the offer came because the living count changed
+   mid-round. The "retire one first" refusal comes at the round's end.
+5. **Creatures catch up** from the round of their last turn (record byte
+   + 12); one written with 0 there, as our scenarios write it, skips the
+   catch-up on its first turn.
+
+**Checked by capture** (capture.md 10.23, `rr19`): items 2 to 5 as found
+(name entry: 72 keys in 5 runs all taken, the 17-letter name wrapped and
+the strip clean; four slots by first bytes alone; the catch-up for 7
+values of the byte, 6 of 6 and the 0 control). Retire's timing (3 runs),
+save (the whole record, Life Force raised) and destroy on the map
+confirmed. Spec: characters 3, 5, 6 and 7 and magic 5.5, tagged
+[research] and [capture]; the engine adds newcomers and names at the
+round's end, in the lowest free slot. **Open:** destroy in a room
+([unknown]): capture matched neither the finding nor itself, the whole
+kit on the square with the other player present (5 of 5 runs, whatever
+the random state), only the bow, the mail and the gold as the last player
+(1 run, the floor read only after a newcomer's save and the room's
+reload). How the program tells disks apart ([unknown]): the adventure's
+own disk given as the other was handled differently, but setting the
+identity in memory that the finding named changed nothing. The refusal
+messages (the same disk, a full roster) were not seen. The catch-up across
+a real absence was not run (our room has no way out). With the
+maintainer: Retire as an engine command (a new entry in the replay log),
+and the catch-up, which gives meaning to the model's `unknown_0c`
+(`MODEL_VERSION`).
+
+**No third pass yet.** Each open item is deterministic and can be set up
+by the harness, so capture comes first (README section 2): destroy in a
+room with one thing of each kind alone, with and without the other player,
+the room's things read in memory right after the second F1 (a snapshot
+there, before any newcomer or reload; characters 8, captures needed 1);
+the disk identity by editing the other disk's identity word (d64 offset
+0x1C800) to the adventure's own and back, with the adventure's own disk
+chosen through to the end to see its message; a roster of 34 built on our
+disk, then a save; the catch-up through a two-way door of ours out of the
+room and back, AA's byte + 12 read at each turn. The 17-letter name is
+already settled (capture.md 10.23). Research again only if the destroy
+cases do not fit a rule by kind or by place after that round, with the
+snapshot at the second F1 as its input.
+
 ## Pass 2
 
 Briefed 2026-11-14. The first pass's rolling, starting values, joining and

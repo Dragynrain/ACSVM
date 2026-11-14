@@ -21,12 +21,14 @@ daily cap: 3 passes closed per day
 | turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
 | combat | 4 | reviewed | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
-| characters | 2 | checked | engine for names (5) and how many players (6) only; ESCALATED parts: Retire (section 7, a new command changes the save replay log) and catch-up (magic 5.5, gives meaning to model field unknown_0c, MODEL_VERSION) wait for the maintainer |
+| characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. ESCALATED: Retire in the engine (replay log) and the catch-up (unknown_0c, MODEL_VERSION) |
 
 ## Log
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: characters, 2, brief-writer, closed; no pass 3. Daily cap reached (3 closed): no new passes today.
+- 2026-11-14: combat, 4, capture-confirmer, cut off mid-way: items 2, 3 and most of 1 confirmed (rr20), one sub-point disagreed (choosing a bow from FIRE costs a second move; first disagreement); sweeps still queued; a second confirmer started to finish and write capture.md 10.24.
 - 2026-11-14: characters, 2, checker, all PASS; committed without the combat confirmer's scripts in progress.
 - 2026-11-14: characters, 2, spec gaps settled (a newcomer takes the lowest free slot); engine reuses the slot, test added; checker started.
 - 2026-11-14: characters, 2, engine-implementer, names (5) and player count (6) in, adds wait for the round's end, no save or model change; spec gaps (which slot a newcomer takes) sent to the spec-writer.
