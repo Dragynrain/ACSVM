@@ -328,6 +328,40 @@ fn at_most_four_players() {
     assert_eq!(seen, [0, 0, 1, 2, 3, 0, 1, 2]);
 }
 
+/// Characters 1, 3.1: a created character is rolled from the game's
+/// generator (so a replay rolls it again the same); a joining one keeps its
+/// Power and Life Force as given.
+#[test]
+fn created_and_joining_characters() {
+    let adv = adventure(Platform::Pc);
+    let first = acs_engine::Newcomer::Create {
+        create: "Rolled 0ne!".into(),
+    };
+    let (mut g, _) = Game::new(adv.clone(), 5, Rules::default(), first.clone());
+    let p = g.players()[0].clone();
+    assert_eq!(p.name, "ROLLED ONE.");
+    assert_eq!(
+        (p.life_force, p.power, p.armor_skill, p.gold),
+        (p.constitution, p.wisdom, 0, 0)
+    );
+    assert_eq!(p.speed, 5 + p.dexterity / 7);
+    g.apply(Command::CreatePlayer { name: "two".into() });
+    g.apply(Command::AddPlayer {
+        setup: PlayerSetup {
+            name: "saved".into(),
+            wisdom: 20,
+            power: Some(5),
+            constitution: 15,
+            life_force: 3,
+            ..Default::default()
+        },
+    });
+    let saved = &g.players()[2];
+    assert_eq!((saved.power, saved.life_force), (5, 3));
+    let r = Game::replay(adv, 5, Rules::default(), first, g.log());
+    assert_eq!(r.players(), g.players());
+}
+
 /// The synthetic tests were written with diagonal steps allowed and keep
 /// them on explicitly; the default follows the C64 capture (movement 3.2).
 #[test]

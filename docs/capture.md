@@ -607,6 +607,12 @@ screen offers next to "create new player".
    Constitution 20 showed 20 (glyph reader, one player), while 22 over
    Constitution 21 showed 22. So a player can't start hurt; a scenario
    that needs Life Force below Constitution lowers it with a spell.
+   **Corrected (10.18):** the joining player keeps its saved Power and
+   Life Force. `start-retired.txt` waits 160M cycles before its first
+   look, and rounds go by in that time as the turns' moves drain; Power
+   drifts 1 a round toward Wisdom and Life Force heals. Read in RAM just
+   after joining, every value was the record's. To start a player hurt
+   or with Power off its Wisdom, set it in the record and look at once.
 5. **Also seen:** starting play writes 2 bytes at adventure block + 0x400
    (two values seen so far; identical chains write the same ones). Entering
    the room did not write to the disk.
@@ -632,6 +638,8 @@ screen offers next to "create new player".
 | `$F5AC`, `$F5AD` | The first player's square (record +13, +14): on the store screen its square there (7,5 on arrival), in a room the room square | Researcher, stores first pass, 2026-11-13 |
 | `$719A` | The moves left in the current turn | Researcher, stores first pass, 2026-11-13; seen 5, 4, 1 in `rr11` |
 | `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
+| `$7161` | The add-player menu's cursor: 0 another adventure, 1 create new player, 2 don't add, 3 on the listed retired players; set to 1 by `rr13/create.sh` (10.18) | Researcher, characters first pass, 2026-11-14 (`docs/research/characters.md`) |
+| `$F59F` + 1 | The first player's Strength (low 5 bits); the top 2 bits the joystick port (bit 6 the second port: the "unknown" bit of 8.3). `$F5A4` (+5) its Power. Player slot k's record is at `$F59F` + 37 x (k - 1), its name (10 bytes) at `$F633` + 10 x (k - 1) | Researcher, characters first pass, 2026-11-14 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1458,3 +1466,35 @@ In this order (planned November 2026):
      500, Wisdom 13. The button at the store's first prompt: "T has 1
      BLADE", "sell it for 4"; the button: gold 504, **the hand empty**,
      the blade no longer owned, and in the stock (stores 5.2).
+18. **Confirming the characters first pass** (2026-11-14;
+   `docs/research/characters.md`, `docs/rules/characters.md`).
+   `ACSVM-research/capture/runs/rr13/`, from the brief's inputs.
+   - `create.sh`: `run mem` from `create-menu-nodisk.vsf` (the start-up
+     add-player screen, its disk in drive 8), `--set 7161=1` (the cursor
+     on "create new player"), the random state set to each of its 256
+     values, a 20k press of the button, every draw and the first slot's
+     record (`$F59F`, 23 bytes) logged for 400k instructions.
+     `scripts/charcheck.py` reads each draw (the program stores the state
+     twice per draw, XORed with the raster line and then the roll; the
+     second is checked against the generator), rolls the dice and the
+     second chance from them, and compares the record: **256 of 256
+     exact**, 99 with the second chance and 72 with a die drawn again,
+     every draw the generator's. One run rolled Dexterity 3 under a
+     larger Size: Dodge **254**, the byte wrapping (characters 1.4). A
+     first try pressed the button for 100k instructions: in 5 runs the
+     press seemed to run on into the next screens and the slot was
+     overwritten after it was right; 20k fixed it.
+   - `join.sh`, `jointime.sh`: retired players of ours (Power 20 under
+     Wisdom 13, 10 under 20, 31 under 31; Life Force 5 under Constitution
+     20; Power 5 under Wisdom 30) started by `start-retired.txt` with
+     peeks added: on the add-player screen and after the save, Power and
+     Life Force are the record's; from then on the round counter goes up
+     about once per 10M cycles while the first turn's moves drain, Power
+     moving 1 a round toward Wisdom (20 to 13 in 7 rounds, 5 to 19 in 14)
+     and Life Force healing (5 to 20 by round 11). The 160M-cycle wait
+     before 8.4's first look is the whole of 8.4's "rule" (characters
+     3.1, magic 5.1).
+   - `profile.txt` from `move-basic-start.vsf`: T's profile (`prof/`)
+     shows the **down mark** on Wisdom 4 and Power 4, the up mark on
+     Constitution and Life Force 17, none on the other 10, as the bounds
+     say (characters 4.1).

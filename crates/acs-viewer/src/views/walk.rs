@@ -11,9 +11,10 @@
 use super::*;
 use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
 use acs_core::scene::{self, RoomScene};
+use acs_engine::characters::{mark, Mark, Rating};
 use acs_engine::creatures as cr;
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{describe, Command, Dir, Event, Game, Location, PlayerSetup, Rules, Stat, Who};
+use acs_engine::{describe, Command, Dir, Event, Game, Location, Newcomer, Rules, Stat, Who};
 use egui::{Key, Modifiers, RichText};
 
 /// The world map window the original shows: 15 wide, 10 high.
@@ -55,7 +56,11 @@ pub struct Walk {
 
 impl Walk {
     pub fn new(adv: &Adventure, seed: u64, rules: Rules) -> Self {
-        let (game, ev) = Game::new(adv.clone(), seed, rules, PlayerSetup::default());
+        // Characters 1: the first character is rolled like any other.
+        let first = Newcomer::Create {
+            create: "PLAYER 1".into(),
+        };
+        let (game, ev) = Game::new(adv.clone(), seed, rules, first);
         let mut w = Walk {
             save: game.clone(),
             game,
@@ -277,11 +282,8 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     thing: num(parts.next())?,
                 },
                 "leave" => Command::LeaveStore,
-                "add" => Command::AddPlayer {
-                    setup: PlayerSetup {
-                        name: parts.next().unwrap_or("someone").to_ascii_uppercase(),
-                        ..Default::default()
-                    },
+                "add" => Command::CreatePlayer {
+                    name: parts.next().unwrap_or("someone").to_ascii_uppercase(),
                 },
                 d => Command::Move {
                     dir: parse_dir(d).ok_or_else(bad)?,
@@ -607,7 +609,9 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
         let can = living < acs_engine::MAX_PLAYERS && !g.is_over();
         if ui
             .add_enabled(can, egui::Button::new("Add Someone"))
-            .on_hover_text("Up to 4 characters play at once; a new one joins at the start point next round.")
+            .on_hover_text(
+                "Up to 4 characters play at once; a new one is rolled and joins at the start point next round.",
+            )
             .on_disabled_hover_text("4 characters already play.")
             .clicked()
         {
@@ -617,12 +621,7 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
             } else {
                 typed
             };
-            *click = Some(Command::AddPlayer {
-                setup: PlayerSetup {
-                    name,
-                    ..Default::default()
-                },
-            });
+            *click = Some(Command::CreatePlayer { name });
             new_name.clear();
         }
     });
@@ -630,6 +629,13 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
 
 /// Life Force, Power and the other ratings spells change (magic 3, 5).
 fn stats_panel(ui: &mut egui::Ui, g: &Game) {
+    use Rating::*;
+    // The profile's marks (characters 4): above or below average.
+    let m = |r: Rating, v: u8| match mark(r, v.into()) {
+        Some(Mark::Up) => "+",
+        Some(Mark::Down) => "-",
+        None => "",
+    };
     let p = g.current_player();
     let me = Who::Player { player: g.current() };
     let temp = g.temporary_life(me);
@@ -641,14 +647,23 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
         egui::ProgressBar::new(p.life_force as f32 / 63.0)
             .fill(Color32::from_rgb(170, 40, 40))
             .text(format!(
-                "Life Force {} (Constitution {}){temp}",
-                p.life_force, p.constitution
+                "Life Force {}{} (Constitution {}{}){temp}",
+                p.life_force,
+                m(LifeForce, p.life_force),
+                p.constitution,
+                m(Constitution, p.constitution)
             )),
     );
     ui.add(
         egui::ProgressBar::new(p.power as f32 / 127.0)
             .fill(Color32::from_rgb(60, 80, 190))
-            .text(format!("Power {} (drifts toward Wisdom {})", p.power, p.wisdom)),
+            .text(format!(
+                "Power {}{} (drifts toward Wisdom {}{})",
+                p.power,
+                m(Power, p.power),
+                p.wisdom,
+                m(Wisdom, p.wisdom)
+            )),
     );
     let defense = match p.magic_defense {
         MagicDefense::None => "none",
@@ -658,11 +673,29 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
     };
     ui.label(
         RichText::new(format!(
-            "Str {} · Dex {} · Size {} · Melee {} · Missile {} · Dodge {} · Parry {} · Armor {} · magic defense {defense}",
-            p.strength, p.dexterity, p.size, p.melee, p.missile, p.dodge, p.parry, p.armor_skill
+            "Str {}{} · Dex {}{} · Size {}{} · Speed {}{} · Melee {}{} · Missile {}{} · Dodge {}{} · Parry {}{} · Armor {}{} · magic defense {defense}",
+            p.strength,
+            m(Strength, p.strength),
+            p.dexterity,
+            m(Dexterity, p.dexterity),
+            p.size,
+            m(Size, p.size),
+            p.speed,
+            m(Speed, p.speed),
+            p.melee,
+            m(Melee, p.melee),
+            p.missile,
+            m(Missile, p.missile),
+            p.dodge,
+            m(Dodge, p.dodge),
+            p.parry,
+            m(Parry, p.parry),
+            p.armor_skill,
+            m(ArmorSkill, p.armor_skill)
         ))
         .weak(),
-    );
+    )
+    .on_hover_text("+ above average, - below, as the original's profile marks them.");
 }
 
 /// "Cast" / "Use" with a menu of targets: the caster and everyone in the

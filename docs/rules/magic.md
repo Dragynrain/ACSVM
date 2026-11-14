@@ -208,17 +208,11 @@ magic item after it is used. [unknown]
    and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
    reached 20 after 10 turn ends in every run] It takes no roll, and
    comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] **Engine:** the
-   same, at the top of each turn. A
-   player joining an adventure starts with Power equal to its Wisdom, at
-   most 27, whatever its saved Power; above 27 it then drifts up to its
-   Wisdom like any other Power. [capture: retired
-   players of ours with Wisdom 13, 20, 25 and 26 to 31, profile screen:
-   Wisdom 28 to 31 showed 27 on the first turn, then 28, 29 on the next]
-   **Engine:** a joining player's Power is its Wisdom, at most 27; a
-   `PlayerSetup` has no Power of its own.
-   A joining player's Life Force is raised to its Constitution if below it,
-   and kept if above. [capture: Life Force 5 under Constitution 20 showed
-   20; 22 over 21 showed 22; one player each] **Engine:** the same.
+   same, at the top of each turn. A player joining an adventure keeps its
+   saved Power and Life Force; drift and healing then move them as for
+   anyone. [research; capture: rr13, [characters](characters.md) 3.1]
+   (capture.md 8.4 read the profile after several rounds had passed, and
+   took the drift for a rule of joining.) **Engine:** the same.
 2. **Temporary Life Force.** A temporary change wears off; the manual's
    "disease" stack (a temporary +10 then a permanent -10) leaves Life Force
    unchanged at first, after which the 10 points tick away about twice as
@@ -352,11 +346,10 @@ Combat will reuse this; spells are the first thing that can kill.
 
 ## 8. Characters
 
-Players now need every trait. **Engine:** `PlayerSetup` adds Dexterity,
-Wisdom, Power and Size (11 each by default, the top of the manual's normal
-10..11), Dodge, Parry and Melee (30, the middle of 25..35), Missile (15, the
-middle of 10..20), Armor skill (30, lost in the OCR [unknown]) and magic
-defense (none). Trait generation is a later rule set.
+Players have every trait. A new character is rolled, a saved one joins
+with its record: [characters](characters.md) 1 to 3. **Engine:**
+`PlayerSetup` carries every rating; its defaults (traits 11, Dodge, Parry,
+Melee and Armor skill 30, Missile 15) are only for tests and tools.
 
 ## 9. Left for later
 

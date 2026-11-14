@@ -168,7 +168,7 @@ mod tests {
         let names: Vec<_> = w
             .iter()
             .map(|c| match c {
-                acs_engine::Command::AddPlayer { setup } => setup.name.as_str(),
+                acs_engine::Command::CreatePlayer { name } => name.as_str(),
                 _ => "",
             })
             .collect();

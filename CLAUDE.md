@@ -4,7 +4,8 @@ Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
 Plan: `docs/design.md`. Current phase: 4, formulas through research and
 capture; melee and firing are in (`docs/rules/combat.md`, three combat
-passes). Phases 2 (rules engine from the manual) and 3 (the capture harness,
+passes), stores and new characters (`docs/rules/characters.md`). Phases 2
+(rules engine from the manual) and 3 (the capture harness,
 `docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
@@ -53,6 +54,7 @@ cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
 python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10, 10.16)
 python scripts/storeread.py table|check ...           # store screens to text, sell offers vs stores 5.1 (capture.md 10.17)
+python scripts/charcheck.py RUNS.jsonl [-v]          # new-character sweep vs characters 1-2, draw by draw (capture.md 10.18)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
@@ -87,7 +89,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (`run_spell` is the one place a spell takes effect), `combat.rs` melee
   and firing (`attack` and its blows, `fire` and its shots; who strikes
   whom is the step choice in `ai.rs`, firing `creature_fires` there, and
-  `player_attack` in `step.rs`); `describe` turns
+  `player_attack` in `step.rs`), `characters.rs` rolling a new character
+  (`CreatePlayer`, `Newcomer::Create`), names and the profile's marks;
+  `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives

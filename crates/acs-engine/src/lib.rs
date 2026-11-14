@@ -13,9 +13,11 @@
 //! still unknown, and says what the engine does for the unknown ones.
 //! Implemented so far: movement (`docs/rules/movement.md`), inventory
 //! (`docs/rules/inventory.md`), creatures (`docs/rules/creatures.md`), magic
-//! (`docs/rules/magic.md`) and melee combat (`docs/rules/combat.md`).
+//! (`docs/rules/magic.md`), combat (`docs/rules/combat.md`), stores
+//! (`docs/rules/stores.md`) and characters (`docs/rules/characters.md`).
 
 mod ai;
+pub mod characters;
 pub mod combat;
 pub mod creatures;
 mod describe;
@@ -28,7 +30,7 @@ pub mod stores;
 
 pub use combat::BlowOutcome;
 pub use describe::describe;
-pub use game::{Game, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};
+pub use game::{Game, Newcomer, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};
 pub use rng::Rng;
 
 use acs_core::model::ThingId;
@@ -118,8 +120,12 @@ pub enum Command {
     Move { dir: Dir },
     /// End the current turn now (also what a real-time drain would send).
     Wait,
-    /// "Add Someone": a new character joins at the adventure's start.
+    /// "Add Someone" with a character whose ratings are given (a saved
+    /// one, characters 3): it joins at the adventure's start.
     AddPlayer { setup: PlayerSetup },
+    /// "Add Someone", "Create New Player": a new character is rolled
+    /// (characters 1) and joins at the adventure's start.
+    CreatePlayer { name: String },
     /// "Drop Object": one of `thing` onto the adjacent square in `dir`, or
     /// the player's own square when `dir` is `None` (inventory 5).
     Drop {

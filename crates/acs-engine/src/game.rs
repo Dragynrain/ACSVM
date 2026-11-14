@@ -20,9 +20,6 @@ pub const DEFAULT_TRAIT: u8 = 11;
 /// Dodge, Parry, Melee and Armor skill of a default character: the middle
 /// of the manual's 25-35 (magic 8).
 pub const DEFAULT_SKILL: u8 = 30;
-/// A joining player's Power: its Wisdom, but at most this (magic 5.1,
-/// captured on the C64).
-pub const JOIN_POWER_MAX: u8 = 27;
 /// Living characters that can play at once (movement 1.4).
 pub const MAX_PLAYERS: usize = 4;
 /// Longest character name (movement 1.5).
@@ -46,8 +43,9 @@ fn no_defense() -> MagicDefense {
     MagicDefense::None
 }
 
-/// A new character. Trait generation is a later rule set; for now a player
-/// is a name, the traits movement and carrying need, and what it carries.
+/// A character joining with its ratings given: a saved character, or one
+/// made by a test or tool. [`PlayerSetup::roll`] makes a new character
+/// (characters 1, 2); the defaults are only for tests and tools.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlayerSetup {
     pub name: String,
@@ -56,7 +54,8 @@ pub struct PlayerSetup {
     pub strength: u8,
     #[serde(default = "default_trait")]
     pub constitution: u8,
-    /// Starts equal to Constitution for new characters (inventory 6.1).
+    /// Kept as given on joining (characters 3.1); a new character's is its
+    /// Constitution.
     #[serde(default = "default_trait")]
     pub life_force: u8,
     /// Master thing numbers carried at the start, one entry per item
@@ -67,10 +66,12 @@ pub struct PlayerSetup {
     pub gold: u16,
     #[serde(default = "default_trait")]
     pub dexterity: u8,
-    /// Also the character's Power when it joins, up to 27 (magic 5.1,
-    /// captured: the original sets a joining player's Power to its Wisdom).
     #[serde(default = "default_trait")]
     pub wisdom: u8,
+    /// Kept as given on joining (characters 3.1); `None` is its Wisdom, as
+    /// a new character's.
+    #[serde(default)]
+    pub power: Option<u8>,
     #[serde(default = "default_trait")]
     pub size: u8,
     #[serde(default = "default_skill")]
@@ -99,6 +100,7 @@ impl Default for PlayerSetup {
             gold: 0,
             dexterity: DEFAULT_TRAIT,
             wisdom: DEFAULT_TRAIT,
+            power: None,
             size: DEFAULT_TRAIT,
             dodge: DEFAULT_SKILL,
             parry: DEFAULT_SKILL,
@@ -107,6 +109,21 @@ impl Default for PlayerSetup {
             missile: DEFAULT_MISSILE,
             magic_defense: MagicDefense::None,
         }
+    }
+}
+
+/// Who a game starts with: one with its ratings given, or a new character
+/// rolled from the game's generator.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Newcomer {
+    Join(PlayerSetup),
+    Create { create: String },
+}
+
+impl From<PlayerSetup> for Newcomer {
+    fn from(s: PlayerSetup) -> Self {
+        Newcomer::Join(s)
     }
 }
 
@@ -179,7 +196,7 @@ pub struct Game {
     pub(crate) players: Vec<Player>,
     pub(crate) current: usize,
     seed: u64,
-    first: PlayerSetup,
+    first: Newcomer,
     log: Vec<Command>,
     /// Region slots holding random creatures (creatures 2.4, 3.3).
     #[serde(default)]
@@ -256,7 +273,8 @@ pub const ROUND_ROOMS: usize = 4;
 impl Game {
     /// Starts a game with one character at the adventure's start; returns the
     /// game and the opening events (the first turn starting).
-    pub fn new(adv: Adventure, seed: u64, rules: Rules, first: PlayerSetup) -> (Self, Vec<Event>) {
+    pub fn new(adv: Adventure, seed: u64, rules: Rules, first: impl Into<Newcomer>) -> (Self, Vec<Event>) {
+        let first = first.into();
         let mut g = Game {
             adv,
             rules,
@@ -277,14 +295,23 @@ impl Game {
             store: None,
         };
         let mut ev = Vec::new();
-        g.add_player(first, &mut ev);
+        match first {
+            Newcomer::Join(setup) => g.add_player(setup, &mut ev),
+            Newcomer::Create { create } => g.create_player(&create, &mut ev),
+        }
         g.begin_cycle();
         g.next_turn(&mut ev);
         (g, ev)
     }
 
     /// Rebuilds a game from its seed, first player and command log.
-    pub fn replay(adv: Adventure, seed: u64, rules: Rules, first: PlayerSetup, commands: &[Command]) -> Self {
+    pub fn replay(
+        adv: Adventure,
+        seed: u64,
+        rules: Rules,
+        first: impl Into<Newcomer>,
+        commands: &[Command],
+    ) -> Self {
         let (mut g, _) = Game::new(adv, seed, rules, first);
         for c in commands {
             g.apply(c.clone());
@@ -308,6 +335,7 @@ impl Game {
             Command::Wait => self.wait_out(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
+            Command::CreatePlayer { name } => self.create_player(&name, &mut ev),
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
             Command::Ready { thing } => self.ready(thing, &mut ev),
@@ -339,7 +367,7 @@ impl Game {
     pub fn seed(&self) -> u64 {
         self.seed
     }
-    pub fn first_player(&self) -> &PlayerSetup {
+    pub fn first_player(&self) -> &Newcomer {
         &self.first
     }
     pub fn log(&self) -> &[Command] {
@@ -536,17 +564,34 @@ impl Game {
         }
     }
 
-    /// "Add Someone" (movement 1.2, 1.4, 1.5): the new character starts at
-    /// the adventure's start and joins the next round (creatures 2.2).
-    fn add_player(&mut self, setup: PlayerSetup, ev: &mut Vec<Event>) {
-        if self.players.iter().filter(|p| p.alive).count() >= MAX_PLAYERS {
+    /// True, and refused, when 4 living characters play (characters 6.1).
+    fn full(&self, ev: &mut Vec<Event>) -> bool {
+        let full = self.players.iter().filter(|p| p.alive).count() >= MAX_PLAYERS;
+        if full {
             ev.push(Event::AddRefused);
+        }
+        full
+    }
+
+    /// "Create New Player" (characters 1, 6): refused before any roll when
+    /// 4 play; otherwise rolled from the game's generator and added.
+    fn create_player(&mut self, name: &str, ev: &mut Vec<Event>) {
+        if self.full(ev) {
+            return;
+        }
+        let setup = PlayerSetup::roll(name, &mut self.rng);
+        self.add_player(setup, ev);
+    }
+
+    /// "Add Someone" (movement 1.2, 1.4, 1.5): the new character starts at
+    /// the adventure's start and joins the next round (creatures 2.2),
+    /// keeping its ratings as given (characters 3.1).
+    fn add_player(&mut self, setup: PlayerSetup, ev: &mut Vec<Event>) {
+        if self.full(ev) {
             return;
         }
         let mut setup = setup;
-        if let Some((cut, _)) = setup.name.char_indices().nth(NAME_MAX) {
-            setup.name.truncate(cut);
-        }
+        setup.name = crate::characters::fold_name(&setup.name);
         let s = self.adv.world.start;
         let at = Location::World { x: s.x, y: s.y };
         let mut possessions = setup.possessions;
@@ -562,9 +607,7 @@ impl Game {
             speed: setup.speed,
             strength: setup.strength,
             constitution: setup.constitution,
-            // Magic 5.1: a joining player's Life Force is raised to its
-            // Constitution, never lowered.
-            life_force: setup.life_force.max(setup.constitution),
+            life_force: setup.life_force,
             moves_left: setup.speed,
             turn_moves: setup.speed,
             at,
@@ -574,8 +617,7 @@ impl Game {
             armor: None,
             dexterity: setup.dexterity,
             wisdom: setup.wisdom,
-            // Magic 5.1: a joining player's Power is its Wisdom, at most 27.
-            power: setup.wisdom.min(JOIN_POWER_MAX),
+            power: setup.power.unwrap_or(setup.wisdom),
             size: setup.size,
             dodge: setup.dodge,
             parry: setup.parry,

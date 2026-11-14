@@ -1,7 +1,8 @@
 # Research brief: new characters, joining and retiring
 
 A request to the project's clean-room researcher (docs/research/README.md).
-Licensed CC BY 4.0. Status: briefed 2026-11-14, inputs ready; not started.
+Licensed CC BY 4.0. Status: briefed 2026-11-14; first pass (items 1-3)
+done 2026-11-14, confirmed and in the engine.
 
 ## Why
 
@@ -98,4 +99,16 @@ a scenario starts.
 
 ## Findings
 
-None yet.
+First pass (2026-11-14), items 1 to 3 with side notes on 4 to 6:
+confirmed by capture (`docs/capture.md` 10.18) and specced in
+[`docs/rules/characters.md`](../rules/characters.md). In short: three dice
+each for Strength, Constitution, Dexterity, Wisdom and Size, a 1-in-3
+second chance for the first four, everything else worked out from those;
+a joining player keeps its saved Power and Life Force (capture.md 8.4 had
+seen rounds of drift and healing); fixed bounds per rating for the
+profile's marks.
+
+Asked next: Retire (item 7); a player from another adventure's disk and a
+fifth player, run for real (5, 6); name entry's accepted keys (4); and the
+first pass's side note that creatures catch up on Power and Life Force
+after rounds their room was not visited, by experiment.
