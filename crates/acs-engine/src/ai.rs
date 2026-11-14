@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! One creature's turn: the overburdened drop, readying, casting, choosing
-//! a goal and walking towards it, and stepping into an individual to
-//! attack it. Spec: `docs/rules/creatures.md` sections 5-8,
-//! `docs/rules/magic.md` section 6 and `docs/rules/combat.md` section 2.
+//! a goal, firing at it or walking towards it, and stepping into an
+//! individual to attack it. Spec: `docs/rules/creatures.md` sections 5-8,
+//! `docs/rules/magic.md` section 6 and `docs/rules/combat.md` sections 2,
+//! 6.2 and 8.1.
 
-use crate::combat::strike_cost;
+use crate::combat::{self, strike_cost};
 use crate::creatures::{self, is_fighter, is_foe, Other};
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
@@ -132,6 +133,17 @@ impl Game {
         let goal = self
             .squares(region, slot)
             .and_then(|(grid, w, h)| self.choose_goal(region, slot, &grid, w, h));
+        // Combat 8.1: firing instead of stepping ends the turn.
+        if self.creature_fires(region, slot, goal) {
+            if let Some(Goal {
+                individual: Some(o), ..
+            }) = goal
+            {
+                self.fire(Who::Creature { region, slot }, o.who, left, ev);
+            }
+            self.creature(region, slot)?;
+            return Some((0, moves));
+        }
         let start = self.creature(region, slot).map(|c| (c.x, c.y))?;
         let mut stood = vec![start];
         while left > 0 {
@@ -720,6 +732,48 @@ impl Game {
         true
     }
 
+    /// Combat 8.1: whether the creature fires this turn instead of
+    /// stepping: it holds a missile weapon, its goal is an individual
+    /// within the weapon's range (the larger of the steps across and down),
+    /// no aggressive individual or player that is its foe stands on one of
+    /// the 4 squares beside it, and the straight line to the goal (the
+    /// flight of a shot without deviation, combat 8.5) crosses no wall or
+    /// obstacle. **Engine:** and the goal is its foe (creatures 7.4), so a
+    /// slinker friend whose goal is the player doesn't shoot it.
+    fn creature_fires(&self, region: u8, slot: usize, goal: Option<Goal>) -> bool {
+        let Some(Goal {
+            individual: Some(o), ..
+        }) = goal
+        else {
+            return false;
+        };
+        let me = Who::Creature { region, slot };
+        let (Some(c), Some((_, ws, _))) = (self.creature(region, slot), self.held_missile(me)) else {
+            return false;
+        };
+        let (dx, dy) = (o.x as i32 - c.x as i32, o.y as i32 - c.y as i32);
+        let n = dx.abs().max(dy.abs());
+        if n == 0 || n > ws.range.unwrap_or(0) as i32 || !is_foe(c, &o) || self.threatened(c, me) {
+            return false;
+        }
+        combat::flight(dx, dy, 0, false, n as u8)[..n as usize - 1]
+            .iter()
+            .all(|&(sx, sy)| {
+                self.missile_passes(region, c.room, (c.x as i32 + sx) as u8, (c.y as i32 + sy) as u8)
+            })
+    }
+
+    /// Combat 6.2, 8.1: an aggressive individual or a player that is the
+    /// creature's foe on one of the 4 squares beside it.
+    fn threatened(&self, c: &Creature, me: Who) -> bool {
+        let Who::Creature { region, .. } = me else {
+            return false;
+        };
+        self.others_in_room(region, c.room, Some(me)).iter().any(|o| {
+            steps((o.x, o.y), (c.x, c.y)) == 1 && (o.alignment.is_none() || o.aggressive) && is_foe(c, o)
+        })
+    }
+
     /// Combat 6.2 (creatures 8.2): with an aggressive foe or a player foe
     /// on one of the 4 squares beside it, an owned melee weapon it doesn't
     /// hold; with none beside it, an owned missile weapon; the
@@ -729,9 +783,7 @@ impl Game {
             return false;
         };
         let me = Who::Creature { region, slot };
-        let threatened = self.others_in_room(region, c.room, Some(me)).iter().any(|o| {
-            steps((o.x, o.y), (c.x, c.y)) == 1 && (o.alignment.is_none() || o.aggressive) && is_foe(&c, o)
-        });
+        let threatened = self.threatened(&c, me);
         let mut weapons: Vec<ThingId> = c
             .possessions
             .iter()

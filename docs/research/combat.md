@@ -6,7 +6,7 @@ Licensed CC BY 4.0. Status: first pass done 2026-11-13 (items 1, 2, 3, 5,
 inputs reach and in the engine (`docs/rules/combat.md`). Pass 2 done
 2026-11-13 (all seven items; 1, 3, 5 and 6 run): confirmed by capture
 except where noted under "Findings", specified in `docs/rules/combat.md`
-(firing in its section 8, not in the engine yet).
+(firing in its section 8).
 
 ## Why
 

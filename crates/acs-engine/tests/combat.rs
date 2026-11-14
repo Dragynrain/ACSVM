@@ -649,3 +649,231 @@ fn a_fighter_friend_never_strikes_a_player() {
         }
     });
 }
+
+// ---- firing (section 8) ----------------------------------------------------
+
+const C2: Who = Who::Creature { region: 1, slot: 2 };
+
+/// The bow made Power 10, range 7, break chance 0, adjustment 0, plain.
+fn plain_bow(a: &mut Adventure) {
+    if let ThingKind::MissileWeapon { stats, .. } = &mut a.things[BOW as usize - 1].kind {
+        stats.power = 10;
+        stats.range = Some(7);
+        stats.break_chance = 0;
+        stats.attack_adjustment = 0;
+        stats.magic = false;
+    }
+}
+
+/// An aggressive enemy archer in slot 1 on WEST (7,3) holding the bow (or
+/// only owning it, `held` false): Missile 22, Power 13, Dexterity 13,
+/// unhurt, Speed `speed`. The player will stand on (2,3), 5 squares west.
+fn archer(p: Platform, held: bool, speed: u8) -> Adventure {
+    let mut a = adventure(p);
+    plain_bow(&mut a);
+    let mut s = spec(0, 7, 3, Alignment::Enemy, true);
+    s.speed = speed;
+    put(&mut a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.possessions = vec![Possession { thing: BOW, count: 1 }];
+    c.weapon = if held { BOW } else { 0 };
+    c.missile = 22;
+    c.power = 13;
+    c.dexterity = 13;
+    c.wisdom = 10;
+    c.constitution = 40;
+    c.life_force = 40;
+    a
+}
+
+/// The player on (2,3) at Life Force 63 waits out its turn once.
+fn shoot(a: Adventure, seed: u64) -> (Game, Vec<Event>) {
+    let mut g = start_seeded(a, seed, 0, 2, 3);
+    g.set_life_force(0, 63);
+    let ev = wait(&mut g);
+    (g, ev)
+}
+
+fn fired(ev: &[Event]) -> Option<u8> {
+    ev.iter().find_map(|e| match e {
+        Event::Fired { by: C1, shots, .. } => Some(*shots),
+        _ => None,
+    })
+}
+
+/// Per shot, whom the missile reached, in order: (who, dodged).
+fn reached(ev: &[Event]) -> Vec<Vec<(Who, bool)>> {
+    let mut shots: Vec<Vec<(Who, bool)>> = Vec::new();
+    for e in ev {
+        match e {
+            Event::Shot { .. } => shots.push(Vec::new()),
+            Event::Dodged { who, .. } => shots.last_mut().expect("a shot").push((*who, true)),
+            Event::MissileHit { target, .. } => shots.last_mut().expect("a shot").push((*target, false)),
+            _ => {}
+        }
+    }
+    shots
+}
+
+fn missile_gains(ev: &[Event]) -> u8 {
+    ev.iter()
+        .filter(|e| {
+            matches!(
+                e,
+                Event::StatChanged {
+                    who: C1,
+                    stat: Stat::Missile,
+                    ..
+                }
+            )
+        })
+        .count() as u8
+}
+
+#[test]
+fn an_archer_fires_its_shots_instead_of_stepping_with_the_captured_spreads() {
+    both(|p| {
+        for seed in 0..20 {
+            let (_, ev) = shoot(archer(p, true, 3), seed);
+            // 8.2: 13 / 8 + 3 / 2 = 2 shots; the turn ends without a step.
+            assert_eq!(fired(&ev), Some(2), "seed {seed}: {ev:?}");
+            assert!(!ev
+                .iter()
+                .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })));
+            // 8.4: 60, then 55 less what Missile gained on the first shot.
+            let spreads: Vec<u8> = ev
+                .iter()
+                .filter_map(|e| match e {
+                    Event::Shot { by: C1, spread, .. } => Some(*spread),
+                    _ => None,
+                })
+                .collect();
+            let second = ev
+                .iter()
+                .rposition(|e| matches!(e, Event::Shot { .. }))
+                .expect("a shot");
+            assert_eq!(spreads, [60, 55 - missile_gains(&ev[..second])], "seed {seed}");
+        }
+    });
+}
+
+#[test]
+fn an_archer_readies_its_bow_first_and_shoots_from_the_moves_left() {
+    both(|p| {
+        let (g, ev) = shoot(archer(p, false, 6), 1);
+        // 6.2: readied (a move), then 13 / 8 + 5 / 2 = 3 shots.
+        let readied = ev
+            .iter()
+            .position(|e| {
+                *e == Event::CreatureReadied {
+                    region: 1,
+                    slot: 1,
+                    thing: BOW,
+                }
+            })
+            .expect("readies the bow");
+        let at = ev
+            .iter()
+            .position(|e| matches!(e, Event::Fired { .. }))
+            .expect("fires");
+        assert!(readied < at);
+        assert_eq!(fired(&ev), Some(3));
+        assert_eq!(g.creature(1, 1).map(|c| c.weapon), Some(BOW));
+    });
+}
+
+#[test]
+fn a_friend_in_the_line_is_reached_first_and_a_dodge_lets_the_arrow_fly_on() {
+    both(|p| {
+        let (mut friend_hit, mut flew_on) = (false, false);
+        for seed in 0..300 {
+            let mut a = archer(p, true, 3);
+            // A peaceful friend of Speed 0 on (5,3), between the two.
+            let mut s = spec(0, 5, 3, Alignment::Friend, false);
+            s.speed = 0;
+            put(&mut a, 2, s);
+            let f = &mut a.regions[0].residents[2];
+            f.constitution = 63;
+            f.life_force = 63;
+            f.dodge = if seed % 2 == 0 { 0 } else { 127 };
+            let (_, ev) = shoot(a, seed);
+            assert_eq!(fired(&ev), Some(2), "seed {seed}");
+            for shot in reached(&ev) {
+                // 8.5: in path order, the friend before the player.
+                if let Some(i) = shot.iter().position(|r| r.0 == ME) {
+                    assert!(
+                        shot[..i].iter().all(|r| r.0 == C2 && r.1),
+                        "seed {seed}: {shot:?}"
+                    );
+                    flew_on |= i > 0;
+                }
+                // 8.6: a hit stops the missile.
+                if let Some(i) = shot.iter().position(|r| !r.1) {
+                    assert_eq!(i, shot.len() - 1, "seed {seed}: {shot:?}");
+                    friend_hit |= shot[i].0 == C2;
+                }
+            }
+        }
+        assert!(friend_hit && flew_on);
+    });
+}
+
+#[test]
+fn no_firing_with_a_foe_beside_a_wall_in_the_line_or_out_of_range() {
+    both(|p| {
+        for seed in 0..10 {
+            // The player beside it, west: holding only the bow it can't
+            // strike, and it doesn't fire either.
+            let mut a = archer(p, true, 3);
+            a.regions[0].residents[1].x = 3;
+            let (_, ev) = shoot(a, seed);
+            assert_eq!(fired(&ev), None, "seed {seed}");
+            assert!(!ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
+            // A pillar in the line.
+            let mut a = archer(p, true, 3);
+            item(&mut a, 0, 5, 3, PILLAR, 0);
+            let (_, ev) = shoot(a, seed);
+            assert_eq!(fired(&ev), None, "seed {seed}");
+            // 5 squares on a bow of range 4.
+            let mut a = archer(p, true, 3);
+            if let ThingKind::MissileWeapon { stats, .. } = &mut a.things[BOW as usize - 1].kind {
+                stats.range = Some(4);
+            }
+            let (_, ev) = shoot(a, seed);
+            assert_eq!(fired(&ev), None, "seed {seed}");
+        }
+    });
+}
+
+#[test]
+fn a_bow_that_disappears_goes_after_one_shot() {
+    both(|p| {
+        let mut a = archer(p, true, 3);
+        if let ThingKind::MissileWeapon {
+            disappears_after_use, ..
+        } = &mut a.things[BOW as usize - 1].kind
+        {
+            *disappears_after_use = true;
+        }
+        let (g, ev) = shoot(a, 2);
+        assert_eq!(fired(&ev), Some(2));
+        let shots = ev.iter().filter(|e| matches!(e, Event::Shot { .. })).count();
+        assert_eq!(shots, 1);
+        assert!(ev.contains(&Event::Broke {
+            who: C1,
+            thing: BOW,
+            used_up: true
+        }));
+        assert_eq!(g.creature(1, 1).map(|c| c.weapon), Some(0));
+    });
+}
+
+#[test]
+fn a_player_cannot_fire() {
+    both(|p| {
+        let mut g = duel(p, 1, PlayerSetup::default(), |_| {});
+        let ev = g.apply(Command::Fire);
+        assert_eq!(ev, [Event::CannotFire { player: 0 }]);
+        assert_eq!(g.current_player().moves_left, 15);
+    });
+}

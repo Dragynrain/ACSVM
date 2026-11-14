@@ -3,8 +3,8 @@
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
 Plan: `docs/design.md`. Current phase: 4, formulas through research and
-capture; melee is in (`docs/rules/combat.md`, two combat passes), firing
-is specified (its section 8) but not implemented. Phases 2 (rules engine from the manual) and 3 (the capture harness,
+capture; melee and firing are in (`docs/rules/combat.md`, two combat
+passes). Phases 2 (rules engine from the manual) and 3 (the capture harness,
 `docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
@@ -84,8 +84,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   paths, doors, pick-ups, drops, readying, casting), `magic.rs` the 15 spell
   actions, Cast/Use, Power drift, temporary Life Force, healing and death
   (`run_spell` is the one place a spell takes effect), `combat.rs` melee
-  (`attack` and its blows; who strikes whom is the step choice in `ai.rs`
-  and `player_attack` in `step.rs`); `describe` turns
+  and firing (`attack` and its blows, `fire` and its shots; who strikes
+  whom is the step choice in `ai.rs`, firing `creature_fires` there, and
+  `player_attack` in `step.rs`); `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives

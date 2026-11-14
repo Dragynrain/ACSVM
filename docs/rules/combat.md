@@ -3,9 +3,9 @@
 Behaviour spec for combat: who attacks whom, a blow from start to end,
 parrying, damage, armor, magic defense, learning, readying and breaking,
 creatures turning hostile when a player hurts them, and firing missile
-weapons. Licensed CC BY 4.0. The engine implements melee in
-`crates/acs-engine` (`combat.rs`, with the attack decision in `ai.rs` and
-`step.rs`); firing (section 8) is specified but not implemented yet.
+weapons. Licensed CC BY 4.0. The engine implements it in
+`crates/acs-engine` (`combat.rs`: `attack` and `fire`, with the decision
+to attack or fire in `ai.rs` and the player's attack in `step.rs`).
 
 Tags as in [movement](movement.md): **[manual]**, **[data]**,
 **[designer]**, **[unknown]** with the engine's choice as **Engine:**,
@@ -297,9 +297,9 @@ friend changed nothing about it. [research: second pass, 4 runs]
 
 ## 8. Firing
 
-**Engine:** not implemented yet: missile weapons are never fired, and a
-fighter owning only missile weapons never attacks (2.3). What follows is
-the behaviour to implement.
+The engine implements this in `combat.rs` (`fire`, `flight`) with the
+decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
+`Dodged`, `MissileHit` and `MissileStopped`.
 
 1. **When a creature fires**: after its smartness checks, instead of
    stepping, when all of these hold: it holds a missile weapon; its goal
@@ -310,7 +310,13 @@ the behaviour to implement.
    enemy holding our bow (range 7) with the player 5 squares west fired
    on every turn and never stepped. [capture: bow, bow-line, 32 runs,
    capture.md 10.14.10] A player can't fire: the program gives a message.
-   [research: traced]
+   [research: traced] **Engine:** "beside" is the 4 squares (as 6.2); "not
+   on its side" is a foe ([creatures](creatures.md) 7.4); the straight line
+   is the flight of a shot without deviation (8.5), the squares before the
+   goal's. [unknown] whether the goal must be a foe; the engine fires only
+   at one, so a slinker friend whose goal is the player doesn't shoot it.
+   The player's `Fire` command gives `CannotFire` (our own text), no shot,
+   no move used.
 2. **Shots**: Dexterity / 8 (at least 1) + half the moves left. The first
    shot ends the turn (moves left go to 0). [research] Dexterity 13 and 3
    of 3 moves: 2 shots. [capture: bow, bow-line, every turn]
@@ -320,7 +326,11 @@ the behaviour to implement.
    the percentile: the raw number divided by 256 / size, rounded down,
    drawn again when too big); the **side**, a roll of 0 or 1. Then the
    flight (8.5). [research; capture: every shot's draws, in order, each
-   shot starting as the attack's count byte changes]
+   shot starting as the attack's count byte changes] **Engine:** the
+   deviation from the engine's one `Rng`; each shot aims at where the
+   target stands then, and the firing stops early when the target is dead
+   or out of the room (with one target, as captured, that changes
+   nothing).
 4. **The spread** = 100 - accuracy, clamped. **Accuracy** = Missile skill
    + the weapon's attack adjustment + the shooter's armor term + half of
    (half its Power - its wound penalty) - (5 x the shots still to come
@@ -341,7 +351,13 @@ the behaviour to implement.
    shots] [unknown] the exact arithmetic. **Engine:** the offset at the
    target in eighths of a square, rounded down, scaled to each square on
    the way; a square is reached while that is below half a square (fits
-   all 64 shots, as do quarters and sixteenths).
+   all 64 shots, as do quarters and sixteenths). The distance is the
+   larger of the steps across and down; off the axes the offset is split
+   across and down at right angles to the line, each part truncated toward
+   it; a missile whose point passes half a square from the line lies on
+   the next square over, and reaches whoever stands there. Walls are the
+   room's edge squares, obstacles an obstacle or custom obstacle on top of
+   a square; a stopped missile gives `MissileStopped`.
 6. **Reaching an individual**: the shooter's Missile check (5.5), then the
    **dodge**: a roll of 0 to 99 below the dodge chance, clamped: its Dodge
    skill + 2 x its armor term + half its Power - its wound penalty + 3 x
@@ -354,6 +370,8 @@ the behaviour to implement.
    Power 13, Size 9, unhurt: 39. 15 dodge rolls (5 dodges, 10 hits), a
    friend in the line hit by its own side's arrows, and an arrow dodged by
    the friend going on to the player behind. [capture: bow, bow-line]
+   **Engine:** two on one square are reached in the engine's order of
+   individuals (players, then creatures by slot).
 7. **Disappearing**: a missile weapon set to disappear after use goes after
    each shot. [research: traced]
 
@@ -363,7 +381,8 @@ a missile weapon (6.2).
 
 ## 9. Left for later
 
-- **Firing** in the engine (section 8).
+- Firing's open points (section 8, "Not run"), and the engine's choices
+  there.
 - **Mimics** copying their opponent.
 - Map encounters fought on the world map.
 - The square a dropped treasure lands on (creatures 8.1).

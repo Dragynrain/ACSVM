@@ -472,6 +472,12 @@ fn creatures_in_every_room_follow_the_rules() {
                     };
                     let evs = g.apply(cmd);
                     let last = format!("{evs:?}");
+                    // A player that came through a door may land on a
+                    // creature too (movement 5).
+                    let pl_now = g.current_player().at;
+                    let door_in = evs
+                        .iter()
+                        .any(|e| matches!(e, Event::TookDoor { to, .. } if *to == pl_now));
                     // Creatures 5.4: a creature that came through a door
                     // may share the player's square until it moves.
                     for e in &evs {
@@ -500,6 +506,11 @@ fn creatures_in_every_room_follow_the_rules() {
                             "Attacked",
                             "Blow",
                             "Broke",
+                            "Fired",
+                            "Shot",
+                            "Dodged",
+                            "MissileHit",
+                            "MissileStopped",
                         ];
                         if k.starts_with("Creature") || k == "RoomEncounter" || magic.contains(&k) {
                             *tally.entry(k.to_string()).or_default() += 1;
@@ -561,7 +572,11 @@ fn creatures_in_every_room_follow_the_rules() {
                             }
                             let pl = g.current_player().at;
                             // The dead stand nowhere (magic 7.4).
-                            if moved && g.current_player().alive && !arrived.contains(&(greg.number, s)) {
+                            if moved
+                                && g.current_player().alive
+                                && !door_in
+                                && !arrived.contains(&(greg.number, s))
+                            {
                                 assert_ne!(
                                     pl,
                                     Location::Room {

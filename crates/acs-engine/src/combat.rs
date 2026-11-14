@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Melee combat: an attack's blows, to-hit, parrying, counter-blows,
-//! damage, armor, magic defense, learning, breaking, and creatures turning
-//! hostile when a player hurts them. Spec: `docs/rules/combat.md` (section
-//! numbers in the comments refer to it). Who attacks whom is decided in
-//! `ai.rs` (creatures) and `step.rs` (players).
+//! Combat: a melee attack's blows, to-hit, parrying, counter-blows,
+//! damage, armor, magic defense, learning, breaking, creatures turning
+//! hostile when a player hurts them, and firing missile weapons. Spec:
+//! `docs/rules/combat.md` (section numbers in the comments refer to it).
+//! Who attacks whom is decided in `ai.rs` (creatures, also when to fire)
+//! and `step.rs` (players).
 
 use crate::creatures::Other;
 use crate::game::Game;
 use crate::magic::{CAST_CHANCE_MAX, CAST_CHANCE_MIN};
-use crate::{Event, Slot, Stat, Who};
+use crate::{Event, Location, Slot, Stat, Who};
 use acs_core::model::{Alignment, Creature, ThingId, ThingKind, WeaponStats};
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +69,63 @@ pub fn blows(left: u8, full: u8, dexterity: u8) -> i32 {
         4 * left as i32 / full as i32
     };
     (first + dexterity as i32 / 8 - 1).max(1)
+}
+
+/// 8.2: the shots of a firing: Dexterity / 8 (at least 1) plus half the
+/// moves left.
+pub fn shots(dexterity: u8, left: u8) -> i32 {
+    (dexterity as i32 / 8).max(1) + left as i32 / 2
+}
+
+/// 8.4: the spread of a shot, 100 - accuracy, clamped; `after` is the
+/// number of shots still to come after this one.
+pub fn spread(missile: u8, adjustment: i8, armor_term: i32, power: u8, wound: i32, after: i32) -> u8 {
+    let accuracy =
+        missile as i32 + adjustment as i32 + armor_term + half(half(power as i32) - wound) - (5 * after - 20);
+    clamp(100 - accuracy)
+}
+
+/// 8.6: the dodge chance of an individual a missile reaches.
+pub fn dodge_chance(dodge: u8, armor_term: i32, power: u8, wound: i32, size: u8) -> u8 {
+    clamp(dodge as i32 + 2 * armor_term + half(power as i32) - wound + 3 * (10 - size as i32))
+}
+
+/// Eighths of a square, the unit of a missile's flight (8.5).
+const EIGHTHS: i64 = 8;
+
+/// 8.5: the squares a missile crosses, relative to the shooter, for a
+/// target `(dx, dy)` away (not both 0), a shot of `deviation` (hundredths
+/// of the distance to the target) to `side`, flying `range` squares along
+/// the longer axis. The distance is the larger of the steps across and
+/// down. **Engine:** the sideways offset at the target in eighths of a
+/// square, rounded down, at right angles to the line (each part truncated
+/// toward the line off the axes); the missile's point on each square of
+/// the way in eighths too, rounded down; a square is reached while the
+/// point is less than half a square from its middle.
+pub fn flight(dx: i32, dy: i32, deviation: u32, side: bool, range: u8) -> Vec<(i32, i32)> {
+    let n = dx.abs().max(dy.abs()) as i64;
+    if n == 0 {
+        return Vec::new();
+    }
+    let offset = (deviation as i64 * n * EIGHTHS / 100) as f64;
+    let len = ((dx * dx + dy * dy) as f64).sqrt();
+    let sign = if side { 1.0 } else { -1.0 };
+    let ox = (sign * -(dy as f64) * offset / len) as i64;
+    let oy = (sign * dx as f64 * offset / len) as i64;
+    let (ax, ay) = (EIGHTHS * dx as i64 + ox, EIGHTHS * dy as i64 + oy);
+    let m = ax.abs().max(ay.abs());
+    // A point `v` eighths from the shooter's middle lies on the square
+    // `v` rounds to, half a square going outward.
+    let square = |v: i64| {
+        let q = (v.abs() + EIGHTHS / 2) / EIGHTHS;
+        (if v < 0 { -q } else { q }) as i32
+    };
+    (1..=range as i64)
+        .map(|k| {
+            let at = |a: i64| square(a.signum() * (a.abs() * EIGHTHS * k / m));
+            (at(ax), at(ay))
+        })
+        .collect()
 }
 
 /// 4.1: a blow's damage before armor and magic defense, from Build and
@@ -134,6 +192,8 @@ struct Side {
     parry: u8,
     armor_skill: u8,
     melee: u8,
+    missile: u8,
+    dodge: u8,
     magic_defense: u8,
 }
 
@@ -154,6 +214,20 @@ impl Game {
         let t = self.held(who, Slot::Weapon)?;
         match self.thing(t)?.kind {
             ThingKind::MeleeWeapon {
+                stats,
+                disappears_after_use,
+                ..
+            } => Some((t, stats, disappears_after_use)),
+            _ => None,
+        }
+    }
+
+    /// The missile weapon `who` holds: its number, stats and whether it
+    /// disappears after use.
+    pub(crate) fn held_missile(&self, who: Who) -> Option<(ThingId, WeaponStats, bool)> {
+        let t = self.held(who, Slot::Weapon)?;
+        match self.thing(t)?.kind {
+            ThingKind::MissileWeapon {
                 stats,
                 disappears_after_use,
                 ..
@@ -253,6 +327,8 @@ impl Game {
             parry: s(Stat::Parry)?,
             armor_skill: s(Stat::ArmorSkill)?,
             melee: s(Stat::Melee)?,
+            missile: s(Stat::Missile)?,
+            dodge: s(Stat::Dodge)?,
             magic_defense: s(Stat::MagicDefense)?,
         })
     }
@@ -365,10 +441,38 @@ impl Game {
             }
             return (BlowOutcome::Parried, false);
         }
-        // Section 4: damage.
+        // Section 4: damage; what the armor loses is told after the blow.
+        let (outcome, armor_lost) = self.harm(&a, &d, ws);
+        push(ev, chance, outcome);
+        if let Some((armor, used_up)) = armor_lost {
+            self.lose(target, armor, used_up, ev);
+        }
+        let BlowOutcome::Hit { damage, heavy } = outcome else {
+            return (outcome, true); // 5.4: stopped
+        };
+        if damage == 0 {
+            return (outcome, false);
+        }
+        self.take_damage(target, &d, damage, ev);
+        // 6.4: a melee weapon that disappears goes after its first
+        // damaging blow.
+        if weapon_goes {
+            self.lose(by, weapon, true, ev);
+        }
+        // 7: a player's damaging blow.
+        if player_blow && self.alive(target) {
+            self.turn_hostile(target, d.wisdom, ev);
+        }
+        (BlowOutcome::Hit { damage, heavy }, weapon_goes && !counter)
+    }
+
+    /// Section 4 after the to-hit: the heavy-blow roll on the attacker's
+    /// Dexterity, armor (5.1, 5.2, with its break roll) and magic defense
+    /// (5.4). Returns the outcome (`Hit` or `Stopped`) and the armor the
+    /// defender loses, if any, with whether it was used up.
+    fn harm(&mut self, a: &Side, d: &Side, ws: WeaponStats) -> (BlowOutcome, Option<(ThingId, bool)>) {
         let heavy = self.rng.below(100) < a.dexterity as u32;
         let mut dmg = damage(a.dexterity, a.size, ws.power, heavy);
-        // 5.1, 5.2: armor; what it loses is told after the blow.
         let mut armor_lost = None;
         if let Some((armor, aw, armor_goes)) = d.armor {
             if dmg > 0 && !(ws.magic && !aw.magic) {
@@ -385,48 +489,195 @@ impl Game {
                 }
             }
         }
-        // 5.4: magic defense.
-        let mut stopped = false;
         if dmg > 0 {
             match (d.magic_defense, ws.magic) {
                 (1, false) => dmg = half(dmg + 1),
-                (2 | 3, false) => stopped = true,
+                (2 | 3, false) => return (BlowOutcome::Stopped, armor_lost),
                 (3, true) => dmg = half(dmg + 1),
                 _ => {}
             }
         }
-        let damage = if stopped { 0 } else { dmg.clamp(0, 255) as u8 };
-        let outcome = if stopped {
-            BlowOutcome::Stopped
-        } else {
-            BlowOutcome::Hit { damage, heavy }
-        };
-        push(ev, chance, outcome);
-        if let Some((armor, used_up)) = armor_lost {
-            self.lose(target, armor, used_up, ev);
-        }
-        if stopped {
-            return (outcome, true);
-        }
-        if damage == 0 {
-            return (BlowOutcome::Hit { damage, heavy }, false);
-        }
-        // 4.2: what the damage takes.
-        let (power_lost, life_lost) = losses(dmg, d.power, d.life);
+        let damage = dmg.clamp(0, 255) as u8;
+        (BlowOutcome::Hit { damage, heavy }, armor_lost)
+    }
+
+    /// 4.2: what damage takes from the defender.
+    fn take_damage(&mut self, target: Who, d: &Side, damage: u8, ev: &mut Vec<Event>) {
+        let (power_lost, life_lost) = losses(damage as i32, d.power, d.life);
         let power = (d.power as i32 - power_lost).max(0) as u8;
         let life = (d.life as i32 - life_lost).max(0) as u8;
         self.change_power(target, power, ev);
         self.change_life(target, life as i16 - d.life as i16, false, ev);
-        // 6.4: a melee weapon that disappears goes after its first
-        // damaging blow.
-        if weapon_goes {
-            self.lose(by, weapon, true, ev);
+    }
+
+    /// Firing (section 8) by `by` at `target` with `left` moves left: the
+    /// shots (8.2), each with its break roll, deviation and side (8.3),
+    /// then its flight (8.5, 8.6); a weapon that disappears goes after the
+    /// first (8.7). The caller ends the shooter's turn. **Engine:** each
+    /// shot aims at where the target stands then; the firing stops when the
+    /// target is dead or out of the shooter's room.
+    pub(crate) fn fire(&mut self, by: Who, target: Who, left: u8, ev: &mut Vec<Event>) {
+        let Some((weapon, ws, goes)) = self.held_missile(by) else {
+            return;
+        };
+        let Some(me) = self.side(by) else {
+            return;
+        };
+        let total = shots(me.dexterity, left);
+        ev.push(Event::Fired {
+            by,
+            target,
+            weapon,
+            shots: total as u8,
+        });
+        for shot in 0..total {
+            if self.held_missile(by).map(|w| w.0) != Some(weapon) || !self.alive(target) {
+                break;
+            }
+            let (Some(a), Some(from), Some(to)) = (self.side(by), self.room_xy(by), self.room_xy(target))
+            else {
+                break;
+            };
+            if (from.0, from.1) != (to.0, to.1) {
+                break;
+            }
+            // 8.3: the break roll, drawn even at break chance 0.
+            if self.rng.below(100) < ws.break_chance as u32 {
+                self.lose(by, weapon, false, ev);
+                break;
+            }
+            let spread = spread(
+                a.missile,
+                ws.attack_adjustment,
+                a.armor_term(),
+                a.power,
+                a.wound(),
+                total - 1 - shot,
+            );
+            let deviation = self.rng.below(spread as u32);
+            let side = self.rng.below(2) == 1;
+            ev.push(Event::Shot {
+                by,
+                spread,
+                deviation: deviation as u8,
+                side,
+            });
+            let path = flight(
+                to.2 as i32 - from.2 as i32,
+                to.3 as i32 - from.3 as i32,
+                deviation,
+                side,
+                ws.range.unwrap_or(0),
+            );
+            self.missile_flies(by, from, &path, ws, ev);
+            if goes {
+                self.lose(by, weapon, true, ev);
+                break;
+            }
         }
-        // 7: a player's damaging blow.
-        if player_blow && self.alive(target) {
-            self.turn_hostile(target, d.wisdom, ev);
+    }
+
+    /// 8.5, 8.6: one missile along `path` (squares relative to the shooter
+    /// at `from`: region, room, x, y): stopped by a wall or obstacle, it
+    /// reaches every individual on its way in order until one is hit.
+    fn missile_flies(
+        &mut self,
+        by: Who,
+        from: (u8, u8, u8, u8),
+        path: &[(i32, i32)],
+        ws: WeaponStats,
+        ev: &mut Vec<Event>,
+    ) {
+        let (region, room, x0, y0) = from;
+        let player_shot = matches!(by, Who::Player { .. });
+        for &(dx, dy) in path {
+            let (x, y) = (x0 as i32 + dx, y0 as i32 + dy);
+            if !(0..=255).contains(&x) || !(0..=255).contains(&y) {
+                return;
+            }
+            let (x, y) = (x as u8, y as u8);
+            if !self.missile_passes(region, room, x, y) {
+                ev.push(Event::MissileStopped { by, x, y });
+                return;
+            }
+            let here: Vec<Who> = self
+                .others_in_room(region, room, Some(by))
+                .into_iter()
+                .filter(|o| (o.x, o.y) == (x, y))
+                .map(|o| o.who)
+                .collect();
+            for target in here {
+                let (Some(a), Some(d)) = (self.side(by), self.side(target)) else {
+                    continue;
+                };
+                // 8.6: the shooter's Missile check, then the dodge.
+                self.learn(by, Stat::Missile, a.missile, ev);
+                let chance = dodge_chance(d.dodge, d.armor_term(), d.power, d.wound(), d.size);
+                if self.rng.below(100) < chance as u32 {
+                    ev.push(Event::Dodged {
+                        by,
+                        who: target,
+                        chance,
+                    });
+                    self.learn(target, Stat::Dodge, d.dodge, ev);
+                    if self.rng.below(100) < 30 && d.armor_term() < 0 {
+                        self.learn_armor(target, d.armor_skill, ev);
+                    }
+                    continue; // it flies on
+                }
+                let (outcome, armor_lost) = self.harm(&a, &d, ws);
+                ev.push(Event::MissileHit {
+                    by,
+                    target,
+                    dodge: chance,
+                    outcome,
+                });
+                if let Some((armor, used_up)) = armor_lost {
+                    self.lose(target, armor, used_up, ev);
+                }
+                if let BlowOutcome::Hit { damage, .. } = outcome {
+                    if damage > 0 {
+                        self.take_damage(target, &d, damage, ev);
+                        if player_shot && self.alive(target) {
+                            self.turn_hostile(target, d.wisdom, ev);
+                        }
+                    }
+                }
+                return; // it stops, also when the damage came to 0
+            }
         }
-        (BlowOutcome::Hit { damage, heavy }, weapon_goes && !counter)
+    }
+
+    /// 8.1, 8.5: whether a missile flies through a square: inside the
+    /// room's walls (its edge squares), and no obstacle on top of it.
+    pub(crate) fn missile_passes(&self, region: u8, room: u8, x: u8, y: u8) -> bool {
+        let Some(r) = self.room(region, room) else {
+            return false;
+        };
+        if x == 0 || y == 0 || x >= r.width.saturating_sub(1) || y >= r.height.saturating_sub(1) {
+            return false;
+        }
+        match r.items.iter().find(|it| it.x == x && it.y == y) {
+            None => true,
+            Some(it) => !matches!(
+                self.thing(it.thing).map(|t| &t.kind),
+                Some(ThingKind::Obstacle { .. } | ThingKind::CustomObstacle { .. })
+            ),
+        }
+    }
+
+    /// Region, room and square of an individual standing in a room.
+    pub(crate) fn room_xy(&self, who: Who) -> Option<(u8, u8, u8, u8)> {
+        match who {
+            Who::Player { player } => match self.players.get(player)?.at {
+                Location::Room { region, room, x, y } => Some((region, room, x, y)),
+                _ => None,
+            },
+            Who::Creature { region, slot } => {
+                let c = self.creature(region, slot)?;
+                Some((region, c.room, c.x, c.y))
+            }
+        }
     }
 
     fn change_power(&mut self, who: Who, to: u8, ev: &mut Vec<Event>) {
@@ -551,6 +802,41 @@ mod tests {
         // At Life Force 40, Power 13: 8 Life Force and 4 Power.
         assert_eq!(losses(10, 13, 40), (4, 8));
         assert_eq!(losses(15, 13, 40), (6, 12));
+    }
+
+    #[test]
+    fn the_captured_firing_numbers() {
+        // 8.2: Dexterity 13, 3 of 3 moves: 2 shots.
+        assert_eq!(shots(13, 3), 2);
+        assert_eq!(shots(5, 0), 1);
+        assert_eq!(shots(31, 6), 6);
+        // 8.4: Missile 22, Power 13, unhurt: 60 then 55; 54 as Missile grew.
+        assert_eq!(spread(22, 0, 0, 13, 0, 1), 60);
+        assert_eq!(spread(22, 0, 0, 13, 0, 0), 55);
+        assert_eq!(spread(23, 0, 0, 13, 0, 0), 54);
+        assert_eq!(spread(127, 40, 0, 63, 0, 0), 14);
+        // 8.6: Dodge 30, Power 13, Size 9, unhurt: 39.
+        assert_eq!(dodge_chance(30, 0, 13, 0, 9), 39);
+    }
+
+    #[test]
+    fn the_flight() {
+        // 8.5: the player 5 squares west was reached at deviations up to 8
+        // and missed from 11.
+        let reaches = |dev, side| flight(-5, 0, dev, side, 7).contains(&(-5, 0));
+        for side in [false, true] {
+            assert!((0..=8).all(|d| reaches(d, side)));
+            assert!((11..60).all(|d| !reaches(d, side)));
+        }
+        // A friend 3 squares out was reached at 17.
+        assert!(flight(-5, 0, 17, true, 7).contains(&(-3, 0)));
+        // Straight: the line itself, out to the range.
+        assert_eq!(flight(0, 3, 0, false, 4), [(0, 1), (0, 2), (0, 3), (0, 4)]);
+        assert_eq!(flight(2, 2, 0, true, 3), [(1, 1), (2, 2), (3, 3)]);
+        // Off to one side and the other, at right angles to the line.
+        assert_eq!(flight(4, 0, 50, true, 4).last(), Some(&(4, 2)));
+        assert_eq!(flight(4, 0, 50, false, 4).last(), Some(&(4, -2)));
+        assert!(flight(0, 0, 10, true, 5).is_empty());
     }
 
     #[test]
