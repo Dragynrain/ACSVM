@@ -105,7 +105,14 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    the player left in; the researcher's reading got 154 runs wrong. [capture: mem --draws, case fall,
    capture.md 10.14.3] Not captured: two random creatures at once (one
    roll or one each); a player walking into a room mid-round (by the rule
-   above it protects the room's random creatures). **Engine:** the rule
+   above it protects the room's random creatures). In the combat cases
+   (the player and one or two residents in one room, no random creature)
+   each round end drew the slot roll and then exactly one percentile: when
+   the slot was in use, this one only, never the further roll `fall`
+   showed; when it was free, one percentile too, which the engine doesn't
+   draw. [capture: the second combat pass's 160 melee runs, capture.md
+   10.14.10] What that percentile is, and why `fall` drew one more, is not
+   settled. [unknown] **Engine:** the rule
    above, at the end of each round of a room region's visit, the removed
    creature taking what it carries (`CreatureRemoved`, reason
    `left_behind`); what becomes of its things in the original is not

@@ -3,8 +3,8 @@
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
 Plan: `docs/design.md`. Current phase: 4, formulas through research and
-capture; melee is in (`docs/rules/combat.md`, first combat pass), firing
-is not. Phases 2 (rules engine from the manual) and 3 (the capture harness,
+capture; melee is in (`docs/rules/combat.md`, two combat passes), firing
+is specified (its section 8) but not implemented. Phases 2 (rules engine from the manual) and 3 (the capture harness,
 `docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
@@ -51,7 +51,7 @@ scripts/web.sh build                                    # static site in target/
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
-python scripts/combatcheck.py RUNS.jsonl [-v]   # melee rules vs `armed` runs, roll by roll (capture.md 10.14.9)
+python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
@@ -100,7 +100,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (researcher inputs, state sweeps); `turns.rs` logs who moves when from
   the name strip (`--creature` puts residents of ours in the room).
   `memwatch.rs` is `run mem` (`--draws` logs every roll; `--answer T`
-  presses through the messages creatures' pick-ups show).
+  presses through the messages creatures' pick-ups show; `--push e:300k`
+  holds the stick from the run's start).
 - `crates/acs-viewer`: eframe/egui viewer, native and web (trunk;
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in

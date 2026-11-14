@@ -34,6 +34,21 @@ pub fn parse_set(s: &str) -> Result<(u16, u8), String> {
     Ok((a, v))
 }
 
+/// `DIR:N,DIR:N,..`: the stick held each way for N instructions (k and m
+/// suffixes), one after another from the run's start; `none` lets go.
+pub fn parse_push(s: &str) -> Result<Vec<(String, u64)>, String> {
+    s.split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(|p| {
+            let (dir, n) = p.split_once(':').ok_or(format!("{p}: want DIR:N"))?;
+            crate::script::joy_bits(dir).ok_or(format!("{dir}: not a direction"))?;
+            let n = crate::script::parse_count(n).ok_or(format!("{n}: want a count"))?;
+            Ok((dir.to_string(), n))
+        })
+        .collect()
+}
+
 /// What a `mem` run does (`mem_run`).
 pub struct MemSetup {
     /// Bytes set before the run.
@@ -50,6 +65,8 @@ pub struct MemSetup {
     /// gold, 10.14.4) with the button: the players' names, so a mover not
     /// among them is a creature. Needs the glyph table.
     pub answer: Option<Vec<String>>,
+    /// The stick from the run's start (`parse_push`), then let go.
+    pub push: Vec<(String, u64)>,
 }
 
 /// Rows of the inner screen below the name strip, where messages show.
@@ -84,6 +101,7 @@ impl Runner<'_> {
             until_refill,
             draws,
             answer,
+            push,
         } = setup;
         let (sets, watch, limit, until_refill, draws) =
             (&sets[..], &watch[..], *limit, *until_refill, *draws);
@@ -138,12 +156,27 @@ impl Runner<'_> {
         let mut changes = Vec::new();
         let mut bar = self.look()?.bar;
         let (mut t, mut refilled) = (0u64, None);
+        // The stick schedule: (direction, the time it ends).
+        let mut schedule = Vec::new();
+        let mut end = 0u64;
+        for (dir, n) in push {
+            end += n;
+            schedule.push((dir.as_str(), end));
+        }
+        let mut held: Option<&str> = None;
         let mut limit = if until_refill {
             limit.max(TURN_LIMIT)
         } else {
             limit
         };
         while t < limit {
+            if !schedule.is_empty() {
+                let want = schedule.iter().find(|&&(_, e)| t < e).map_or("none", |&(d, _)| d);
+                if held != Some(want) {
+                    self.joy(want)?;
+                    held = Some(want);
+                }
+            }
             if checkpoint.is_some() {
                 // Chunks short enough that a hit ends one early, then read.
                 let mut done = 0;
@@ -227,6 +260,7 @@ impl Runner<'_> {
         self.write(json!({
             "kind": "mem", "run": run, "state": state, "watch": names, "start": start,
             "end": last, "changes": changes, "draws": draw_log, "answered": answered, "refilled_at": refilled, "ran": t,
+            "push": push.iter().map(|(d, n)| format!("{d}:{n}")).collect::<Vec<_>>(),
         }))
     }
 }
@@ -241,5 +275,10 @@ mod tests {
         assert!(parse_addrs("G1").is_err());
         assert_eq!(parse_set("F65F=0").unwrap(), (0xF65F, 0));
         assert!(parse_set("F65F").is_err());
+        assert_eq!(
+            parse_push("e:300k, none:1m").unwrap(),
+            vec![("e".into(), 300_000), ("none".into(), 1_000_000)]
+        );
+        assert!(parse_push("up").is_err());
     }
 }

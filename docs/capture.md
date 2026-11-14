@@ -625,7 +625,8 @@ screen offers next to "create new player".
 | `$71FA` | The number of the individual whose turn it is | Researcher, turn-order first pass, 2026-11-12 |
 | `$E1A3` on | The visited region's creature slots, 37 bytes each: +0 Constitution (0 when free), +6 bit 7 the random mark, +13 and +14 the square | Researcher, random-rolls third pass, 2026-11-12 |
 | `$E1A3` on, `$F59F` on | Fighting bytes of a creature slot and of the first player's record (the stored record layout): +0 magic defense (top 2 bits), +2 Dexterity, +3 Life Force, +5 Power, +6 to +10 Dodge, Parry, Armor, Melee, Missile skills, +15 Size, +20 the weapon held, +21 the armor worn; read by `rr8/rounds.sh` (10.15) | Researcher, combat first pass, 2026-11-13 (`docs/research/combat.md`) |
-| `$B799` | The current attack's blows left | Researcher, combat first pass, 2026-11-13 |
+| `$B799` | The current attack's blows left; while firing, the shots left after the current one | Researcher, combat first pass, 2026-11-13; shots seen in our `bow` runs (10.14.10) |
+| `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1199,6 +1200,58 @@ In this order (planned November 2026):
       room (banked memory, as 10.14.3); the checker drops those. Not
       covered: parries, counter-blows, armor, breaking, the player's
       attack and the alignment changes (combat.md, Captures needed).
+   10. *Confirming the second combat pass* (`docs/rules/combat.md`,
+      2026-11-13). `scripts/combatcheck.py --case NAME` now plays any of
+      the pass's cases (10.15) with the researcher's rules: both fighters'
+      records (weapon held, armor worn, magic defense), parries,
+      counter-blows, breaking, disappearing, armor, magic defense, and
+      for `bow` and `bow-line` the shots. It compares every watched
+      fighting byte's values (T's Life Force, Power, Parry, weapon and
+      armor; EE's Life Force, Power and weapon; FF's Life Force) with the
+      run's, the banked reads dropped (the samples where EE's
+      Constitution byte reads another value; the sample after holds the
+      real values, changed or not), and for firing that each shot's first
+      draw falls where `$B799` (shots left) changes, within one 20,000
+      instruction sample. It no longer counts button presses (10.14.9 did).
+      Result, the 16 `round` runs of each case (10.15): **all 160 right**,
+      with `armed` still 32 of 32: 524 to-hit and 101 counter-blow
+      rolls, 154 parry rolls (18 parries), 154 Melee checks, 121 damaging
+      blows and 15 stopped by magic defense, the mail breaking once, the
+      blade breaking once, the disappearing blade 11 times (once more on
+      a run's last roll); 64 shots, 15 dodge rolls (5 dodges). The same
+      totals as the researcher's replay of these runs. Three things had
+      to be learned from the runs, none of them combat rules:
+      - *The round's end* draws the slot roll and **one** percentile,
+        whichever the slot: 10.14.9's further percentile after an in-use slot
+        is never there (6 runs need that; `armed` passed either way, no
+        run there decided it). Creatures 2.4 has the open question.
+      - *A creature whose weapon disappeared* has one move fewer on its
+        later turns (5 `once` runs need it; combat 6.5).
+      - *FF's turn* (a Speed 0 friend, `bow-line`): the die, two
+        smartness checks of 0..9, a percentile, a roll whose size these
+        runs don't show (any of 2 to 16 fits), then a roll of 0..0 that
+        always heals it: a hurt FF gained 1 Life Force at that point in
+        all 4 runs. Fitted, not a rule we spec.
+      The arrow's path (combat 8.5): an offset compared exactly with half
+      a square misses one `bow-line` shot (FF reached at deviation 17, 3
+      squares out); quarter, eighth and sixteenth squares rounded down
+      fit all 64 (`--reach`).
+      *The player's attack* (`rr8/push.sh`): `run mem` takes `--push
+      DIR:N,..`, the stick held each way for N instructions from the run's
+      start. From each `player-*` room snapshot, the stick east for 300k
+      instructions, 12 random states, every draw logged, cut at 1.8M
+      instructions (T's attack, slot 0's turn, the round's end: T's next
+      turn's prompt must not be answered, the button opens its menu).
+      `--answer ZZ` presses through every message. `player-friend`: 3
+      blows each run (5 of 6 moves left), every roll and slot 0's Life
+      Force, Power and class byte (`$E1A7`) as combat 3 and 7 say, 12 of
+      12. `player-neutral-set`: the `player-friend` snapshot with slot 0
+      set to an aggressive neutral (`--set E1A7=80`) of Wisdom 10
+      (`--set E1B4=10`), as the researcher did (the `player-neutral`
+      snapshot has T on 4,5): one roll of 0..9 after each damaging blow,
+      enemy below 5, 12 of 12. `player-none` (no `--answer`): no draw, no
+      step, slot 0 unchanged, 12 of 12. `player-own` was not run (its
+      menu needs the button at the right moments).
 15. **Combat kit and the second combat pass's inputs** (2026-11-13).
    Scenario keys for weapons and armor of ours, for players and creatures
    alike (`--player`, `--player2`, `--creature`, `--random-creature`):

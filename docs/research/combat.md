@@ -3,8 +3,10 @@
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: first pass done 2026-11-13 (items 1, 2, 3, 5,
 6, 7, 8; item 4 traced only); melee confirmed by capture where the
-inputs reach and in the engine (`docs/rules/combat.md`). Pass 2 briefed
-2026-11-13, its inputs ready (section "Pass 2"); not started.
+inputs reach and in the engine (`docs/rules/combat.md`). Pass 2 done
+2026-11-13 (all seven items; 1, 3, 5 and 6 run): confirmed by capture
+except where noted under "Findings", specified in `docs/rules/combat.md`
+(firing in its section 8, not in the engine yet).
 
 ## Why
 
@@ -214,4 +216,46 @@ specified in `docs/rules/combat.md`.
   a player's blow: traced only.
 - **Firing**: traced only; not in the engine.
 
-Next pass: see "Pass 2" above.
+Second pass (2026-11-13). The researcher replayed our 16 runs of each
+case with the draws forced to ours and checked the rules roll by roll; we
+then checked them on the same runs with our own checker
+(`scripts/combatcheck.py`, capture.md 10.14.10) and ran the player's
+attack ourselves.
+
+- **Parry and counter-blows** as the first pass said; a damaging counter
+  uses one more of the attacker's blows. **Confirmed** (32 runs).
+- **Armor**: plain armor takes its Power off; magic armor against a plain
+  weapon halves (rounding up) first. Its break roll comes after every blow
+  that reaches it, even at chance 0, and the attack goes on when it
+  breaks. **Confirmed** (32 runs). Its term in the wearer's own to-hit and
+  parry, and the Armor check: traced only.
+- **Magic defense**: level 1 halves, level 2 stops the blow and the rest
+  of the attack, level 3 halves a magic weapon. **Confirmed** (48 runs).
+  Level 3 against a plain weapon, and the order against armor: traced.
+- **Breaking and disappearing**: the striking weapon's break roll after a
+  parry, **confirmed** (one break); whether it ends the attack, traced. A
+  weapon set to disappear goes at its first damaging blow and **ends the
+  attack**, **confirmed**. Our runs add: the creature then has one move
+  fewer on its turns beside the player (cause unknown; combat 6.5).
+- **Firing**: when a creature fires, 2 shots a turn here, each a break
+  roll, a sideways deviation of 0 to spread - 1 hundredths of the distance
+  and a side; the spread counts the shots after this one (a correction to
+  the first pass); the missile reaches whoever's square it crosses and
+  flies on after a dodge. **Confirmed** (32 runs, 64 shots); the exact
+  arithmetic of the sideways offset is open. Walls, diagonals, a foe
+  beside the shooter, breaking: traced.
+- **The player's attack**: the creature's blows and the moves left to 0;
+  a friend hit turns neutral, then aggressive; an aggressive neutral rolls
+  0 to 9 below Wisdom minus 5 after each damaging blow to turn enemy;
+  owning no weapon, nothing happens. **Confirmed** (36 runs of ours, the
+  stick pushed). Owning a weapon but holding none brings a menu (NONE or a
+  weapon; readying costs a move): the researcher's runs only.
+- **Readying before stepping**: after the smartness checks, one move; the
+  researcher's experiment only.
+
+Next pass: the second pass's own list (findings P2.8): armor on the
+wearer's side, a weapon breaking mid-attack, magic defense 3 with a plain
+weapon and with armor, the rest of firing, the `player-neutral` snapshot
+remade, the dropped treasure's square, map encounters; and ours: the move
+a creature loses after its weapon disappears, and the round's-end
+percentile (creatures 2.4).

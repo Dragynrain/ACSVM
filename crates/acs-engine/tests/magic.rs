@@ -1019,6 +1019,36 @@ fn smart_creatures_cast_at_foes_and_heal_friends() {
 }
 
 #[test]
+fn a_creature_that_casts_does_not_ready_first() {
+    // Combat 6.2: readying comes after the smartness check, so a smart
+    // enemy beside the player that casts never readies its weapon.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 3, 2, |c| {
+            c.wisdom = 15;
+            c.power = 20;
+            c.possessions = vec![
+                Possession {
+                    thing: BOLT,
+                    count: 1,
+                },
+                Possession {
+                    thing: CLAW,
+                    count: 1,
+                },
+            ];
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert!(ev.iter().any(|e| matches!(e, Event::SpellCast { .. })), "{ev:?}");
+        assert!(
+            !ev.iter().any(|e| matches!(e, Event::CreatureReadied { .. })),
+            "{ev:?}"
+        );
+    });
+}
+
+#[test]
 fn friends_heal_the_player_and_half_power_creatures_use_items() {
     both(|p| {
         let mut a = adventure(p);

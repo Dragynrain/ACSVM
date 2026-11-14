@@ -110,18 +110,23 @@ impl Game {
         ev.push(Event::CreatureTurn { region, slot, moves });
         self.turn_top(Who::Creature { region, slot }, ev);
         self.creature(region, slot)?;
-        // Combat 6.2: readying, a move for each change.
         let mut left = moves;
-        if self.creature_ready(region, slot, ev) {
-            left = left.saturating_sub(1);
-        }
-        // 8.1: a turn with a drop takes no steps; its moves are idled.
+        // 8.1: a turn with a drop takes no steps; its moves are idled
+        // (after readying, combat 6.2).
         if dropped {
+            if self.creature_ready(region, slot, ev) {
+                left = left.saturating_sub(1);
+            }
             return Some((left, moves));
         }
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
             return None;
+        }
+        // Combat 6.2: readying after the smartness checks, before the
+        // first step; a move for each change.
+        if self.creature_ready(region, slot, ev) {
+            left = left.saturating_sub(1);
         }
         // 6.2: one goal for the whole turn.
         let goal = self

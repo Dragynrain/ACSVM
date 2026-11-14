@@ -234,6 +234,10 @@ enum Cmd {
         /// players' names, comma-separated (docs/capture.md 10.14.4).
         #[arg(long)]
         answer: Option<String>,
+        /// mem: the stick from the run's start, DIR:N,DIR:N,.. (each held
+        /// N instructions, k and m suffixes; `none` lets go), then let go.
+        #[arg(long)]
+        push: Option<String>,
         /// mem: stop when the movement bar refills (the next turn).
         #[arg(long)]
         until_refill: bool,
@@ -503,9 +507,12 @@ fn main() {
             run_for,
             until_refill,
             answer,
+            push,
             draws,
             peek,
         } => {
+            let push =
+                acs_capture::memwatch::parse_push(push.as_deref().unwrap_or("")).unwrap_or_else(|e| fail(&e));
             let watch = acs_capture::memwatch::parse_addrs(watch.as_deref().unwrap_or(""))
                 .unwrap_or_else(|e| fail(&e));
             let peek = acs_capture::memwatch::parse_addrs(peek.as_deref().unwrap_or(""))
@@ -616,6 +623,7 @@ fn main() {
                         answer: answer
                             .as_ref()
                             .map(|a| a.split(',').map(str::to_string).collect()),
+                        push: push.clone(),
                     };
                     result = r.mem_run(run, state, &setup);
                     if result.is_err() {
