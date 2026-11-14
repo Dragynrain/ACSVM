@@ -7,7 +7,9 @@ inputs reach and in the engine (`docs/rules/combat.md`). Pass 2 done
 2026-11-13 (all seven items; 1, 3, 5 and 6 run): confirmed by capture
 except where noted under "Findings", specified in `docs/rules/combat.md`
 (firing in its section 8). Pass 3 briefed 2026-11-13, its inputs ready
-(section "Pass 3"); not started.
+(section "Pass 3"); not started. Pass 3 done 2026-11-13, confirmed by
+capture (400 runs). Pass 4 briefed 2026-11-14, its inputs ready (section
+"Pass 4"); queued.
 
 ## Why
 
@@ -307,6 +309,125 @@ Also copied: `fall-side.vsf`, `fall-disk.d64` and `runs/fall.jsonl`
 (capture.md 10.14.3) for 6.2, and `burden-turn-end.vsf`,
 `burden-disk.d64` and `runs/burden.jsonl` (capture.md 10.14.5) for 7.
 Pass 2's inputs serve 6.1 and 6.3.
+
+## Pass 4
+
+Briefed 2026-11-14. Passes 1 to 3 are confirmed by capture and in the
+engine (`docs/rules/combat.md`). This pass takes the three things the
+third pass left: the player's attempt to fire, which it did not reach; a
+Speed 0 creature's turn, whose draws we can log but not name; and the
+square a dropped treasure lands on. New inputs are in `inputs/pass4/`
+(table at the end); same scenario and moment as before (T, Speed 6,
+Constitution and Life Force 40, on the entry square 4,4 of the 15 x 10
+room) unless a row says otherwise. The pass 2 and 3 inputs named below
+are still in `inputs/pass2/` and `inputs/pass3/`.
+
+### What we ask
+
+1. **The player's attempt to fire** (combat 8.1, last point: "a player
+   can't fire: the program gives a message", traced only). From
+   `player-bow-room.vsf` (pass 3: T holds the bow, EE five squares east
+   with the blade) and the two new room snapshots:
+   1. Which of the player's inputs reach the firing code at all: the
+      button and its menu (which entry), the stick toward a creature in
+      range, the stick into an adjacent creature (`player-bow-beside`:
+      EE on 5,5, beside T after one push south). For each, what follows: a message (its words,
+      in a paraphrase), a menu, a shot.
+   2. If a player can fire on the C64 after all: the rolls in order, as
+      for a creature's shot (combat 8: shots, spread, the arrow's path,
+      dodge, breaking), and what it costs in moves. If it can't: does the
+      refusal use a move or any of the bar, and does it draw anything.
+   3. Holding the bow but owning the blade too (`player-bow-own`): does
+      the stick into a creature attack with the bow held (as a melee
+      weapon, with what Power), bring the ready menu (pass 2 finding: owning
+      but not holding a weapon), or nothing.
+   Already ours: pushing into a creature holding the blade (pass 2's
+   `player-friend`, 12 runs, capture.md 10.14.10), and holding nothing,
+   owning nothing (`player-none`: no draw, no step). The messages and the
+   moves left are on screen, so we will capture what you name; what we
+   need from you is which inputs to try and what happens out of sight.
+2. **A Speed 0 creature's turn** (pass 3 item 6.3, not answered; capture.md
+   10.14.10, "FF's turn"). In pass 2's `bow-line`, FF (a peaceful friend,
+   Speed 0) took on each of its turns: the top-of-turn die, two rolls of
+   0 to 9 (the smartness checks, as other creatures), a percentile, a
+   roll whose size our runs don't show (any of 2 to 16 fits), then a roll
+   of 0 to 0 after which a hurt FF had always gained 1 Life Force (4 of 4
+   runs). Name each, with its range and what it is compared against.
+   In particular:
+   1. The percentile and the roll of unknown size: what they decide, and
+      what sets the second one's size.
+   2. The last roll: is it the idle-move healing roll (magic 5.3.1: 0 to
+      the turn's full moves - 1, heal on 0) with the full moves taken as
+      1 for Speed 0, or something else; is the healing every turn, and
+      does it stop at Constitution (`still-hurt` against `still-whole`).
+   3. Whether the sequence depends on the class: `still-enemy` (an
+      aggressive enemy, Speed 0, no weapon, five squares east of T).
+   4. A Speed 0 creature holding a missile weapon (`still-bow`, combat 8.1:
+      "with no move left it doesn't fire", our engine's choice, unknown):
+      does it fire, and from which point of its turn. Our runs of it show
+      whether T is hurt; we need the reason.
+3. **The dropped treasure's square** (creatures 8.1, 7.3; pass 3 item 7,
+   not answered; capture.md 10.14.5). An overburdened creature's
+   treasure lands on a square beside it after one to five pairs of
+   draws; a friend's gift beside the player likewise. In words:
+   1. What each pair of rolls picks (a direction, a row and column
+      offset, ...), their ranges, and in what order squares are tried.
+   2. What makes a try fail: a wall, an obstacle (`drop-wall`: the
+      obstacle on 5,4, west of the dropper on 6,4), a square holding an
+      individual, a thing or a stack already there, the room's edge
+      (`drop-corner`: the dropper on 13,8, a corner square).
+   3. What happens when every try fails or the tries run out: the
+      dropper's own square, no drop, or something else.
+   4. Whether gold (which lands on the dropper's own square in every run
+      of ours) and a friend's gift use the same choice, and whether the
+      gift is placed around the giver or around the player.
+   Check against pass 3's `burden` runs (WA, WB, WC, 16 runs: the
+   treasures appeared north, east or south of their droppers) and the
+   new `drop-wall` and `drop-corner` runs.
+
+Enough for this pass: 2 and 3, with the draw order, so the `bow-line`,
+`still-*`, `burden` and `drop-*` runs can be checked roll by roll; and
+item 1.1 (even as "traced"). Out of scope: map encounters (the
+encounters brief), a foe truly beside an archer (a capture of ours: the
+`bow-beside` snapshot remade with T on 4,4).
+
+### How the answers come back
+
+As before: `findings.md` gets a "Pass 4" section, plain language only,
+the same rules for addresses (and, for item 3, a room square's contents
+only if the harness needs an address to read where a drop landed). For
+each item say run or traced, and how many runs.
+
+### Inputs (pass 4)
+
+In `ACSVM-research/research/combat/inputs/pass4/` (copies; made by
+`capture/runs/rr16/`, the pass 3 kit: `case.sh`, `all.sh`, `rounds.sh`,
+`cases.txt` the exact scenario keys). Each case has `NAME-disk.d64` and a
+snapshot with its screenshot. The turn-end cases have 16 runs in
+`runs/NAME.jsonl`: the random state set to the run's index at the
+snapshot, every draw logged, messages answered, 16 million instructions
+(30 million for `drop-*`), and these bytes watched: T's Life Force and
+Power (`$F5A2`, `$F5A4`); slot 0's Constitution, Life Force, Power,
+square, wealth, held weapon and the possession byte of things 49 to 56
+(`$E1A3`, `$E1A6`, `$E1A8`, `$E1B0`, `$E1B1`, `$E1B5`, `$E1B6`, `$E1B7`,
+`$E1C4`); the shots left (`$B799`). Banked reads as before (capture.md
+10.14.3). The bow (thing 41) has power 10, range 7; WE's treasure (weight
+400) is our thing 50.
+
+| Case | Snapshot | What | 16 runs (`runs/NAME.jsonl`) |
+| --- | --- | --- | --- |
+| `still-hurt` | `still-hurt-turn-end.vsf` | FF, a peaceful friend, Speed 0, Constitution 40, Life Force 30, on 9,4 | FF gained 2 or 3 Life Force, never moved |
+| `still-whole` | `still-whole-turn-end.vsf` | as `still-hurt`, Life Force 40 | FF stayed at 40 |
+| `still-enemy` | `still-enemy-turn-end.vsf` | NN, an aggressive brave enemy, Speed 0, Strength 10, Constitution 40, Life Force 30, no weapon, on 9,4 | NN gained 2 or 3 Life Force, never moved; T never hurt |
+| `still-bow` | `still-bow-turn-end.vsf` | EE as pass 2's `bow` (holding the bow, on 9,4), Speed 0 | T never hurt: EE never fired |
+| `drop-wall` | `drop-wall-turn-end.vsf` | WE (Speed 2, Strength 1, one treasure of weight 400) on 6,4, the obstacle on 5,4 | WE dropped its treasure in all 16, then walked in 13 |
+| `drop-corner` | `drop-corner-turn-end.vsf` | WE as `drop-wall` on 13,8, a corner, no obstacle | WE dropped it in all 16, then walked in 15 |
+| `player-bow-beside` | `player-bow-beside-room.vsf` | T's first turn in the room under way, T holding the bow; EE (the `armed` enemy, holding the blade) on 5,5, diagonal to T (one push south puts EE beside T) | none: try to fire, push south, then east |
+| `player-bow-own` | `player-bow-own-room.vsf` | as pass 3's `player-bow` (EE on 9,4 with the blade), T owning the blade as well and holding the bow | none: try to fire, then walk up and push into EE |
+
+Also for this pass: pass 2's `bow-line` (snapshot, disk, runs) for item 2,
+pass 3's `player-bow` for item 1 and `burden` (snapshot, disk, runs) for
+item 3.
 
 ## Findings
 

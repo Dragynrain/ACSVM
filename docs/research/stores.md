@@ -2,7 +2,10 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: first pass done 2026-11-13; in the spec and the engine.
-Pass 2 briefed 2026-11-14 (below, before "Findings").
+Pass 2 briefed and done 2026-11-14: the hang was the emulated drive,
+the disappearing bow joins the stock (confirmed by capture, `rr17`); no
+store on the open map (unconfirmed). No pass 3 for now (end of
+"Findings").
 
 ## Why
 
@@ -193,3 +196,50 @@ Next pass, when wanted: confirm restocking by capture (a weapon breaking
 in a room with a store), a store on the world map, the stock across a
 save and restore, a bought weapon, and a store in a room of another
 size. Each needs a "Pass 2" section here with its inputs.
+
+Pass 2, 2026-11-14 (`findings.md`, its "Pass 2" part), reviewed,
+confirmed by capture where the harness reaches (`rr17`, capture.md
+10.21) and written into `docs/rules/stores.md` 2.5 and 2.7.
+
+- **The region that never loaded** (item 1) was not the game. The
+  emulated disk drive was dead in the snapshots the harness had saved for
+  the two "store and disappearing bow" disks: its timer interrupt was
+  never served, so the first disk read of the region change never ran.
+  The same disk loads after a drive reset or when played from a fresh
+  boot, and no rule makes a region hang. Confirmed (`rr17` `scan`,
+  `reset`, `fresh`). The harness now checks drive 8 after every restore
+  (`drivecheck`, capture.md 10.21); stores.md 2.5 keeps it as a harness
+  note, nothing for the engine.
+- **The disappearing bow joins the stock** (item 1's last question):
+  the bow left its creature and joined the region's stock in the same
+  moment or the next in 32 of 32 runs (`rr17` `rounds`). Confirmed;
+  stores.md 2.5.
+- **Stores on the world map** (item 2): not reachable in play. A step
+  on the open map checks only for a door, and an encounter area holds
+  only its door; nothing dropped there can be a store. Traced, not
+  captured: the harness can't put a store on a map square or in an
+  area's item list. In stores.md 2.7 as [research, unconfirmed]. The
+  researcher's poked store in an area opened the ordinary screen,
+  showed whatever the map's data holds where a room region's stock is
+  kept, and never changed it; capture agrees as far as it reached (those
+  bytes all set while the map was visited, in 4 scenarios, `rr17`
+  `mapstock`, `mappeek`).
+- **Saving the stock** (2.8) was left to capture (pass 2's "not asked")
+  and is still [unknown]; the engine keeps and saves it with the region.
+
+Open, and why none of it is a pass 3:
+
+- Whether any corpus adventure has a thing in an encounter area's item
+  list is a data question for our own tools, not the researcher's. Our
+  model reads no items for an area; reading them is a model change
+  (`MODEL_VERSION`), the maintainer's call (stores.md, Captures needed 2).
+- What the map's data at the stock's place holds in a real adventure
+  matters only for such a store, and is in the adventure file: a decoder
+  question once area items are read.
+- The moves left after leaving an area store: the store can only be
+  there by poking memory, so it waits for an adventure that has one.
+- Saving the stock across save and restore: capture (buy, save, restore,
+  read the shelves), not research.
+
+Next pass: none. Reopen if the corpus turns up a store in an encounter
+area, or if capture of saving the stock fits no simple rule.

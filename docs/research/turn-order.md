@@ -2,7 +2,7 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: first pass done 2026-11-12, confirmed by
-capture and in the engine.
+capture and in the engine. Pass 2 briefed and queued 2026-11-14.
 
 ## Why
 
@@ -71,6 +71,70 @@ neutral). Players T (Speed 6, joined first) and U (Speed 4).
 In the runs, `t` is instructions since the snapshot after the run's
 jitter. A few looks between turns read the name strip as `?` or part of
 the place name: those are the observer's misreads, not movers.
+
+## Pass 2
+
+Briefed 2026-11-14. The first pass's scheduler is confirmed by capture
+and in the engine (creatures 2.2, 2.3; capture.md 10.13). This pass
+takes two things it left open. New inputs are in `inputs/pass2/` (table
+at the end).
+
+### What we ask
+
+1. **The missed round.** Two players in different rooms of one region
+   (capture.md 10.10.4, `rooms2`): U (Speed 4) walked through the map
+   door into room 0 in round 11, T (Speed 12) in round 12, the map
+   visit's last. In round 13, the room region's first, the list went U,
+   AA, BB and T had no turn; from round 14 every round went T, U, AA, BB.
+   It happened in all 6 runs, whether T went on through the portal into
+   the side room on the same turn (`first`) or stayed in room 0 and took
+   the portal on its third turn (`later`); the portal taken inside the
+   region's visit cost no round. Why is T left off round 13's list: is it
+   the round T came in, the last round of the map visit, the order the
+   two players came in, or something kept per player (a place or region
+   not yet brought up to date, a flag)? Would a player coming in through
+   a map door in any other round of the map visit miss a round too, and
+   one going from one room region to another?
+2. **A player's death.** The first pass found that a visit ends after a
+   round in which the number of living players went down. What else a
+   death does to the scheduler: whether the round goes on after it (the
+   rest of the list, the creatures), what of the dead player's place on
+   later lists and in the cycle's marks, which region is visited next,
+   and whether the round counter and the queue of things due later carry
+   on. When a player dies and another lives (in the same room, or on the
+   map), does the game simply go on with the living one, and when does
+   the "restore the last saved game" offer come (only when no living
+   player is left, or at every death)? The `death` runs below show what
+   happened in ours.
+3. Traced only, if cheap: individuals 5 to 15 on room lists (the first
+   pass saw them numbered so but no run of ours has them).
+
+Enough for this pass: 1 and 2.
+
+### How the answers come back
+
+As before: `findings.md` gets a "Pass 2" section, plain language only.
+Addresses only of state the harness would read or set to test an answer
+(for example a per-player flag), and only if needed. For each item say
+run or traced, and how many runs.
+
+### Inputs (pass 2)
+
+In `ACSVM-research/research/turn-order/inputs/pass2/` (copies; made by
+`capture/runs/rr4/rooms2/` and `capture/runs/rr16/`). Start VICE as for
+pass 1. Round numbers are the round counter (`$F65B`); `t` is
+instructions from the snapshot.
+
+| Folder | What |
+| --- | --- |
+| `rooms2/` | item 1. `scenario-disk.d64`: the side-room disk (capture.md 10.10.3-4): room 0 of region 1 as pass 1's room, room 1 (SIDE ROOM, 10 x 8) behind a one-way portal of ours on room 0's 7,4 to its 2,4; T Speed 12, U Speed 4; AA and BB, peaceful friends of Speed 3, on room 0's 2,7 and 2,2. `two.vsf` (`two-map.png`): T's turn on the map, U just added, both on 12,12, a few turns before the behaviour (holding south 4 squares walks a player in) |
+| `rooms2/runs/first/` | 3 runs from `two.vsf`, 8 of T's turns: U walks in on its first turn, T walks in and on through the portal (`e3`) on its first. Each turn's start with the region (`$397C`), round counter and current individual (`$71FA`). Round 13, the region's first: U, AA, BB, no T; then T, U, AA, BB every round |
+| `rooms2/runs/later/` | the same, T taking the portal only on its third turn: U came in in round 11, T in round 12 (the map visit's last); round 13 again without T, in all 3 |
+| `death/` | item 2. `scenario-disk.d64`: pass 1's room with T (Speed 6) and U (Speed 4, Constitution and Life Force 40) and one creature of ours, EE, an aggressive brave enemy on 5,4 beside the entry square 4,4 (Speed 6, Strength and Dexterity 31, Melee 127, a sword of Power 31). `two.vsf` (`two-map.png`): as `rooms2`, T's turn on the map with U just added. `build.sh`, `mem.sh`: how they were made (the `turns` runs in `build.sh` stalled at the death message and were dropped) |
+| `death/runs/split/` | 2 runs (identical) from `two.vsf`, T walking in on its first turn, U idle on the map, 500 million instructions, every change of `$397C`, `$F65B`, `$71FA`, T's and U's Life Force (`$F5A2`, `$F5C7`; reads alternate with the ROM's bytes under them, 32 and 177, ignore those). U alone rounds 21 to 39; region 1 from round 40; T's Life Force 0 at about 164.6 million; the message "press button to restore the last saved game and resurrect your dead character, F1 to continue playing from here" (`answer0-05.png`), which our harness answered with the button: the round counter went to 41 and the region byte to 255, then back to round 40 and T's Life Force 22 (the saved game), and a "one of the adventurers is T" screen (`answer0-07.png`); nothing changed after it to the run's end |
+| `death/runs/two/` | 2 runs (identical): both walk in (the stick held 10 million instructions), the room region from round 22; EE killed U (Life Force 40 to 1 to 0 by about 22.1 million) while T lived; the same message, answered the same way: round 23, region 255, then round 22 and the saved Life Forces. So the offer came with a living player left. F1 (go on from here) was not tried: what the scheduler does then is the main part of item 2 |
+
+(T's Life Force was set to 1 on the disk but read 22 after joining.)
 
 ## Findings
 

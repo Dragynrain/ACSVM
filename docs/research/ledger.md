@@ -20,13 +20,14 @@ daily cap: 3 passes closed per day
 | encounters | 1 | reviewed | in the spec and engine as [research] but never confirmed by a capture of ours: confirm items 1, 2 and 4; on hold: another session (World map encounters research) is already capturing them in capture/runs/rr15; take its result, relaunch the confirmer only if it stops without one |
 | turn-order | 2 | reviewed | items: the missed round after coming in at the map visit's end, a player's death, rooms with individuals 5-15; queue/turn-order-p2 |
 | combat | 4 | researching | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
-| stores | 2 | checked | items: the store-and-bow hang, stores on the map; queue/stores-p2 |
+| stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
 | characters | 2 | researching | items: Retire, another adventure's player, name entry, how many players, catching up; queue/characters-p2 |
 
 ## Log
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: stores, 2, brief-writer, closed; no pass 3.
 - 2026-11-14: stores, 2, checker, all PASS; committed (stores files only, the staged tree rebuilt and tested apart).
 - 2026-11-14: stores, 2, engine-implementer, no rules change, 3 tests pin 2.5 and 2.7; spec 2.7 wording fixed (region 0 stock is always empty); area items in the model would be a MODEL_VERSION question, left for the maintainer; checker started.
 - 2026-11-14 digest: closed 0 today; confirmed: stores p2 item 1; escalations none (turn-order p2's restore-state timing is unsure and held out); running: stores p2 engine-implementer, turn-order p2 capture-confirmer; researching characters p2 and combat p4; encounters p1 on hold for the World map encounters research session.
