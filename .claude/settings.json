@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//d/Projects/ACSVM-research/research/*/notes/**)",
+      "Edit(//d/Projects/ACSVM-research/research/*/notes/**)",
+      "Read(//d/Projects/ACSVM-research/corpus/**/advcnst*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/hooks/cleanroom.py\" implementer",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

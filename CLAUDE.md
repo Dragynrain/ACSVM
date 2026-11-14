@@ -12,6 +12,11 @@ Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
 before the code. Rules capture can't settle (random formulas, edge cases,
 hidden state) go through clean-room research: `docs/research/README.md`.
+Passes can run unattended (README 7): `/integrate` here (state in
+`docs/research/ledger.md`), `/research-queue` in a fresh session in the
+research folder. The clean-room hook (`scripts/hooks/cleanroom.py`, wired
+in `.claude/settings.json`) blocks research notes and the program disks;
+`python scripts/hooks/test_cleanroom.py` after changing it.
 
 ## Hard rules
 

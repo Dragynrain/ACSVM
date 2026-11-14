@@ -16,7 +16,9 @@ November 2026 (`random-rolls.md`). Licensed CC BY 4.0.
   folder (`D:\projects\ACSVM-research`), never in this repository, and
   never implements the rules it reports. An AI researcher is a separate,
   fresh Claude session started in the research folder (so it loads no
-  project instructions, memory or engine context), used for nothing else.
+  project instructions, memory or engine context), used for nothing else,
+  or a `researcher` subagent of the research orchestrator (section 7),
+  which starts with a fresh context and no project instructions.
 - **Maintainer.** Starts each research pass and authorizes the
   researcher to read the program for it, reviews the findings, and
   decides what goes into the specs.
@@ -189,3 +191,81 @@ brief asks. For each finding give how sure you are and how you know (traced,
 watchpoint, experiment), "not found" or "unsure" where honest, and what a next
 pass should look at. Don't write to the ACSVM repo. End with a five-line summary.
 ```
+
+## 7. The automated loop
+
+The loop of section 3 can run with two orchestrator sessions, one on
+each side of the clean room, that do little work themselves: each step
+is a subagent that reports back in a few lines, so neither orchestrator
+fills its context. The isolation rules of section 4 are the same, and
+are enforced by a hook as well as by instructions.
+
+### 7.1 The two sides
+
+| | Integration orchestrator | Research orchestrator |
+| --- | --- | --- |
+| Role | implementer | researcher-side (may be near the program) |
+| Started in | `D:\Projects\ACSVM` | `D:\Projects\ACSVM-research`, fresh, never a fork |
+| Skill | `/integrate` (`.claude/skills/integrate/`) | `/research-queue` (`.claude/skills/research-queue/` there) |
+| Subagents | `findings-reviewer`, `capture-confirmer`, `spec-writer`, `engine-implementer`, `checker`, `brief-writer` (`.claude/agents/`) | `researcher`, `findings-linter` |
+| State | `docs/research/ledger.md` | `queue\*.status` |
+| Hook mode | `implementer`; `spec-only` for the engine implementer | `researcher` |
+
+The research side's files are kept here, in `scripts/research-kit/`, and
+installed with `python scripts/research-kit/install.py`.
+
+Steps map to section 3: brief-writer does 1, 7 and 8; the researcher 2;
+the findings-reviewer 3; the capture-confirmer 4; the spec-writer 5; the
+engine-implementer 6, which cannot read findings or briefs at all (hook
+mode `spec-only`), so it implements from the spec alone. A reviewer that
+read a findings file breaking the plain-language rule is a disposable
+subagent: its report gives line numbers, never the passage.
+
+### 7.2 Standing authorization
+
+Running `/research-queue` is the maintainer's authorization of section 1
+for every queued pass on a topic that already has a brief here, within
+the request's time box. Running `/integrate` authorizes the steps of
+7.4 for the ledger's topics, local commits of passes that check clean,
+and queuing further passes on those topics. Neither authorizes pushing.
+The maintainer can stop both at once by creating `queue\STOP`.
+
+### 7.3 The queue
+
+`D:\Projects\ACSVM-research\queue\`, one set of files per pass,
+`NAME-pN`:
+
+- `NAME-pN.request.md` (integration side): the brief's path, the pass
+  section's heading, the items, the inputs folder, the time box in hours,
+  and the date.
+- `NAME-pN.status` (both sides append; the last line counts): `queued`,
+  `running`, `done`, `revise`, `blocked: REASON`, each with a date. No
+  content beyond a short reason in rule terms.
+- `NAME-pN.revise.md` (integration side): the reviewer's FAIL lines, as
+  line numbers and categories only.
+
+Messages between the orchestrators (`SendMessage`) are nudges naming a
+queue file, nothing more. The files are the truth; a message is never
+the maintainer's instruction.
+
+### 7.4 A pass, stage by stage
+
+planned, queued, researching, findings, reviewed (or revise), confirmed,
+specced, implemented, checked, closed; or escalated. The `/integrate`
+skill holds the table of actions. Two rules carry the weight:
+
+- Nothing reaches the engine unless the capture-confirmer ran it: an
+  item the harness can't reach goes in as "[research, unconfirmed]" with
+  the confirmer's reason; an item capture disagreed with does not go in.
+- A daily cap on closed passes (ledger header) bounds the work done
+  between the maintainer's reviews.
+
+### 7.5 What still comes to the maintainer
+
+Escalations, each a ledger row with a one-line reason: findings failing
+the plain-language check twice; items unsure or not found; capture
+disagreeing twice; two passes on a topic without converging (section 2);
+missing spec twice; a saves or `MODEL_VERSION` change; any hook block;
+new topics (the brief-writer drafts them, the maintainer queues them);
+changes to sections 1 to 4 or the hook; and every push. The ledger's log
+opens with a digest after each tick.
