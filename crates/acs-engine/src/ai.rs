@@ -92,13 +92,25 @@ struct Goal {
     individual: Option<Other>,
 }
 
+/// What a step choice came to (6.5, 2.7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stepped {
+    /// It moved and may go on.
+    Moved,
+    /// It stood: nowhere open, or (2.7.3) a step onto an ordinary square
+    /// cancelled for want of a move.
+    Stood,
+    /// An action that ends the turn: an attack, a door, a pick-up, a gift.
+    Ended,
+}
+
 /// The 4 squares beside, in the order a step looks at them (6.5).
 const STEP_DIRS: [Dir; 4] = [Dir::S, Dir::N, Dir::E, Dir::W];
 
 impl Game {
-    /// One creature's turn (2.5, 8.1, 8.2, 6.6), with drift and the healing
-    /// die at its top and a healing roll for each move it leaves unused
-    /// (magic 5.1, 5.3, 5.4).
+    /// One creature's turn (2.5, 2.7, 8.1, 8.2, 6.6), with drift and the
+    /// healing die at its top and a healing roll for each move it leaves
+    /// unused (magic 5.1, 5.3, 5.4).
     pub(crate) fn creature_turn(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) {
         let me = Who::Creature { region, slot };
         if let Some((left, full)) = self.creature_acts(region, slot, ev) {
@@ -107,20 +119,24 @@ impl Game {
     }
 
     /// The turn itself; the moves left unused and the turn's full moves,
-    /// unless it cast or used an item (or died).
+    /// unless it cast or used an item (or died). Creatures 2.7: a loop of
+    /// actions, the test for moves left after each, so the first action
+    /// is always taken, even with no move (Speed 0).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
-        let dropped = self.overburdened_drop(region, slot, ev);
-        let c = self.creature(region, slot)?.clone(); // its drop spell may have killed it
-                                                      // Creatures 2.6: halved, rounding up, with a foe beside it.
-        let hindered = self.threatened(&c, Who::Creature { region, slot });
+        let me = Who::Creature { region, slot };
+        let c = self.creature(region, slot)?.clone();
+        // Creatures 2.6: halved, rounding up, with a foe beside it.
+        let hindered = self.threatened(&c, me);
         let moves = creatures::turn_speed(&self.adv, &c, hindered);
         ev.push(Event::CreatureTurn { region, slot, moves });
-        self.turn_top(Who::Creature { region, slot }, ev);
+        self.turn_top(me, ev);
         self.creature(region, slot)?;
         let mut left = moves;
-        // 8.1: a turn with a drop takes no steps; its moves are idled
-        // (after readying, combat 6.2).
-        if dropped {
+        // 8.1: the drop comes after the healing die (8.1.1's draws), and a
+        // turn with a drop takes no steps; its moves are idled (after
+        // readying, combat 6.2).
+        if self.overburdened_drop(region, slot, ev) {
+            self.creature(region, slot)?; // its drop spell may have killed it
             if self.creature_ready(region, slot, ev) {
                 left = left.saturating_sub(1);
             }
@@ -141,22 +157,34 @@ impl Game {
             .and_then(|(grid, w, h)| self.choose_goal(region, slot, &grid, w, h));
         let start = self.creature(region, slot).map(|c| (c.x, c.y))?;
         let mut stood = vec![start];
-        while left > 0 {
-            // Combat 8.1: firing instead of a step ends the turn.
+        loop {
+            // Combat 8.1: firing instead of a step ends the turn, whatever
+            // the moves left (8.2: Dexterity / 8 shots with none).
             if self.creature_fires(region, slot, goal) {
                 if let Some(Goal {
                     individual: Some(o), ..
                 }) = goal
                 {
-                    self.fire(Who::Creature { region, slot }, o.who, left, ev);
+                    self.fire(me, o.who, left, ev);
                 }
                 self.creature(region, slot)?;
                 return Some((0, moves));
             }
-            if !self.creature_step(region, slot, goal, start, &mut stood, &mut left, moves, ev) {
+            match self.creature_step(region, slot, goal, start, &mut stood, &mut left, moves, ev) {
+                Stepped::Moved => left = left.saturating_sub(1),
+                Stepped::Ended => break,
+                Stepped::Stood if left == 0 => {
+                    // 2.7.4: with no move left, the action is one idle move
+                    // (magic 5.3.1: no roll drawn with full moves 0).
+                    self.idle_moves(me, 1, moves, ev);
+                    self.creature(region, slot)?;
+                    return Some((0, moves));
+                }
+                Stepped::Stood => break,
+            }
+            if left == 0 {
                 break;
             }
-            left -= 1;
         }
         self.creature(region, slot)?;
         Some((left, moves))
@@ -232,8 +260,9 @@ impl Game {
         true
     }
 
-    /// Magic 6.6: a magic item a creature drops on `at` casts its drop
-    /// spell on the creature itself (it never lands on another creature).
+    /// Magic 6.6, 2.3: a magic item a creature drops on `at` casts its drop
+    /// spell on whoever else stands there (creatures 7.3: the player, say),
+    /// else on the creature itself.
     fn creature_drop_spell(
         &mut self,
         region: u8,
@@ -252,10 +281,18 @@ impl Game {
         } = t.kind
         {
             let me = Who::Creature { region, slot };
+            let target = match at {
+                Location::Room { room, x, y, .. } => self
+                    .others_in_room(region, room, Some(me))
+                    .into_iter()
+                    .find(|o| (o.x, o.y) == (x, y))
+                    .map_or(me, |o| o.who),
+                _ => me,
+            };
             self.run_spell(
                 Spell {
                     by: me,
-                    target: me,
+                    target,
                     source: SpellSource::Dropped,
                     thing,
                     action,
@@ -423,8 +460,9 @@ impl Game {
     }
 
     /// One step (6.5) or an action that ends the turn (7, combat 2), with
-    /// `left` of `full` moves left. True if the creature moved and may go
-    /// on.
+    /// `left` of `full` moves left. With no move left, a step onto an
+    /// ordinary square (not the goal's, an exit, a thing it takes or an
+    /// individual it strikes) is cancelled after its rolls (2.7.3).
     #[allow(clippy::too_many_arguments)]
     fn creature_step(
         &mut self,
@@ -436,12 +474,12 @@ impl Game {
         left: &mut u8,
         full: u8,
         ev: &mut Vec<Event>,
-    ) -> bool {
+    ) -> Stepped {
         let Some((grid, w, h)) = self.squares(region, slot) else {
-            return false;
+            return Stepped::Ended;
         };
         let Some(c) = self.creature(region, slot).cloned() else {
-            return false;
+            return Stepped::Ended;
         };
         // 7.3: a friend beside the player it chose.
         if let Some(Goal {
@@ -451,9 +489,9 @@ impl Game {
             if steps((c.x, c.y), (o.x, o.y)) == 1
                 && o.alignment.is_none()
                 && c.strategy.alignment == Friend
-                && self.friend_drop(region, slot, o, ev)
+                && self.friend_drop(region, slot, ev)
             {
-                return false;
+                return Stepped::Ended;
             }
         }
         let target = goal.map_or(start, |g| g.at);
@@ -493,7 +531,7 @@ impl Game {
             }
         }
         let Some((_, nx, ny, sq)) = best else {
-            return false; // nowhere open: it stands (6.5)
+            return Stepped::Stood; // nowhere open: it stands (6.5)
         };
         if let Sq::Strike(target, _) = sq {
             // Combat 2.1, 2.6: an attack; a melee weapon owned but not
@@ -514,7 +552,11 @@ impl Game {
             self.attack(me, target, *left, full, ev);
             // 2.5: attacking ends the turn.
             *left = 0;
-            return false;
+            return Stepped::Ended;
+        }
+        // 2.7.3: no move left for a step onto an ordinary square.
+        if *left == 0 && sq == Sq::Open && goal.is_none_or(|g| g.at != (nx, ny)) {
+            return Stepped::Stood;
         }
         stood.push((nx, ny));
         let from = Location::Room {
@@ -532,17 +574,17 @@ impl Game {
         match sq {
             Sq::Door(i) => {
                 self.creature_take_door(region, slot, to, i, ev);
-                false
+                Stepped::Ended
             }
             Sq::AreaDoor => {
                 self.remove_creature(region, slot, RemovalReason::LeftArea, ev);
-                false
+                Stepped::Ended
             }
             Sq::Take(i) => {
                 // 7.5: it takes the thing from where it stands, and its
                 // turn ends.
                 self.creature_pick_up(region, slot, i, ev);
-                false
+                Stepped::Ended
             }
             _ => {
                 self.set_creature_xy(region, slot, nx, ny);
@@ -552,7 +594,7 @@ impl Game {
                     from,
                     to,
                 });
-                true
+                Stepped::Moved
             }
         }
     }
@@ -689,8 +731,55 @@ impl Game {
         });
     }
 
+    /// 8.1.1: where a creature standing on (x, y) drops a thing. Tries of
+    /// two rolls, an offset (a roll of 0 to 2, less 1) and an axis (a roll
+    /// of 0 or 1: 0 across, 1 down); an offset of 0 is its own square, no
+    /// test; a try onto the room's outer ring or a square holding an
+    /// obstacle (**Engine:** or a custom obstacle) fails and another is
+    /// drawn; any other square takes it, individuals and things or not. A
+    /// room whose inside is one square takes it there with no draw.
+    pub(crate) fn drop_square(&mut self, region: u8, room: u8, x: u8, y: u8) -> (u8, u8) {
+        let Some(r) = self.room(region, room) else {
+            return (x, y);
+        };
+        let (w, h) = (r.width, r.height);
+        if w <= 3 && h <= 3 {
+            return (x, y);
+        }
+        loop {
+            let offset = self.rng.below(3) as i16 - 1;
+            let down = self.rng.below(2) == 1;
+            if offset == 0 {
+                return (x, y);
+            }
+            let (nx, ny) = if down {
+                (x as i16, y as i16 + offset)
+            } else {
+                (x as i16 + offset, y as i16)
+            };
+            if nx <= 0 || ny <= 0 || nx >= w as i16 - 1 || ny >= h as i16 - 1 {
+                continue;
+            }
+            let (nx, ny) = (nx as u8, ny as u8);
+            let blocked = self.room(region, room).is_some_and(|r| {
+                r.items.iter().any(|it| {
+                    it.x == nx
+                        && it.y == ny
+                        && matches!(
+                            self.thing(it.thing).map(|t| &t.kind),
+                            Some(ThingKind::Obstacle { .. } | ThingKind::CustomObstacle { .. })
+                        )
+                })
+            });
+            if !blocked {
+                return (nx, ny);
+            }
+        }
+    }
+
     /// 8.1: one drop a turn while load is above capacity: all its gold,
-    /// else its lowest-numbered treasure or magic item. True if it dropped.
+    /// else its lowest-numbered treasure or magic item, onto 8.1.1's
+    /// square. True if it dropped.
     fn overburdened_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
             return false;
@@ -734,17 +823,19 @@ impl Game {
                 ..
             })
         );
+        // 8.1.1: the square's pairs are drawn for gold and a treasure alike.
+        let (x, y) = self.drop_square(region, c.room, c.x, c.y);
         let at = Location::Room {
             region,
             room: c.room,
-            x: c.x,
-            y: c.y,
+            x,
+            y,
         };
         if !vanishes {
             if thing == GOLD {
-                self.put_gold(region, c.room, c.x, c.y, amount);
+                self.put_gold(region, c.room, x, y, amount);
             } else {
-                self.put_on_top(region, c.room, c.x, c.y, thing, 1);
+                self.put_on_top(region, c.room, x, y, thing, 1);
             }
         }
         ev.push(Event::CreatureDropped {
@@ -853,9 +944,10 @@ impl Game {
         }
     }
 
-    /// 7.3: the lowest-numbered magic item, next to the player if possible.
-    /// True if it dropped one (which ends its turn).
-    fn friend_drop(&mut self, region: u8, slot: usize, player: Other, ev: &mut Vec<Event>) -> bool {
+    /// 7.3: the lowest-numbered magic item, else treasure, onto 8.1.1's
+    /// square around the giver. True if it dropped one (which ends its
+    /// turn).
+    fn friend_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
             return false;
         };
@@ -881,32 +973,8 @@ impl Game {
         let Some(thing) = of(true).or_else(|| of(false)) else {
             return false;
         };
-        let Some(r) = self.room(region, c.room) else {
-            return false;
-        };
-        let (w, h) = (r.width, r.height);
-        let accepts = |x: u8, y: u8| {
-            if x == 0 || y == 0 || x >= w - 1 || y >= h - 1 || self.occupied(region, c.room, x, y) {
-                return false;
-            }
-            match r.items.iter().find(|it| it.x == x && it.y == y) {
-                None => true,
-                Some(it) => !matches!(
-                    self.thing(it.thing).map(|t| &t.kind),
-                    Some(
-                        ThingKind::Portal { .. }
-                            | ThingKind::Obstacle { .. }
-                            | ThingKind::CustomObstacle { .. }
-                            | ThingKind::Store { .. }
-                    )
-                ),
-            }
-        };
-        let spot = Dir::ALL
-            .into_iter()
-            .filter_map(|d| self.neighbour(region, c.room, player.x, player.y, d))
-            .find(|&(x, y)| accepts(x, y))
-            .unwrap_or((c.x, c.y));
+        // 7.3: the overburdened drop's square (8.1.1), around the giver.
+        let spot = self.drop_square(region, c.room, c.x, c.y);
         if let Some(cm) = self.creature_mut(region, slot) {
             take_possession(cm, thing);
         }

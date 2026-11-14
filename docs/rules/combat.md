@@ -9,15 +9,17 @@ to attack or fire in `ai.rs` and the player's attack in `step.rs`).
 
 Tags as in [movement](movement.md): **[manual]**, **[data]**,
 **[designer]**, **[unknown]** with the engine's choice as **Engine:**,
-plus **[research]** for the clean-room researcher's three combat passes
-(2026-11-13, `docs/research/combat.md`) and **[capture]** where our own
-captured runs confirm it. The researcher marked each finding as run in the
-original (its experiments) or only read in the program ("traced");
-"[research, unconfirmed]" means no capture of ours has checked it yet. The
-second and third passes' cases (capture.md 10.15, 10.16) were checked roll
-by roll with `scripts/combatcheck.py --case NAME` (capture.md 10.14.10,
-10.16): 240 melee runs, 24 player attacks and 128 firing runs, every one
-right.
+plus **[research]** for the clean-room researcher's four combat passes
+(passes 1 to 3 2026-11-13, pass 4 2026-11-14, `docs/research/combat.md`)
+and **[capture]** where our own captured runs confirm it. The researcher
+marked each finding as run in the original (its experiments) or only read
+in the program ("traced"); "[research, unconfirmed]" means no capture of
+ours has checked it yet. The second and third passes' cases (capture.md
+10.15, 10.16) were checked roll by roll with `scripts/combatcheck.py --case
+NAME` (capture.md 10.14.10, 10.16): 240 melee runs, 24 player attacks and
+128 firing runs, every one right. The fourth pass's (capture.md 10.24, run
+rr20) were checked with the same script and `scripts/dropcheck.py`, and the
+player's FIRE by scripted runs.
 
 ## 1. Terms
 
@@ -93,14 +95,24 @@ right.
    struck 3 blows at a friend east of it, every roll as section 3 says;
    pushing the stick at a neutral with no weapon owned did nothing, no
    roll drawn and nobody moved. [capture: player-friend, player-none, 12
-   runs each, capture.md 10.14.10] Whether that push used a move: the
-   researcher saw none used (the bar); not measured by us.
+   runs each, capture.md 10.14.10] Such a push uses **no move**: holding
+   the bow and owning no melee weapon, the player pushed into a creature
+   beside it with 4 moves left and still had 4, with no message and no
+   menu. [research: fourth pass, run; capture: rr20 `beside`, capture.md
+   10.24] A held missile weapon is never used as a melee weapon, and the
+   stick never fires (8.8).
 8. **Owning a melee weapon but holding none**, the player gets a message
    ("select a melee weapon to use"), then a menu of NONE (first, chosen
    at first) and the melee weapons owned. Choosing one readies it at one
    move and the attack follows at once, its blows from the moves left
    after readying; choosing NONE uses no move, makes no attack and gives
-   the turn back. [research: second pass, 1 run each way]
+   the turn back. [research: second pass, 1 run each way] The same with a
+   missile weapon held: holding the bow and owning the blade, the push
+   brought the message and a menu of NONE and the blade, the bow not
+   listed. [research: fourth pass, run; capture: rr20 `own`, capture.md
+   10.24] Choosing the blade there readied it (the bow left the hand) with
+   the last move, and the attack followed with 1 blow from 0 moves left
+   (3.1), then section 7's roll. [research: fourth pass, 1 run]
    **Engine:** the menu is the front end's; `Game` readies the
    lowest-numbered melee weapon owned, then attacks. On the world map
    there are no creatures to attack yet (movement 7.1).
@@ -314,7 +326,7 @@ Right after the damage, by the defender's class: [research]
 4. an aggressive thief or enemy, or a player: no change.
 
 One change a blow. A friend hit once is a neutral; hit again, it turns
-aggressive. Only a player's own blows do this, never a creature's or a
+aggressive. Only a player's own blows (and its arrows, 8.6, 8.8.3) do this, never a creature's or a
 counter-blow. [manual: a friend hurt turns neutral, a peaceful creature
 aggressive, a smart aggressive neutral enemy] A peaceful friend hit by the
 player turned a peaceful neutral (10 runs), and an aggressive neutral
@@ -355,17 +367,29 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
      every step and shot, capture.md 10.14.10, 10.16] With the player
      truly beside it, it stepped away, then fired with the move left
      (1 shot). [research: third pass, 12 runs, a snapshot changed by hand]
+   - **The moves left play no part** in the rule. A creature of Speed 0
+     takes one action a turn ([creatures](creatures.md) 2.7), and when it
+     holds a missile weapon and the rule holds, that action is a shot:
+     after its smartness checks, before any step roll. [research: fourth
+     pass, run] Our archer of Speed 0 with the player 5 squares west fired
+     on every turn, 1 shot (8.2), its arrows reaching the player, dodged or
+     doing damage, as 8.5 and 8.6 say; the shots-left byte stays 0 with a
+     single shot, which is why our first runs seemed to show no firing.
+     [capture: still-bow, 128 runs, 128 turns, capture.md 10.24] **Engine:**
+     so. (Superseded: the engine's earlier choice, that with no move left a
+     creature doesn't fire.)
    - [unknown] whether the goal must be a foe. **Engine:** "not on its
      side" is a foe ([creatures](creatures.md) 7.4), and it fires only at
      a goal that is its foe, so a slinker friend whose goal is the player
-     doesn't shoot it; with no move left (before a step) it doesn't fire,
-     so a creature of Speed 0 never does. [unknown]
-   - A player can't fire: the program gives a message. [research: traced]
-     **Engine:** the player's `Fire` command gives `CannotFire` (our own
-     text), no shot, no move used.
+     doesn't shoot it.
+   - **A player fires** only through the menu's FIRE (8.8). (Superseded:
+     the first pass's "a player can't fire": the message it had read is
+     the refusal with a foe beside, 8.8.2.)
 2. **Shots**: Dexterity / 8 (at least 1) + half the moves left. The first
    shot ends the turn (moves left go to 0). [research] Dexterity 13 and 3
-   of 3 moves: 2 shots. [capture: bow, bow-line, every turn]
+   of 3 moves: 2 shots. [capture: bow, bow-line, every turn] With no move
+   left (Speed 0, 8.1) it is Dexterity / 8 alone: 1 shot at Dexterity 13.
+   [research: fourth pass; capture: still-bow]
 3. **Each shot, in order**: the weapon's **break roll** (a roll of 0 to
    99, drawn even at break chance 0; a break ends the firing at once, a
    shot still due or not, and the shooter holds nothing: 7 of our 16
@@ -440,18 +464,95 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
 7. **Disappearing**: a missile weapon set to disappear after use goes after
    its first shot, and the firing ends: the second shot due never came.
    [research: traced; capture: bow-once, 16 of 16 runs]
+8. **The player's fire**, in a room only. [research: fourth pass,
+   2026-11-14, run and traced; capture: rr20 scripted runs `fire1`,
+   `beside`, `none`, `own`, `map`, `ready5`, `ready5b`, one each,
+   capture.md 10.24, except where marked]
+   1. **Only the menu fires.** The button brings the menu of 12 entries,
+      three rows of four (MOVE, USE OBJECT, NEW WEAPON, ADD SOMEONE; REST,
+      DROP OBJECT, NEW ARMOR, RETIRE; FIRE, USE POWER, PROFILE, SAVE GAME);
+      FIRE is the first of the third row. The stick never fires: toward a
+      creature further off it is a step, into one beside it is 2.7 and 2.8
+      (a held missile weapon is never a melee weapon).
+   2. **A foe beside** (1.7; a foe as in 8.1: an aggressive individual or
+      a player not on one's side): FIRE gives the message that the player
+      may not use a missile weapon while next to that individual (by
+      name), waits for the button, and ends there with **no move used**.
+      A peaceful neutral beside does not stop it. [research] Nothing is
+      drawn. [capture: rr20 `beside-draws`, 4 runs, capture.md 10.24: no
+      draw at FIRE, the run's one draw an idle move] [unknown] whether this test comes before or
+      after 8.8.4's. **Engine:** before it, so the refusal costs nothing.
+   3. **Holding a missile weapon**, no foe beside: a target cursor appears
+      on the player's own square; each push of the stick moves it one
+      square, anywhere inside the room's walls; the button fires at the
+      square under it. The shots are 8.2's, counted from the moves left
+      then, and the moves go to 0: the turn ends, with no message to
+      answer. Dexterity 13 with 5 of 6 moves left: 3 shots, the shots-left
+      byte counting down. Each shot is a creature's (8.3 to 8.6) with the
+      player as the shooter, aimed at the middle of the cursor's square:
+      that square sets only the direction, and the arrow flies the
+      weapon's range (8.5.3) whatever square was picked; a creature it
+      does damage to turns as section 7 says. [research; capture: `fire1`]
+      The player's shots draw as a creature's, in 8.3's order (break,
+      deviation, side), and one that reaches a creature goes through 8.6
+      (the player's Missile check, the dodge, damage). With the cursor left
+      on the player's own square the aim is the square south of it.
+      [research; capture: rr20 sweeps `fire-e5` (cursor on the enemy),
+      `fire-e3` (cursor short of it, the arrow flying on past) and
+      `fire-e0` (cursor on the player's square, every arrow stopped), 64
+      of 64 runs each, 192 shots each, every draw and every change to the
+      enemy's Life Force, Power and Dodge and the player's Missile skill
+      in order, capture.md 10.24]
+      **After every arrow of the player's that damages a creature** comes
+      a roll of 0 to 9: section 7's smartness roll. It was drawn after
+      each of 44 damaging arrows on an aggressive enemy, a second hit in
+      one firing included; without it, or taking it only while the target
+      was still an aggressive enemy, runs fail with the later draws out of
+      step. [capture: `fire-e5`, `fire-e3`, capture.md 10.24] The finding
+      did not name it. What it changes was not watched (the target's
+      class was not read), so the class change stays as section 7 says.
+      **Engine:** after each damaging player arrow, section 7's change by
+      the target's class, with the roll of 0 to 9 drawn every time.
+   4. **Holding no missile weapon**: FIRE uses **one move** at once, then
+      the message "select a missile weapon" and a menu of NONE and the
+      missile weapons owned. NONE ends it: no shot, and the turn goes on
+      with the moves left. [research; capture: `none`, 5 moves to 4]
+      Choosing an owned missile weapon readies it and goes on to the
+      cursor (8.8.3), but costs **a second move**: with 5 moves left, FIRE
+      took them to 4 and the bow to 3, and the shots were counted from 3
+      (2 shots). [capture: `ready5`, `ready5b`, capture.md 10.24] The
+      researcher had traced the readying as paid by FIRE's own move (the
+      shots from 4); capture disagrees, and why the second move is taken
+      (6.1's readying cost on top of FIRE's, or something else) is
+      [unknown]. **Engine:** as captured: one move for FIRE, one for the
+      readying (6.1), then the shots from the moves left; with no move left
+      for either it goes ahead with 0. The 2 shots from 3 moves held in the
+      `ready-e5` sweep, 32 of 32 runs, every draw as 8.8.3. [capture:
+      capture.md 10.24] FIRE then NONE draws nothing (the move used with
+      no draw). [capture: `none-draws`, 4 runs, capture.md 10.24]
+   5. **On the world map** FIRE does nothing: no message, no move.
+      [research: traced; capture: `map`] Nothing drawn. [capture:
+      `map-draws`, 4 runs, capture.md 10.24: the run's one draw an idle
+      move]
+   6. **Engine:** `Fire { target, weapon }`: `target` is the cursor's
+      square (the front end's), `weapon` the owned missile weapon to ready
+      when none is held (none for NONE). The refusals (a foe beside, the
+      world map) give `CannotFire` with the reason and use no move; then
+      `Fired` and the shots as for a creature.
 
-Not run: the player's attempt to fire (`player-bow`), a creature of Speed
-0 holding a missile weapon.
+Not run: what section 7 does after a player's damaging arrow (the roll
+is captured, 8.8.3; the class change it decides is not).
 
 ## 9. Left for later
 
-- Firing's open points (section 8, "Not run"), and the engine's choices
+- Firing's open points (section 8, "Not run"; why 8.8.4 takes a second
+  move; the order of 8.8.2's and 8.8.4's tests), and the engine's choices
   there.
 - **Mimics** copying their opponent.
 - Fights in encounter areas ([encounters](encounters.md)): the bit cleared
   with a copy's Power, what a dead copy drops and its gold.
-- The square a dropped treasure lands on (creatures 8.1).
+- A Speed 0 fighter owning a melee weapon with its goal beside it
+  ([creatures](creatures.md) 2.7: traced, it attacks once a turn).
 
 ## Captures needed
 
@@ -468,10 +569,19 @@ Not run: the player's attempt to fire (`player-bow`), a creature of Speed
    breaking with blows still due (the researcher's forced rolls only; our
    `break-many` runs never broke one), a magic weapon against armor.
 3. The player's attack, its blows and the alignment changes (7):
-   captured. Still open: the menu when the player owns but doesn't hold a
-   weapon (2.8), and whether a push with no weapon uses a move.
+   captured; the menu when the player owns a melee weapon but holds the
+   bow (2.8), and the push with no melee weapon using no move (2.7):
+   captured (capture.md 10.24). Still open: the menu with no weapon held
+   at all, choosing a weapon from it.
 4. Readying before stepping (6.2): a missile weapon captured
    (`bow-ready`); a melee weapon the researcher's experiment only.
 5. Firing (section 8): captured but for its "Not run" list; a foe truly
    beside the shooter (the researcher's changed snapshot only: ours had
-   the player diagonal).
+   the player diagonal). A Speed 0 archer: captured (8.1, `still-bow`).
+6. The player's fire (8.8): the inputs, refusals and costs captured by
+   script, and every draw by the sweeps of capture.md 10.24 (`fire-e5`,
+   `fire-e3`, `fire-e0`, `ready-e5`, `beside-draws`, `none-draws`,
+   `map-draws`). Still open: why 8.8.4 takes a second move (capture
+   disagrees with the research), what the roll of 0 to 9 after a damaging
+   arrow decides (8.8.3; the target's class watched), and whether 8.8.2's
+   test comes before 8.8.4's.

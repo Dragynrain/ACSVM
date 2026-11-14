@@ -7,7 +7,7 @@
 
 use crate::game::Game;
 use crate::inventory::{self, hindered_speed, slowed_speed, GOLD};
-use crate::{Dir, Event, Location, RemovalReason, Who};
+use crate::{Event, Location, RemovalReason, Who};
 use acs_core::model::ThingId;
 use acs_core::model::{Adventure, Alignment, Creature, ThingKind};
 
@@ -255,14 +255,5 @@ impl Game {
         self.random.push((region, slot));
         self.forget_vitals(Who::Creature { region, slot });
         Some((slot, Location::Room { region, room, x, y }))
-    }
-
-    /// The square next to (x, y) in `dir`, if inside the room's bounds.
-    pub(crate) fn neighbour(&self, region: u8, room: u8, x: u8, y: u8, dir: Dir) -> Option<(u8, u8)> {
-        let r = self.room(region, room)?;
-        let (dx, dy) = dir.delta();
-        let (nx, ny) = (x as i16 + dx as i16, y as i16 + dy as i16);
-        ((0..r.width as i16).contains(&nx) && (0..r.height as i16).contains(&ny))
-            .then_some((nx as u8, ny as u8))
     }
 }

@@ -218,8 +218,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    (24, 40 and 32 pixels for Speeds 3, 5 and 4, carrying nothing), and
    drains as the creature walks. [capture: turns] The slowdown part is
    [unknown].
-   **Engine:** so. A creature with Speed 0 does not move; the manual only
-   adds that it does not show its name on its turn. [manual]
+   **Engine:** so. A creature with Speed 0 has a bar of 0 but still takes
+   one action a turn (2.7); the manual adds that it does not show its name
+   on its turn. [manual]
 6. **Standing next to an aggressive, unfriendly individual** shortens a
    player's bar. [manual] By how much is not given. On the C64 the bar is
    halved, and only for a creature on one of the 4 squares beside the
@@ -248,6 +249,50 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    stands beside the player is [unknown]; no capture had one there.
    **Engine:** they are not halved, and `TurnStarted` reports `hindered`
    false for that turn.
+7. **A creature's turn is a loop**: it takes one action (after the top of
+   the turn: catch-up, drift and the healing die, [magic](magic.md) 5), then
+   another while it has moves left. The test comes after the action, so a
+   creature of **Speed 0** takes exactly **one action** every turn:
+   [research: combat fourth pass, 2026-11-14, `docs/research/combat.md`,
+   run]
+   1. its smartness checks (6.6: one for a friend that is not a fighter,
+      two for a fighter);
+   2. then, holding a missile weapon with [combat](combat.md) 8.1's rule
+      holding, one shot (combat 8.2: Dexterity / 8), which ends the turn;
+   3. else the step choice (6.5), its roll of 0 to 2 for each open square
+      beside it; the step is then **cancelled** when it has no moves left
+      and the square picked is an ordinary one (cost 2 in 6.5), so it never
+      walks;
+   4. with no step, one **idle move**: [magic](magic.md) 5.3.1's healing
+      with the turn's full moves 0, which draws nothing and heals 1 while
+      Life Force is below Constitution.
+   The class changes only the number of smartness checks. A peaceful friend
+   and an aggressive brave enemy, each Speed 0, Constitution 40, Life Force
+   30, the player 5 squares off: the die, their checks, four step rolls,
+   never a step, Life Force up 1 every turn (2 with the die's 2) until 40,
+   never past it; at Life Force 40 it never changed. [capture: still-hurt,
+   still-enemy 256 runs each, still-whole 64, 512 turns of each of the
+   first two, capture.md 10.24; rr16's and rr8's `bow-line` runs too]
+   (Superseded: capture.md 10.14.10's fit of a Speed 0 friend's turn, a
+   percentile, a roll of unknown size and a roll of 0 to 0: those were the
+   step rolls read with other sizes; it fails most of the 10.24 runs.)
+   The step is not cancelled onto the goal's own square (cost 1), an exit,
+   or a thing it takes, so a Speed 0 fighter owning a melee weapon attacks
+   a goal beside it once a turn: [research, unconfirmed: traced, no capture
+   had one]. **Engine:** 2.7 as written, the smartness checks as 6.6's
+   engine choice says. Two readings the research leaves open, both
+   [unknown]:
+   - **Every creature's first action is taken.** Whether 2.7's first
+     action, taken whatever the moves left, holds for creatures of Speed
+     above 0 too. **Engine:** it does: a creature whose readying (8.2)
+     spent its last move still gets its shot or its step choice, the step
+     cancelled as in 2.7.3, and with no step an idle move whose healing
+     roll ([magic](magic.md) 5.3.1) runs 0 to its full moves less 1.
+   - **What counts as ordinary** for the cancelled step (2.7.3).
+     **Engine:** only an empty square (nothing on it, no individual).
+     A square that is not the goal's but holds an individual the creature
+     would strike is not ordinary, even where 6.5's table gives it cost 2,
+     so that step is not cancelled.
 
 ## 3. Random room creatures
 
@@ -429,8 +474,10 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    it has. A fighter friend or enemy whose first check leads to nothing
    takes a second (helping an ally), right after: the "one roll more" of
    an unarmed fighter enemy (capture.md 10.14.6). [research: combat first
-   pass; capture: armed, every run] **Engine:** not taken (helping allies
-   comes with a later pass).
+   pass; capture: armed, every run] A peaceful (slinker) friend takes one,
+   a brave aggressive enemy two, on every Speed 0 turn (2.7). [research:
+   combat fourth pass; capture: still-hurt, still-enemy, capture.md 10.24]
+   **Engine:** not taken (helping allies comes with a later pass).
 
 ## 7. Reaching a goal
 
@@ -454,12 +501,15 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    20, a treasure of ours and 100 gold, no magic item) dropped the
    treasure on its turn beside the player and kept its gold, in 16 of 16
    runs; where it landed took rolls (as 8.1). [capture: burden2,
-   capture.md 10.14.5] **Engine:** its lowest-numbered magic item, else
-   its lowest-numbered treasure (gold never), onto the first
-   square around the player (direction order from N) that is an inside
-   square accepting drops (inventory 5.4) with no individual on it, else
-   onto the friend's own square. A drop spell then acts on the friend
-   itself, since it lands on no creature ([magic](magic.md) 2.3). [unknown]
+   capture.md 10.14.5] The gift is the same action as the overburdened
+   drop, so its square is 8.1.1's choice, made **around the giver**, not
+   the player; standing beside the player, the giver can put it on the
+   player's square. [research, unconfirmed: combat fourth pass, traced; no
+   gift run of ours checked it] **Engine:** its lowest-numbered magic item,
+   else its lowest-numbered treasure (gold never), onto the square 8.1.1
+   chooses around the giver (following the unconfirmed research). A drop
+   spell then acts on whoever stands on that square, else on the friend
+   itself ([magic](magic.md) 2.3). [unknown]
 4. **Foes**, for readying (combat 6.2): [manual] **Engine:**
    - an enemy's foes are players and friends;
    - a friend's foes are enemies, aggressive neutrals and aggressive thieves;
@@ -490,19 +540,60 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    dropped the weight 1 one first, then the other. So all the gold first,
    then the lowest-numbered treasure, whatever it weighs; one drop a
    turn, and a turn with a drop had no steps (they walked again once
-   under capacity). The gold stayed on the creature's square; a treasure
-   landed on a square beside it, chosen with one to five pairs of rolls
-   (a try per pair, seemingly). [capture: burden, burden2, capture.md
-   10.14.5] **Engine:** at the start of its turn, a creature whose load is
-   above its capacity drops all its gold on its own square (one pile),
-   else its lowest-numbered treasure or magic item there; one
-   drop a turn, after which its moves are idled. A treasure that
-   disappears when dropped vanishes; things that can't be dropped
-   (owner-only) are never chosen. While over capacity it picks nothing
-   up. [unknown] Not settled: the treasure's square (the rolls: a
-   research question), magic items' place in the order, whether the
-   steps are lost to the drop or to the weight slowdown (inventory 3.3),
-   and how gold counts toward the load.
+   under capacity). [capture: burden, burden2, capture.md 10.14.5]
+   1. **The square**, for gold and a treasure alike: tries of two rolls
+      each, a roll of 0 to 2 less 1 (an offset of -1, 0 or +1), then a roll
+      of 0 or 1 for the axis (0 across: -1 west, +1 east; 1 down: -1 north,
+      +1 south). The try's square is the dropper's own square moved by the
+      offset. An offset of 0 lands the thing at once on the **dropper's own
+      square**, with no test. Otherwise the try fails on a square of the
+      room's outer ring (the walls: first and last row and column) or one
+      holding an obstacle, and another pair is drawn, with no limit (a
+      third of all tries are offset 0, so it ends). Any other square takes
+      it: one holding an individual (the player's, say) or another thing.
+      So each square beside has 1 chance in 6 a try and the own square 1
+      in 3. The draws of a drop turn: the healing die, the smartness checks
+      (6.6), the pairs, then nothing more. [research: combat fourth pass,
+      2026-11-14, `docs/research/combat.md`, run] Every draw and landing
+      square, read from the room's list of things: the obstacle west of
+      the dropper failing 50 of 306 tries; a corner square's two wall
+      neighbours failing 137 of 393, up to 8 in one drop; 20 drops onto
+      the player's square beside it; things of ours on three neighbouring
+      squares, 125 drops landing on a square already holding a treasure;
+      the gold of `burden` on its pair's square, not always the dropper's
+      own (correcting 10.14.5's reading, which had seen only the screen).
+      [capture: drop-wall, drop-corner, burden, drop-thing 256 runs each,
+      drop-beside 128, capture.md 10.24] The program refuses one more kind
+      of thing besides the obstacle, which the research did not name:
+      [unknown]. **Engine:** the thing lands on top of the square's stack;
+      the ring, an obstacle and a custom obstacle fail a try (the second
+      kind taken to be the custom obstacle: a guess); every other square
+      takes it. In a room whose inside is one square it goes there with no
+      draw [research, unconfirmed: traced]; the engine does so, taking
+      that square without drawing. On the world map there is no
+      square: the thing is lost (inventory 5.3) [research, unconfirmed:
+      traced].
+   2. **When it drops.** Traced only: a creature drops when the weight
+      slowdown (inventory 3.3) has cut its full moves below its Speed, with
+      no foe beside it, and only as its turn's first action; the drop uses
+      one move and, with moves left, it then steps as usual; a Speed 0
+      creature never counts as overburdened. In all our drop cases the
+      slowdown left 0 moves, so the drop was the turn's only action.
+      [research, unconfirmed: combat fourth pass] **Engine:** for now, at
+      the start of its turn, a creature whose load is above its capacity
+      drops all its gold (one pile), else its lowest-numbered treasure or
+      magic item, onto 8.1.1's square; one drop a turn, after which its
+      moves are idled. This differs from the unconfirmed research (load
+      above half the capacity, the moves after it); it changes once a
+      capture with moves left after a drop settles it. A treasure that
+      disappears when dropped vanishes; things that can't be dropped
+      (owner-only) are never chosen. While over capacity it picks nothing
+      up. [unknown] Not settled: magic items' place in the order and how
+      gold counts toward the load. Which load sets the moves of a drop
+      turn, the one before the drop or after, is [unknown]. **Engine:**
+      the load before the drop: over capacity gives 0 moves, so the turn
+      ends after the drop and its draws are those of 8.1.1 (then nothing
+      more), as captured.
 2. **Readying.** A creature readies an appropriate weapon: when not next to
    a foe, a missile weapon if it has one, otherwise a melee weapon if it has
    one; with several, the lowest item number. [manual] On the C64: a melee
@@ -511,7 +602,7 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    2.6, 6.2). [research] **Engine:** combat 6.2, after the top-of-turn
    drift and die; a change emits `CreatureReadied`.
 3. A safe fighter with a readied missile weapon fires at a foe goal.
-   [manual] Not yet: combat 8.
+   [manual] On the C64: [combat](combat.md) 8.1, Speed 0 included (2.7).
 4. Casting and using magic items: [magic](magic.md) section 6.
 
 ## 9. Corpus check
@@ -568,5 +659,16 @@ creatures replay exactly.
    took the portal with the player still in the room), so goal choice
    takes a roll (items 4 and 5; the random-rolls brief, item 12).
 7. The overburdened drop: captured (8.1: all the gold, then the
-   lowest-numbered treasure, one a turn). Still open: the square a
-   treasure lands on (rolls), magic items, gold's weight.
+   lowest-numbered treasure, one a turn) and the square (8.1.1, capture.md
+   10.24). Still open: when a creature counts as overburdened and a drop
+   with moves left (8.1.2), the second kind of thing that refuses a drop,
+   a friend's gift placed around the giver (7.3), magic items, gold's
+   weight; which load sets a drop turn's moves (8.1.2, the engine takes
+   the load before the drop).
+8. A Speed 0 creature's turn (2.7): captured. Still open: a Speed 0
+   fighter with its goal beside it, beside an exit or a thing it takes;
+   whether a creature of Speed above 0 whose readying spends its last
+   move still takes its shot, step choice or idle move (2.7, the engine
+   says yes); whether a non-goal square holding an individual it would
+   strike counts as ordinary for the cancelled step (2.7, the engine says
+   no: only an empty square does).

@@ -83,8 +83,12 @@ def bow(**kw):
 
 
 def case(t_weapon=None, t_armor=None, md=0, ee_weapon=None, ee_at=(6, 4), ff=False, **kw):
+    # `still`: slot 0 has Speed 0 and takes this many smartness checks
+    # (combat.md pass 4 item 2); `gaps`: check that T's idle moves are the
+    # draws that come after a pause (its bar draining), and only they.
     c = {"tw": t_weapon, "ta": t_armor, "md": md, "ew": ee_weapon, "eat": ee_at, "ff": ff,
-         "t_at": T_START, "t_last": 6, "armor_skill": 0, "ee_dex": 13, "ee_owns": None, "obstacles": set()}
+         "t_at": T_START, "t_last": 6, "armor_skill": 0, "ee_dex": 13, "ee_owns": None, "obstacles": set(),
+         "still": None, "ee_con": 20, "gaps": False}
     c.update(kw)
     return c
 
@@ -101,7 +105,7 @@ CASES = {
     "md2": case(None, None, 2, blade()),
     "md3-magic": case(None, None, 3, blade(magic=True)),
     "bow": case(None, None, 0, bow(), (9, 4)),
-    "bow-line": case(None, None, 0, bow(), (9, 4), True),
+    "bow-line": case(None, None, 0, bow(), (9, 4), True, gaps=True),
     "mail-parry": case(blade(), MAILS["mail"], 0, blade()),
     "mail-skill": case(blade(), MAILS["mail-nb"], 0, blade(), armor_skill=20),
     "mail-heavy": case(None, MAILS["mail-heavy"], 0, blade()),
@@ -116,6 +120,13 @@ CASES = {
     "bow-break": case(None, None, 0, bow(brk=15), (9, 4)),
     "bow-ready": case(None, None, 0, None, (9, 4), ee_owns=bow()),
     "bow-once": case(None, None, 0, bow(once=True), (9, 4)),
+    # Pass 4 (capture.md 10.24, rr16 and rr20): slot 0 of Speed 0 on 9,4.
+    # FF a peaceful friend (one smartness check), NN an aggressive brave
+    # enemy with no weapon (two), EE as in `bow` (two).
+    "still-hurt": case(ee_at=(9, 4), still=1, ee_con=40, gaps=True),
+    "still-whole": case(ee_at=(9, 4), still=1, ee_con=40, gaps=True),
+    "still-enemy": case(ee_at=(9, 4), still=2, ee_con=40, gaps=True),
+    "still-bow": case(None, None, 0, bow(), (9, 4), still=2, gaps=True),
 }
 
 
@@ -210,7 +221,8 @@ def melee_weapon(f):
 
 
 class Sim:
-    def __init__(self, d, case, start, watch, reach):
+    def __init__(self, d, case, start, watch, reach, still_rule="pass4"):
+        self.still_rule = still_rule
         c = CASES[case]
         self.c = c
         self.d = d
@@ -221,20 +233,25 @@ class Sim:
         self.t["power"] = sv.get("F5A4", 13)
         self.t["parry"] = sv.get("F5A6", 26)
         self.t["armor_skill"] = sv.get("F5A7", c["armor_skill"])
-        self.ee = fighter("EE", c["eat"], c["ew"], None, 0, sv.get("E1A6", 20), 20)
+        self.ee = fighter("EE", c["eat"], c["ew"], None, 0, sv.get("E1A6", 20), c["ee_con"])
         self.ee["power"] = sv.get("E1A8", 13)
+        self.ee["missile"] = sv.get("E1AD", 22)
+        self.t["dodge"] = sv.get("F5A5", 30)
         self.ee["dex"] = c["ee_dex"]
         # What EE owns: the weapon it holds, or one it owns but doesn't hold.
         self.ee["owns"] = [w for w in (self.ee["weapon"], c["ee_owns"] and dict(c["ee_owns"])) if w]
         self.ff = fighter("FF", (6, 4), None, None, 0, 40, 40) if c["ff"] else None
         self.shot_starts = []  # the draw index at which each shot begins
+        self.idle_draws = []  # the draw index of each of T's idle moves
+        self.after_shots = set()  # the draw index after each shot's flight
         self.vals = {}  # address -> predicted values in order
         self.notes = []
         self.dead = False
         self.counts = {"to-hit": 0, "counter to-hit": 0, "parry roll": 0, "parries": 0, "damaging": 0,
                        "melee checks": 0, "armor breaks": 0, "weapon breaks": 0, "gone": 0, "stopped": 0,
                        "shots": 0, "dodge rolls": 0, "dodges": 0, "arrow hits": 0,
-                       "armor checks": 0, "readied": 0, "steps": 0, "halved turns": 0, "stopped arrows": 0}
+                       "armor checks": 0, "readied": 0, "steps": 0, "halved turns": 0, "stopped arrows": 0,
+                       "still turns": 0, "idle heals": 0}
         self.record()
 
     def take(self, n):
@@ -252,6 +269,7 @@ class Sim:
             "E1A6": ee["life"], "E1A8": ee["power"],
             "E1B7": ee["weapon"]["thing"] if ee["weapon"] else 0,
             "E1B0": ee["at"][0], "E1B1": ee["at"][1],
+            "F5A5": t["dodge"], "E1AD": ee["missile"],
         }
         if self.ff:
             now["E1CB"] = self.ff["life"]
@@ -390,6 +408,10 @@ class Sim:
         self.note(f"{a['name']} attacks: {trace}")
         self.check_dead()
 
+    def after_hit(self, f):
+        """A damaging arrow's aftermath; the player's shots take combat 7's
+        class change here (fire_check)."""
+
     def check_dead(self):
         if self.t["life"] <= 0 or self.ee["life"] <= 0:
             self.note("death")
@@ -409,7 +431,9 @@ class Sim:
         self.record()
 
     # P2.5: EE's shots at T.
-    def fire(self, a, left):
+    def fire(self, a, left, aim=None):
+        """`aim`: the square fired at (the player's cursor); a creature fires
+        at T. Either way it sets only the arrow's direction."""
         w = a["weapon"]
         shots = max(1, a["dex"] // 8) + left // 2
         for i in range(shots):
@@ -426,7 +450,8 @@ class Sim:
                 return
             dev = self.take(spread)
             side = self.take(2)
-            squares, stopped = self.reach(a["at"], self.t["at"], dev, side, w["range"], self.obstacles)
+            self.after_shots.add(self.d.i)  # the arrow's flight
+            squares, stopped = self.reach(a["at"], aim or self.t["at"], dev, side, w["range"], self.obstacles)
             by_sq = {}
             for f in (self.t, self.ff):
                 if f:
@@ -443,7 +468,8 @@ class Sim:
                         self.learn_armor(f)
                     continue
                 self.counts["arrow hits"] += 1
-                self.damage(a, w, f)
+                if self.damage(a, w, f)[1] > 0:
+                    self.after_hit(f)
                 hit_any = f["name"]
                 break
             if stopped and not hit_any:
@@ -479,26 +505,50 @@ class Sim:
                 # Creatures 2.6: halved, rounding up, with a foe beside.
                 full = 3 if beside(ee["at"], t["at"]) else 6
                 for _ in range(full):
+                    self.idle_draws.append(self.d.i)
                     if self.take(full) == 0:
                         self.heal(t)
         except Out:
             pass
 
     def ff_turn(self):
-        # A friend of Speed 0 (fitted on bow-line, capture.md 10.15): drift,
-        # the die, two smartness checks of 0..9, a percentile, a roll whose
-        # size these runs don't show (taken as 0..2), then a roll of 0..0:
-        # the healing roll of its one idle move, which always heals.
-        ff = self.ff
-        self.drift(ff)
+        self.still_turn(self.ff, 1, {self.ee["at"]})
+
+    def still_turn(self, f, checks, others):
+        """A Speed 0 creature's turn (the researcher's pass 4, P4.2): drift,
+        the die, its smartness checks, then one action: firing if the rule
+        holds (one shot), else a step roll of 0..2 for each open square
+        beside it (south, north, east, west), the step onto an ordinary
+        square cancelled, and the idle move, which heals 1 with no draw
+        while below Constitution."""
+        self.counts["still turns"] += 1
+        self.drift(f)
         if self.take(6) == 1:
-            self.heal(ff)
-        self.take(10)
-        self.take(10)
-        self.take(100)
-        self.take(3)
-        if self.take(1) == 0:
-            self.heal(ff)
+            self.heal(f)
+        if self.still_rule == "fit":
+            # capture.md 10.14.10's fit on bow-line: two rolls of 0..9, a
+            # percentile, a roll of 0..2, then a roll of 0..0 that heals.
+            for n in (10, 10, 100, 3):
+                self.take(n)
+            if self.take(1) == 0:
+                self.heal(f)
+            return
+        for _ in range(checks):
+            self.take(10)
+        if f is self.ee and self.can_fire(f):
+            self.fire(f, 0)
+            return
+        t = self.t
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            sq = (f["at"][0] + dx, f["at"][1] + dy)
+            if not inside(sq) or sq in others or sq in self.obstacles:
+                continue
+            if sq == t["at"] and not melee_weapon(f):
+                continue
+            self.take(3)
+        if f["life"] < f["con"]:
+            self.counts["idle heals"] += 1
+        self.heal(f)
 
     def can_fire(self, ee):
         """Combat 8.1: holding a missile weapon, the goal in range, no foe
@@ -511,6 +561,9 @@ class Sim:
 
     def ee_turn(self):
         ee, t = self.ee, self.t
+        if self.c["still"]:
+            self.still_turn(ee, self.c["still"], {self.ff["at"]} if self.ff else set())
+            return
         self.drift(ee)
         if self.take(6) == 1:
             self.heal(ee)
@@ -675,17 +728,98 @@ def player_check(v, case):
     return vals, f"T attacks: {trace}, class {cls}", sim.counts
 
 
+# The player firing (combat.md pass 4 item 1, capture.md 10.24): T (holding
+# the bow, 5 of 6 moves left) on 4,4 has chosen FIRE and put the cursor
+# on this square; the run presses the button. EE (the `armed` enemy,
+# holding the blade, Constitution and Life Force 20) on 9,4.
+# ready-e5: the bow chosen from the FIRE menu first (ready5/), cursor on EE.
+FIRE_CASES = {"fire-e5": (9, 4), "fire-e3": (7, 4), "fire-e0": (4, 4), "ready-e5": (9, 4)}
+
+
+def fire_check(v, case, reach):
+    """T's shots from the run's first draw; returns the predicted values of
+    EE's Life Force and Power, its Dodge skill, T's Missile skill and the
+    moves left, the draw index each shot starts at, and a note."""
+    cursor = FIRE_CASES[case]
+    # The cursor left on the player's own square aims one square south.
+    aim = (cursor[0], cursor[1] + 1) if cursor == T_START else cursor
+    start = dict(zip(v["watch"], v["start"]))
+    d = Draws([x["raw"] for x in v["draws"]])
+    t = fighter("T", T_START, bow(), None, 0, start["F5A2"], 40)
+    t["missile"] = start["F5A9"]
+    ee = fighter("EE", (9, 4), blade(), None, 0, start["E1A6"], 20)
+    ee["power"], ee["dodge"] = start["E1A8"], start["E1A9"]
+    sim = Sim.__new__(Sim)
+    sim.d, sim.notes, sim.reach, sim.obstacles = d, [], reach, set()
+    sim.counts = {k: 0 for k in ("shots", "dodge rolls", "dodges", "arrow hits", "damaging", "armor checks",
+                                 "weapon breaks", "gone", "stopped", "stopped arrows")}
+    sim.shot_starts, sim.after_shots, sim.dead = [], set(), False
+    sim.t, sim.ee, sim.ff = ee, t, None  # the target is sim.t
+    # Combat 7 after a damaging arrow from the player: one roll of 0..9
+    # every time (10.24: 44 damaging arrows, second hits included; with a
+    # roll only while EE is still an aggressive enemy, as for the player's
+    # blows, 4 runs fail). EE's class byte is not watched, so what the roll
+    # decides is not checked here.
+    def after_hit(f):
+        if f is ee:
+            d.take(10)
+    sim.after_hit = after_hit
+    moves = start["719A"]
+    vals = {"E1A6": [start["E1A6"]], "E1A8": [start["E1A8"]], "E1A9": [start["E1A9"]], "F5A9": [start["F5A9"]],
+            "719A": [moves]}
+
+    def push():
+        # Every change, in order, as the watch sees them.
+        for k, val in (("E1A6", ee["life"]), ("E1A8", ee["power"]), ("E1A9", ee["dodge"]),
+                       ("F5A9", t["missile"])):
+            if vals[k][-1] != val:
+                vals[k].append(val)
+    sim.record = push
+    try:
+        sim.fire(t, moves, aim)
+    except Out:
+        sim.notes.append("out of draws")
+    push()
+    vals["719A"].append(0)
+    return vals, sim.shot_starts, "; ".join(sim.notes), sim.counts
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs")
-    ap.add_argument("--case", default="armed", choices=sorted(CASES) + sorted(PLAYER_CASES))
+    ap.add_argument("--case", default="armed", choices=sorted(CASES) + sorted(PLAYER_CASES) + sorted(FIRE_CASES))
     ap.add_argument("--reach", default="sixteenths", choices=sorted(REACH))
+    ap.add_argument("--still-rule", default="pass4", choices=["pass4", "fit"],
+                    help="a Speed 0 creature's turn: the researcher's (pass 4) or 10.14.10's fit")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
     right = wrong = 0
     totals = {}
     for text in open(a.runs, encoding="utf-8"):
         v = json.loads(text)
+        if a.case in FIRE_CASES:
+            pred, starts, note, counts = fire_check(v, a.case, REACH[a.reach])
+            seen = observed(v)
+            # EE's own turn follows (healing, drift): compare the start.
+            bad = [f"{k} predicted {p} seen {seen[k]}" for k, p in pred.items() if seen[k][: len(p)] != p]
+            times = draw_times(v["draws"])
+            writes = [c["t"] for c in v["changes"] if c["addr"] == "B799"]
+            for k, i in enumerate(starts):
+                if k < len(writes) and i < len(times) and not (
+                        writes[k] - SAMPLE <= times[i] and (i == 0 or times[i - 1] < writes[k])):
+                    bad.append(f"shot {k} starts at draw {i} ({times[i]}), the byte changes at {writes[k]}")
+            if len(writes) < len(starts) - 1:
+                bad.append(f"{len(starts)} shots predicted, the shots-left byte written {len(writes)} times")
+            ok = not bad
+            right += ok
+            wrong += not ok
+            for k, c in counts.items():
+                totals[k] = totals.get(k, 0) + c
+            if a.v or not ok:
+                print(f"run {v['run']}: {'ok ' if ok else 'BAD'} {note}; seen {dict((k, seen[k]) for k in pred)}")
+                for b in bad:
+                    print("   ", b)
+            continue
         if a.case in PLAYER_CASES:
             pred, note, counts = player_check(v, a.case)
             seen = observed(v)
@@ -702,7 +836,7 @@ def main():
                     print("   ", b)
             continue
         d = Draws([x["raw"] for x in v["draws"]])
-        sim = Sim(d, a.case, v["start"], v["watch"], REACH[a.reach])
+        sim = Sim(d, a.case, v["start"], v["watch"], REACH[a.reach], a.still_rule)
         sim.run()
         seen = observed(v)
         bad = []
@@ -716,6 +850,18 @@ def main():
             if k < len(writes) and i < len(times):
                 if not (writes[k] - SAMPLE <= times[i] and (i == 0 or times[i - 1] < writes[k])):
                     bad.append(f"shot {k} starts at draw {i} ({times[i]}), the byte changes at {writes[k]}")
+        # T's idle moves come as its bar drains, each after a pause of
+        # about 1.9 million instructions; every other draw of these cases
+        # comes within a million of the one before, but for the first draw
+        # after an arrow's flight.
+        if CASES[a.case]["gaps"]:
+            idle = set(sim.idle_draws)
+            for i in range(1, min(d.i, len(times))):
+                slow = times[i] - times[i - 1] > 1_000_000
+                if slow != (i in idle) and not (slow and i in sim.after_shots):
+                    bad.append(f"draw {i} at {times[i]}: {'a pause' if slow else 'no pause'} before it, "
+                               f"{'an idle move' if i in idle else 'not an idle move'} by the rules")
+                    break
         for addr, pred in sim.vals.items():
             if addr not in seen:
                 continue

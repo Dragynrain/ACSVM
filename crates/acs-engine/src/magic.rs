@@ -905,13 +905,14 @@ impl Game {
     }
 
     /// 5.3: `n` idle moves of a turn of `full` moves, each a roll of
-    /// 0..full - 1 that heals on a 0.
+    /// 0..full - 1 that heals on a 0; with `full` 0 (a Speed 0 creature's
+    /// idle move, creatures 2.7) no roll is drawn and it heals.
     pub(crate) fn idle_moves(&mut self, who: Who, n: u8, full: u8, ev: &mut Vec<Event>) {
         for _ in 0..n {
             if !self.alive(who) {
                 return;
             }
-            if self.rng.below(u32::from(full.max(1))) == 0 {
+            if full == 0 || self.rng.below(u32::from(full)) == 0 {
                 self.heal_one(who, ev);
             }
         }

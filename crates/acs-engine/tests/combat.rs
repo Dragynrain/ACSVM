@@ -461,7 +461,13 @@ fn a_defender_holding_a_melee_weapon_strikes_back_on_a_miss() {
                 c.life_force = 63;
                 c.constitution = 63;
             });
-            let ev = g.apply(Command::Move { dir: Dir::E });
+            // The player's attack only: the creature's own turn (Speed 0,
+            // creatures 2.7) may strike back after it.
+            let ev: Vec<Event> = g
+                .apply(Command::Move { dir: Dir::E })
+                .into_iter()
+                .take_while(|e| !matches!(e, Event::CreatureTurn { .. }))
+                .collect();
             let b = blows(&ev);
             for (i, &(by, counter, o)) in b.iter().enumerate() {
                 if counter {
@@ -924,5 +930,65 @@ fn a_player_cannot_fire() {
         let ev = g.apply(Command::Fire);
         assert_eq!(ev, [Event::CannotFire { player: 0 }]);
         assert_eq!(g.current_player().moves_left, 15);
+    });
+}
+
+#[test]
+fn a_speed_0_archer_fires_one_shot_every_turn() {
+    // 8.1, 8.2 (still-bow): with no move left it still fires, Dexterity
+    // 13 / 8 = 1 shot, and never steps.
+    both(|p| {
+        for seed in 0..10 {
+            let mut g = start_seeded(archer(p, true, 0), seed, 0, 2, 3);
+            for turn in 0..5 {
+                g.set_life_force(0, 63);
+                let ev = wait(&mut g);
+                assert!(ev.contains(&Event::CreatureTurn {
+                    region: 1,
+                    slot: 1,
+                    moves: 0
+                }));
+                assert_eq!(fired(&ev), Some(1), "seed {seed} turn {turn}");
+                assert_eq!(
+                    ev.iter()
+                        .filter(|e| matches!(e, Event::Shot { by: C1, .. }))
+                        .count(),
+                    1
+                );
+                assert!(!ev
+                    .iter()
+                    .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })));
+            }
+        }
+    });
+}
+
+#[test]
+fn a_speed_0_fighter_strikes_a_goal_beside_it_once_a_turn() {
+    // Creatures 2.7: the step onto the goal's own square is not cancelled.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut s = spec(0, 3, 2, Alignment::Enemy, true);
+        s.speed = 0;
+        put(&mut a, 1, s);
+        let c = &mut a.regions[0].residents[1];
+        c.possessions = vec![Possession {
+            thing: SWORD,
+            count: 1,
+        }];
+        c.weapon = SWORD;
+        c.constitution = 40;
+        c.life_force = 40;
+        let mut g = start_seeded(a, 4, 0, 2, 2);
+        for _ in 0..3 {
+            g.set_life_force(0, 63);
+            let ev = wait(&mut g);
+            let attacks = ev
+                .iter()
+                .filter(|e| matches!(e, Event::Attacked { by: C1, .. }))
+                .count();
+            assert_eq!(attacks, 1, "{ev:?}");
+            assert_eq!(g.creature(1, 1).map(|c| (c.x, c.y)), Some((3, 2)));
+        }
     });
 }

@@ -531,26 +531,26 @@ fn overburdened_creatures_drop_all_their_gold_then_a_treasure_one_a_turn() {
                 .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }))
         };
         let ev = wait(&mut g);
-        assert!(ev.contains(&Event::CreatureDropped {
-            region: 1,
-            slot: 1,
-            thing: GOLD,
-            amount: 800,
-            at: Some(at(0, 5, 3))
-        }));
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::CreatureDropped {
+                slot: 1,
+                thing: GOLD,
+                amount: 800,
+                ..
+            }
+        )));
+        // 8.1.1: its own square or one beside it.
+        let gold = dropped_at(&ev, 1, GOLD).expect("drops its gold");
+        assert!(steps(gold, (5, 3)) <= 1);
         assert!(!moved(&ev));
         assert_eq!(g.creature(1, 1).unwrap().wealth, 0);
-        assert_eq!(top(&g, 0, 5, 3), Some(GOLD));
+        assert_eq!(top(&g, 0, gold.0, gold.1), Some(GOLD));
         let ev = wait(&mut g);
-        assert!(ev.contains(&Event::CreatureDropped {
-            region: 1,
-            slot: 1,
-            thing: ROCK,
-            amount: 1,
-            at: Some(at(0, 5, 3))
-        }));
+        let rock = dropped_at(&ev, 1, ROCK).expect("then a rock");
+        assert!(steps(rock, (5, 3)) <= 1);
         assert!(!moved(&ev));
-        assert_eq!(top(&g, 0, 5, 3), Some(ROCK));
+        assert_eq!(top(&g, 0, rock.0, rock.1), Some(ROCK));
     });
 }
 
@@ -585,26 +585,40 @@ fn creatures_ready_a_missile_weapon_when_safe_and_melee_when_not() {
     });
 }
 
+/// Where `slot` dropped `thing` in `ev`, if it did.
+fn dropped_at(ev: &[Event], slot: usize, thing: u16) -> Option<(u8, u8)> {
+    ev.iter().find_map(|e| match e {
+        Event::CreatureDropped {
+            slot: s,
+            thing: t,
+            at: Some(Location::Room { x, y, .. }),
+            ..
+        } if *s == slot && *t == thing => Some((*x, *y)),
+        _ => None,
+    })
+}
+
 #[test]
-fn a_friend_next_to_the_player_drops_a_magic_item_beside_them() {
+fn a_friend_next_to_the_player_drops_a_magic_item_around_itself() {
+    // 7.3: the gift's square is 8.1.1's, around the giver: its own square
+    // or one beside it, the player's included.
     both(|p| {
-        let mut a = adventure(p);
-        put(&mut a, 1, spec(0, 3, 3, Alignment::Friend, false));
-        a.regions[0].residents[1].possessions = vec![Possession {
-            thing: WAND,
-            count: 1,
-        }];
-        let mut g = start(a, 0, 3, 2);
-        let ev = wait(&mut g);
-        // First free square round the player from N: (3,1).
-        assert!(ev.contains(&Event::CreatureDropped {
-            region: 1,
-            slot: 1,
-            thing: WAND,
-            amount: 1,
-            at: Some(at(0, 3, 1))
-        }));
-        assert_eq!(top(&g, 0, 3, 1), Some(WAND));
+        let mut on_player = false;
+        for seed in 0..40 {
+            let mut a = adventure(p);
+            put(&mut a, 1, spec(0, 3, 3, Alignment::Friend, false));
+            a.regions[0].residents[1].possessions = vec![Possession {
+                thing: WAND,
+                count: 1,
+            }];
+            let mut g = start_seeded(a, seed, 0, 3, 2);
+            let ev = wait(&mut g);
+            let at = dropped_at(&ev, 1, WAND).expect("drops the wand");
+            assert!(steps(at, (3, 3)) <= 1, "seed {seed}: {at:?}");
+            assert_eq!(top(&g, 0, at.0, at.1), Some(WAND));
+            on_player |= at == (3, 2);
+        }
+        assert!(on_player);
     });
 }
 
@@ -619,14 +633,119 @@ fn a_friend_with_no_magic_item_gives_a_treasure_and_keeps_its_gold() {
         c.wealth = 40;
         let mut g = start(a, 0, 3, 2);
         let ev = wait(&mut g);
-        assert!(ev.contains(&Event::CreatureDropped {
-            region: 1,
-            slot: 1,
-            thing: GEM,
-            amount: 1,
-            at: Some(at(0, 3, 1))
-        }));
+        let at = dropped_at(&ev, 1, GEM).expect("gives the gem");
+        assert!(steps(at, (3, 3)) <= 1);
         assert_eq!(g.creature(1, 1).unwrap().wealth, 40);
+    });
+}
+
+fn steps(a: (u8, u8), b: (u8, u8)) -> u8 {
+    a.0.abs_diff(b.0) + a.1.abs_diff(b.1)
+}
+
+/// An overburdened Speed 2 peaceful enemy on WEST (x, y) carrying one
+/// rock over a capacity of 100 (Strength 1): it drops the rock.
+fn dropper(p: Platform, x: u8, y: u8) -> Adventure {
+    let mut a = adventure(p);
+    let mut s = spec(0, x, y, Alignment::Enemy, false);
+    s.speed = 2;
+    put(&mut a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.strength = 1;
+    c.possessions = vec![Possession {
+        thing: ROCK,
+        count: 1,
+    }];
+    a
+}
+
+#[test]
+fn a_dropped_thing_lands_on_its_own_square_or_one_beside_never_a_wall_or_obstacle() {
+    // 8.1.1: each square beside 1 in 6 a try, its own 1 in 3; the ring and
+    // an obstacle fail the try; a square with a thing or an individual
+    // takes it.
+    both(|p| {
+        // In the corner (1,1): west and north are the walls; a pillar
+        // south on (1,2); a gem east on (2,1); the player far off.
+        let mut seen = std::collections::BTreeMap::new();
+        for seed in 0..120 {
+            let mut a = dropper(p, 1, 1);
+            item(&mut a, 0, 1, 2, PILLAR, 0);
+            item(&mut a, 0, 2, 1, GEM, 0);
+            let mut g = start_seeded(a, seed, 0, 7, 5);
+            let ev = wait(&mut g);
+            let at = dropped_at(&ev, 1, ROCK).expect("drops the rock");
+            *seen.entry(at).or_insert(0) += 1;
+            assert_eq!(top(&g, 0, at.0, at.1), Some(ROCK));
+        }
+        let keys: Vec<_> = seen.keys().copied().collect();
+        assert_eq!(keys, [(1, 1), (2, 1)], "{seen:?}");
+        // Own square 1/3 against east 1/6 a try: about two to one.
+        assert!(seen[&(1, 1)] > seen[&(2, 1)], "{seen:?}");
+        // Beside the player: its square takes the thing too.
+        let mut on_player = false;
+        for seed in 0..60 {
+            let mut g = start_seeded(dropper(p, 5, 3), seed, 0, 6, 3);
+            let ev = wait(&mut g);
+            let at = dropped_at(&ev, 1, ROCK).expect("drops the rock");
+            assert!(steps(at, (5, 3)) <= 1);
+            on_player |= at == (6, 3);
+        }
+        assert!(on_player);
+    });
+}
+
+#[test]
+fn a_speed_0_creature_never_walks_and_heals_one_a_turn_with_no_roll() {
+    // 2.7, magic 5.3.1 (still-hurt, still-enemy, still-whole): one action
+    // a turn, the step cancelled; the idle move heals 1 (2 with the die's
+    // 2) while Life Force is below Constitution, never past it.
+    both(|p| {
+        for (alignment, aggressive) in [(Alignment::Friend, false), (Alignment::Enemy, true)] {
+            for seed in 0..8 {
+                let mut a = adventure(p);
+                let mut s = spec(0, 7, 3, alignment, aggressive);
+                s.speed = 0;
+                put(&mut a, 1, s);
+                let c = &mut a.regions[0].residents[1];
+                c.constitution = 40;
+                c.life_force = 30;
+                let mut g = start_seeded(a, seed, 0, 2, 3);
+                let mut life = 30;
+                for _ in 0..14 {
+                    let ev = wait(&mut g);
+                    assert!(!ev
+                        .iter()
+                        .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })));
+                    let now = g.creature(1, 1).unwrap().life_force;
+                    if life < 40 {
+                        assert!(now == life + 1 || now == (life + 2).min(40), "{life} to {now}");
+                    } else {
+                        assert_eq!(now, 40);
+                    }
+                    life = now;
+                }
+                assert_eq!(life, 40);
+            }
+        }
+    });
+}
+
+#[test]
+fn a_speed_0_thief_takes_gold_beside_it() {
+    // 2.7: the step is not cancelled onto a thing it takes.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut s = spec(0, 5, 3, Alignment::Thief, false);
+        s.speed = 0;
+        put(&mut a, 1, s);
+        item(&mut a, 0, 6, 3, GOLD, 30);
+        let mut g = start(a, 0, 1, 1);
+        let ev = wait(&mut g);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::CreatureGoldPickedUp { slot: 1, .. })));
+        assert_eq!(xy(&g, 1), (0, 5, 3));
     });
 }
 

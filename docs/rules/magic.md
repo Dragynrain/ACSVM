@@ -254,7 +254,12 @@ magic item after it is used. [unknown]
       roll of 0 to (the turn's full moves - 1) and heals on a 0: 1 in the
       turn's full moves. Walking, using an item or casting takes no such
       roll. So a turn waited out in full heals 1 on average whatever the
-      Speed (a Speed 1 turn always 1). On a turn that starts with the
+      Speed (a Speed 1 turn always 1). With full moves 0 (a creature of
+      Speed 0, whose one action may be an idle move, creatures 2.7) the
+      roll is not drawn and counts as 0: 1 point every such turn while
+      below Constitution. [research: combat fourth pass, 2026-11-14,
+      `docs/research/combat.md`; capture: still-hurt, still-enemy,
+      still-whole, 576 runs, capture.md 10.24] On a turn that starts with the
       moves carried through a map door ([creatures](creatures.md)
       2.2.4), which full moves the roll uses (the door turn's full bar or
       the moves carried) is [unknown]. **Engine:** the door turn's full

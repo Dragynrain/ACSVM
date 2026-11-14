@@ -19,7 +19,7 @@ daily cap: 3 passes closed per day
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
 | encounters | 1 | specced | confirmed and specced by the World map encounters research session (59aa038, rr15, capture.md); engine-implementer waits until that session is no longer waiting on the maintainer, to avoid two writers |
 | turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
-| combat | 4 | reviewed | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
+| combat | 4 | checked | engine for creature firing, the Speed 0 turn and the drop square only; ESCALATED: the player's fire (combat 8.8) changes Command::Fire and so the save command log; fire draw sweeps fire-e3/e0/ready-e5 still running in rr20 |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
 | characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. ESCALATED: Retire in the engine (replay log) and the catch-up (unknown_0c, MODEL_VERSION) |
 
@@ -27,6 +27,11 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: combat, 4, checker, all PASS; rr20 fully checked (player fire sweeps strict, a 0..9 roll after each damaging arrow); commit waits for the spec-writer's last edits.
+- 2026-11-14: combat, 4, engine-implementer, creature firing with no moves, the Speed 0 turn, the drop square, 5 tests; three readings sent to the spec as [unknown]; checker started.
+- 2026-11-14: combat, 4, spec-writer, combat.md 2.7, 2.8, 8.1, 8.2, new 8.8; creatures.md 2.5, 2.7, 8.1.1-8.1.2; magic 5.3.1; the player's fire escalated (save command log); engine-implementer started on the rest.
+- 2026-11-14 digest: closed today 3 (stores p2, turn-order p2, characters p2): cap reached, no new passes; running: combat p4 spec-writer, rr20 sweeps (fire draws, drop-thing); escalations waiting: turn-order restore point, area items in the model (MODEL_VERSION), characters Retire (replay log) and catch-up (MODEL_VERSION); encounters p1 engine step held for the World map session.
+- 2026-11-14: combat, 4, capture-confirmer, items 2 and 3 confirmed, item 1 by scripts with one sub-point disagreed (capture.md 10.24); the fire draw sweeps and drop-thing still running in rr20; spec-writer started.
 - 2026-11-14: characters, 2, brief-writer, closed; no pass 3. Daily cap reached (3 closed): no new passes today.
 - 2026-11-14: combat, 4, capture-confirmer, cut off mid-way: items 2, 3 and most of 1 confirmed (rr20), one sub-point disagreed (choosing a bow from FIRE costs a second move; first disagreement); sweeps still queued; a second confirmer started to finish and write capture.md 10.24.
 - 2026-11-14: characters, 2, checker, all PASS; committed without the combat confirmer's scripts in progress.

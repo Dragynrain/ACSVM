@@ -654,6 +654,7 @@ screen offers next to "create new player".
 | `$E1A3` + 12 | A creature slot's round (low byte) of its last turn, 0 before its first; set in 10.23 to force a catch-up | Researcher, characters second pass, 2026-11-14 |
 | Adventure block + 0xE7, + 0xE8 | The round counter as saved (22 in 10.23's save at round 22) | Researcher, characters second pass, 2026-11-14 |
 | d64 0x1C800, 0x1C802 | The disk's identity word and adventure-disk mark (361 on every disk of ours) | Researcher, characters second pass, 2026-11-14 |
+| `$382A` (word), `$E583` on | The visited room's list of things: the word at `$382A` points at it (`$E585` in our scenarios), the byte two before (`$E583`) is its length in bytes plus 2; each entry the square (column x 16 + row), the thing, a count, a gold entry (thing 81) 6 bytes with the amount in its last two (low byte first); a new entry goes first. Read by `scripts/dropcheck.py` (10.24) | Researcher, combat fourth pass, 2026-11-14 (`docs/research/combat.md`) |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1847,3 +1848,85 @@ In this order (planned November 2026):
      40 after the turn every time. A real leave-and-return was not run:
      our scenario room has no way out, and nothing in the harness takes a
      player out of a region.
+24. **Confirming the combat fourth pass** (2026-11-14;
+   `docs/research/combat.md` pass 4). `ACSVM-research/capture/runs/rr20/`
+   (the harness binary copied to `bin/`; `case.sh` builds the cases in
+   `cases.txt`, `sweep.sh` items 2 and 3, `fire.sh` item 1's sweeps and
+   `drop-thing`, `queue.sh` runs `fire.sh` after `sweep.sh`). No harness
+   changes. Sweeps are `run mem --set-random-state --draws --ram` from a
+   turn-end or cursor snapshot, two VICE processes; `scripts/dropcheck.py`
+   (new) and `scripts/combatcheck.py` (the `still-*` cases, `--still-rule
+   pass4|fit`, and the FIRE cases `fire-e5`, `fire-e3`, `fire-e0`,
+   `ready-e5`) check them draw by draw.
+   - **Item 1, the player's FIRE** (scripts, one run each, from rr9's
+     `player-bow` and rr16's room snapshots: `fire1/`, `beside/`, `none/`,
+     `own/`, `map/`, `ready5/`, `ready5b/`). FIRE is the third row's first
+     entry (two pushes down from MOVE); it brings a cursor on T's square,
+     moved a square a push; the button there fired **3 shots from 5 moves**
+     (the shots-left byte `$B799` counting down), the moves then 0. With
+     the foe beside (`player-bow-beside`, after the push south) the "may
+     not use a missile weapon while next to" message, **no move used**;
+     the stick into a creature, bow held, no melee weapon owned: nothing
+     (no move, no message). Holding no missile weapon (`player-none`):
+     **one move used** at once, "select a missile weapon", the menu, NONE
+     ends it. Owning the blade, bow held (`player-bow-own`): the push into
+     EE brought the melee ready menu (the bow not listed). On the world
+     map FIRE did nothing. **Disagreed**: choosing the owned bow from the
+     FIRE menu (`player-bow-ready`: T owns the bow, holds nothing) cost a
+     **second** move (two in all with FIRE's own) and the shots were then
+     counted from 3 moves, not from the 4 the finding traced. Cursor
+     snapshots `fire1/fire-e5.vsf`, `fire-e3.vsf`, `fire-e0.vsf` (cursor
+     on EE, on 7,4, on T's own square) and `ready5/ready5-e5.vsf` are the
+     starts of the sweeps `fire-e5`, `fire-e3`, `fire-e0` (64, 64, 64 runs),
+     `ready-e5` (32) and the draws-logged refusals `beside-draws`,
+     `none-draws`, `map-draws` (4 each), from `fire.sh`. `combatcheck.py`
+     runs the shots as a creature's (combat 8, from the run's first draw,
+     the shooter T) and checks EE's Life Force, Power and Dodge, T's
+     Missile skill, every change in order, and each shot's first draw
+     against the shots-left byte's write. All strict, **no tolerance
+     widened**: `fire-e5` (cursor on EE) **64/64** (192 shots, 16 damaging
+     arrows), `fire-e3` (cursor on 7,4: the arrow flies on past it)
+     **64/64** (192 shots, 20 damaging), `fire-e0` (cursor left on T's own
+     square, aimed one south) **64/64** (192 shots, every arrow stopped),
+     `ready-e5` (the bow readied from the FIRE menu first) **32/32** with
+     **2 shots** a run (Dexterity 13 / 8 = 1, plus 3 moves / 2 = 1: the
+     second move, above). One draw the finding doesn't name: **a roll of
+     0 to 9 after every damaging arrow on EE** (combat 7's roll for an
+     enemy the player damages), the second hit's included (44 arrows).
+     Without it 12 and 12 runs of `fire-e5` and `fire-e3` fail, the next
+     shot's draws one late; taking it only while EE is still an
+     aggressive enemy (as the player's blows do) leaves 4 failing, the
+     third shot's draws then one early. EE's class byte isn't watched, so
+     what that roll decides isn't checked. The refusals, 4 runs each,
+     alike whatever the random state: `beside-draws` (push south, FIRE
+     with EE beside, the message, then east into EE): one draw in the run,
+     an idle move (moves 4 to 3) before the push east, none at FIRE or at
+     the push into EE (the blows-left byte `$B799` was written 2 then 0
+     there, with no draw and no move); `none-draws` (FIRE, NONE): the move
+     used at FIRE (5 to 4) with no draw, the run's one draw a later idle
+     move; `map-draws` (FIRE on the map): one draw, an idle move, nothing
+     at FIRE.
+   - **Item 2, a Speed 0 creature's turn**. From rr16's turn-end
+     snapshots, the pass 4 rule (the die, one smartness check for a
+     friend, two for a fighter, a step roll of 0 to 2 for each open square
+     beside, the step cancelled, the idle move's draw-free heal while below
+     Constitution; an archer's one shot after its checks): `still-hurt`
+     **256/256** (512 turns, 512 idle heals), `still-enemy` **256/256**,
+     `still-whole` **64/64** (Life Force never above 40), `still-bow`
+     **128/128** (128 shots, one a turn; 17 arrows hit T for damage, 12 of
+     29 dodge rolls dodged, 2 stopped). rr16's 16 runs of each and rr8's
+     `bow-line` (16) pass too. The control (`--still-rule fit`, 10.14.10's
+     fitted sizes): `still-hurt` 204/256, `still-enemy` 59/256,
+     `still-whole` 53/64, `still-bow` 0/128.
+   - **Item 3, the drop square** (the room's list of things, section 9,
+     watched from `$E583`; the dropper's possession or wealth byte going
+     to 0 dates the drop between the last pair's draw and the next):
+     `drop-wall` **256/256** (306 tries, 50 failed on the obstacle; landed
+     6,3 51, 6,4 101, 6,5 52, 7,4 52), `drop-corner` **256/256** (393 tries,
+     137 failed on the ring, up to 8 in a drop), `drop-beside` (WE set onto
+     5,4, east of T) **128/128** (20 on T's square 4,4: an individual's
+     square accepted), `burden` (rr5, gold) **256/256** (512 drops, the gold
+     on the pair's square in the list, not always the dropper's own).
+     `drop-thing` (WE on 6,4, treasures of ours on 7,4, 6,5 and 6,3: a
+     square holding a thing) **256/256**: 125 landed on a square already
+     holding a treasure (6,3 43, 6,5 42, 7,4 40), every try accepted.
