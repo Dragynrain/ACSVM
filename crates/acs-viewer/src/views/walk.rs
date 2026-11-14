@@ -1370,14 +1370,16 @@ fn draw_room(
         return;
     };
     let scene = RoomScene::new(reg, r);
-    // An encounter area's door is an opening in its wall (encounters 3.5).
-    let door = (region == 0).then_some(acs_engine::encounters::AREA_DOOR);
+    // An encounter area's door item is drawn as an opening (encounters 3.5).
+    let door = |x: u8, y: u8| g.area_door(Location::Room { region, room, x, y }).is_some();
     let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles.size);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for (k, sq) in scene.squares.iter().enumerate() {
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);
         let (_, mut pic) = scene::shown(a, reg, r, sq);
-        if door == Some((x as u8, y as u8)) && sq.items.is_empty() {
+        let top_is_door = sq.items.first().and_then(|&i| r.items.get(i)).map(|it| it.thing)
+            == Some(acs_engine::encounters::AREA_DOOR_THING);
+        if top_is_door && door(x as u8, y as u8) {
             pic = scene::floor_picture(a);
         }
         tiles.paint(&painter, pic, grid.cell_rect(x, y));

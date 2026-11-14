@@ -44,6 +44,10 @@ fn adventures(sub: &str) -> Option<Vec<PathBuf>> {
 
 /// Checks that hold for any well-formed adventure.
 fn check_consistency(a: &Adventure, file: &str) {
+    // The world map's tail (format-notes.md): every corpus file holds the
+    // editor's lists, each area's door alone.
+    assert_eq!(a.world.area_items, acs_core::model::stock_area_items(), "{file}");
+    assert!(a.world.open_map_items.is_empty(), "{file}");
     for r in &a.regions {
         for room in r.rooms.iter().filter(|r| !r.deleted) {
             for item in &room.items {

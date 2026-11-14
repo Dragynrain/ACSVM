@@ -271,9 +271,15 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    region, cannot be built by the editor. [data: no corpus case]
    **Engine:** treated like a deleted room, with a diagnostic event.
 6. Entering or leaving a region saves the game automatically; after a death
-   play resumes from the last save. [manual] **Engine:** emits
-   `EnteredRegion` / `LeftRegion` so the front end can snapshot the state;
-   a save file keeps that point too (`docs/saves.md` 1.4).
+   play resumes from the last save. [manual] On the C64 the save is not
+   made at the door step but when the scheduler next begins a visit in a
+   different region from the visit before it, with that visit's first
+   round on the counter; visits of one region one after another save
+   nothing, and a SAVE GAME from the menu saves at its round's end. The
+   later of the two is restored ([creatures](creatures.md) 2.2.7).
+   [capture: rr21, capture.md 10.25] **Engine:** the same; the save point
+   is kept in the save file (`docs/saves.md` 1.4). `EnteredRegion` /
+   `LeftRegion` still report the door step but no longer mark the save.
 
 ## 7. Random encounters
 
@@ -330,7 +336,7 @@ These need the AI and are listed so the movement code leaves room for them.
   creature door rules, random creature placement on an empty square and
   periodic removal, the 16-creature region limit.
 - **Stores:** specced in [stores.md](stores.md) (bumping opens a store room).
-- **Saves:** snapshots at `EnteredRegion` / `LeftRegion`, resume after death;
+- **Saves:** the save point of 6.6 (creatures 2.2.7), resume after death;
   save files in [saves.md](../saves.md).
 
 ## Captures needed

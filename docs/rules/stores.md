@@ -71,32 +71,35 @@ Counts cover all 15 corpus adventures (222 regions).
 7. **Stores on the world map.** A player can't meet a store while the
    world map (region 0) is the visited region. A step on the open map
    checks only for a map door, never for a thing on the square, so a
-   store can't open there. An encounter area ([encounters](encounters.md))
-   holds only its door: opening it adds creatures, closing it removes
-   everything but the door, nothing dropped there can be a store (the
-   store is thing 83, possessions only 1..80), and the editor places no
-   things in an area. [research, pass 2, 2026-11-14, unconfirmed: the
-   harness can't put a store on a map square or in an area's item list,
-   capture.md 10.21] Only an adventure file written with a store in an
-   area's item list could have one. The researcher poked one there: it
-   opened the ordinary store screen and leaving worked as in a room
-   (section 3), the player back on the store's square; its shelves showed
-   whatever the map's own data holds where a room region's stock is kept
-   (no record holds a stock for the map), every thing in that scenario;
-   buying and selling paid as usual but never changed that stock, so a
-   thing could be bought again and again. [research, pass 2, unconfirmed;
-   capture agrees as far as it reached: those 14 stock bytes all set
-   while the map was the visited region, in 4 scenarios, inside an area
-   and after walking out, rr17 `mapstock`, `mappeek`] **Engine:** no
-   store on the open map. A store in an encounter area would open as in a
-   room, but its shelves are always empty: the file holds no stock record
-   for region 0 (the decoder numbers regions from 1), the engine builds
-   the map region with an empty stock, and the map data the original
-   reads isn't modelled. So every shelf place says it is out of stock (4.1), and
-   selling pays as usual but stocks nothing, since in region 0 buying and
-   selling never change the stock. In practice no adventure can have such
-   a store yet: the model reads no items for an encounter area, and
-   reading them would be a model change (Captures needed 2).
+   store can't open there. [research, pass 2, 2026-11-14, unconfirmed]
+   **A store in an encounter area** ([encounters](encounters.md) 3.4) can
+   come from the file: the world map block stores each area's items as a
+   room item list ([format notes](../format-notes.md), the world map's
+   tail), and a store written into one is drawn in the area and opens
+   the ordinary store screen when stepped onto. [data; capture: a store
+   on 7,3 of area 1, stepped onto from 8,3, the store screen with the
+   player on 7,5, capture.md 10.26] No corpus adventure has one (every
+   area's list holds only its door), and nothing in play can make one:
+   closing an area deletes everything but the door, and nothing dropped
+   there can be a store (the store is thing 83, possessions only 1..80).
+   [data; research, pass 2] Leaving works as in a room (section 3), the
+   player back on the store's square. [research, pass 2, unconfirmed]
+   **The shelves**: the file holds no stock record for region 0 anywhere
+   [data], so the original reads its visited region's stock bytes, which
+   on the map hold the map's own data: all 14 read 255 while the map was
+   the visited region, which read as a stock would be every thing.
+   [research, pass 2; capture: rr17
+   `mapstock`, `mappeek`, 4 scenarios, inside an area and after walking
+   out, capture.md 10.21; rr22 `store`, the same 14 bytes all 255 with
+   the store screen open, though only two shelf things were drawn, not
+   identified, capture.md 10.26] Buying and selling there paid as usual
+   but never changed that stock, so a thing could be bought again and
+   again. [research, pass 2, unconfirmed] **Engine:** no store on the
+   open map. A store in an area opens as in a room, but its shelves are
+   always empty: the engine builds the map region with an empty stock and
+   doesn't model the map data the original reads. So every shelf place
+   says it is out of stock (4.1), and selling pays as usual but stocks
+   nothing, since in region 0 buying and selling never change the stock.
 8. Whether the stock is saved with the game is not known. [unknown]
    **Engine:** it is part of the region's state, kept across visits and
    saved with the game.
@@ -256,12 +259,11 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 1. Restocking from a used-up magic item (2.5; the research says it never
    restocks).
-2. A store in an encounter area (2.7): an adventure file with one in an
-   area's item list, if any exists; what the map's data shows on the
-   shelves in a real adventure; the moves left on leaving it. Open model
-   gap: the decoder reads no encounter-area items, so even a file with such
-   a store would load without it; reading them needs a model change
-   (`MODEL_VERSION`) before the engine can offer one.
+2. A store in an encounter area (2.7): which things the two shelf
+   pictures drawn with the stock bytes all 255 were, and why not all;
+   buying and selling there; the moves left on leaving it. (Settled: such
+   a store can come from a file and opens, capture.md 10.26; the format
+   is in the format notes, so the model gap is now decoder work.)
 3. Whether the stock is saved and restored with the game (2.8).
 4. A magic item set to act when picked up, bought (4.4); a thing owned 2
    or 3 times offered once per copy (5.2).

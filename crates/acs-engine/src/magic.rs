@@ -885,11 +885,14 @@ impl Game {
 
     // ---- time (section 5) ----------------------------------------------------
 
-    /// The top of an individual's turn: Power drift (5.1), then the healing
-    /// die (5.3).
+    /// The top of an individual's turn: a creature's catch-up (5.5), Power
+    /// drift (5.1), then the healing die (5.3).
     pub(crate) fn turn_top(&mut self, who: Who, ev: &mut Vec<Event>) {
         if !self.alive(who) {
             return;
+        }
+        if let Who::Creature { region, slot } = who {
+            self.catch_up(region, slot);
         }
         self.vitals_mut(who).turns += 1;
         let power = self.stat(who, Stat::Power).unwrap_or(0);
@@ -902,6 +905,29 @@ impl Game {
         if face == HEAL_FACE {
             self.heal_one(who, ev);
         }
+    }
+
+    /// 5.5: with N the rounds since the creature's last turn (low bytes,
+    /// modulo 256), up to N - 1 Power, never past Wisdom, and up to N / 2
+    /// Life Force, never past Constitution; none on its first turn (byte
+    /// 0). Then the byte is the current round's low byte, 1 for 0. No
+    /// draw. N 0 (a turn at a round whose low byte is 0 notes 1, so the
+    /// next round's turn finds N 0) gains nothing: N - 1 saturates.
+    fn catch_up(&mut self, region: u8, slot: usize) {
+        let now = (self.sched.round & 0xFF) as u8;
+        let Some(c) = self.creature_mut(region, slot) else {
+            return;
+        };
+        if c.last_turn_round != 0 {
+            let n = now.wrapping_sub(c.last_turn_round);
+            if c.power < c.wisdom {
+                c.power = c.power.saturating_add(n.saturating_sub(1)).min(c.wisdom);
+            }
+            if c.life_force < c.constitution {
+                c.life_force = c.life_force.saturating_add(n / 2).min(c.constitution);
+            }
+        }
+        c.last_turn_round = now.max(1);
     }
 
     /// 5.3: `n` idle moves of a turn of `full` moves, each a roll of

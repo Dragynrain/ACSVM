@@ -27,6 +27,7 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: escalations, MODEL_VERSION 4 (catch-up: last_turn_round; encounter-area item lists at world-map +0x810, rr22 capture.md 10.26) and captures of the restore point (10.25) and catch-up N=0 (10.27) into the specs; checker all PASS; committed. Next: the restore point and SAVE GAME in the engine.
 - 2026-11-14: encounters, 1, engine-implementer, no code change, 5 tests pin the captured behaviour; tests and clippy pass; committed; close tomorrow.
 - 2026-11-14: encounters, 1, the World map session has closed; engine-implementer started on 59aa038's spec changes.
 - 2026-11-14: escalations, the player's Fire (combat 8.8) and Retire (characters 7) in the engine and walk mode, save version 2 (a version 1 fire loads as leave_store); checker all PASS; engine choices recorded in the spec; committed.

@@ -1113,7 +1113,7 @@ mod tests {
             room: 0,
             possessions: Vec::new(),
             unknown_0b: 0,
-            unknown_0c: 0,
+            last_turn_round: 0,
         }
     }
 

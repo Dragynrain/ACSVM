@@ -522,7 +522,7 @@ impl Decoder<'_> {
             mimic: bit(r[0x09], 7),
             missile: field(r[0x0A], 0, 6),
             unknown_0b: r[0x0B],
-            unknown_0c: r[0x0C],
+            last_turn_round: r[0x0C],
             x: r[0x0D],
             y: r[0x0E],
             size: field(r[0x0F], 0, 4),
@@ -670,6 +670,27 @@ impl Decoder<'_> {
             });
         }
 
+        let (open_map_items, area_items) = self.area_lists(w)?;
+        let unknown_806 = self
+            .b
+            .block(w + wm::AREA_DOORS, wm::AREA_DOORS_LEN, "area door entries")?
+            .to_vec();
+        if unknown_806 != wm::STOCK_AREA_DOORS {
+            self.diags.warn(
+                K::Other,
+                "world map byte 0x806",
+                format!("area door entries {unknown_806:02x?}, not the usual 00 41..00 44"),
+            );
+        }
+        let unknown_80e = self.b.u16le(w + wm::UNKNOWN_80E, "world map byte 0x80e")?;
+        if unknown_80e != wm::STOCK_80E {
+            self.diags.warn(
+                K::Other,
+                "world map byte 0x80e",
+                format!("{unknown_80e:#06x}, not the usual 0x0832"),
+            );
+        }
+
         Ok(WorldMap {
             name: name.trim().to_string(),
             wraps,
@@ -679,7 +700,81 @@ impl Decoder<'_> {
             doors,
             exit_points,
             random_creatures,
+            area_items,
+            open_map_items,
+            unknown_806,
+            unknown_80e,
         })
+    }
+
+    /// The five item lists at world map + 0x810: room 0 (the open map),
+    /// then areas 1..4 (format notes, the world map's tail). A list that
+    /// can't be read is an error; it and the lists after it are left empty.
+    #[allow(clippy::type_complexity)]
+    fn area_lists(&mut self, w: usize) -> Result<(Vec<RoomItem>, Vec<Vec<RoomItem>>)> {
+        let end = w + wm::BLOCK_LEN;
+        let mut cursor = w + wm::ITEM_LISTS;
+        let mut lists: Vec<Vec<RoomItem>> = Vec::with_capacity(wm::ITEM_LIST_COUNT);
+        for n in 0..wm::ITEM_LIST_COUNT {
+            let loc = if n == 0 {
+                "world map open map items".to_string()
+            } else {
+                format!("encounter area {n}")
+            };
+            let len = self.b.u16le(cursor, "area item list length")? as usize;
+            if len < 2 || (len - 2) % 3 != 0 || cursor + len > end {
+                self.diags.error(
+                    K::BadRoomItems,
+                    &loc,
+                    format!("bad item list length {len}; this list and those after it are left empty"),
+                );
+                break;
+            }
+            lists.push(self.room_items(&mut cursor, end, &loc)?);
+        }
+        lists.resize(wm::ITEM_LIST_COUNT, Vec::new());
+        let open_map = lists.remove(0);
+        if !open_map.is_empty() {
+            self.diags.warn(
+                K::Other,
+                "world map open map items",
+                format!("{} items in the open map's list (not placed)", open_map.len()),
+            );
+        }
+        let door = u16::from(wm::AREA_DOOR_THING);
+        for (i, items) in lists.iter().enumerate() {
+            let loc = format!("encounter area {}", i + 1);
+            let doors: Vec<&RoomItem> = items.iter().filter(|it| it.thing == door).collect();
+            match doors.len() {
+                0 => self
+                    .diags
+                    .warn(K::Other, &loc, "no exit door (thing 82): the area has no way out"),
+                1 => {}
+                k => self
+                    .diags
+                    .warn(K::Other, &loc, format!("{k} exit doors (thing 82)")),
+            }
+            for d in &doors {
+                if d.parameter > 3 {
+                    self.diags.warn(
+                        K::BadReference,
+                        &loc,
+                        format!(
+                            "exit door parameter {} names no area: it leads to the start",
+                            d.parameter
+                        ),
+                    );
+                }
+            }
+            if let Some(it) = items.iter().find(|it| it.x >= 15 || it.y >= 10) {
+                self.diags.warn(
+                    K::BadReference,
+                    &loc,
+                    format!("item on {},{} is outside the 15 x 10 area", it.x, it.y),
+                );
+            }
+        }
+        Ok((open_map, lists))
     }
 
     // -----------------------------------------------------------------------

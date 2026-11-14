@@ -1930,3 +1930,157 @@ In this order (planned November 2026):
      `drop-thing` (WE on 6,4, treasures of ours on 7,4, 6,5 and 6,3: a
      square holding a thing) **256/256**: 125 landed on a square already
      holding a treasure (6,3 43, 6,5 42, 7,4 40), every try accepted.
+25. **When the restored game is saved** (2026-11-14; ours, no research
+   pass: creatures 2.2.6, magic 7.4, movement 6.6, and the planned
+   captures of `docs/research/turn-order.md` "No third pass").
+   `ACSVM-research/capture/runs/rr21/` (scripts `*.txt`, the generators
+   `gen*.py`, `a.sh`, `b.sh`, `bsplit.sh`, `build-b.sh`; rr20's harness
+   binary in `bin/`). No harness changes. Scripts build each state and
+   dump it with disks (so the program reads its own saves back from the
+   snapshot's disk); `run mem --ram --answer ... --answer-text
+   CONTROL,CONTINUE` then lets a creature kill and presses the button at
+   the death message. Markers: a player's gold (`$F5B1`, section 9) poked
+   to a different value at each step, and EE's class (`$E1A7`) poked to a
+   friend (182) at the first room turn and back to its aggressive 230
+   before the kill. A `mem` run has no jitter: one run a case, and each
+   restore below repeated itself identically while the run went on.
+   `roundcheck.py`: all checks hold in the five `mem` runs.
+   - **SAVE GAME** is the third row's last entry (two down, three right
+     of MOVE). The button there: "I will save the game as soon as
+     possible, please continue playing"; the button; "if you want to
+     return to the ACS editor after the game is saved, press F1 now"; the
+     button ends the turn. At the round's end (after FF's turn, the
+     counter 25): "saving game", "the adventure has been saved", the
+     button, then T's turn in round 25.
+   - **(a) An explicit save mid-visit** (`walk24.txt`, `menu.txt`,
+     `r25.txt` from rr18's `after/two.vsf`: both players walk in, the room
+     region from round 22; T's gold 111 and SAVE GAME in round 24; gold
+     222 and EE 230 at T's turn in round 25; `a-save`): EE killed U in
+     round 25, the counter went to 26, the button: **the counter back to
+     25, T's gold 111, U alive with Life Force 40, EE's class 182**, the
+     state as saved at round 24's end; play went on from round 25 to 32
+     (EE a friend, nobody died again). Control without the save
+     (`nosave.txt`, the same pokes; `a-nosave`): EE killed U in round 26,
+     the button: **the counter back to 22, the gold 0, T's Life Force 24,
+     EE 230**, the state when the room region's visit began (as rr18's
+     `button`), and round 22 replayed, U killed again, 10 restores in 200M
+     instructions. So SAVE GAME writes the state the button restores.
+   - **(b) One player alone in a room region over several visits**
+     (`build-b.sh`: T alone, Constitution and Life Force 40, EE as rr16's
+     killer, no U; `genb.py` writes `alone.txt`; `b-walk`): T walked in
+     during round 13 on the map; the room region from round 14, `$397C` 1
+     at every read to round 46 (T's turns at rounds 15 to 46 setting the
+     gold 1 to 32, three visit ends passed). EE killed T in round 46 (no
+     player left), the button (`b-button`): **the counter back to 14, the
+     gold 0**, Life Force 40; round 14 replayed, T killed each time, 15
+     restores in 200M. So visits of the same region one after another
+     save nothing: the restore went back to the region's first round.
+   - **(b) with U on the map** (`gensplit.py`, `split.txt`, `b-split`,
+     from rr18's `after/two.vsf`, T alone south 3.2M as rr18's `f1-split`):
+     region 1 was visited in rounds 40 to 49, 60 to 69 and 80 on, the map
+     with U between; T's gold set to 1 to 25 at its turns (rounds 41 to 49,
+     60 to 69, 80 to 85). EE killed T in round 85, the button
+     (`b-split-button`): **the counter back to 80, T's gold 19** (the
+     value it had when region 1's visit of round 80 began), T alive;
+     then **the map first** (rounds 80 to 89, U alone), region 1 from
+     round 90 (EE's class 182, the value poked during its visit of round
+     40), the map from 100. So a visit that changes the region visited
+     saves: the restore is the start of the last visit that began with a
+     region change, or the last SAVE GAME, whichever came later (in the
+     runs here; a save in the same round as a region change not tried),
+     and the counter comes back as that visit's first round (14, 22, 80;
+     25 for a save at round 24's end), not the round of the map door step.
+     After the button the cycle is marked from the restored places,
+     lowest region first.
+   - **Declining to add a player with nobody alive** (`gendecline.py`,
+     `decline.txt` from `b-walk/pre.vsf`, EE's messages answered at
+     `b-f1`'s times; F1 at the death message, as `b-f1`): the add-a-player
+     screen (the cursor `$7161` 1, on CREATE NEW PLAYER; at that moment
+     **T's whole 37-byte record read 0**, its place and gold included).
+     One tap east (`$7161` 2), the button (`decline2.txt`, twice): the
+     screen went blank, came back with "accessing disk ... please wait"
+     (the cursor on 3 for a moment), then the same add-a-player screen
+     with the cursor back on 1, within about 2M instructions. The counter
+     stayed 47, the region 1, the individual 0, for 150M instructions
+     after the first decline (`decline`, read every 5M): **no turns, the
+     screen comes back**, as when the last player retires (10.23). A
+     peek of `$F65B` read 3 (the ROM) during the disk access; not a
+     change.
+26. **Encounter area item lists, a format find** (2026-11-14; ours, no
+   research pass). A read-only look at the corpus found five room item
+   lists at world map block + 0x810, in the room list format (a u16
+   length counting itself, then 3-byte items: column x 16 + row, thing,
+   parameter): room 0 (the open map) empty, rooms 1 to 4 (the encounter
+   areas) each one item `05 52 n`, thing 82 on 0,5 with parameter n = 0..3
+   ([encounters](rules/encounters.md) 3.5's door). Before them, at + 0x806,
+   four words `00 41` .. `00 44`, and at + 0x80E a u16 0x0832 (meanings
+   unknown). Our template holds the same bytes. New scenario option
+   `--area-list N:X,Y,THING,PARAM/..` (repeatable) rewrites area N's list
+   in the map block (`scenario::area_lists`; things 42..49 become
+   treasures of ours drawn with the half marker picture, 83 the store);
+   the u16 at + 0x80E is left as the template has it.
+   `ACSVM-research/capture/runs/rr22/` (the harness binary in `bin/`):
+   `build.sh` builds rr14's `patch` scenario (WOLF on the grass at 60 %,
+   T Speed 6) with seven lists and starts each to T's first turn;
+   `run.sh CASE DIR X Y D` runs `in.txt`: the random state poked to 0, 1,
+   .. until one push east opens area 1, the map block's tail read from
+   `$E7F2` on (area 1's room record, section 9; the bytes that follow
+   are the disk's + 0x7F2 on, so the lists sit at `$E810` on), then at
+   T's next turn T poked onto X,Y and a push D. One run a case
+   (deterministic once the area opens).
+   - `ctrl` (template list): the gap at row 5, out from 1,5 onto the
+     entrance 13,12 with 5 moves (10.20 again). The room's list pointer
+     `$382A` (section 9) **`$E814`**, area 1's items, in every case.
+   - `treasure` (`1:0,5,82,0/7,5,42,1`): **the treasure shows on 7,5**
+     and the list in memory holds both items; a push west from 8,5 brought
+     "T takes AREATHINGA" (`take/`). Leaving closed the area and **marked
+     the treasure's entry deleted** (its square byte 255, the length kept
+     at 8), the door's entry untouched (encounters 7.2: the items deleted,
+     the door kept).
+   - `two` (area 1 as `treasure`, area 2 `0,5,82,1/8,6,43,1`): area 1
+     shows only its own treasure; area 2's list stays as written while
+     area 1 is open and after it closes. The lists are rooms 1..4 in order.
+   - `store` (`1:0,5,82,0/7,3,83,0`): the store shows on 7,3; stepping
+     onto it from 8,3 opened the **store screen** (`shop/`, "T has 0 to
+     spend", T on 7,5): two shelf things drawn (on 12,2 and 8,6, not
+     identified), the stock bytes `$E06D`-`$E07A` all 255 meanwhile.
+   - `moved` (`1:0,3,82,0`): **the gap moves to row 3** (the wall's dots
+     on every left-wall row but 3); out from 1,3 west onto the entrance
+     13,12 with 5 moves (`out3/`); a push west from 1,5 is refused, no
+     move used (`out5/`).
+   - `noexit` (`1:`): **no gap**; a push west from 1,5 refused, no move
+     used. The door is the list's item, not a fixed square.
+   - `param` (`1:0,5,82,1`): out from 1,5 west, T came back **on 12,12,
+     the map's start square** (the entrance was 14,12); with area 2's
+     entrance poked to 15,11 first (`e2/`, `param2.txt`), **T came back on
+     15,11**. The parameter picks the area whose entrance the door leads to
+     (n: area n + 1, the words `00 41`.. at + 0x806 the likely table); an
+     entrance of 41,41 (free) sends the player to the map's start. Area 1
+     closed either way.
+   Lists 3 and 6 bytes longer than the template's (the u16 at + 0x80E
+   unchanged) caused no visible trouble in these runs.
+27. **Catching up when no round has passed** (2026-11-14; ours, no research
+   pass; [magic](rules/magic.md) 5.5). `ACSVM-research/capture/runs/rr23/`
+   (rr19's harness binary in `bin/`, rr19's `walk-late/room.vsf` and its
+   disk in `in/`). `catch.txt` is 10.23's `catch-B` with the random state
+   `$1CC9` poked first; `run.sh` and `sweep.sh` run it for each byte B and
+   state, one VICE at a time; `summ.sh` lists the results. AA's turn comes
+   in round 40 (the counter read 40 before it and 41 after), so B = 40
+   gives N = 0, B = 39 N = 1 (the control) and B = 41 N = 255 (the wrap).
+   Before the turn AA has Life Force 5 (Constitution 20) and Power 2.
+
+   | B (N) | runs | Life Force, Power after |
+   | --- | --- | --- |
+   | 40 (0) | 20 (`catch-40-*`) | 6, 3 (18); 7, 3 (2) |
+   | 39 (1) | 20 (`catch-39-*`) | 6, 3 (16); 7, 3 (4) |
+   | 0 (none) | 17 (`catch-0-*`) | 6, 3 (16); 7, 3 (1) |
+   | 41 (255) | 4 (`catch-41-*`) | 20, 20 (4) |
+
+   States 0, 85, 170, 255 and 8, 24, .. 248 (B = 0: the sweep only). So
+   **N = 0 gains nothing**: Power 3 (2 and the turn's 1) in all 20, where a
+   wrapped N - 1 = 255 would give 20, as B = 41 does. The byte was 40
+   after every turn. The extra point of Life Force goes with the random
+   state, not with B = 0 as 10.23 read it (rr19's `catch-0` ran at the
+   snapshot's own state), and the states that give it differ between
+   B = 0 (40), 39 (168, 184, 200, 248) and 40 (85, 136); the 9 repeats
+   (`again-*`) gave the same. Why the byte moves a later roll is not known.

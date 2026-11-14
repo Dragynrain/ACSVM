@@ -322,8 +322,8 @@ impl Game {
         };
         let edge = nx == 0 || ny == 0 || nx as i16 == w - 1 || ny as i16 == h - 1;
         // Encounters 7.1: an area's door leads back to its entrance.
-        if crate::encounters::is_area_door(to) {
-            self.leave_area(p, room, ev);
+        if let Some(n) = self.area_door(to) {
+            self.leave_area(p, room, n, ev);
             self.spend(ev);
             return;
         }

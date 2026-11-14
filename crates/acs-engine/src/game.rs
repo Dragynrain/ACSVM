@@ -307,6 +307,8 @@ impl Game {
     /// game and the opening events (the first turn starting).
     pub fn new(adv: Adventure, seed: u64, rules: Rules, first: impl Into<Newcomer>) -> (Self, Vec<Event>) {
         let first = first.into();
+        // Encounters 3.4: the areas' items, once, from the world map.
+        let map = crate::encounters::seeded_map_region(&adv.world);
         let mut g = Game {
             adv,
             rules,
@@ -326,7 +328,7 @@ impl Game {
             reversals: Vec::new(),
             store: None,
             placed: Vec::new(),
-            map: crate::encounters::map_region(),
+            map,
             entrances: Default::default(),
             carried: Vec::new(),
             adds: Vec::new(),

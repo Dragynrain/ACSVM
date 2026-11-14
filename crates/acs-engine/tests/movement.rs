@@ -843,6 +843,8 @@ fn non_owner_space_obstacles_store_and_residents() {
 
 /// The patch square SW of the start: terrain 4, open, picture 6.
 const PATCH: (u8, u8) = (19, 21);
+/// A second patch square, SE of the start.
+const PATCH2: (u8, u8) = (21, 21);
 
 fn area(room: u8, x: u8, y: u8) -> Location {
     Location::Room {
@@ -857,7 +859,23 @@ fn area(room: u8, x: u8, y: u8) -> Location {
 /// records `(terrain, chance code, speed)` in slots 0, 1, ..; the rest
 /// stay empty (terrain 0, code 0).
 fn encounter_adventure(records: &[(u8, u8, u8)]) -> Adventure {
+    encounter_adventure_with(records, &[])
+}
+
+/// As [`encounter_adventure`], with the world map tail's lists `lists`
+/// (area 1..4, items x, y, thing, parameter) in place of the editor's,
+/// and then a second patch square SE of the start.
+/// Area lists: (area, items (x, y, thing, parameter)).
+type AreaLists = [(usize, Vec<(u8, u8, u8, u8)>)];
+
+fn encounter_adventure_with(records: &[(u8, u8, u8)], lists: &AreaLists) -> Adventure {
     let mut f = fixture(Platform::Pc);
+    for (n, items) in lists {
+        f.area_list(*n, items.clone());
+    }
+    if !lists.is_empty() {
+        set_tile(&mut f, PATCH2.0 as usize, PATCH2.1 as usize, 4);
+    }
     terrain(&mut f, 4, 6, 1, 0);
     set_tile(&mut f, PATCH.0 as usize, PATCH.1 as usize, 4);
     let w = f.l.world_map;
@@ -967,12 +985,20 @@ fn the_area_is_a_room_of_the_map_region() {
     assert!(ev.iter().any(|e| matches!(e, Event::EnteredArea { area: 1, .. })));
     assert!(ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 })));
     assert_eq!(g.area_entrance(1), Some(PATCH));
-    // 3.2-3.4: 15 x 10, walled with the patch's picture, empty.
+    // 3.2-3.5: 15 x 10, walled with the patch's picture, holding only
+    // its list's door (thing 82 on 0,5, parameter 0).
     let room = &g.region(0).unwrap().rooms[1];
     assert!(!room.deleted);
     assert_eq!((room.width, room.height), (15, 10));
     assert_eq!(room.wall_picture, a.world.terrain[4].picture);
-    assert!(room.items.is_empty());
+    let items: Vec<_> = room
+        .items
+        .iter()
+        .map(|it| (it.x, it.y, it.thing, it.parameter))
+        .collect();
+    assert_eq!(items, [(0, 5, 82, 0)]);
+    assert_eq!(g.area_door(area(1, 0, 5)), Some(0));
+    assert_eq!(g.area_door(area(1, 1, 5)), None);
     // 4.2: the copy is the record as stored, marked random.
     let wolf = g.creature(0, 8).expect("a copy in slot 8");
     let rec = &a.world.random_creatures[0].creature;
@@ -1081,6 +1107,170 @@ fn a_creature_through_the_door_is_removed() {
     assert!(removed);
     // The area stays open while T is in it (7.3).
     assert!(!g.region(0).unwrap().rooms[1].deleted);
+}
+
+/// Encounters 3.4, 3.5, 7.1, 7.2: the area's items are its list's; the
+/// door is the list's thing 82, wherever it stands; closing keeps it and
+/// deletes the rest.
+#[test]
+fn an_area_holds_its_list_and_its_door_is_the_list_item() {
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 3, 82, 0), (6, 6, KEY as u8, 0)])]);
+    let (mut g, _) = pulled_in(&a);
+    let things = |g: &Game| -> Vec<(u8, u8, u16)> {
+        g.region(0).unwrap().rooms[1]
+            .items
+            .iter()
+            .map(|it| (it.x, it.y, it.thing))
+            .collect()
+    };
+    assert_eq!(things(&g), [(0, 3, 82), (6, 6, KEY)]);
+    // 0,5 is wall now: refused, no move used.
+    g.place(0, area(1, 1, 5));
+    let before = g.current_player().moves_left;
+    let ev = mv(&mut g, Dir::W);
+    assert_eq!(blocked(&ev), Some(BlockReason::Wall));
+    assert_eq!(g.current_player().moves_left, before);
+    assert_eq!(g.players()[0].at, area(1, 1, 5));
+    // Through 0,3: back on the entrance, the area closed, the KEY gone.
+    g.place(0, area(1, 1, 3));
+    let ev = mv(&mut g, Dir::W);
+    assert_eq!(
+        g.players()[0].at,
+        Location::World {
+            x: PATCH.0,
+            y: PATCH.1
+        }
+    );
+    assert!(ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })));
+    assert_eq!(things(&g), [(0, 3, 82)]);
+    // The other areas keep the editor's door.
+    let room2 = &g.region(0).unwrap().rooms[2];
+    let doors: Vec<_> = room2.items.iter().map(|it| (it.x, it.y, it.parameter)).collect();
+    assert_eq!(doors, [(0, 5, 1)]);
+}
+
+/// Encounters 3.5: with an empty list an area has no way out.
+#[test]
+fn an_area_with_an_empty_list_has_no_way_out() {
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![])]);
+    let (mut g, _) = pulled_in(&a);
+    assert!(g.region(0).unwrap().rooms[1].items.is_empty());
+    g.place(0, area(1, 1, 5));
+    let ev = mv(&mut g, Dir::W);
+    assert_eq!(blocked(&ev), Some(BlockReason::Wall));
+    assert_eq!(g.players()[0].at, area(1, 1, 5));
+}
+
+/// Encounters 3.5, 7.1: a door of parameter n leads to area n + 1's
+/// entrance, or the start when that area is free or n is above 3.
+#[test]
+fn the_door_parameter_names_the_area_it_leads_to() {
+    for n in [1u8, 9] {
+        let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, n)])]);
+        let (mut g, _) = pulled_in(&a);
+        g.place(0, area(1, 1, 5));
+        let ev = mv(&mut g, Dir::W);
+        assert_eq!(g.players()[0].at, Location::World { x: 20, y: 20 }, "n {n}");
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::LeftArea {
+                player: 0,
+                area: 1,
+                ..
+            }
+        )));
+        assert!(g.region(0).unwrap().rooms[1].deleted);
+    }
+    // Area 2 open: area 1's door with n 1 leads to area 2's entrance.
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, 1)])]);
+    for seed in 0..400 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "U".into(),
+                ..Default::default()
+            },
+        });
+        if encounters(&mv(&mut g, Dir::SW)).is_empty() || g.current() != 1 {
+            continue;
+        }
+        if encounters(&mv(&mut g, Dir::SE)).is_empty() {
+            continue;
+        }
+        assert_eq!(g.players()[1].at, area(2, 12, 4));
+        assert_eq!(g.area_entrance(2), Some(PATCH2));
+        for _ in 0..20 {
+            if g.current() == 0 {
+                break;
+            }
+            g.apply(Command::Wait);
+        }
+        assert_eq!(g.current(), 0);
+        g.place(0, area(1, 1, 5));
+        mv(&mut g, Dir::W);
+        assert_eq!(
+            g.players()[0].at,
+            Location::World {
+                x: PATCH2.0,
+                y: PATCH2.1
+            }
+        );
+        // Area 1 closed behind it; area 2 still open.
+        assert!(g.region(0).unwrap().rooms[1].deleted);
+        assert!(!g.region(0).unwrap().rooms[2].deleted);
+        return;
+    }
+    panic!("no two encounters in 400 seeds");
+}
+
+/// Stores 2.7: a store in an area opens, with empty shelves.
+#[test]
+fn a_store_in_an_area_opens_with_an_empty_stock() {
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, 0), (7, 3, SHOP as u8, 0)])]);
+    let (mut g, _) = pulled_in(&a);
+    g.place(0, area(1, 8, 3));
+    let ev = mv(&mut g, Dir::W);
+    assert!(ev.iter().any(|e| matches!(
+        e,
+        Event::StoreOpened {
+            player: 0,
+            region: 0,
+            ..
+        }
+    )));
+    assert!(g.stock(0).is_empty());
+}
+
+/// Encounters 6.4: a creature leaves by the door item, wherever it is.
+#[test]
+fn a_creature_leaves_by_a_moved_door() {
+    let a = encounter_adventure_with(&[(4, 15, 3)], &[(1, vec![(0, 3, 82, 0)])]);
+    let (mut g, _) = pulled_in(&a);
+    let c = g.creature_mut(0, 8).unwrap();
+    c.strategy.alignment = acs_core::model::Alignment::Friend;
+    c.strategy.aggressive = false;
+    c.strategy.brave = false;
+    c.wisdom = 20;
+    c.x = 1;
+    c.y = 3;
+    let mut removed = false;
+    for _ in 0..4 {
+        let ev = g.apply(Command::Wait);
+        if ev.iter().any(|e| {
+            matches!(
+                e,
+                Event::CreatureRemoved {
+                    region: 0,
+                    slot: 8,
+                    reason: acs_engine::RemovalReason::LeftArea
+                }
+            )
+        }) {
+            removed = true;
+            break;
+        }
+    }
+    assert!(removed);
 }
 
 #[test]

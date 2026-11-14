@@ -335,10 +335,12 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
 - **Bytes 0x0B and 0x0C are zero in every record**: 1,670 master, 3,224
   residents, 394 random, 43 world map. They are most likely runtime state that
   the editor never sets (players were also all unused, so saved games could
-  not be checked). Kept raw as `unknown_0b` / `unknown_0c`. **Byte 0x0C
+  not be checked). 0x0B is kept raw as `unknown_0b`. **Byte 0x0C
   is the round (low byte) of the creature's last turn**, 0 before its
   first, set at each turn and read for catching up (researcher, characters
   second pass; confirmed by capture, capture.md 10.23; rules: magic 5.5).
+  The model calls it `last_turn_round` from `MODEL_VERSION` 4; version 3
+  JSON, which named it `unknown_0c`, still loads (a serde alias).
 - **Byte 0x10 = region << 4 | room**, confirmed: it is 0 in the master, random
   and world map lists, and in all 3,224 residents the high nibble equals the
   region that holds the record.
@@ -370,6 +372,57 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   Wisdom was drift seen late; byte 5 is kept: rules/characters 3.1.) Saving
   a retiring player writes the first roster entry with an empty name
   (rules/characters 7.3).
+
+## The world map's tail: encounter areas
+
+The end of the world map block holds the four encounter areas
+(rules/encounters 3), stored like a small region whose room 0 is the open
+map. Our own find from the corpus (November 2026), then checked on the
+C64 by writing our own lists into a scenario disk (docs/capture.md 10.26,
+runs rr22). Offsets are from the world map block's start.
+
+| Offset | Meaning | How sure |
+| --- | --- | --- |
+| +0x7F2 + 5 (n - 1) | Area n's room record (n 1..4): +0 wall picture, +1 size (written in play: 233 while open, 0 when free) | Address from the researcher's encounters pass (capture.md 9); the bytes on disk not studied |
+| +0x806 | Four 2-byte entries, `00 41`, `00 42`, `00 43`, `00 44` in every corpus file | Meaning unconfirmed; most likely the areas' door table (below) |
+| +0x80E | A u16, 0x0832 in every corpus file | Meaning unknown. Lists longer than the corpus's with it left unchanged gave no trouble |
+| +0x810 | Five room item lists: room 0 (the open map), then areas 1..4 | Confirmed by capture |
+
+- **The lists** use the room item-list format (see Room items): a u16
+  length counting its own two bytes, then 3-byte items, `x << 4 | y`,
+  thing, parameter. They follow one another with no gap.
+- **What the corpus holds.** In every corpus adventure room 0's list is
+  empty (length 2) and each area's list holds exactly one item, thing 82
+  on square 0,5 with parameter n = 0, 1, 2, 3 for areas 1..4: the area's
+  exit door. No corpus adventure has anything else in an area. Our
+  capture template holds the same bytes.
+- **Confirmed by capture** (capture.md 10.26): lists 1..4 belong to areas
+  1..4 in order and the game reads them as the area's contents. A
+  treasure added to area 1's list is drawn there and can be taken; a store
+  added is drawn and opens the store screen. The door is the list's item,
+  not a fixed square: moving it to 0,3 moves the wall gap and the way out
+  there, and an empty list leaves the area with no way out. The door's
+  parameter n sends the player to **area n + 1's entrance** on the map,
+  or to the adventure's start when that area is free (entrance 41,41).
+  When an area closes, every entry but the door's is marked deleted in
+  place (square byte 0xFF, the list's length unchanged).
+- **In the model** (`MODEL_VERSION` 4): `WorldMap::area_items` (areas
+  1..4), `open_map_items` (room 0, kept, never placed), `unknown_806`
+  and `unknown_80e` as stored. Version 3 JSON loads with the editor's
+  values. The decoder warns on an area with no door or several, a door
+  parameter above 3, an item outside 15 x 10, a non-empty room 0 list
+  and unusual 0x806 / 0x80E bytes; a list it can't read is an error, and
+  it and the lists after it are left empty.
+- **The door table guess.** Read as door-table entries (Doors above),
+  `00 41`..`00 44` would be region 0 with a point index of 0x41..0x44,
+  past the 64-entry point table, which would suit a special "area n's
+  entrance" code that parameters 0..3 index. Unchecked: no capture
+  changed these bytes.
+- **No stock record for region 0.** The file holds stock only in the
+  regions (region + 0x6D); nothing in the world map block or elsewhere is
+  a store stock for the map's region. On the C64 the visited region's
+  stock bytes read 255 throughout while a store in an area was open
+  (capture.md 10.26; rules/stores 2.7).
 
 ## Written by the program in play
 

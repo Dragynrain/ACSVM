@@ -181,6 +181,12 @@ enum Cmd {
         /// A patch of GRASS (terrain 5) on the map: `X0,Y0,X1,Y1`, inclusive.
         #[arg(long)]
         patch: Option<String>,
+        /// Encounter area n's item list in place of the template's
+        /// (repeatable): `N:X,Y,THING,PARAM/X,Y,THING,PARAM..` (empty after
+        /// the colon for none); things 42..49 become treasures of ours, 83
+        /// the store (docs/capture.md 10.26).
+        #[arg(long)]
+        area_list: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -412,6 +418,7 @@ fn main() {
             stock,
             map_creature,
             patch,
+            area_list,
         } => {
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
@@ -456,6 +463,27 @@ fn main() {
                 let v = nums(&t, 4..=4);
                 (v[0] as u8, v[1] as u8, v[2] as u8, v[3] as u8)
             });
+            let area_lists: Vec<scenario::AreaList> = area_list
+                .iter()
+                .map(|t| {
+                    let (n, rest) = t
+                        .split_once(':')
+                        .unwrap_or_else(|| fail(&format!("{t}: N:items")));
+                    let n: u8 = n
+                        .trim()
+                        .parse()
+                        .unwrap_or_else(|_| fail(&format!("{t}: bad area")));
+                    let items = rest
+                        .split('/')
+                        .filter(|i| !i.trim().is_empty())
+                        .map(|i| {
+                            let v = nums(i, 4..=4);
+                            (v[0] as u8, v[1] as u8, v[2] as u8, v[3] as u8)
+                        })
+                        .collect();
+                    (n, items)
+                })
+                .collect();
             let random_creature =
                 random_creature.map(|c| scenario::Resident::parse(&c).unwrap_or_else(|e| fail(&e)));
             let side = side_room.then_some(((7, 4), (2, 4)));
@@ -511,6 +539,7 @@ fn main() {
                         stock: stock.clone(),
                         map_creatures: map_creatures.clone(),
                         patch,
+                        area_lists: area_lists.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())

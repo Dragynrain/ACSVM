@@ -205,6 +205,28 @@ pub mod world_map {
     pub const TERRAIN_NAMES: usize = 0x662;
     pub const TERRAIN_NAME_LEN: usize = 15;
     pub const CREATURE_NAMES: usize = 0x752;
+    /// The encounter areas' tail (format notes, the world map's tail).
+    /// Area n's room record (n 1..4) at `AREA_ROOMS + AREA_ROOM_LEN * (n - 1)`;
+    /// written in play, not decoded.
+    pub const AREA_ROOMS: usize = 0x7F2;
+    pub const AREA_ROOM_LEN: usize = 5;
+    /// Four 2-byte entries (`00 41`..`00 44` in the corpus); meaning
+    /// unconfirmed, most likely the areas' door table.
+    pub const AREA_DOORS: usize = 0x806;
+    pub const AREA_DOORS_LEN: usize = 8;
+    /// A u16, 0x0832 in the corpus; meaning unknown.
+    pub const UNKNOWN_80E: usize = 0x80E;
+    /// Five room item lists: room 0 (the open map), then areas 1..4.
+    pub const ITEM_LISTS: usize = 0x810;
+    pub const ITEM_LIST_COUNT: usize = 5;
+    /// The block's length: the lists must end inside it.
+    pub const BLOCK_LEN: usize = 0xC00;
+    /// What every corpus file holds at [`AREA_DOORS`] and [`UNKNOWN_80E`].
+    pub const STOCK_AREA_DOORS: [u8; AREA_DOORS_LEN] = [0, 0x41, 0, 0x42, 0, 0x43, 0, 0x44];
+    pub const STOCK_80E: u16 = 0x0832;
+    /// The thing number of an area's exit door, and its stock square.
+    pub const AREA_DOOR_THING: u8 = 82;
+    pub const STOCK_AREA_DOOR: (u8, u8) = (0, 5);
 }
 
 /// Offsets inside one region ([`Layout::regions`] + n * [`region::STRIDE`]).

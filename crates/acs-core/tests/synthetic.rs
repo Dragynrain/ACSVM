@@ -63,6 +63,7 @@ fn sample(platform: Platform) -> Fixture {
     gob[0x15] = 3;
     gob[0x17] = 0b01_00_00_11;
     gob[0x1F] = 0x80;
+    gob[0x0C] = 7; // round of its last turn (magic 5.5)
     f.creature(1, "GOBLIN", 2, gob);
 
     // World map.
@@ -366,6 +367,7 @@ fn check_sample(a: &Adventure, p: Platform) {
         }
     );
     assert!(g.mimic);
+    assert_eq!((g.unknown_0b, g.last_turn_round), (0, 7));
     assert_eq!((g.weapon, g.armor), (1, 3));
     assert_eq!(
         g.possessions,
@@ -492,6 +494,18 @@ fn json_round_trip() {
         let back: Adventure = serde_json::from_str(&json).unwrap();
         assert_eq!(back, a, "{p}");
     }
+}
+
+/// Model version 3 called byte 0x0C `unknown_0c`; such JSON still loads.
+#[test]
+fn version_3_json_loads_byte_0c() {
+    let a = decode(&sample(Platform::C64).build()).unwrap().adventure;
+    let json = serde_json::to_string(&a).unwrap();
+    assert!(json.contains("\"last_turn_round\":7"));
+    let old = json.replace("\"last_turn_round\"", "\"unknown_0c\"");
+    let back: Adventure = serde_json::from_str(&old).unwrap();
+    assert_eq!(back.creatures[0].last_turn_round, 7);
+    assert_eq!(back.creatures, a.creatures);
 }
 
 #[test]
@@ -652,4 +666,98 @@ fn gold_piles_take_their_size_from_the_record_after_them() {
             .count();
         assert_eq!(warns, 2, "{p}");
     }
+}
+
+/// The world map's tail (format notes): the editor's lists decode to each
+/// area's door alone, with the raw bytes kept.
+#[test]
+fn area_lists_as_the_editor_writes_them() {
+    for p in PLATFORMS {
+        let a = decode(&sample(p).build()).unwrap().adventure;
+        let w = &a.world;
+        assert_eq!(w.area_items, stock_area_items(), "{p}");
+        assert!(w.open_map_items.is_empty());
+        assert_eq!(w.unknown_806, wm::STOCK_AREA_DOORS);
+        assert_eq!(w.unknown_80e, wm::STOCK_80E);
+        let doors: Vec<_> = w
+            .area_items
+            .iter()
+            .map(|l| (l[0].x, l[0].y, l[0].thing, l[0].parameter))
+            .collect();
+        assert_eq!(
+            doors,
+            [(0, 5, 82, 0), (0, 5, 82, 1), (0, 5, 82, 2), (0, 5, 82, 3)]
+        );
+    }
+}
+
+#[test]
+fn area_lists_of_our_own_and_their_oddities() {
+    for p in PLATFORMS {
+        let mut f = sample(p);
+        f.area_list(0, vec![(3, 3, 1, 0)]);
+        f.area_list(1, vec![(0, 3, 82, 0), (6, 6, 1, 0), (7, 3, 12, 0)]);
+        f.area_list(2, vec![]);
+        f.area_list(3, vec![(0, 5, 82, 9), (0, 6, 82, 2)]);
+        f.area_list(4, vec![(15, 2, 1, 0), (0, 5, 82, 3)]);
+        let d = decode(&f.build()).unwrap();
+        let w = &d.adventure.world;
+        let items = |n: usize| -> Vec<(u8, u8, u16, u8)> {
+            w.area_items[n]
+                .iter()
+                .map(|it| (it.x, it.y, it.thing, it.parameter))
+                .collect()
+        };
+        assert_eq!(items(0), [(0, 3, 82, 0), (6, 6, 1, 0), (7, 3, 12, 0)], "{p}");
+        assert!(items(1).is_empty());
+        assert_eq!(w.open_map_items.len(), 1);
+        let warned = |loc: &str, text: &str| {
+            d.diagnostics
+                .iter()
+                .any(|g| g.severity == Severity::Warning && g.location == loc && g.message.contains(text))
+        };
+        assert!(
+            warned("world map open map items", "not placed"),
+            "{:?}",
+            d.diagnostics
+        );
+        assert!(warned("encounter area 2", "no way out"));
+        assert!(warned("encounter area 3", "2 exit doors"));
+        assert!(warned("encounter area 3", "parameter 9"));
+        assert!(warned("encounter area 4", "outside the 15 x 10 area"));
+        assert!(!d.diagnostics.iter().any(|g| g.location == "encounter area 1"));
+        assert_eq!(d.errors().count(), 0);
+    }
+}
+
+#[test]
+fn a_bad_area_list_is_an_error_and_the_rest_are_empty() {
+    for p in PLATFORMS {
+        let mut f = sample(p);
+        f.build();
+        // Area 2's list (after room 0's 2 bytes and area 1's 5) says 4.
+        let at = f.l.world_map + wm::ITEM_LISTS + 2 + 5;
+        f.put(at, &[4, 0]);
+        let img = acs_core::Image::from_bytes(p, f.data.clone()).unwrap();
+        let d = decode(&img).unwrap();
+        let w = &d.adventure.world;
+        assert_eq!(w.area_items[0].len(), 1, "{p}");
+        assert!(w.area_items[1..].iter().all(|l| l.is_empty()));
+        assert!(d
+            .errors()
+            .any(|g| g.kind == DiagnosticKind::BadRoomItems && g.location == "encounter area 2"));
+    }
+}
+
+/// Model version 3 had no area lists; such JSON loads with the editor's.
+#[test]
+fn version_3_json_loads_the_editors_area_lists() {
+    let a = decode(&sample(Platform::Pc).build()).unwrap().adventure;
+    let mut v = serde_json::to_value(&a).unwrap();
+    let world = v["world"].as_object_mut().unwrap();
+    for k in ["area_items", "open_map_items", "unknown_806", "unknown_80e"] {
+        assert!(world.remove(k).is_some(), "{k}");
+    }
+    let back: Adventure = serde_json::from_value(v).unwrap();
+    assert_eq!(back.world, a.world);
 }

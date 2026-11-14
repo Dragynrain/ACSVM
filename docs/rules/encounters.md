@@ -15,6 +15,10 @@ the random draw forced), "traced" where it was only read from the
 program. **[capture]** marks what our own runs confirm (capture.md 10.20:
 every draw of 824 runs from the brief's scenarios, the random state
 swept, and a walk out); "[research]" alone is not yet captured by us.
+The areas' item lists (3.4, 3.5, 7.2) are our own format find, tagged
+**[data]** for the stored lists ([format notes](../format-notes.md), the
+world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
+2026-11-14: lists of ours written into a scenario disk).
 
 ## 1. The records
 
@@ -82,14 +86,39 @@ swept, and a walk out); "[research]" alone is not yet captured by us.
 3. **Walls**: the picture of the terrain entered (the grass's dots; the
    field's blank picture, so no border). [research, run; capture: the
    grass's picture in area 1's wall byte]
-4. **Inside**: empty floor; no items, no random creature of its own
-   (chance 0), not on any region grid. [research, run]
-5. **One way out**: a door on the left wall at column 0, row 5 (the gap in
-   `patch-step-1.png`), part of the stored map data, the same in every
-   area and kept when the area is cleared. [research, run; capture: the
-   gap at row 5, and the door taken from 1,5, capture.md 10.20] **Engine:** the
-   door is not an item: the square 0,5 of an area is its exit (6.1, 6.4)
-   and front ends draw it as an opening.
+4. **Inside**: no random creature of its own (chance 0), not on any
+   region grid. [research, run] **Its things come from the file**: the
+   world map block stores one item list per area, in the room item-list
+   format, read as that area's room items. [data; capture: a treasure
+   added to area 1's list was drawn there and could be taken, a second
+   list showed only in area 2, capture.md 10.26] In every corpus
+   adventure each list holds only the door (3.5), so in practice an area
+   is empty floor. [data; research, run] Anything placed there acts as in
+   any room: a store, for one, opens the store screen
+   ([stores](stores.md) 2.7). [capture] **Engine:** rooms 1..4 of the map
+   region are seeded from the four lists once, when the game starts, and
+   keep their items from then on like any room (closing deletes all but
+   the door, 7.2). Room 0's list (empty in the corpus) is kept for
+   round-tripping and not placed on the open map.
+5. **The way out is the list's door item**: thing 82 on the left wall,
+   column 0, row 5, with a parameter n (0..3 for areas 1..4 in the
+   corpus). [data] It is an ordinary item, not a fixed square: moved to
+   0,3 the wall gap and the way out moved with it and 0,5 became wall;
+   with the list empty there was no way out at all, a push west from 1,5
+   refused with no move used. [capture: capture.md 10.26; the gap at row
+   5 and the door taken from 1,5 as stored, 10.20] [research, run: the
+   gap in `patch-step-1.png`] **Where it leads**: to the map entrance of
+   **area n + 1** (7.1), whichever area the door stands in; if that area
+   is free (its entrance 41,41) the player goes to the adventure's start
+   point on the map instead. [capture: a door with n = 1 in area 1 sent
+   the player to 12,12, the scenario's start, and to 15,11 once area 2's
+   entrance was set there] The table the parameter reads is most likely
+   the four entries before the lists (format notes); unconfirmed.
+   **Engine:** the exit is the list item: an item of thing 82 in an area
+   is a door whose parameter n names area n + 1's entrance (the start
+   point when that area is free, or n is above 3); stepping onto it is
+   walking out (7.1). Front ends draw its square as an opening, and an
+   area with no such item has no way out.
 6. **Squares**: the player on **12,4**, whichever way it came. [research,
    run: entering eastward and northward] Each creature by its record
    number r: **column 2 + (r mod 2), row 3 + (r div 2)**, so record 0 on
@@ -139,16 +168,18 @@ swept, and a walk out); "[research]" alone is not yet captured by us.
    left-behind check, no random room creature. [research, run]
 4. **A creature that walks through the door is removed**: it is sent
    towards the open map, which creatures cannot enter. [research, traced]
-   **Engine:** creatures see 0,5 as a door (an exit, creatures 6.4) and
-   one that steps onto it is removed (`CreatureRemoved`, reason
-   `left_area`).
+   **Engine:** creatures see the door item's square (3.5) as a door (an
+   exit, creatures 6.4) and one that steps onto it is removed
+   (`CreatureRemoved`, reason `left_area`).
 
 ## 7. Leaving and closing
 
-1. **Walking out.** The player leaves by stepping onto the door at 0,5,
-   which uses one move as usual; it comes back on the map **on the area's
-   entrance square** (the square it stepped onto when the roll hit, not
-   the one it came from), keeping the moves it has left. The return takes
+1. **Walking out.** The player leaves by stepping onto the door (3.5, at
+   0,5 as stored), which uses one move as usual; it comes back on the map
+   **on the area's entrance square** (the square it stepped onto when the
+   roll hit, not the one it came from), keeping the moves it has left.
+   This is the stored door, whose parameter names its own area; a door
+   naming another area leads to that one's entrance (3.5). The return takes
    no roll; the next step does. [research, run; capture: from 1,5 west, T
    on the entrance 13,12 with 5 of 6 moves] Event: `LeftArea`.
 2. **Closing.** When no living player is left in the area it closes: it is
@@ -156,8 +187,13 @@ swept, and a walk out); "[research]" alone is not yet captured by us.
    for good (`CreatureRemoved`, reason `area_closed`), and every item
    lying in it deleted (the door stays). [research: run for the freeing,
    the entrance and the copy's removal; traced for the items] [capture:
-   the size byte 0, the entrance 41,41, slot 8 free] Event:
-   `AreaClosed`.
+   the size byte 0, the entrance 41,41, slot 8 free; capture.md 10.26: a
+   treasure's entry in area 1's list marked deleted in place, the door's
+   entry kept] Items written into the file's lists go too, so a treasure
+   an area starts with is most likely there only until it first closes
+   (reopening the area after that was not captured). Which entries count as "the door" with several door items or a door
+   moved is [unknown]. **Engine:** every item of thing 82 stays, every
+   other item is deleted; `AreaClosed`.
 3. **The creatures dying or leaving does not end the area**; only its last
    player leaving or dying does. [research, traced]
 4. **A player dying in the area** closes it if no player is left, as 7.2,
@@ -178,6 +214,10 @@ The researcher's next pass (`docs/research/encounters.md`): two players
 in one area or in different areas, a death in an area run rather than
 traced, save and retire inside, all four areas in use and all eight slots
 taken, fighting there (the cleared bit, what a dead copy drops and its
-gold), and which door table entry the area door reads. Not captured by us
-yet: a second player joining, a death in an area, a creature through the
-door, all areas or slots in use (capture.md 10.20).
+gold), and which door table entry the area door reads (capture.md 10.26
+showed the parameter picking area n + 1's entrance; the four entries at
+world map + 0x806 as its table are a guess). Not captured by us yet: a
+second player joining, a death in an area, a creature through the door,
+all areas or slots in use (capture.md 10.20); an area reopened after its
+listed items were deleted, several doors in one area, and changing the
+entries at + 0x806 (capture.md 10.26).

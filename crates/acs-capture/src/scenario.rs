@@ -613,6 +613,70 @@ pub struct MoveBasic {
     /// picture) over these inclusive map bounds, inside the field; the
     /// markers and the door stay on top.
     pub patch: Option<(u8, u8, u8, u8)>,
+    /// Encounter area item lists of ours (docs/capture.md 10.26): area n
+    /// (1..4) and its items (x, y, thing, parameter), in place of the
+    /// template's list at world map block + `AREA_LISTS`.
+    pub area_lists: Vec<AreaList>,
+}
+
+/// Where the world map block's five room item lists start (room 0 the
+/// open map, rooms 1..4 the encounter areas), in the room list format: a
+/// u16 length counting itself, then 3-byte items. A format find from the
+/// corpus, checked in docs/capture.md 10.26.
+pub const AREA_LISTS: usize = 0x810;
+/// An area (1..4) and its items: x, y, thing, parameter.
+pub type AreaList = (u8, Vec<(u8, u8, u8, u8)>);
+/// Things an area list may name that `area_lists` defines: treasures of
+/// weight 1 and value 1 (`AREA_THING`..=`AREA_THING_LAST`, the half
+/// marker picture) and the store (`STORE`).
+pub const AREA_THING: u8 = 42;
+pub const AREA_THING_LAST: u8 = 49;
+
+/// Rewrites the map block's room item lists with `lists` in place of the
+/// template's, and defines the things of ours they name.
+fn area_lists(f: &mut Fixture, lists: &[AreaList]) {
+    if lists.is_empty() {
+        return;
+    }
+    let base = f.l.world_map + AREA_LISTS;
+    let mut rooms: Vec<Vec<u8>> = Vec::new();
+    let mut at = base;
+    for _ in 0..5 {
+        // No template (the tests): zeros, taken as empty lists.
+        let n = u16::from_le_bytes([f.data[at], f.data[at + 1]]) as usize;
+        assert!(n <= 0x200, "template map list length {n}");
+        rooms.push(f.data[(at + 2).min(at + n)..at + n].to_vec());
+        at += n;
+    }
+    let old_end = at;
+    for (area, items) in lists {
+        assert!((1..=4).contains(area), "areas are 1..4");
+        rooms[*area as usize] = items
+            .iter()
+            .flat_map(|&(x, y, t, p)| [x << 4 | y, t, p])
+            .collect();
+        for &(_, _, t, _) in items {
+            if (AREA_THING..=AREA_THING_LAST).contains(&t) {
+                f.thing(
+                    t as usize,
+                    &format!("AREATHING{}", char::from(b'A' + t - AREA_THING)),
+                    [0x01, 1, 1, PIC_MARKER2 as u8],
+                );
+                no_messages(f, t as usize);
+            } else if t == STORE {
+                f.thing(STORE as usize, "STORE", [0x0C, PIC_MARKER as u8, 0, 0]);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for r in &rooms {
+        out.extend_from_slice(&((r.len() + 2) as u16).to_le_bytes());
+        out.extend_from_slice(r);
+    }
+    assert!(base + out.len() <= f.l.world_map + 0xC00, "map lists overflow");
+    let end = old_end.max(base + out.len());
+    f.data[base..end].fill(0);
+    f.data[base..base + out.len()].copy_from_slice(&out);
 }
 
 /// A random creature of the world map: who it is, the terrain it appears
@@ -812,6 +876,7 @@ impl Default for MoveBasic {
             mail: None,
             map_creatures: Vec::new(),
             patch: None,
+            area_lists: Vec::new(),
         }
     }
 }
@@ -1300,6 +1365,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             ..RoomSpec::default()
         });
     }
+    area_lists(&mut f, &s.area_lists);
     f.region(RegionSpec {
         name: "TEST REGION",
         rooms,
@@ -1628,6 +1694,21 @@ mod tests {
         let c = &r.random_creatures[0];
         assert!(c.in_use);
         assert_eq!((c.name.as_str(), c.speed), ("RR", 2));
+    }
+
+    #[test]
+    fn area_lists_replace_the_map_tail() {
+        let s = MoveBasic {
+            area_lists: vec![(1, vec![(0, 5, 82, 0), (7, 5, AREA_THING, 1)]), (3, vec![])],
+            ..MoveBasic::default()
+        };
+        let img = move_basic(&s, None);
+        let l = &acs_core::layout::C64;
+        let t = &img.data[l.world_map + AREA_LISTS..][..13];
+        // Room 0 empty, area 1 two items, areas 2..4 empty.
+        assert_eq!(t, [2, 0, 8, 0, 0x05, 82, 0, 0x75, AREA_THING, 1, 2, 0, 2]);
+        let adv = acs_core::decode(&img).expect("decodes").adventure;
+        assert_eq!(adv.things[AREA_THING as usize - 1].name, "AREATHINGA");
     }
 
     #[test]

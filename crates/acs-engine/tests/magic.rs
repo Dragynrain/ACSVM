@@ -1561,3 +1561,95 @@ fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
         assert_eq!(g.players().len(), 4);
     });
 }
+
+/// 5.5: a creature's byte 0x0C keeps the round of its last turn; at the
+/// top of the next it gains up to N - 1 Power (to Wisdom) and N / 2 Life
+/// Force (to Constitution), N the rounds since, modulo 256; a first turn
+/// (byte 0) only notes the round, and the byte is never left 0.
+#[test]
+fn creatures_catch_up_on_the_rounds_they_missed() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 7, 5, |c| {
+            c.strategy.alignment = Alignment::Neutral;
+            c.strategy.aggressive = false;
+            c.wisdom = 40;
+            c.power = 0;
+            c.constitution = 100;
+            c.life_force = 1;
+            c.last_turn_round = 0;
+        });
+        let mut g = start(a, 2, 2, setup());
+        let state = |g: &Game| {
+            let c = g.creature(1, 1).expect("alive");
+            (c.power, c.life_force, c.last_turn_round)
+        };
+        // The first turn, in round 0: no catch-up, drift only; round 0
+        // is noted as 1.
+        g.apply(Command::Wait);
+        let (power, life, byte) = state(&g);
+        assert_eq!((power, byte), (1, 1));
+        assert!((1..=3).contains(&life), "{life}");
+        // Round 1 notes 1 too (N 0 from round 0's 1): drift only.
+        g.apply(Command::Wait);
+        let (power, _, byte) = state(&g);
+        assert_eq!((power, byte), (2, 1), "round 1");
+        // Round 2, N 1: drift and healing only.
+        g.apply(Command::Wait);
+        let (power, _, byte) = state(&g);
+        assert_eq!((power, byte), (3, 2), "round 2");
+        // An absence of N rounds before the next turn (round byte + 1),
+        // 200 and 255 wrapping below 0.
+        for n in [10u8, 39, 2, 200, 255] {
+            let (power, life, byte) = state(&g);
+            let next = byte + 1;
+            g.creature_mut(1, 1).expect("slot").last_turn_round = next.wrapping_sub(n);
+            g.apply(Command::Wait);
+            let caught_power = (u16::from(power) + u16::from(n) - 1).min(40) as u8;
+            let want_power = if caught_power < 40 { caught_power + 1 } else { 40 };
+            let caught_life = (u16::from(life) + u16::from(n / 2)).min(100) as u8;
+            let (p2, l2, b2) = state(&g);
+            assert_eq!(p2, want_power, "N {n}");
+            assert!(
+                (caught_life..=(caught_life + 2).min(100)).contains(&l2),
+                "N {n}: life {life} -> {l2}"
+            );
+            assert_eq!(b2, next, "N {n}");
+        }
+        // Capped: Life Force at Constitution, Power at Wisdom.
+        let (power, life, _) = state(&g);
+        assert_eq!((power, life), (40, 100));
+        // Power above Wisdom is not lowered by the catch-up, only by drift.
+        g.creature_mut(1, 1).expect("slot").power = 45;
+        let (_, _, byte) = state(&g);
+        g.creature_mut(1, 1).expect("slot").last_turn_round = (byte + 1).wrapping_sub(50);
+        g.apply(Command::Wait);
+        assert_eq!(state(&g).0, 44);
+    });
+}
+
+/// 5.5: the byte is the round counter's low byte, so the turn of a round
+/// whose low byte is 0 notes 1, never 0.
+#[test]
+fn the_catch_up_round_is_never_noted_as_0() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 7, 5, |c| {
+            c.strategy.alignment = Alignment::Neutral;
+            c.strategy.aggressive = false;
+        });
+        let mut g = start(a, 2, 2, setup());
+        let mut seen = Vec::new();
+        for _ in 0..600 {
+            g.apply(Command::Wait);
+            let b = g.creature(1, 1).expect("alive").last_turn_round;
+            assert_ne!(b, 0);
+            if seen.last() != Some(&b) {
+                seen.push(b);
+            }
+        }
+        // It went round 256 at least twice: 255 then 1, never 0.
+        let wraps = seen.windows(2).filter(|w| w[0] == 255 && w[1] == 1).count();
+        assert!(wraps >= 2, "{wraps} wraps in {seen:?}");
+    });
+}

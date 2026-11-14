@@ -77,7 +77,7 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       living players (counted over every region) changed during the round,
       either way, the death message (one, however many died); the requests
       made during the round (retiring a player, adding one, saving:
-      [characters](characters.md) 6.2, 7.1); then the visit
+      [characters](characters.md) 6.2, 7.1, and 2.2.7); then the visit
       ends if 2.2.2 says so. A round is never cut short by a death: every
       individual still on the list takes its turn.
    6. **The death message** comes after every round in which a player
@@ -90,10 +90,37 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       players' places. With nobody alive anywhere, the game does not end:
       it goes to the add-a-player screen (from another adventure, a new
       character, or none), and an added player takes the first dead
-      player's slot. **The button** clears the marks and requests, reads
-      back the saved state (players, round counter, queue), shows each
-      living player's "one of the adventurers is" screen, ends the visit
-      and starts a new cycle from the restored places.
+      player's slot. By then every player record is cleared to 0, place
+      and gold included. **Declining** (DON'T ADD A PLAYER) reads the
+      disk and brings the same screen back, the cursor on CREATE NEW
+      PLAYER: no turns are taken and the round counter and region stay as
+      they were, for as long as nobody is added (as after the last player
+      retires, [characters](characters.md) 7.6). **The button** clears the
+      marks and requests, reads back the saved state (players, round
+      counter, queue), shows each living player's "one of the adventurers
+      is" screen, ends the visit and starts a new cycle from the restored
+      places.
+   7. **When the saved state is written.** The state the button restores
+      is the later of two saves:
+      1. **A visit that changes region**: when a visit begins in a region
+         other than the one the visit before it was in, the state at that
+         visit's start is saved, its round counter being the visit's first
+         round. Not the moment of the door step: a player who walks through
+         a map door in round 13 is saved with round 14, when the room
+         region's visit begins. A visit of the same region as the one
+         before it (one player alone, visit after visit) saves nothing, so
+         a death there goes back to the start of the first of that run of
+         visits.
+      2. **SAVE GAME** (the menu's twelfth entry, last of the third row):
+         it answers "I will save the game as soon as possible", offers F1
+         for a return to the editor after the save, and ends the turn. The
+         save is made with the round's other requests (2.2.5), so it holds
+         the state at that round's end with the counter already gone up:
+         chosen in round 24, it restores to the start of round 25.
+      A save in the same round as a region change is [unknown]. **Engine:**
+      the later of the two, as above; SAVE GAME is a command logged like
+      any other, taken at the round's end; with both in one round, the
+      visit start that follows the round's end is the later one.
    [research: turn-order first pass, 2026-11-12, `docs/research/turn-order.md`] Confirmed: with T in a room with three creatures and U
    on the map, the scheduler's region and round counter, read at every
    turn's start, showed U alone for rounds 21 to 39 (the rest of one map
@@ -148,16 +175,31 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    button2, capture.md 10.22] Not shown: the queue going on after F1
    (nothing was queued). A player killed before its own turn in the same
    round is skipped like any dead individual [research, unconfirmed]: no
-   list of ours had its killer before it. When the saved state the
-   button restores is written (at each region change, at a save, or
-   both) is [unknown]; in every capture it was the state at the start of
-   the current visit, which had begun with a region change.
-   **Engine:** the rules 2.2.1 to 2.2.6. A dead player is skipped on
+   list of ours had its killer before it.
+   **The restore point and declining (2.2.6, 2.2.7)** [capture: mem,
+   rr21, capture.md 10.25; ours, no research pass, 2026-11-14]. Gold and
+   a creature's class poked to a new value at each step marked what came
+   back; one run a case (a `mem` run repeats itself), every restore of a
+   run the same. SAVE GAME in round 24, a kill in round 25: the button
+   brought back counter 25 and round 24's end state; without the save,
+   the same pokes went back to counter 22, the room visit's start, in all
+   10 restores (`a-save`, `a-nosave`). T alone in a room region from
+   round 14, three visit ends passed with no region change, killed in
+   round 46: back to counter 14 in all 15 restores (`b-button`). A room
+   region visited from rounds 40, 60 and 80 with the map visited in
+   between, a kill in round 85: back to counter 80 and that visit's
+   starting values, then the map first (`b-split-button`). Declining
+   twice after F1 with nobody alive: "accessing disk", the same screen,
+   and no turn for 150M instructions, T's record all 0 (`decline`).
+   **Engine:** the rules 2.2.1 to 2.2.7. A dead player is skipped on
    every list and left out of the marks; the round finishes after a
    death. The death message, its two answers and the add-a-player
    screen are the front end's: F1 is simply going on; the button is
-   loading the front end's last save (magic 7.4); with nobody alive the
-   engine reports it (`AllPlayersDead`) and waits for a new player.
+   loading the last save point of 2.2.7 (magic 7.4, `docs/saves.md`
+   1.4); with nobody alive the engine reports it (`AllPlayersDead`),
+   clears the dead players' records and waits for a new player.
+   Declining needs no command: the front end shows the screen again
+   and the engine takes no turn.
 3. So creatures act only while a player stands in their room at a round's
    start, and move once a round however many players share the room. Two
    players in different places do not alternate: each gets its region's
@@ -639,8 +681,9 @@ creatures replay exactly.
 
 1. Turn order: captured and researched (2.2, 2.3), players in different
    places and two players in different rooms of one region included.
-   Still open: the round a player missed after coming in at the end of
-   the map's visit (2.2); what happens to the visit when a player dies.
+   Deaths, the restore point and declining to add a player captured
+   (2.2.5 to 2.2.7). Still open: a SAVE GAME in the same round as a
+   region change (2.2.7).
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive

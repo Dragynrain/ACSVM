@@ -16,7 +16,7 @@ use crate::limits::{Limits, Profile};
 use serde::{Deserialize, Serialize};
 
 /// Version of the JSON model. Bump when a field changes meaning.
-pub const MODEL_VERSION: u32 = 3;
+pub const MODEL_VERSION: u32 = 4;
 
 /// A thing number. `u16` so Extended adventures can pass 255.
 pub type ThingId = u16;
@@ -439,9 +439,14 @@ pub struct Creature {
     pub region: u8,
     pub room: u8,
     pub possessions: Vec<Possession>,
-    /// Bytes 0x0B and 0x0C: zero in every corpus record; kept raw.
+    /// Byte 0x0B: zero in every corpus record; kept raw.
     pub unknown_0b: u8,
-    pub unknown_0c: u8,
+    /// Byte 0x0C: the round counter's low byte at the creature's last
+    /// turn, 0 before its first (zero in every corpus record); read and
+    /// set at the top of each turn to catch up (magic 5.5). Model
+    /// version 3 called it `unknown_0c`, which still loads.
+    #[serde(alias = "unknown_0c")]
+    pub last_turn_round: u8,
 }
 
 // ---------------------------------------------------------------------------
@@ -526,6 +531,49 @@ pub struct WorldMap {
     /// `None` for unused points (stored as 0xFF).
     pub exit_points: Vec<Option<MapPoint>>,
     pub random_creatures: Vec<WorldCreature>,
+    /// The four encounter areas' room items (areas 1..4, in order), from
+    /// the lists at world map + 0x810 (format notes, the world map's tail).
+    /// Model version 3 had none; such JSON loads with the corpus's lists,
+    /// each area's door alone (thing 82 on 0,5, parameter n - 1).
+    #[serde(default = "stock_area_items")]
+    pub area_items: Vec<Vec<RoomItem>>,
+    /// Room 0's list (the open map), empty in the corpus; kept for
+    /// round-tripping, never placed.
+    #[serde(default)]
+    pub open_map_items: Vec<RoomItem>,
+    /// World map bytes 0x806..0x80E as stored (`00 41`..`00 44` in the
+    /// corpus; most likely the areas' door table, unconfirmed).
+    #[serde(default = "stock_area_doors")]
+    pub unknown_806: Vec<u8>,
+    /// World map u16 at 0x80E as stored (0x0832 in the corpus).
+    #[serde(default = "stock_80e")]
+    pub unknown_80e: u16,
+}
+
+/// The corpus's area lists: each area holds only its exit door.
+pub fn stock_area_items() -> Vec<Vec<RoomItem>> {
+    let (x, y) = crate::layout::world_map::STOCK_AREA_DOOR;
+    (0..4u8)
+        .map(|n| {
+            vec![RoomItem {
+                x,
+                y,
+                thing: crate::layout::world_map::AREA_DOOR_THING.into(),
+                parameter: n,
+                flag: false,
+                destination: None,
+                gold: None,
+            }]
+        })
+        .collect()
+}
+
+fn stock_area_doors() -> Vec<u8> {
+    crate::layout::world_map::STOCK_AREA_DOORS.to_vec()
+}
+
+fn stock_80e() -> u16 {
+    crate::layout::world_map::STOCK_80E
 }
 
 // ---------------------------------------------------------------------------

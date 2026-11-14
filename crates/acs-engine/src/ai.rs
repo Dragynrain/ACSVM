@@ -328,7 +328,13 @@ impl Game {
                     }
                     continue;
                 }
-                if region == 0 && (x, y) == encounters::AREA_DOOR {
+                let at = Location::Room {
+                    region,
+                    room: c.room,
+                    x,
+                    y,
+                };
+                if region == 0 && self.area_door(at).is_some() {
                     grid[k] = Sq::AreaDoor;
                     continue;
                 }
@@ -421,22 +427,13 @@ impl Game {
             }
         }
         let (exit, gold, treasure) = rank_things(c);
-        // Encounters 3.5, 6.4: the area's door is an exit like any other,
-        // the first thing of its room.
-        let (dx, dy) = encounters::AREA_DOOR;
-        if exit != NONE && grid.get(dy as usize * w as usize + dx as usize) == Some(&Sq::AreaDoor) {
-            offer(
-                exit.saturating_add(steps(here, (dx, dy))),
-                Goal {
-                    at: (dx, dy),
-                    individual: None,
-                },
-            );
-        }
         for (i, it) in r.items.iter().enumerate() {
             let k = it.y as usize * w as usize + it.x as usize;
             let rank = match grid.get(k) {
                 Some(Sq::Door(j)) if *j == i => exit,
+                // Encounters 3.5, 6.4: an area's door item is an exit like
+                // any other, in its place among the room's things.
+                Some(Sq::AreaDoor) if it.thing == encounters::AREA_DOOR_THING => exit,
                 Some(Sq::Take(j)) if *j == i => {
                     if it.thing == GOLD {
                         gold

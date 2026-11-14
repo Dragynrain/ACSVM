@@ -23,12 +23,24 @@ loads it.
    number of commands played before each. Replay makes them at the same
    point. Other tool hooks (setting Power, giving a thing, editing a slot)
    are for tests and are not saved.
-4. The **autosave** the original makes on entering or leaving a region
-   (movement 6.6) is a point in the same command list: the number of
+4. The **autosave** is a point in the same command list: the number of
    commands played when it was made. After a death, play resumes there
    (magic 7.4), and new commands carry on from that point, so the list
    stays one line of play with no branches. A save made after resuming
    holds only the commands that led to the current game.
+   It is made where the original saves (movement 6.6, creatures 2.2.7;
+   [capture: capture.md 10.25]), not at the door step:
+   - when a visit begins in a region other than the previous visit's
+     (the game's start counts as one: point 0); the point is the number
+     of commands played when that visit's first round begins, so
+     resuming replays up to the start of that round, its counter the
+     visit's first round. Visits of one region in a row move nothing.
+   - at the end of a round in which SAVE GAME was chosen (a logged
+     command), after the counter has gone up; the point is the commands
+     played by then.
+   The later of the two is the autosave. A SAVE GAME in the same round as
+   a region change is [unknown]; the engine takes the visit start that
+   follows the round's end.
 
 ## 2. The file
 
@@ -101,6 +113,7 @@ dropped file is recognised by its `format` field, not its name.
 2. A replay is a save too: sharing a save file with its adventure name is
    enough to reproduce a bug exactly, as long as the other side owns the
    same adventure file.
-3. Saving anywhere, at any time, is ours; the original saves only at region
-   changes. Faithful play is unaffected: the autosave and resume work as in
+3. Saving a file anywhere, at any time, is ours; the original saves only
+   at a visit that changes region and at SAVE GAME (1.4). Faithful play is
+   unaffected: the autosave and resume work as in
    the original whether or not the user ever saves a file.

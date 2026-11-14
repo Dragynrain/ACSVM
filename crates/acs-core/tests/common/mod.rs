@@ -16,6 +16,12 @@ pub struct Fixture {
     pub l: &'static Layout,
     pub data: Vec<u8>,
     regions: Vec<RegionSpec>,
+    /// The world map tail's five item lists (room 0, areas 1..4) as
+    /// (x, y, thing, parameter). Written by `build` when a test set one
+    /// with `area_list`, or as the editor writes them when nothing is at
+    /// the tail yet (a zero first length); bytes put there are kept.
+    pub world_lists: Vec<Vec<(u8, u8, u8, u8)>>,
+    lists_set: bool,
 }
 
 #[derive(Default, Clone)]
@@ -60,6 +66,10 @@ impl Fixture {
             l: Layout::for_platform(platform),
             data: vec![0; size],
             regions: Vec::new(),
+            world_lists: std::iter::once(Vec::new())
+                .chain((0..4).map(|n| vec![(0, 5, wm::AREA_DOOR_THING, n)]))
+                .collect(),
+            lists_set: false,
         };
         // Empty thing slots are type 15 (undefined).
         for i in 0..th::COUNT {
@@ -148,8 +158,37 @@ impl Fixture {
         self
     }
 
-    /// Lays out all regions (header pointers, heap, item lists) and returns the image.
+    /// Sets the world map tail's list `list` (0 the open map, 1..4 the areas).
+    pub fn area_list(&mut self, list: usize, items: Vec<(u8, u8, u8, u8)>) -> &mut Self {
+        self.world_lists[list] = items;
+        self.lists_set = true;
+        self
+    }
+
+    /// Lays out all regions (header pointers, heap, item lists) and the
+    /// world map tail, and returns the image.
     pub fn build(&mut self) -> Image {
+        let w = self.l.world_map;
+        let untouched = self.data[w + wm::ITEM_LISTS..][..2] == [0, 0];
+        if untouched {
+            self.put(w + wm::AREA_DOORS, &wm::STOCK_AREA_DOORS);
+            self.put(w + wm::UNKNOWN_80E, &wm::STOCK_80E.to_le_bytes());
+        }
+        let lists = if untouched || self.lists_set {
+            self.world_lists.clone()
+        } else {
+            Vec::new()
+        };
+        let mut cur = w + wm::ITEM_LISTS;
+        for items in lists {
+            let len = (2 + items.len() * 3) as u16;
+            self.put(cur, &len.to_le_bytes());
+            cur += 2;
+            for (x, y, t, p) in items {
+                self.put(cur, &[x << 4 | y, t, p]);
+                cur += 3;
+            }
+        }
         let a = self.l.adventure;
         self.data[a + adv::REGION_COUNT] = self.regions.len() as u8;
         for (r, spec) in self.regions.clone().iter().enumerate() {

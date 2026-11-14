@@ -296,7 +296,13 @@ magic item after it is used. [unknown]
    with N the rounds since it (the current round's low byte less the byte,
    counted round 256, so an absence of more than 255 rounds wraps), the
    creature gains up to N - 1 Power, never past its Wisdom, and up to N / 2
-   Life Force, rounded down, never past its Constitution. Then the byte is
+   Life Force, rounded down, never past its Constitution. When the byte
+   equals the current round's low byte (N = 0, no round missed) the
+   creature gains nothing: N - 1 does not wrap to 255. [capture: rr23,
+   capture.md 10.27: the byte set to the round of the creature's turn, 20
+   of 20 runs over 20 random states gained nothing; the controls as the
+   rule gives, N = 255 Power and Life Force to their caps in 4 of 4, N = 1
+   and byte 0 the same as N = 0] Then the byte is
    set to the current round's low byte (1 if that is 0). A creature with 0
    there, as every corpus and editor record has (format-notes, Creatures:
    byte 0x0C), skips the catch-up on its first turn and only notes the
@@ -312,10 +318,18 @@ magic item after it is used. [unknown]
    left and visited again, or unloaded and loaded from disk, catches up
    the same way: [research, unconfirmed] (no capture took players out of a
    region and back).
+   [unknown] In these captures a Speed 0 creature sometimes heals 1 point
+   more on the turn than 5.3 gives for its idle move; whether it does
+   depends on the random state (a later roll of the turn), not on the
+   byte, so it is not an effect of a byte of 0 (capture.md 10.23 read it
+   so; 10.27 found it with N = 0, N = 1 and byte 0 alike). Yet the states
+   that give it differ from one byte to another, and why the byte moves
+   that roll is not known.
    **Engine:** every creature keeps its last turn's round (the record's
    byte 0x0C, 0 as decoded) and catches up by this rule at the top of its
-   turn, before drift; regions stay in memory, so leaving and coming back
-   needs nothing more.
+   turn, before drift, gaining nothing at N = 0; regions stay in memory,
+   so leaving and coming back needs nothing more. The byte does not touch
+   the turn's other rolls.
 
 ## 6. Creatures and magic
 
@@ -379,14 +393,24 @@ Combat will reuse this; spells are the first thing that can kill.
    before it). [manual] On the C64 the offer comes after every round in
    which a player died, and play may also go on from there; with nobody
    left alive the game goes to the add-a-player screen rather than ending
-   ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] When the
-   save restored is written is [unknown]. The same screen comes back when
-   the last player retires ([characters](characters.md) 7.6).
+   ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] The
+   save restored is the later of the start of the last visit that began
+   in a different region from the visit before it, and the last SAVE
+   GAME (written at the end of the round it was chosen in); the round
+   counter comes back as that visit's first round (or the round after
+   the save), not the round of the door step (creatures 2.2.7). [capture:
+   rr21, capture.md 10.25] By the add-a-player screen the player records
+   are cleared; declining to add a player shows the same screen again
+   and no turn is taken (creatures 2.2.6). [capture: rr21 `decline`] The
+   same screen comes back when the last player retires
+   ([characters](characters.md) 7.6). A SAVE GAME in the same round as a
+   region change is [unknown].
    **Engine:** when no player is
    left alive, or the last one has retired, the game emits
    `AllPlayersDead` ("nobody is left in play") and ignores every command
-   but adding a player; saves are the front end's snapshots at
-   `EnteredRegion` / `LeftRegion` (movement 6.6).
+   but adding a player; declining is the front end showing its screen
+   again. The save point is creatures 2.2.7's, kept in the save file
+   (`docs/saves.md` 1.4); the button resumes from it.
 5. A player who dies during their own turn ends it at once.
 
 ## 8. Characters
@@ -412,7 +436,9 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing: captured, researched and
    confirmed (5.1-5.3); creatures catching up by the record's byte (5.5).
-   Still open: catching up across a real absence from the region (5.5), creatures' healing, a temporary fall,
+   Still open: catching up across a real absence from the region (5.5),
+   why the byte of 5.5 changes which random states give a Speed 0
+   creature's extra point of healing (5.5), creatures' healing, a temporary fall,
    an individual out of play when its reversal is due, and the idle
    roll's range on a turn that starts with moves carried through a map
    door (5.3, creatures 2.2.4).
