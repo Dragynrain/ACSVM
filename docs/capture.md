@@ -1273,3 +1273,22 @@ In this order (planned November 2026):
    `all.sh` the pass's cases (combat brief, pass 2), six VICE processes at
    a time, about 4 minutes each; `rounds.sh` 16 `mem --draws` runs from
    each turn-end snapshot with the fighting bytes watched.
+16. **The third combat pass's inputs** (2026-11-13). The same kit and
+   scripts in `ACSVM-research/capture/runs/rr9/` (`case.sh`, `all.sh`,
+   `rounds.sh`; `cases.txt` the exact keys): 13 turn-end cases (armor on
+   its wearer's side, with Armor skill 20, of Power 12, disappearing;
+   EE's Dexterity 31 against a breakable blade; magic defense 3 with a
+   plain blade and 1 with mail; the bow diagonal, behind an obstacle on
+   5,4 (`--obstacle`), beside T, breakable, owned but not held,
+   disappearing) and `player-bow` (a room snapshot, T holding the bow).
+   16 runs of each, 16 million instructions, every draw logged. Seen in
+   the watched bytes: the mail gone in 4 `mail-parry` runs and T's Armor
+   skill up to 2; with Armor skill 20, 21 at most; mail of Power 12 let
+   T be hurt once in 16; magic defense 3 kept a plain blade off T in all
+   16; behind the obstacle EE never fired and walked; **beside T, EE
+   holding only the bow hurt T in 13 of 16 runs without moving**, against
+   the findings' "no firing with a foe beside" (asked in the brief); the
+   owned bow never showed in EE's held-weapon byte, though T was hurt
+   once; the breakable bow went in 7 runs, the disappearing one in all
+   16. Copied with `fall` (10.14.3) and `burden` (10.14.5) to
+   `research/combat/inputs/pass3/` for the combat brief's pass 3.

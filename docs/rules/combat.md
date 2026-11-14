@@ -309,8 +309,12 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
    line to the goal crosses no wall or obstacle. [research: traced] An
    enemy holding our bow (range 7) with the player 5 squares west fired
    on every turn and never stepped. [capture: bow, bow-line, 32 runs,
-   capture.md 10.14.10] A player can't fire: the program gives a message.
-   [research: traced] **Engine:** "beside" is the 4 squares (as 6.2); "not
+   capture.md 10.14.10] Behind an obstacle on the line it never fired and
+   walked instead (16 runs). But beside the player, holding only the bow,
+   it hurt the player in 13 of 16 runs without moving, against "no foe
+   beside". [capture: bow-wall, bow-beside, capture.md 10.16; asked in
+   the combat brief's pass 3] [unknown] A player can't fire: the program
+   gives a message. [research: traced] **Engine:** "beside" is the 4 squares (as 6.2); "not
    on its side" is a foe ([creatures](creatures.md) 7.4); the straight line
    is the flight of a shot without deviation (8.5), the squares before the
    goal's. [unknown] whether the goal must be a foe; the engine fires only

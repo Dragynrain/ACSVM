@@ -6,7 +6,8 @@ Licensed CC BY 4.0. Status: first pass done 2026-11-13 (items 1, 2, 3, 5,
 inputs reach and in the engine (`docs/rules/combat.md`). Pass 2 done
 2026-11-13 (all seven items; 1, 3, 5 and 6 run): confirmed by capture
 except where noted under "Findings", specified in `docs/rules/combat.md`
-(firing in its section 8).
+(firing in its section 8). Pass 3 briefed 2026-11-13, its inputs ready
+(section "Pass 3"); not started.
 
 ## Why
 
@@ -188,6 +189,124 @@ Force, Power, square and weapon (`$E1A3`, `$E1A6`, `$E1A8`, `$E1B0`,
 `$E1B1`, `$E1B7`), slot 1's Life Force (`$E1CB`) and the blows left
 (`$B799`). Some samples read a wrong value for one sample while memory is
 banked (capture.md 10.14.3): drop a change undone at the next sample.
+
+## Pass 3
+
+Briefed 2026-11-13. The second pass's rules are confirmed by capture and
+in the engine, firing included (`docs/rules/combat.md` sections 3 to 8,
+capture.md 10.14.10). This pass takes what it traced but couldn't run,
+and four things our own runs turned up. New inputs are in
+`inputs/pass3/` (table at the end); same scenario, moment and fighters as
+pass 2 unless a row says otherwise.
+
+### What we ask
+
+1. **Armor on its wearer's side** (findings 2.3, 2.4, 2.7): `mail-parry`
+   (T wears the mail, adjustment -30, Armor skill 0, and holds the blade)
+   and `mail-skill` (the same with Armor skill 20, no break chance). The
+   armor term in T's parry chance and in its counter-blows' hit chance,
+   the Armor check after T's hits and after its parries (the 30-in-100
+   roll), and how Armor skill makes up the adjustment.
+2. **Armor that doesn't take a blow** (findings 2.6): `mail-heavy` (mail
+   of Power 12 against blows of 10 and 15). A blow the armor stops
+   entirely: is the break roll drawn, does the blow count as damaging
+   (two blows used) or not, what message. `mail-once` (the mail set to
+   disappear after use): after which blow it goes, and whether the
+   attack goes on.
+3. **A weapon breaking with blows still due** (findings 4): `break-many`
+   (EE with Dexterity 31, so up to 6 blows; the blade's break chance 15;
+   T holds it and parries). Does the break end the attack; the message.
+4. **Magic defense** (findings 2.6): `md3-plain` (level 3 against a plain
+   blade: stopped and called off, as level 2?) and `mail-md1` (plain mail
+   and level 1 together: the order of armor and magic defense).
+5. **Firing, the rest** (pass 2, P2.5 item 9):
+   - `bow-diag` (EE on 9,7, T on 4,4): the sideways offset off the axes.
+     Also the offset's exact arithmetic: in pass 2, FF 3 squares out was
+     reached at deviation 17, which an exact half-square test misses;
+     offsets in quarters, eighths or sixteenths of a square, rounded
+     down, all fit. Which is it?
+   - `bow-wall` (an obstacle on 5,4, in the line): no firing? What EE
+     does instead.
+   - `bow-beside` (EE holding the bow on 5,4, beside T): the findings say
+     a creature with a foe beside it doesn't fire, but here T was hurt in
+     13 of 16 runs and EE never moved. Does it fire after all (and is
+     "beside" something else), or does it strike with the bow?
+   - `bow-break` (break chance 15): a break ends the firing; the message.
+   - `bow-ready` (EE owns the bow, holds nothing, T far): readying a
+     missile weapon at the turn's start, its cost, and then firing. EE's
+     held-weapon byte (`$E1B7`) never showed the bow in our runs, yet T
+     was hurt once: is the weapon held recorded elsewhere?
+   - `bow-once` (the bow disappears after use): after the first shot?
+   - `player-bow` (T's first turn in the room under way, T holding the
+     bow, EE on 9,4 with the blade): how a player tries to fire, the
+     message, whether a move is used.
+6. **Four things from our runs** (capture.md 10.14.10), not combat rules
+   but in the same turns:
+   1. *A creature whose weapon disappeared loses a move.* In pass 2's
+      `once` runs, after EE's blade went, each of its later turns had 2
+      steps of its 3 moves; every such turn began beside T. Why: readying
+      with nothing to ready? Does it happen apart from T? (Pass 2 inputs,
+      `once`.)
+   2. *The round's end.* With the slot roll on a slot in use, one
+      percentile follows and nothing more; on a free slot, one percentile
+      too. In `fall` (capture.md 10.14.3: residents in room 0, a random
+      creature there, T alone in the side room) a further percentile came
+      after the in-use slot's, every round. What is the percentile after a
+      free slot, and what decides whether the further one is drawn?
+      (Pass 2 runs, and `fall-side.vsf` with its disk and runs.)
+   3. *A Speed 0 friend's turn* (`bow-line`'s FF): the top-of-turn die,
+      two rolls of 0 to 9, a percentile, a roll whose size those runs
+      don't show, then one that always heals FF by 1 when hurt. What each
+      is. (Pass 2 runs, `bow-line`.)
+   4. *The arrow's arithmetic*: item 5, first point.
+7. **The dropped treasure's square** (first pass section 7): where an
+   overburdened creature's treasure lands (creatures 8.1; capture.md
+   10.14.5: a square beside it after one to five pairs of draws).
+   `burden-turn-end.vsf` with its disk and runs.
+8. Traced only, if cheap: does a blow on the world map (a map encounter)
+   go the same way? We have no map creatures to run it with.
+
+Enough for this pass: 1, 3, 5 (`bow-diag`, `bow-wall`, `bow-beside`), 6.1
+and 6.2.
+
+### How the answers come back
+
+As before: `findings.md` gets a "Pass 3" section, plain language only,
+the same rules for addresses. For each item say run or traced, and how
+many runs.
+
+### Inputs (pass 3)
+
+In `ACSVM-research/research/combat/inputs/pass3/` (copies; made by
+`capture/runs/rr9/`, capture.md 10.16). As pass 2: each case has
+`NAME-disk.d64` and a snapshot with its screenshot, `cases.txt` the exact
+scenario keys, and 16 runs of each turn-end case in `runs/NAME.jsonl`
+(the random state set to the run's index, 16 million instructions, every
+draw logged, messages answered, the same bytes watched as pass 2). The
+mail (thing 40) is plain unless a row says so; the bow (41) has power 10,
+range 7.
+
+| Case | Snapshot | What | 16 runs (`runs/NAME.jsonl`) |
+| --- | --- | --- | --- |
+| `mail-parry` | `mail-parry-turn-end.vsf` | as pass 2's `parry` (both hold the blade), T also wears the mail: power 2, adjustment -30, break chance 15; Armor skill 0 | T hurt in 11, EE in 4; the mail gone in 4; T's Armor skill rose to 1 or 2 |
+| `mail-skill` | `mail-skill-turn-end.vsf` | as `mail-parry`, Armor skill 20, no break chance | T hurt in 9, EE in 3; Armor skill 20 to 21 |
+| `mail-heavy` | `mail-heavy-turn-end.vsf` | as pass 2's `mail` (T holds nothing), the mail of power 12 | T hurt in 1 |
+| `mail-once` | `mail-once-turn-end.vsf` | as pass 2's `mail`, the mail disappears after use, no break chance | T hurt in 13; the mail gone in 13 |
+| `break-many` | `break-many-turn-end.vsf` | as pass 2's `break`, EE's Dexterity 31 | T hurt in 11, EE in 11; no blade broke |
+| `md3-plain` | `md3-plain-turn-end.vsf` | as `armed`, T's magic defense 3, the blade plain | T never hurt |
+| `mail-md1` | `mail-md1-turn-end.vsf` | as pass 2's `mail` (no break chance), T's magic defense 1 | T hurt in 15 |
+| `bow-diag` | `bow-diag-turn-end.vsf` | as pass 2's `bow`, EE on 9,7 | T hurt in 5; EE never moved |
+| `bow-wall` | `bow-wall-turn-end.vsf` | as `bow`, an obstacle on 5,4 | T never hurt; EE walked in every run, no message |
+| `bow-beside` | `bow-beside-turn-end.vsf` | EE holding the bow on 5,4, beside T | T hurt in 13; EE never moved (we expected no firing: please explain) |
+| `bow-break` | `bow-break-turn-end.vsf` | as `bow`, break chance 15 | the bow gone in 7; T hurt in 2; EE moved in 4 |
+| `bow-ready` | `bow-ready-turn-end.vsf` | as `bow`, EE owns the bow but holds nothing | EE's held weapon byte never showed the bow; T hurt in 1 |
+| `bow-once` | `bow-once-turn-end.vsf` | as `bow`, the bow disappears after use | the bow gone in 16; T hurt in 1 |
+| `player-bow` | `player-bow-room.vsf` | T's first turn in the room under way, T holding the bow; EE on 9,4 holding the blade | none: try to fire |
+
+Also copied: `fall-side.vsf`, `fall-disk.d64` and `runs/fall.jsonl`
+(capture.md 10.14.3) for 6.2, and `burden-turn-end.vsf`,
+`burden-disk.d64` and `runs/burden.jsonl` (capture.md 10.14.5) for 7.
+Pass 2's inputs serve 6.1 and 6.3.
 
 ## Findings
 
