@@ -266,6 +266,20 @@ blue, and snapping turned the sky to grey speckle. Instead it is shrunk to
 gives flat bands like the kit. 16 and 24 colours lost the island's green.
 The UI font is in section 12.
 
+**The title's sloop is the *Magpie* (November 2026).** The draft's boat had
+a cream sail and a brown hull, so title and map marker showed two ships.
+Qwen-Image-Edit 2511 repainted it ("change only the small sailing boat: a
+black hull with a white band along its side, a black and white striped sail
+in horizontal bands, a small teal pennant ... keep everything else exactly
+the same"); all four seeds striped the sail, two striped the hull as well.
+The edit also redrew the rest of the picture slightly (thousands of pixels
+moved), so only the boat is kept: pasted into the original through a soft
+mask of what changed in the boat's box. At 336 px two hand fixes: the hull
+rows around the white band to one black, so one band shows, and the cream
+wash under the hull (the old sail's reflection) to light sea, since under a
+black hull it read as a second band. Shrink and posterize are as before (a
+box filter, median cut, no dither).
+
 | Group | Pictures | Contents | Why |
 | --- | --- | --- | --- |
 | Ships | 2 | A ship at anchor (map place square), a ship as a portal thing | Ships are the portals between islands |
