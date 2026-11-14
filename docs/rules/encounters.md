@@ -12,8 +12,9 @@ with the engine's choice as **Engine:**, **[capture]** for our own runs.
 (2026-11-14, `docs/research/encounters.md`): "run" where the researcher
 confirmed it in VICE (about 15 runs from the brief's snapshots, some with
 the random draw forced), "traced" where it was only read from the
-program. No capture of ours has checked any of it yet beyond capture.md
-10.19.
+program. **[capture]** marks what our own runs confirm (capture.md 10.20:
+every draw of 824 runs from the brief's scenarios, the random state
+swept, and a walk out); "[research]" alone is not yet captured by us.
 
 ## 1. The records
 
@@ -24,14 +25,15 @@ program. No capture of ours has checked any of it yet beyond capture.md
 2. **The chance**: 2 x c percent for c 0..5, then 10 + 5 x (c - 5) for
    c 6..15: 0, 2, 4, 6, 8, 10, 15, 20, .., 60. [manual: 0..60%] This is
    the decoder's reading (`WorldCreature::chance`). [research: run for
-   code 15, a forced 59 hit and 60 missed; traced for the rest]
+   code 15, a forced 59 hit and 60 missed; traced for the rest] [capture:
+   code 15 in 824 runs, a roll of 60 missing]
 
 ## 2. The roll
 
 1. **After the step.** The roll comes once the player stands on the new
    map square and the move is used, and goes by the **terrain of the
-   square entered**. [research, run; capture: capture.md 10.19, the step
-   from the field onto the grass]
+   square entered**. [research, run; capture: capture.md 10.19, 10.20: the
+   draws come right after the square changes]
 2. **Every completed step on the open map rolls**, the last move of a turn
    included. [research, run] None is taken for:
    - a refused move (no move used either); [research, run]
@@ -50,7 +52,10 @@ program. No capture of ours has checked any of it yet beyond capture.md
    **Every record that hits appears**: there is no stopping at the first.
    [research, run: one roll on the grass, 8 on the field (WOLF and the 7
    empty records on terrain 0, rolled against 0), WOLF and HARE both
-   hitting] So empty records on terrain 0 roll and never hit.
+   hitting] So empty records on terrain 0 roll and never hit. [capture:
+   capture.md 10.20, every step of 824 runs: one roll per grass step,
+   8 per field step with WOLF's first, 7 with only empty records there;
+   WOLF and HARE both appearing in 87 of 256 runs]
    **Engine:** so, empty records included (their roll uses the generator
    as the original's does).
 6. **A hit places a copy** of its record (4.3) in the first free creature
@@ -59,38 +64,44 @@ program. No capture of ours has checked any of it yet beyond capture.md
    placed. [research, traced] **Engine:** so; a record that is not in use
    places nothing (it cannot hit in practice, its chance being 0).
 7. Setting the area up takes no rolls: its place, the squares and the
-   creatures' values are all fixed. [research, run]
+   creatures' values are all fixed. [research, run; capture: no draw
+   between the rolls and the turn's end]
 
 ## 3. The encounter area
 
 1. An area is one of **four spare rooms of the world map's region** (rooms
    1 to 4 of region 0; room 0 is the open map). A hit takes **the first
    free one** and notes **the map square stepped onto** as its entrance.
-   [research, run: room 1 in every run] **Engine:** the map region is
+   [research, run: room 1 in every run; capture: area 1 in every one of
+   our encounters] **Engine:** the map region is
    kept by the game (it is not in the adventure's region list), its rooms
    1..4 the areas; a player in an area stands at
    `Location::Room { region: 0, room: 1..=4, .. }`.
 2. **Size**: 15 wide, 10 tall, walls included (the inside 13 x 8), every
    area the same. [research, run]
 3. **Walls**: the picture of the terrain entered (the grass's dots; the
-   field's blank picture, so no border). [research, run]
+   field's blank picture, so no border). [research, run; capture: the
+   grass's picture in area 1's wall byte]
 4. **Inside**: empty floor; no items, no random creature of its own
    (chance 0), not on any region grid. [research, run]
 5. **One way out**: a door on the left wall at column 0, row 5 (the gap in
    `patch-step-1.png`), part of the stored map data, the same in every
-   area and kept when the area is cleared. [research, run] **Engine:** the
+   area and kept when the area is cleared. [research, run; capture: the
+   gap at row 5, and the door taken from 1,5, capture.md 10.20] **Engine:** the
    door is not an item: the square 0,5 of an area is its exit (6.1, 6.4)
    and front ends draw it as an opening.
 6. **Squares**: the player on **12,4**, whichever way it came. [research,
    run: entering eastward and northward] Each creature by its record
    number r: **column 2 + (r mod 2), row 3 + (r div 2)**, so record 0 on
    2,3, record 1 on 3,3, .., record 7 on 3,6. [research: run for records 0
-   and 1, traced for the rest]
+   and 1, traced for the rest] [capture: 12,4 entering east and north;
+   record 0 on 2,3 and record 1 on 3,3, also alone in slot 8]
 
 ## 4. The creatures
 
 1. **One copy per record that hit**, up to the free slots: no count, no
-   roll for a number. [research, run for 1 and 2]
+   roll for a number. [research, run for 1 and 2; capture: 1 and 2, in
+   slots 8 and 9 in record order]
 2. **The copy is the record as stored**: Life Force, Power, Speed, skills,
    possessions, gold and name unchanged. [research, run: compared byte for
    byte] It differs in its place (the area and its square), in carrying
@@ -104,8 +115,8 @@ program. No capture of ours has checked any of it yet beyond capture.md
 ## 5. Entering
 
 1. **Entering ends the player's turn**: its moves left go to 0, and the
-   area's creatures take part from the next round (6.2). [research, run]
-   Events: `Encounter` for each copy placed, then `EnteredArea`.
+   area's creatures take part from the next round (6.2). [research, run; capture: the moves 0 in
+   every encounter] Events: `Encounter` for each copy placed, then `EnteredArea`.
 2. **A second player** who steps onto the entrance square of an open area
    joins it at once, with no roll, on 12,4 like the first, and its turn
    ends. [research, traced] What two players on 12,4 do is [unknown].
@@ -138,12 +149,14 @@ program. No capture of ours has checked any of it yet beyond capture.md
    which uses one move as usual; it comes back on the map **on the area's
    entrance square** (the square it stepped onto when the roll hit, not
    the one it came from), keeping the moves it has left. The return takes
-   no roll; the next step does. [research, run] Event: `LeftArea`.
+   no roll; the next step does. [research, run; capture: from 1,5 west, T
+   on the entrance 13,12 with 5 of 6 moves] Event: `LeftArea`.
 2. **Closing.** When no living player is left in the area it closes: it is
    marked free, its entrance forgotten, every creature copy in it removed
    for good (`CreatureRemoved`, reason `area_closed`), and every item
    lying in it deleted (the door stays). [research: run for the freeing,
-   the entrance and the copy's removal; traced for the items] Event:
+   the entrance and the copy's removal; traced for the items] [capture:
+   the size byte 0, the entrance 41,41, slot 8 free] Event:
    `AreaClosed`.
 3. **The creatures dying or leaving does not end the area**; only its last
    player leaving or dying does. [research, traced]
@@ -165,6 +178,6 @@ The researcher's next pass (`docs/research/encounters.md`): two players
 in one area or in different areas, a death in an area run rather than
 traced, save and retire inside, all four areas in use and all eight slots
 taken, fighting there (the cleared bit, what a dead copy drops and its
-gold), and which door table entry the area door reads. Our own captures
-should check the roll's draw order, the squares and the walk-out
-(capture.md 9 gives the state to read; findings section 6 the addresses).
+gold), and which door table entry the area door reads. Not captured by us
+yet: a second player joining, a death in an area, a creature through the
+door, all areas or slots in use (capture.md 10.20).

@@ -1458,7 +1458,13 @@ In this order (planned November 2026):
      loaded, as rr9's did; with the bow breakable instead (`bow-break`) it
      loaded with the store. The two disks differ only in the bow's break
      chance and disappear bit (`acs dump`). Not understood; a question
-     for the researcher.
+     for the researcher. Its inputs (stores brief, pass 2):
+     `ACSVM-research/capture/runs/rr16/`, `near.txt` from each case's
+     map `start.vsf` (`bow-once`, `bo-nostore`, `bow-break`): the stick
+     south 800k cycles and released leaves T one square north of the
+     door (`near.vsf`); a push of 1M steps onto it (`entering.vsf`).
+     3M cycles later the two that load show "ACCESSING DISK", the
+     hanging one never does.
    - `buy-blade` (`buy.txt`): T holding nothing, gold 500, the blade
      poked into the stock (`$E078` = 32). From 7,5 east to 13,5, north to
      13,2, west bumps the blade on 12,2 ("purchase"), the button: "the
@@ -1547,3 +1553,41 @@ In this order (planned November 2026):
    - `walk5.txt` from `field`: five pushes east; the first an ordinary
      step, the area showing after the second (no border: the field's
      picture is blank).
+20. **Confirming the encounters first pass** (2026-11-14;
+   `docs/research/encounters.md`, `docs/rules/encounters.md`).
+   `ACSVM-research/capture/runs/rr15/`, from rr14's three scenarios.
+   - `sweep.sh`: `run mem` from each `start.vsf`, the random state set to
+     each of its 256 values, a 300k push east (one or two steps), every
+     draw logged and the section 9 encounter bytes watched (T's place and
+     square, the moves left, area 1's room record and entrance, map slots
+     8 and 9) for 3M instructions. `scripts/encountercheck.py` takes each
+     map step's draws (the burst right after the square changes, every
+     draw the generator's), rolls one percentile for each record on the
+     entered terrain in record order (raw // 2, drawn again at 200 or
+     more), and checks that the area opens exactly when one hits, and how.
+     **`patch`** (WOLF on the grass at 60%): 256 of 256 runs exact, 354
+     steps, 219 encounters, one roll per grass step, the redraws as said,
+     and a roll of exactly 60 missing. **`field`** (WOLF on the field):
+     256 of 256, **8 rolls on every field step, WOLF's first** (the 7
+     empty records on terrain 0, rolled against 0). **`two`** (WOLF and
+     HARE on the grass): 256 of 256: both hit in 87 runs (slots 8 and 9,
+     on 2,3 and 3,3), WOLF alone in 40 (slot 8 on 2,3), HARE alone in 59
+     (**slot 8 on 3,3**, its record's square). In every encounter the
+     entrance was the square stepped onto (13,12 or 14,12), T on 12,4 in
+     area 1 (place 1), the moves 0, area 1's size byte 233 and its wall
+     picture the grass's, and no draw between the rolls and the turn's end
+     (encounters 2.1, 2.5, 2.6, 2.7, 3.1 to 3.3, 3.6, 4.1, 5.1).
+   - `north`: the same from `patch` with pushes south, east and north (60k
+     each, 1M apart), entering the grass from 13,13 northward: 56 of 56
+     runs exact (8 lost to a VICE job that refused its connection), 168
+     steps, the field steps drawing 7 rolls each (the empty records), and
+     **12,4 again** in all 39 encounters (3.6).
+   - `walkout.txt` (`wo/`): from `patch`, the state poked to 0 (the first
+     roll hits), one push east; at T's next turn (6 moves) T poked onto
+     1,5 and one push west through the door: **T on 13,12, the entrance,
+     with 5 moves**, the place 0, area 1's size 0, its entrance 41,41 and
+     slot 8 free (encounters 7.1, 7.2). `in.png` shows the area walled
+     with the grass's dots and the gap on the left at row 5.
+   Not run: a second player joining, a death in an area, all four areas
+   or all eight slots in use, a creature through the door, save and
+   retire inside.

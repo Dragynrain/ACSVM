@@ -129,6 +129,12 @@ is in capture.md 9.
   area closes, its copies removed and its items deleted. Death closes it
   too (traced). A creature through the door is removed (traced).
 
+Confirmed by capture 2026-11-14 (capture.md 10.20, `rr15`): the roll's
+draws and order in 824 runs over the three scenarios (every run exact
+by `scripts/encountercheck.py`), the squares entering east and north,
+the copies in slots 8 and 9, and the walk-out to the entrance with the
+area freed.
+
 Next pass (findings section 7): two players, a death in an area, save and
 retire inside, all areas and slots in use, fighting there, the door's
 table entry. Each needs a "Pass 2" section here with its inputs.

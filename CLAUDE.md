@@ -61,6 +61,7 @@ cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --
 python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10, 10.16)
 python scripts/storeread.py table|check ...           # store screens to text, sell offers vs stores 5.1 (capture.md 10.17)
 python scripts/charcheck.py RUNS.jsonl [-v]          # new-character sweep vs characters 1-2, draw by draw (capture.md 10.18)
+python scripts/encountercheck.py RUNS.jsonl --records 5:60 [--patch ..] [--empty 7]   # map-encounter sweep vs encounters 2-5, step by step (capture.md 10.20)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds
