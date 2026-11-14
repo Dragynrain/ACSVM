@@ -602,10 +602,15 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             }
         }
         Event::AllPlayersDead => "Everyone is dead. Resume from the last save, or add a player.".into(),
+        Event::AddRequested => "A new player will be added at the end of the round.".into(),
         Event::AddRefused => format!(
-            "No one else can join: {} characters already play.",
+            "No one else can join: {} characters already play; one must retire first.",
             crate::game::MAX_PLAYERS
         ),
+        Event::NameRefused => "A name can't start with three spaces; give another.".into(),
+        Event::LivingChanged { before, after } => {
+            format!("Living players went from {before} to {after}: restore the last save, or go on.")
+        }
     }
 }
 

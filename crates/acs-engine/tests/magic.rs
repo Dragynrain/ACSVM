@@ -706,6 +706,8 @@ fn a_player_who_dies_ends_their_turn_and_the_last_one_ends_the_game() {
                 ..setup()
             },
         });
+        // Characters 6.2: the newcomer joins at the round's end.
+        g.apply(Command::Wait);
         // Joining raised TWO to its Constitution (5.1): wound it again.
         g.set_life_force(1, 4);
         let ev = mv(&mut g, Dir::E);
@@ -1303,6 +1305,8 @@ fn a_death_does_not_end_the_visit() {
                 },
             });
         }
+        // Characters 6.2: the newcomer joins at the round's end.
+        g.apply(Command::Wait);
         // 0 and 1 in the hall, 2 on the map: the hall's visit from here.
         g.place(1, hall(2, 4));
         let ev = mv(&mut g, Dir::E);
@@ -1344,6 +1348,11 @@ fn the_round_finishes_before_all_players_dead() {
             .position(|e| matches!(e, Event::CreatureTurn { slot: 1, .. }));
         let over = ev.iter().position(|e| *e == Event::AllPlayersDead);
         assert!(died < turn && turn < over && died.is_some(), "{ev:?}");
+        // Characters 6.3: the round-end message comes first.
+        let msg = ev
+            .iter()
+            .position(|e| *e == Event::LivingChanged { before: 1, after: 0 });
+        assert!(turn < msg && msg < over, "{ev:?}");
         assert_eq!(ev.last(), Some(&Event::AllPlayersDead));
         assert!(g.is_over());
     });
@@ -1373,6 +1382,8 @@ fn after_all_players_dead_a_new_player_takes_the_first_dead_slot() {
                 ..setup()
             },
         });
+        // Characters 6.2: the newcomer joins at the round's end.
+        g.apply(Command::Wait);
         g.place(1, hall(2, 4));
         g.set_life_force(1, 4);
         mv(&mut g, Dir::E);
@@ -1419,5 +1430,134 @@ fn after_all_players_dead_a_new_player_takes_the_first_dead_slot() {
             .iter()
             .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })));
         assert!(!h.is_over() && h.players().len() == 1);
+    });
+}
+
+/// Characters 6.2, 6.3, creatures 2.2.5: a request made in the round the
+/// last player dies is handled after the round-end message; the newcomer
+/// takes the dead player's slot and play goes on. Rounds with no change
+/// bring no message.
+#[test]
+fn an_add_in_the_round_of_a_death_comes_after_the_message() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        assert_eq!(
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: "NEW".into(),
+                    ..setup()
+                },
+            }),
+            vec![Event::AddRequested]
+        );
+        let ev = mv(&mut g, Dir::E);
+        let died = ev.iter().position(|e| matches!(e, Event::Died { who: ME, .. }));
+        let msg = ev
+            .iter()
+            .position(|e| *e == Event::LivingChanged { before: 1, after: 0 });
+        let added = ev
+            .iter()
+            .position(|e| matches!(e, Event::PlayerAdded { player: 0, .. }));
+        assert!(died.is_some() && died < msg && msg < added, "{ev:?}");
+        assert!(!ev.contains(&Event::AllPlayersDead));
+        assert!(!g.is_over());
+        assert_eq!(g.players().len(), 1);
+        assert_eq!(g.players()[0].name, "NEW");
+        assert_eq!(g.current(), 0);
+        // The newcomer's first round: no message.
+        let ev = g.apply(Command::Wait);
+        assert!(!ev.iter().any(|e| matches!(e, Event::LivingChanged { .. })));
+    });
+}
+
+/// Characters 6.1, 6.2, 6.4: a newcomer takes the lowest free slot, a dead
+/// player's below a living one included, with that slot's number and its
+/// place in the turn list; several requests in a round take the lowest
+/// slots left in the order asked, and the list never holds more than 4.
+#[test]
+fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "TWO".into(),
+                ..setup()
+            },
+        });
+        g.apply(Command::Wait);
+        assert_eq!(g.players().len(), 2);
+        // Player 0 dies in the hall; TWO, on the map, plays on.
+        assert_eq!(g.current(), 0);
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.iter().any(|e| matches!(e, Event::Died { who: ME, .. })));
+        assert_eq!(g.current(), 1);
+        for name in ["NEW", "NEXT"] {
+            assert_eq!(
+                g.apply(Command::AddPlayer {
+                    setup: PlayerSetup {
+                        name: name.into(),
+                        ..setup()
+                    },
+                }),
+                vec![Event::AddRequested]
+            );
+        }
+        let ev = g.apply(Command::Wait);
+        let added: Vec<usize> = ev
+            .iter()
+            .filter_map(|e| match e {
+                Event::PlayerAdded { player, .. } => Some(*player),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(added, [0, 2]);
+        let names: Vec<&str> = g.players().iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["NEW", "TWO", "NEXT"]);
+        assert!(g.players().iter().all(|p| p.alive));
+        // The newcomer in slot 0 moves before TWO.
+        let mut seen = Vec::new();
+        for _ in 0..6 {
+            seen.push(g.current());
+            g.apply(Command::Wait);
+        }
+        assert_eq!(seen, [0, 1, 2, 0, 1, 2]);
+        // Four at most: one more fills slot 3, a fifth is refused.
+        for name in ["FOUR", "FIVE"] {
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: name.into(),
+                    ..setup()
+                },
+            });
+        }
+        let mut ev = Vec::new();
+        for _ in 0..3 {
+            ev.extend(g.apply(Command::Wait));
+        }
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::PlayerAdded { player: 3, .. })));
+        assert!(ev.contains(&Event::AddRefused));
+        assert_eq!(g.players().len(), 4);
     });
 }

@@ -60,24 +60,45 @@ impl PlayerSetup {
     }
 }
 
-/// A name as the C64 keeps it (characters 5): uppercase, at most 15
-/// characters of space, A to Z, 1 to 9 and `. , - '`; 0 becomes O, `! ?` a
-/// period, `+ / : ; =` a hyphen, `"` an apostrophe, `*` X and `[ ]` a
-/// space; anything else is dropped.
+/// One typed key as name entry keeps it (characters 5.3): letters of either
+/// case are letters, 1 to 9 digits, and every other key folds to one of
+/// the 40 symbols; no key is refused. A character with no C64 key is a
+/// space (5.7).
+pub fn fold_key(c: char) -> char {
+    match c.to_ascii_uppercase() {
+        c @ ('A'..='Z' | '1'..='9' | '.' | ',' | '-' | '\'') => c,
+        '0' => 'O',
+        '!' | '?' => '.',
+        '+' | '/' | ':' | ';' | '=' => '-',
+        '"' => '\'',
+        '*' => 'X',
+        '&' => 'A',
+        '\u{a3}' => 'L',   // pound
+        '\u{2191}' => 'I', // up-arrow
+        '\u{2190}' => 'K', // left-arrow
+        _ => ' ',
+    }
+}
+
+/// A name as the C64 keeps it (characters 5.3, 5.4, 5.7): each character a
+/// typed key folded by [`fold_key`], the cursor wrapping past 15 so the
+/// 16th replaces the 1st. Trailing spaces are the stored name's padding
+/// (5.2) and are left off.
 pub fn fold_name(name: &str) -> String {
-    name.chars()
-        .filter_map(|c| match c.to_ascii_uppercase() {
-            c @ ('A'..='Z' | '1'..='9' | ' ' | '.' | ',' | '-' | '\'') => Some(c),
-            '0' => Some('O'),
-            '!' | '?' => Some('.'),
-            '+' | '/' | ':' | ';' | '=' => Some('-'),
-            '"' => Some('\''),
-            '*' => Some('X'),
-            '[' | ']' => Some(' '),
-            _ => None,
-        })
-        .take(NAME_MAX)
-        .collect()
+    let mut buf = [' '; NAME_MAX];
+    for (i, c) in name.chars().enumerate() {
+        buf[i % NAME_MAX] = fold_key(c);
+    }
+    let s: String = buf.iter().collect();
+    s.trim_end().to_string()
+}
+
+/// True when name entry asks again for `name` (characters 5.6, 5.7): its
+/// first three characters, folded, are spaces.
+pub fn name_refused(name: &str) -> bool {
+    let folded = fold_name(name);
+    let mut c = folded.chars().chain(std::iter::repeat(' '));
+    (0..3).all(|_| c.next() == Some(' '))
 }
 
 /// A rating on the profile screen (characters 4).
@@ -187,9 +208,78 @@ mod tests {
     fn names_fold_to_the_c64_alphabet() {
         assert_eq!(fold_name("Sir Bob 2nd!"), "SIR BOB 2ND.");
         assert_eq!(fold_name("x0/y\"z@"), "XO-Y'Z");
-        // As captured: A*B@C[D]E"F kept (keys lost aside) as AXB C  EF.
         assert_eq!(fold_name("a*b[c]d"), "AXB C D");
-        assert_eq!(fold_name("abcdefghijklmnopq"), "ABCDEFGHIJKLMNO");
+        // 5.3: every row of the fold table, no key refused.
+        for (key, kept) in [
+            ('0', 'O'),
+            ('!', '.'),
+            ('?', '.'),
+            ('.', '.'),
+            ('+', '-'),
+            ('-', '-'),
+            ('/', '-'),
+            (':', '-'),
+            (';', '-'),
+            ('=', '-'),
+            (',', ','),
+            ('\'', '\''),
+            ('"', '\''),
+            ('*', 'X'),
+            ('&', 'A'),
+            ('\u{a3}', 'L'),
+            ('\u{2191}', 'I'),
+            ('\u{2190}', 'K'),
+            ('@', ' '),
+            ('#', ' '),
+            ('$', ' '),
+            ('%', ' '),
+            ('(', ' '),
+            (')', ' '),
+            ('<', ' '),
+            ('>', ' '),
+            ('[', ' '),
+            (']', ' '),
+            (' ', ' '),
+            ('q', 'Q'),
+            ('Q', 'Q'),
+            ('7', '7'),
+            // 5.7: no C64 key, a space.
+            ('\u{e9}', ' '),
+            ('~', ' '),
+        ] {
+            assert_eq!(fold_key(key), kept, "{key:?}");
+        }
+        // A folded key keeps its place; nothing after it shifts.
+        assert_eq!(fold_name("A@B?C"), "A B.C");
+        assert_eq!(fold_name("?:@\"X"), ".- 'X");
+    }
+
+    #[test]
+    fn the_cursor_wraps_past_15() {
+        // 5.4: A to Q gives PQCDEFGHIJKLMNO.
+        assert_eq!(fold_name("abcdefghijklmnopq"), "PQCDEFGHIJKLMNO");
+        assert_eq!(fold_name("ABCDEFGHIJKLMNO"), "ABCDEFGHIJKLMNO");
+        // 21 keys: the 16th to 21st replace the 1st to 6th.
+        assert_eq!(fold_name("ABCDEFGHIJKLMNOPQRSTU"), "PQRSTUGHIJKLMNO");
+        // Past 30 it goes round again.
+        assert_eq!(fold_name(&format!("{}AB", "X".repeat(30))), "ABXXXXXXXXXXXXX");
+    }
+
+    #[test]
+    fn three_leading_spaces_are_asked_again() {
+        // 5.6: as captured, 8 spaces then ABCDEFG.
+        assert!(name_refused("        ABCDEFG"));
+        assert!(name_refused(""));
+        assert!(name_refused("  "));
+        assert!(name_refused("   X"));
+        // Folded first: @ and [ are spaces.
+        assert!(name_refused("@[ X"));
+        assert!(!name_refused("  X"));
+        assert!(!name_refused("AB"));
+        assert!(!name_refused("A   B"));
+        // After the wrap the 16th to 18th keys are the first three.
+        assert!(name_refused("ABCDEFGHIJKLMNO   "));
+        assert!(!name_refused("               ABC"));
     }
 
     #[test]

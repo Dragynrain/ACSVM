@@ -21,12 +21,18 @@ daily cap: 3 passes closed per day
 | turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
 | combat | 4 | reviewed | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
-| characters | 2 | reviewed | items: Retire, another adventure's player, name entry, how many players, catching up; queue/characters-p2 |
+| characters | 2 | checked | engine for names (5) and how many players (6) only; ESCALATED parts: Retire (section 7, a new command changes the save replay log) and catch-up (magic 5.5, gives meaning to model field unknown_0c, MODEL_VERSION) wait for the maintainer |
 
 ## Log
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: characters, 2, checker, all PASS; committed without the combat confirmer's scripts in progress.
+- 2026-11-14: characters, 2, spec gaps settled (a newcomer takes the lowest free slot); engine reuses the slot, test added; checker started.
+- 2026-11-14: characters, 2, engine-implementer, names (5) and player count (6) in, adds wait for the round's end, no save or model change; spec gaps (which slot a newcomer takes) sent to the spec-writer.
+- 2026-11-14: characters, 2, spec-writer, characters.md 3, 5, 6, new 7; magic 5.5; format-notes; Retire and catch-up escalated (saves, MODEL_VERSION); engine-implementer started on names and player count.
+- 2026-11-14: characters, 2, capture-confirmer, items 2-5 confirmed (rr19, capture.md 10.23); item 1 partly: Destroy in a room disagreed (whole kit stays, 5 of 5), first disagreement; disk identity address had no effect; spec-writer started.
+- 2026-11-14 digest: closed today 2 (stores p2, turn-order p2; cap 3); confirmed: stores p2 item 1, turn-order p2 items 1-2, encounters p1 (by the World map session); escalations: when the restored state is written (turn-order), area items in the model (MODEL_VERSION, stores); running: characters p2 and combat p4 capture-confirmers; encounters p1 engine step held while the World map session waits on the maintainer.
 - 2026-11-14: turn-order, 2, brief-writer, closed; no pass 3, the rest is capture work.
 - 2026-11-14: turn-order, 2, checker, all PASS but fmt, whose only flag is script.rs from the characters confirmer's edit in progress; committed without script.rs, the staged tree rebuilt and tested apart.
 - 2026-11-14: encounters, 1, confirmed and specced in 59aa038 by the World map encounters research session; engine step held while that session waits on the maintainer.

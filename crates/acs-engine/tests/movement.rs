@@ -284,6 +284,7 @@ fn the_bar_runs_out_and_refills() {
 #[test]
 fn players_take_turns() {
     let mut g = game(Platform::Pc);
+    let full = g.current_player().moves_left;
     let ev = g.apply(Command::AddPlayer {
         setup: PlayerSetup {
             name: "TWO".into(),
@@ -291,10 +292,16 @@ fn players_take_turns() {
             ..Default::default()
         },
     });
-    assert!(matches!(ev[0], Event::PlayerAdded { player: 1, .. }));
-    // Creatures 2.2: a player added during a round joins the next one,
-    // after the players before it.
-    g.apply(Command::Wait);
+    // Characters 6.2: the request is taken at once, no move used; the
+    // newcomer is added at the round's end and joins the next round, after
+    // the players before it.
+    assert_eq!(ev, vec![Event::AddRequested]);
+    assert_eq!(g.players().len(), 1);
+    assert_eq!(g.current_player().moves_left, full);
+    let ev = g.apply(Command::Wait);
+    assert!(ev
+        .iter()
+        .any(|e| matches!(e, Event::PlayerAdded { player: 1, .. })));
     assert_eq!(g.current(), 0);
     g.apply(Command::Wait);
     assert_eq!(g.current(), 1);
@@ -302,7 +309,8 @@ fn players_take_turns() {
     assert_eq!(g.current(), 0);
 }
 
-/// Movement 1.4, 1.5: four living characters at most; names cut to 15.
+/// Movement 1.4, 1.5, characters 5.4, 6.1, 6.2: four living characters at
+/// most, a fifth refused at the round's end; names wrap past 15.
 #[test]
 fn at_most_four_players() {
     let mut g = game(Platform::Pc);
@@ -312,23 +320,111 @@ fn at_most_four_players() {
             ..Default::default()
         },
     };
-    for n in ["TWO", "THREE", "A NAME FAR TOO LONG"] {
-        let ev = g.apply(add(n));
-        assert!(matches!(ev[0], Event::PlayerAdded { .. }));
+    // Every request is taken, a fifth too: the count is checked at the
+    // round's end, in the order asked.
+    for n in ["TWO", "THREE", "A NAME FAR TOO LONG", "FIVE"] {
+        assert_eq!(g.apply(add(n)), vec![Event::AddRequested]);
     }
+    assert_eq!(g.players().len(), 1);
+    let ev = g.apply(Command::Wait);
+    let added: Vec<usize> = ev
+        .iter()
+        .filter_map(|e| match e {
+            Event::PlayerAdded { player, .. } => Some(*player),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(added, [1, 2, 3]);
+    let refused = ev.iter().position(|e| *e == Event::AddRefused);
+    let last = ev
+        .iter()
+        .position(|e| matches!(e, Event::PlayerAdded { player: 3, .. }));
+    assert!(last < refused && refused.is_some(), "{ev:?}");
     assert_eq!(g.players().len(), 4);
-    assert_eq!(g.players()[3].name, "A NAME FAR TOO ");
+    assert_eq!(g.players()[3].name, "LONGME FAR TOO");
     let start = g.players()[3].at;
     assert_eq!(g.players()[1].at, start);
-    assert_eq!(g.apply(add("FIVE")), vec![Event::AddRefused]);
-    assert_eq!(g.players().len(), 4);
+    // Adds bring no round-end message: the count at the next round's
+    // start includes them.
+    assert!(!ev.iter().any(|e| matches!(e, Event::LivingChanged { .. })));
     // Every one of the four gets a turn, in joining order.
     let mut seen = Vec::new();
     for _ in 0..8 {
         seen.push(g.current());
         g.apply(Command::Wait);
     }
-    assert_eq!(seen, [0, 0, 1, 2, 3, 0, 1, 2]);
+    assert_eq!(seen, [0, 1, 2, 3, 0, 1, 2, 3]);
+}
+
+/// Characters 6.2: a request with 4 living is taken at once and refused at
+/// the round's end with no draw; a refused name (5.6) is no request.
+#[test]
+fn a_full_game_refuses_at_the_round_end_without_a_roll() {
+    let mut g = game(Platform::Pc);
+    for n in ["TWO", "THREE", "FOUR"] {
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: n.into(),
+                ..Default::default()
+            },
+        });
+    }
+    g.apply(Command::Wait);
+    assert_eq!(g.players().len(), 4);
+    // Same game, with and without the refused request: same draws.
+    let mut h = g.clone();
+    assert_eq!(
+        g.apply(Command::CreatePlayer { name: "FIVE".into() }),
+        vec![Event::AddRequested]
+    );
+    assert_eq!(
+        h.apply(Command::CreatePlayer { name: "   NO".into() }),
+        vec![Event::NameRefused]
+    );
+    let mut eg = Vec::new();
+    let mut eh = Vec::new();
+    for _ in 0..4 {
+        eg.extend(g.apply(Command::Wait));
+        eh.extend(h.apply(Command::Wait));
+    }
+    assert!(eg.contains(&Event::AddRefused));
+    eg.retain(|e| *e != Event::AddRefused);
+    assert_eq!(eg, eh);
+    assert_eq!(g.players(), h.players());
+    assert_eq!(g.players().len(), 4);
+}
+
+/// Characters 5.6, 5.7: a name whose first three characters fold to spaces
+/// is refused and nothing is asked for; the game waits as it was.
+#[test]
+fn a_name_of_three_leading_spaces_is_asked_again() {
+    let mut g = game(Platform::Pc);
+    for name in ["", "   ", "        ABCDEFG", "@[]X"] {
+        assert_eq!(
+            g.apply(Command::CreatePlayer { name: name.into() }),
+            vec![Event::NameRefused],
+            "{name:?}"
+        );
+    }
+    assert_eq!(
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "  ".into(),
+                ..Default::default()
+            }
+        }),
+        vec![Event::NameRefused]
+    );
+    let ev = g.apply(Command::Wait);
+    assert!(!ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })));
+    assert_eq!(g.players().len(), 1);
+    // Two leading spaces are a name.
+    assert_eq!(
+        g.apply(Command::CreatePlayer { name: "  X".into() }),
+        vec![Event::AddRequested]
+    );
+    g.apply(Command::Wait);
+    assert_eq!(g.players()[1].name, "  X");
 }
 
 /// Characters 1, 3.1: a created character is rolled from the game's
@@ -359,6 +455,7 @@ fn created_and_joining_characters() {
             ..Default::default()
         },
     });
+    g.apply(Command::Wait); // both join at the round's end (characters 6.2)
     let saved = &g.players()[2];
     assert_eq!((saved.power, saved.life_force), (5, 3));
     let r = Game::replay(adv, 5, Rules::default(), first, g.log());

@@ -75,8 +75,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       one and anything queued for that round is handled; in a room region,
       the end-of-round random creature rolls (2.4); if the number of
       living players (counted over every region) changed during the round,
-      the death message (one, however many died); the requests made during
-      the round (retiring a player, adding one, saving); then the visit
+      either way, the death message (one, however many died); the requests
+      made during the round (retiring a player, adding one, saving:
+      [characters](characters.md) 6.2, 7.1); then the visit
       ends if 2.2.2 says so. A round is never cut short by a death: every
       individual still on the list takes its turn.
    6. **The death message** comes after every round in which a player
@@ -160,7 +161,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 3. So creatures act only while a player stands in their room at a round's
    start, and move once a round however many players share the room. Two
    players in different places do not alternate: each gets its region's
-   visit of up to 10 rounds in turn. [research, capture]
+   visit of up to 10 rounds in turn. [research, capture] On its next turn
+   a creature catches up the Power and Life Force of the rounds it missed
+   ([magic](magic.md) 5.5). [research; capture]
 
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] On the C64, after each round

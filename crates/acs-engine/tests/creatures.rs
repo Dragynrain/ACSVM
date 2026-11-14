@@ -848,6 +848,8 @@ fn two_players_one_creature_phase_a_round() {
                 ..Default::default()
             },
         });
+        // Characters 6.2: the newcomer joins at the round's end.
+        g.apply(Command::Wait);
         g.place(1, at(0, 2, 6));
         let mut phases = Vec::new();
         for _ in 0..6 {
@@ -883,6 +885,8 @@ fn players_apart_take_ten_round_visits() {
                 ..Default::default()
             },
         });
+        // Characters 6.2: the newcomer joins at the round's end.
+        g.apply(Command::Wait);
         // Player 0 in the room (region 1), player 1 on the map: the room's
         // visit goes on from here.
         g.place(0, at(0, 2, 2));

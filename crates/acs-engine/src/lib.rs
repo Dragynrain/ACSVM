@@ -129,10 +129,12 @@ pub enum Command {
     /// the player did nothing. One idle move; the turn ends with the last.
     Idle,
     /// "Add Someone" with a character whose ratings are given (a saved
-    /// one, characters 3): it joins at the adventure's start.
+    /// one, characters 3): it joins at the adventure's start. In play the
+    /// request is handled at the round's end (characters 6.2).
     AddPlayer { setup: PlayerSetup },
     /// "Add Someone", "Create New Player": a new character is rolled
-    /// (characters 1) and joins at the adventure's start.
+    /// (characters 1) and joins at the adventure's start; in play, rolled
+    /// at the round's end (characters 6.2).
     CreatePlayer { name: String },
     /// "Drop Object": one of `thing` onto the adjacent square in `dir`, or
     /// the player's own square when `dir` is `None` (inventory 5).
@@ -817,8 +819,22 @@ pub enum Event {
     },
     /// No player is left alive; the game takes no more commands.
     AllPlayersDead,
-    /// "Add Someone" while `MAX_PLAYERS` already live (movement 1.4).
+    /// "Add Someone" taken: the newcomer is handled at the end of the round
+    /// (characters 6.2).
+    AddRequested,
+    /// At the end of the round an "Add Someone" found `MAX_PLAYERS`
+    /// living: one must retire first (characters 6.2, movement 1.4).
     AddRefused,
+    /// A name whose first three characters are spaces: name entry asks
+    /// again and nothing is added (characters 5.6, 5.7).
+    NameRefused,
+    /// The number of living players differed at the round's end from its
+    /// start: the round-end message (restore the last save, or go on;
+    /// creatures 2.2.5, 2.2.6, characters 6.3).
+    LivingChanged {
+        before: usize,
+        after: usize,
+    },
 }
 
 /// An individual: a player or a creature in a region slot.

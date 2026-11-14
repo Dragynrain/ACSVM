@@ -30,17 +30,18 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 4. **Up to 4 characters play at once** (hot-seat), taking turns, all able
    to share one joystick; "Add Someone" brings in another. [manual] A
    character added mid-game joins the next round (creatures 2.2). The dead
-   don't count toward the 4; a fifth while 4 live is refused before
-   anything is rolled. [research, unconfirmed: [characters](characters.md)
-   6] **Engine:** the same (`AddRefused`), with no move used and nothing
-   logged for replay besides the command.
+   don't count toward the 4; a fifth while 4 live is refused at the end of
+   the round it was asked in, before anything is rolled. [research;
+   capture: [characters](characters.md) 6] A newcomer takes the lowest
+   free slot, a dead or retired player's included (characters 6.1).
+   **Engine:** characters 6.4, with no move used and nothing logged for replay besides the command.
 5. A character's name is up to 15 characters. [manual] The C64 keeps all
-   15 in a 40-symbol alphabet, retired too. [research, unconfirmed:
-   [characters](characters.md) 5] **Engine:** a longer name is cut to 15
-   when the character joins, and folded to that alphabet.
+   15 in a 40-symbol alphabet, and typing past 15 wraps to the start.
+   [research; capture: [characters](characters.md) 5] **Engine:**
+   characters 5.7 and 5.8.
 6. "Retire" takes a character out of the adventure (or saves it for
-   another), after the round in progress. [manual, capture.md 8.1]
-   **Engine:** not yet; it comes with character files.
+   another) at the end of the round it was asked in. [manual; research;
+   capture: [characters](characters.md) 7] **Engine:** characters 7.
 
 ## 2. Turns and the movement bar
 

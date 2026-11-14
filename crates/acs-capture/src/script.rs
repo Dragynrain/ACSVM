@@ -12,6 +12,9 @@
 //! dump boot.vsf     # snapshot; undump boot.vsf to restore
 //! attach scen.d64   # disk image into drive 8
 //! poke F5B0 20      # set memory (hex address, decimal bytes)
+//! peek F59F 37      # COUNT bytes in decimal (one byte alone: binary)
+//! until 71FA !1 30m # run until a byte equals (=) or leaves (!) a value
+//! typemem 4F4F AB   # feed each key until the byte at the address changes
 //! ```
 
 use crate::monitor::{Error, Result, MEMSPACE_DRIVE8};
@@ -57,6 +60,11 @@ pub fn parse_count(s: &str) -> Option<u64> {
         _ => (&s[..], 1),
     };
     num.parse::<f64>().ok().map(|n| (n * mul as f64) as u64)
+}
+
+/// A hex address, with or without a leading `$`.
+fn parse_addr(s: &str) -> Option<u16> {
+    u16::from_str_radix(s.trim_start_matches('$'), 16).ok()
 }
 
 /// Joystick bits for a direction word, or a number.
@@ -435,10 +443,85 @@ impl Session {
                 Ok(v.join(" "))
             }
             "peek" => {
-                // Documented hardware registers only (docs/capture.md section 8).
-                let a = u16::from_str_radix(arg.trim_start_matches('$'), 16).map_err(|_| "peek HEXADDR")?;
-                let b = self.vice.mon.mem_read(a, a, true).map_err(e)?;
-                Ok(format!("${a:04x} = {:08b}", b.first().copied().unwrap_or(0)))
+                // peek HEXADDR: one byte in binary; peek HEXADDR COUNT: COUNT
+                // bytes in decimal (section 9's addresses).
+                let mut parts = arg.split_whitespace();
+                let a = parts.next().and_then(parse_addr).ok_or("peek HEXADDR [COUNT]")?;
+                match parts.next() {
+                    None => {
+                        let b = self.vice.mon.mem_read(a, a, true).map_err(e)?;
+                        Ok(format!("${a:04x} = {:08b}", b.first().copied().unwrap_or(0)))
+                    }
+                    Some(n) => {
+                        let n: u16 = n.parse().map_err(|_| "peek: bad count")?;
+                        let end = a.saturating_add(n.max(1) - 1);
+                        let b = self.vice.mon.mem_read(a, end, true).map_err(e)?;
+                        let v: Vec<String> = b.iter().map(|x| x.to_string()).collect();
+                        Ok(format!("${a:04x} = {}", v.join(" ")))
+                    }
+                }
+            }
+            "until" => {
+                // until HEXADDR =V|!V [LIMIT [STEP]]: run in STEP chunks
+                // (100k) until the byte equals (=) or differs from (!) V, at
+                // most LIMIT (50m); reports the instructions run and the byte.
+                let mut parts = arg.split_whitespace();
+                let a = parts.next().and_then(parse_addr).ok_or("until HEXADDR =V|!V")?;
+                let cond = parts.next().ok_or("until HEXADDR =V|!V")?;
+                let (want_eq, v) = match cond.split_at(1) {
+                    ("=", v) => (true, v),
+                    ("!", v) => (false, v),
+                    _ => return Err("until: =V or !V".into()),
+                };
+                let v: u8 = v.parse().map_err(|_| "until: V 0..255")?;
+                let limit = parts.next().and_then(parse_count).unwrap_or(50_000_000);
+                let step = parts.next().and_then(parse_count).unwrap_or(100_000);
+                let mut done = 0;
+                loop {
+                    let b = self.vice.mon.mem_read(a, a, true).map_err(e)?[0];
+                    if (b == v) == want_eq {
+                        return Ok(format!(
+                            "until ${a:04x} {cond}: {b} after {done} (clock {})",
+                            self.clock
+                        ));
+                    }
+                    if done >= limit {
+                        return Ok(format!(
+                            "until ${a:04x} {cond}: TIMEOUT, {b} after {done} (clock {})",
+                            self.clock
+                        ));
+                    }
+                    self.run(step).map_err(e)?;
+                    done += step;
+                }
+            }
+            "typemem" => {
+                // typemem HEXADDR TEXT: one key at a time, fed again (up to 8
+                // times, 1M apart) until the byte at HEXADDR changes, as name
+                // entry's cursor does when it takes a key (10.23).
+                let (a, text) = arg.split_once(' ').ok_or("typemem HEXADDR TEXT")?;
+                let a = parse_addr(a).ok_or("typemem: bad address")?;
+                let mut notes = Vec::new();
+                for code in petscii(text) {
+                    let before = self.vice.mon.mem_read(a, a, true).map_err(e)?[0];
+                    let mut taken = None;
+                    'feeds: for attempt in 1..=8 {
+                        self.vice.mon.keyboard_feed(&[code]).map_err(e)?;
+                        for _ in 0..10 {
+                            self.run(100_000).map_err(e)?;
+                            let now = self.vice.mon.mem_read(a, a, true).map_err(e)?[0];
+                            if now != before {
+                                taken = Some((attempt, now));
+                                break 'feeds;
+                            }
+                        }
+                    }
+                    notes.push(match taken {
+                        Some((n, now)) => format!("{code}:{n}>{now}"),
+                        None => format!("{code}:none"),
+                    });
+                }
+                Ok(format!("typemem {}", notes.join(" ")))
             }
             "poke" => {
                 // poke HEXADDR BYTE..: set memory (a researcher-given
@@ -524,5 +607,8 @@ mod tests {
         assert_eq!(joy_bits("w+fire"), Some(20));
         assert_eq!(petscii("t{RETURN}"), vec![b'T', 13]);
         assert_eq!(petscii("{F7}"), vec![136]);
+        assert_eq!(parse_addr("$4F4F"), Some(0x4F4F));
+        assert_eq!(parse_addr("f59f"), Some(0xF59F));
+        assert_eq!(parse_addr("x"), None);
     }
 }

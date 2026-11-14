@@ -131,7 +131,7 @@ lists at the end of each `docs/rules/` spec.
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
-| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `type`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`, `peek`, `poke`, `dpeek` and `drivecheck` for drive 8 (10.21)). |
+| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `type`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`, `peek` (one byte, or `peek ADDR N` for N in decimal), `poke`, `until ADDR =V|!V` (run until a byte is or leaves a value), `typemem ADDR TEXT` (feed each key until the byte at ADDR changes, 10.23), `dpeek` and `drivecheck` for drive 8 (10.21)). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
 | `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
 | `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
@@ -648,6 +648,12 @@ screen offers next to "create new player".
 | `$1C0D` in drive 8 | The drive's timer-interrupt flags (its own address space, the binary monitor's memory space 1): bit 6 comes and goes in a working drive, stays set in one that never serves the interrupt; read by `drivecheck` and every `run` and `snap` (10.21) | Researcher, stores second pass, 2026-11-14 (`docs/research/stores.md`) |
 | `$F59F` + 37 x (k - 1) | Player slot k's alive byte (record +0): nonzero while alive, 0 once the player dies; read by `rr18` (10.22) | Researcher, turn-order second pass, 2026-11-14 (`docs/research/turn-order.md`) |
 | `$0003` in drive 8 | The job code of the buffer the program's block commands use: 128 a read waiting to run, below 128 once done; 128 in every hung snapshot (10.21) | Researcher, stores second pass, 2026-11-14 |
+| `$4F4F` | Name entry's cursor (0 to 14); it moves when a key is taken. `typemem 4F4F TEXT` feeds each key until it does (10.23) | Researcher, characters second pass, 2026-11-14 (`docs/research/characters.md`) |
+| `$3789`-`$3797` | Name entry's 15 characters so far, screen codes (10.23) | Researcher, characters second pass, 2026-11-14 |
+| `$F59F` + 37 x (k - 1) | Player slot k is living while its first byte is not zero; poked in 10.23 to fill four slots | Researcher, characters second pass, 2026-11-14 |
+| `$E1A3` + 12 | A creature slot's round (low byte) of its last turn, 0 before its first; set in 10.23 to force a catch-up | Researcher, characters second pass, 2026-11-14 |
+| Adventure block + 0xE7, + 0xE8 | The round counter as saved (22 in 10.23's save at round 22) | Researcher, characters second pass, 2026-11-14 |
+| d64 0x1C800, 0x1C802 | The disk's identity word and adventure-disk mark (361 on every disk of ours) | Researcher, characters second pass, 2026-11-14 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1729,3 +1735,115 @@ In this order (planned November 2026):
      (the WOLF copy, map slot 8), as encounters 6.1 says; the finding's
      remark that the map's numbers 8 to 15 are not used for turns
      doesn't hold for an area's creatures.
+23. **Confirming the characters second pass** (2026-11-14;
+   `docs/research/characters.md` pass 2). `ACSVM-research/capture/runs/rr19/`,
+   from the brief's `inputs/pass2/` (copied to `in/`). Scripts only, one
+   VICE each, at most four at once. New script commands: `peek ADDR N`
+   (N bytes in decimal), `until ADDR =V|!V [LIMIT [STEP]]` and `typemem
+   ADDR TEXT` (each key fed again, up to 8 times 1M apart, until the byte
+   at ADDR changes). The snapshots saved with disks were first saved again
+   without them (`nd-*/nodisk.vsf`), so that writes reach a disk file
+   (2.5). A peek while the program is at the disk reads the ROM; a peek of
+   `$F65B` read 3 for a moment at two rounds' ends.
+   - **Retire, when** (item 1). Map (`ret1`, from `retire-menu.vsf`): T
+     asked in round 21; U moved (mover `$71FA` 2), the counter went to 22
+     and the save-or-destroy offer showed under U's strip, T having had no
+     turn between. Room with both players (`walk-two` walked T and U in:
+     the stick is shared; `room1`): asked in round 22, U moved, the offer
+     at 23. Room, T the last player, with AA (`walk-late`, `last1`): asked
+     in round 40, AA (16) moved, the offer at 41. So at the end of the
+     round it was asked in, map or room, not at a region visit's end
+     (3 runs).
+   - **Save**. `ret-save`, `ret-save2` from `ret1/offer.vsf`: T's Life
+     Force poked to 3 (then 4) under Constitution 11 and Power to 5 under
+     Wisdom 13, and in `ret-save2` gold 777 and treasure 14 taken away
+     first. The roster's first entry with an empty name (entry 1; U's
+     stayed) decoded (`acs dump`) to Life Force **11**, Power **5**, gold
+     777, the blade held, the mail worn, possessions 13, 40, 41, 59: the
+     whole record, Life Force raised to Constitution. In memory only T's
+     first byte went to 0; on the disk adventure block + 0x2B 0 and
+     **+ 0xE7 22** (the round). U then had every turn (rounds 23 to 47).
+     As the last player (`last-save`): the game saved and the add-player
+     screen came back with T listed (the cursor on T, `$7161` 3); the
+     roster record kept the room square (region 1, 4,4) and the kit.
+   - **Destroy**. F1 shows "this means that T will never be seen again",
+     the button brings the offer back, F1 again destroys. Map
+     (`ret-dest`): T's slot unchanged but its first byte, the disk byte
+     for byte unchanged, U on every turn after. Last player in the room
+     (`last-dest`): the add-player screen without T, the disk unchanged.
+     **In a room with U** (`room-dest2`, and `rd-0`, `rd-64`, `rd-128`,
+     `rd-none` with the random state `$1CC9` set before the last F1): U
+     stepped off and pushed back onto T's square, pressing the button at
+     each "U takes": **blade, bow, mail, GOODB, GOODA and 300 gold, in
+     each of the 5 runs**, then an empty square. **As the last player**
+     (`newc`: a new player N created at the add-player screen after
+     `last-dest`, walked into the room and pushed onto 4,4): **the bow,
+     the mail and 300 gold**; no blade, no treasure. The finding (gold,
+     blade and bow; mail and treasures lost) matches neither. Whether the
+     newcomer's save and the room's reload changed the floor in `newc` is
+     not known.
+   - **Another adventure's player** (item 2), `ota-*` then `otb-*` from
+     `create-menu-nodisk.vsf` with `other-disk.d64` (V, 1,500 gold) or
+     `other300.d64` (the same V with 300, built as the brief's) in drive 8,
+     `poke 3D5A 137 87`, cursor 0. The flow: "you may use the back side of
+     the ACS disk", button, **"put the disk from which to copy in the disk
+     drive"**, button, "accessing disk", the list with V (the cursor back
+     on 0; one tap down puts it on V, `$7161` 3), button, the joystick, the
+     picture, "put your adventure disk in", the swap (`attach`), the save.
+     With the picture chosen V's slot read Constitution 20, magic defense
+     1, Life Force 9, Wisdom 20, Power 8, square 63,64 (not placed), **no
+     weapon, no armor, no possessions, gold 1,500** (`otb-1500`) and
+     **1,000** from 300 (`otb-300`). Joined, V stood on 12,12 of the map,
+     and the saved adventure (`otb-1500/adv.d64`) has V with 1,500. The
+     other disk changed in exactly 2 bytes, V's roster name, in all 3
+     runs. The swap by `attach` came too late in 2 of 4 runs (the save
+     went to the other disk, or the program kept asking): 2.4's
+     nondeterminism. **Identity**: the never-played `other-disk.d64` and
+     `retire-pristine.d64` both carry 13,151 (our played disks 137,87).
+     With `retire-disk.d64` (137,87, the adventure's own, U in its roster)
+     as the "other" disk (`ota-ownid`), U was listed in the second column
+     and the cursor put on CREATE NEW PLAYER (1), not back on 0 as with
+     every other disk. But poking `$3D5A` to the other disk's own 13,151
+     (`ota-same`, `otb-same`) changed nothing: V listed and joined as
+     before. So the disk's identity is compared with the adventure's, as
+     found, but `$3D5A` as poked here is not what decides.
+   - **Name entry** (item 3), `name-*` from `name-entry.vsf`, `typemem
+     4F4F`: 72 keys in 5 runs, **every one taken** (1 to 5 feeds; the
+     cursor 0 to 14 and round to 0), none refused, `$3789` and the stored
+     name (`$F633`, decoded as 10.18) alike: `A?B:C@D"EFGHIJKLMNOPQ` gave
+     LMNOPQD'EFGHIJK; `0123456789!?.+-` O123456789...--; slash, colon,
+     semicolon, equals, comma, apostrophe, double quote, asterisk,
+     ampersand, pound, up-arrow, left-arrow, `@`, number sign and `$`
+     gave ----,''XALIK and three spaces; `%()<>[]` and space all spaces.
+     17 letters A to Q kept PQCDEFGHIJKLMNO and the strip was clean (10.18's
+     garbling did not come back). A name of 8 spaces then ABCDEFG was
+     asked for again. The control `name-plain` (9 keys fed once, 3M
+     apart): C, E, G and H lost.
+   - **How many players** (item 4), from `move-basic-start.vsf`, ADD
+     SOMEONE in round 4: `four-full` (the first pass's pokes) and
+     `four-first` (**only the three first bytes**, Constitution 10): at
+     the round's end (counter 5) the restore-or-continue offer; F1 (fed
+     until taken, `type`), then at once "you will have to retire one of
+     your adventurers before you may add another". `four-rest` (every poke
+     but the first bytes): no offer, and the add-player screen at the
+     round's end. After F1 in `four-full-on` the turns went 1, 2, 3, 4
+     every round (rounds 6 to 12, 40 samples); in `four-first-on` slot 2
+     (Speed 0, square 0,0) held the turn for all 400M instructions. An F1
+     fed once at the offer was lost, and the button then restored the
+     saved game.
+   - **Catching up** (item 5), `catch-B` from `walk-late/room.vsf` (T
+     just in the room at round 40, AA not yet moved): AA's byte + 12
+     (`$E1AF`) set to B, AA read after its first turn (round 41). With
+     N = 40 - B (mod 256) the rule gives Life Force 5 + min(N / 2, 15)
+     and Power 2 + min(N - 1, 18), plus the turn's own 1 each (to the
+     cap of 20):
+
+     | B | 39 | 38 | 30 | 24 | 10 | 200 | 0 |
+     | --- | --- | --- | --- | --- | --- | --- | --- |
+     | Life Force, Power | 6, 3 | 7, 4 | 11, 12 | 14, 18 | 20, 20 | 20, 20 | 7, 3 |
+
+     6 of 6 as the rule gives (B = 200 the wrap, 96 rounds), and B = 0 no
+     catch-up (Life Force 7: one more healed than at B = 39); the byte was
+     40 after the turn every time. A real leave-and-return was not run:
+     our scenario room has no way out, and nothing in the harness takes a
+     player out of a region.

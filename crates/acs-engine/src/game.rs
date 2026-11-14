@@ -241,6 +241,10 @@ pub struct Game {
     /// its next turn (creatures 2.2.4, movement 2.3).
     #[serde(default)]
     pub(crate) carried: Vec<(usize, u8)>,
+    /// "Add Someone" requests waiting for the round's end, in the order
+    /// asked (characters 6.2).
+    #[serde(default)]
+    pub(crate) adds: Vec<Newcomer>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -261,6 +265,10 @@ pub(crate) struct Schedule {
     pub round: u32,
     /// The rooms on this round's list (creatures 2.2, 2.4).
     pub rooms: Vec<u8>,
+    /// Living players (over every region) at the round's start, for the
+    /// round-end message (creatures 2.2.5, characters 6.3).
+    #[serde(default)]
+    pub living: usize,
 }
 
 /// The rooms of `region` with a living player, at most `ROUND_ROOMS`, in
@@ -275,6 +283,15 @@ fn rooms_of(players: &[Player], region: u8) -> Vec<u8> {
         }
     }
     rooms
+}
+
+/// The newcomer an "Add Someone" command brings, if it is one.
+fn newcomer(cmd: Command) -> Option<Newcomer> {
+    match cmd {
+        Command::AddPlayer { setup } => Some(Newcomer::Join(setup)),
+        Command::CreatePlayer { name } => Some(Newcomer::Create { create: name }),
+        _ => None,
+    }
 }
 
 /// Rounds a region visit lasts at most (creatures 2.2).
@@ -309,12 +326,12 @@ impl Game {
             map: crate::encounters::map_region(),
             entrances: Default::default(),
             carried: Vec::new(),
+            adds: Vec::new(),
         };
         let mut ev = Vec::new();
-        match first {
-            Newcomer::Join(setup) => g.add_player(setup, &mut ev),
-            Newcomer::Create { create } => g.create_player(&create, &mut ev),
-        }
+        // The first player joins as given: the front end has asked again
+        // for a refused name (characters 5.7) before starting the game.
+        g.join(first, &mut ev);
         g.begin_cycle();
         g.next_turn(&mut ev);
         (g, ev)
@@ -345,11 +362,13 @@ impl Game {
                 return ev;
             }
             self.log.push(cmd.clone());
-            match cmd {
-                Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
-                Command::CreatePlayer { name } => self.create_player(&name, &mut ev),
-                _ => {}
+            // The add-a-player screen of nobody in play: at once.
+            if let Some(n) = newcomer(cmd) {
+                if self.name_ok(&n, &mut ev) {
+                    self.join(n, &mut ev);
+                }
             }
+            // A refused name leaves nobody in play: still waiting.
             if self.players.iter().any(|p| p.alive) {
                 self.over = false;
                 self.begin_cycle();
@@ -366,8 +385,8 @@ impl Game {
             Command::Wait => self.wait_out(&mut ev),
             Command::Idle => self.idle(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
-            Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
-            Command::CreatePlayer { name } => self.create_player(&name, &mut ev),
+            Command::AddPlayer { setup } => self.request_add(Newcomer::Join(setup), &mut ev),
+            Command::CreatePlayer { name } => self.request_add(Newcomer::Create { create: name }, &mut ev),
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
             Command::Ready { thing } => self.ready(thing, &mut ev),
@@ -539,6 +558,13 @@ impl Game {
             rooms_of(&self.players, region)
         };
         self.sched.pos = 0;
+        self.sched.living = self.living();
+    }
+
+    /// Living players over every region (characters 6.1: the engine's
+    /// alive flag stands for the slot's first byte).
+    fn living(&self) -> usize {
+        self.players.iter().filter(|p| p.alive).count()
     }
 
     /// Runs the list on: creatures take their turns, and the next living
@@ -575,10 +601,13 @@ impl Game {
     }
 
     /// The end of a round (creatures 2.2.5): the round counter and what
-    /// falls due on it (magic 5.2), random creatures left behind (2.4); with
-    /// nobody alive the game waits for a new player (2.2.6); then the next
-    /// round of this visit, or the next visit (2.2.2). A death alone ends no
-    /// visit; the death message and its answers are the front end's.
+    /// falls due on it (magic 5.2), random creatures left behind (2.4);
+    /// the round-end message when the living count changed either way
+    /// (characters 6.3); the add requests (characters 6.2; retiring, which
+    /// comes before them, is not in the engine yet); with nobody alive the
+    /// game waits for a new player (2.2.6); then the next round of this
+    /// visit, or the next visit (2.2.2). A death alone ends no visit; the
+    /// message's answers are the front end's.
     fn end_round(&mut self, ev: &mut Vec<Event>) {
         self.sched.round += 1;
         self.reversals_due(ev);
@@ -586,6 +615,11 @@ impl Game {
         self.turn_exits.clear();
         self.turn_rooms.clear();
         self.sched.rounds += 1;
+        let (before, after) = (self.sched.living, self.living());
+        if before != after {
+            ev.push(Event::LivingChanged { before, after });
+        }
+        self.take_adds(ev);
         if !self.players.iter().any(|p| p.alive) {
             self.over = true;
             ev.push(Event::AllPlayersDead);
@@ -623,22 +657,49 @@ impl Game {
         }
     }
 
-    /// True, and refused, when 4 living characters play (characters 6.1).
-    fn full(&self, ev: &mut Vec<Event>) -> bool {
-        let full = self.players.iter().filter(|p| p.alive).count() >= MAX_PLAYERS;
-        if full {
-            ev.push(Event::AddRefused);
+    /// False, with `NameRefused`, when name entry would ask again for the
+    /// newcomer's name (characters 5.6, 5.7).
+    fn name_ok(&self, n: &Newcomer, ev: &mut Vec<Event>) -> bool {
+        let name = match n {
+            Newcomer::Join(s) => &s.name,
+            Newcomer::Create { create } => create,
+        };
+        let ok = !crate::characters::name_refused(name);
+        if !ok {
+            ev.push(Event::NameRefused);
         }
-        full
+        ok
     }
 
-    /// "Create New Player" (characters 1, 6): refused before any roll when
-    /// 4 play; otherwise rolled from the game's generator and added.
-    fn create_player(&mut self, name: &str, ev: &mut Vec<Event>) {
-        if self.full(ev) {
-            return;
+    /// "Add Someone" in play (characters 6.2): taken at once, whoever
+    /// plays, with no move used and no draw; handled at the round's end.
+    fn request_add(&mut self, n: Newcomer, ev: &mut Vec<Event>) {
+        if self.name_ok(&n, ev) {
+            self.adds.push(n);
+            ev.push(Event::AddRequested);
         }
-        let setup = PlayerSetup::roll(name, &mut self.rng);
+    }
+
+    /// The round's add requests, in the order asked (characters 6.2): each
+    /// refused, with no draw, while `MAX_PLAYERS` live (6.1); otherwise
+    /// rolled or set up then, and added.
+    fn take_adds(&mut self, ev: &mut Vec<Event>) {
+        for n in std::mem::take(&mut self.adds) {
+            if self.living() >= MAX_PLAYERS {
+                ev.push(Event::AddRefused);
+            } else {
+                self.join(n, ev);
+            }
+        }
+    }
+
+    /// Adds a newcomer: rolled from the game's generator (characters 1) or
+    /// joining as given.
+    fn join(&mut self, n: Newcomer, ev: &mut Vec<Event>) {
+        let setup = match n {
+            Newcomer::Join(setup) => setup,
+            Newcomer::Create { create } => PlayerSetup::roll(&create, &mut self.rng),
+        };
         self.add_player(setup, ev);
     }
 
@@ -646,20 +707,13 @@ impl Game {
     /// the adventure's start and joins the next round (creatures 2.2),
     /// keeping its ratings as given (characters 3.1).
     fn add_player(&mut self, setup: PlayerSetup, ev: &mut Vec<Event>) {
-        if self.full(ev) {
-            return;
-        }
         let mut setup = setup;
         setup.name = crate::characters::fold_name(&setup.name);
         let s = self.adv.world.start;
         let at = Location::World { x: s.x, y: s.y };
-        // Creatures 2.2.6: with nobody alive, the newcomer takes the first
-        // dead player's slot.
-        let slot = if self.players.iter().any(|p| p.alive) {
-            None
-        } else {
-            self.players.iter().position(|p| !p.alive)
-        };
+        // Characters 6.1, creatures 2.2.6: the newcomer takes the lowest
+        // free slot, a dead player's included, and that slot's number.
+        let slot = self.players.iter().position(|p| !p.alive);
         let mut possessions = setup.possessions;
         let mut gold = setup.gold;
         possessions.retain(|&t| {
@@ -695,8 +749,10 @@ impl Game {
         };
         let index = match slot {
             Some(i) => {
+                // 6.1: the slot is cleared before anything is put in it.
                 self.players[i] = player;
                 self.carried.retain(|&(q, _)| q != i);
+                self.forget_vitals(Who::Player { player: i });
                 i
             }
             None => {

@@ -335,7 +335,10 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
 - **Bytes 0x0B and 0x0C are zero in every record**: 1,670 master, 3,224
   residents, 394 random, 43 world map. They are most likely runtime state that
   the editor never sets (players were also all unused, so saved games could
-  not be checked). Kept raw as `unknown_0b` / `unknown_0c`.
+  not be checked). Kept raw as `unknown_0b` / `unknown_0c`. **Byte 0x0C
+  is the round (low byte) of the creature's last turn**, 0 before its
+  first, set at each turn and read for catching up (researcher, characters
+  second pass; confirmed by capture, capture.md 10.23; rules: magic 5.5).
 - **Byte 0x10 = region << 4 | room**, confirmed: it is 0 in the master, random
   and world map lists, and in all 3,224 residents the high nibble equals the
   region that holds the record.
@@ -363,18 +366,25 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   10.8.6). Slots past the second, and the page break the decoder assumes
   after 25 names and 6 records, are unchecked. Every stat byte reads as the
   decoder says (a record with a different value in each, checked on the
-  profile screen), except that a player joining play gets Power = Wisdom,
-  so byte 5 of a retired record has no visible effect.
+  profile screen). (An earlier reading that a joining player gets Power =
+  Wisdom was drift seen late; byte 5 is kept: rules/characters 3.1.) Saving
+  a retiring player writes the first roster entry with an empty name
+  (rules/characters 7.3).
 
 ## Written by the program in play
 
-Seen by diffing scenario disks (C64), meaning unknown:
+Seen by diffing scenario disks (C64):
 
-- Adventure block + 0x400..0x401: written when play starts.
-- Adventure block + 0xE7: 0 to 7 when a player retired.
+- Adventure block + 0x400..0x401: written when play starts; meaning
+  unknown.
+- Adventure block + 0xE7, + 0xE8: the round counter, low byte first (0 to
+  7 in capture.md 8.1's early retirements, 22 for a save at round 22).
+  The block is an image of the memory around the player slots (slot 1 at
+  + 0x2B). [researcher, characters second pass; capture.md 10.23]
 - Adventure block + 0x36F..0x3FF (145 bytes, 0x08 fill in a blank disk):
-  rewritten with what looks like multicolour bitmap data when a player
-  retired. Not needed for the retired player to load.
+  rewritten when a player retired. The researcher reads it as the work
+  area of the on-screen target choice, saved only because it lies in the
+  range; unconfirmed. Not needed for the retired player to load.
 
 ## Open questions
 
@@ -383,7 +393,8 @@ Seen by diffing scenario disks (C64), meaning unknown:
 - Region bytes 0x59-0x6C: zero in all 210 C64 regions and 11 of 12 PC
   regions. **PC** region 1 holds "EARTH VALLEY" in screen codes there, an
   older name of that region, so possibly an editor buffer.
-- Creature bytes 0x0B, 0x0C: need a saved game or an emulator capture.
+- Creature byte 0x0B: needs a saved game or an emulator capture (0x0C
+  settled, see Creatures).
 - Retired players: AcsLib reads 26 names and 7 records per 256-byte page, which
   overruns the page; the decoder reads 25 and 6. No corpus adventure has any;
   the first two slots are confirmed (see Creatures).

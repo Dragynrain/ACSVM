@@ -281,9 +281,36 @@ magic item after it is used. [unknown]
    rule set.
 4. These run for players and creatures alike, on their own turns, so
    creatures in rooms no player visits stand still in time, as they do in
-   everything else (creatures 2.3); the reversals of 5.2 go by rounds of
-   the region being visited. [unknown] They emit no events; the front end
-   reads the numbers.
+   everything else (creatures 2.3), until their next turn, when they catch
+   up (5.5); the reversals of 5.2 go by rounds of the region being
+   visited. [unknown] They emit no events; the front end reads the
+   numbers.
+5. **Creatures catch up.** A creature's record keeps the round of its last
+   turn, as the round counter's low byte (0 to 255; 0 means it has had no
+   turn yet). At the top of each of its turns, when that byte is not zero,
+   with N the rounds since it (the current round's low byte less the byte,
+   counted round 256, so an absence of more than 255 rounds wraps), the
+   creature gains up to N - 1 Power, never past its Wisdom, and up to N / 2
+   Life Force, rounded down, never past its Constitution. Then the byte is
+   set to the current round's low byte (1 if that is 0). A creature with 0
+   there, as every corpus and editor record has (format-notes, Creatures:
+   byte 0x0C), skips the catch-up on its first turn and only notes the
+   round; that is why a first entry into a room shows none. Drift and
+   healing (5.1, 5.3) follow as usual; their order with the catch-up does
+   not change the result. Players never catch up. [research: characters
+   second pass, 2026-11-14, `docs/research/characters.md`; capture: rr19
+   `catch-B`, capture.md 10.23: the byte set to 7 values (39, 38, 30, 24,
+   10, 200 for the wrap, and 0) before a Speed 0 creature's first turn,
+   its Life Force and Power afterwards as the rule gives in all 7, and the
+   byte the current round after each; players never catching up:
+   research, unconfirmed] The byte travels with the record, so a region
+   left and visited again, or unloaded and loaded from disk, catches up
+   the same way: [research, unconfirmed] (no capture took players out of a
+   region and back).
+   **Engine:** every creature keeps its last turn's round (the record's
+   byte 0x0C, 0 as decoded) and catches up by this rule at the top of its
+   turn, before drift; regions stay in memory, so leaving and coming back
+   needs nothing more.
 
 ## 6. Creatures and magic
 
@@ -348,7 +375,9 @@ Combat will reuse this; spells are the first thing that can kill.
    which a player died, and play may also go on from there; with nobody
    left alive the game goes to the add-a-player screen rather than ending
    ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] When the
-   save restored is written is [unknown]. **Engine:** when no player is
+   save restored is written is [unknown]. The same screen comes back when
+   the last player retires ([characters](characters.md) 7.6).
+   **Engine:** when no player is
    left alive the game emits `AllPlayersDead` and ignores every command
    but adding a player; saves are the front end's snapshots at
    `EnteredRegion` / `LeftRegion` (movement 6.6).
@@ -376,7 +405,8 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
 1. Cast success, a failed cast's cost and a magic item's cost: captured
    (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing: captured, researched and
-   confirmed (5.1-5.3). Still open: creatures' healing, a temporary fall,
+   confirmed (5.1-5.3); creatures catching up by the record's byte (5.5).
+   Still open: catching up across a real absence from the region (5.5), creatures' healing, a temporary fall,
    an individual out of play when its reversal is due, and the idle
    roll's range on a turn that starts with moves carried through a map
    door (5.3, creatures 2.2.4).
