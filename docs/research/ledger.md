@@ -18,7 +18,7 @@ daily cap: 3 passes closed per day
 | stores | 1 | closed | next: map stores, saving the stock, the hang with a store and a disappearing bow |
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
 | encounters | 1 | specced | confirmed and specced by the World map encounters research session (59aa038, rr15, capture.md); engine-implementer waits until that session is no longer waiting on the maintainer, to avoid two writers |
-| turn-order | 2 | checked | items: the missed round after coming in at the map visit's end, a player's death, rooms with individuals 5-15; queue/turn-order-p2 |
+| turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
 | combat | 4 | reviewed | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
 | characters | 2 | reviewed | items: Retire, another adventure's player, name entry, how many players, catching up; queue/characters-p2 |
@@ -27,6 +27,7 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: turn-order, 2, brief-writer, closed; no pass 3, the rest is capture work.
 - 2026-11-14: turn-order, 2, checker, all PASS but fmt, whose only flag is script.rs from the characters confirmer's edit in progress; committed without script.rs, the staged tree rebuilt and tested apart.
 - 2026-11-14: encounters, 1, confirmed and specced in 59aa038 by the World map encounters research session; engine step held while that session waits on the maintainer.
 - 2026-11-14: turn-order, 2, engine-implementer, visit end, map door ends the turn with moves carried, add a player after all dead (engine and viewer), 6 tests; two engine choices sent to the spec as [unknown].

@@ -2,7 +2,9 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: first pass done 2026-11-12, confirmed by
-capture and in the engine. Pass 2 briefed and queued 2026-11-14.
+capture and in the engine. Second pass done 2026-11-14, confirmed by
+capture (`rr18`) and in the engine. No third pass planned: what is left
+is for capture.
 
 ## Why
 
@@ -171,3 +173,57 @@ creatures appearing and falling away (creatures 2.4, 3). **Next pass:**
 why that player misses the region's first round (the snapshots
 `rr4/rooms2/two.vsf` and the `later` runs show it), and what a player's
 death does to the visit.
+
+**Second pass, 2026-11-14** (items 1 and 2 in full, 3 traced; the
+hand-off reviewed for plain language and accepted). Summary:
+
+1. **No round is missed.** A player who goes through a map door into a
+   room ends its turn there, whatever moves it has left. It is on the
+   first round of its new region's next visit like any other player
+   there, and its first turn in the room starts with the moves it had
+   left at the door (its full Speed if none). The name strip had merged
+   the door turn and that first room turn, which looked like a missed
+   round. This also explains why a lone player seemed to go on with the
+   same turn (movement 2.3).
+2. **A death does not cut the round short.** Everyone still on the list
+   takes a turn; the counter goes up, then the death message comes,
+   after every round in which a player died, whether or not another
+   lives. Going on (F1) changes nothing in the scheduler: the dead player
+   just leaves the marks and gets no more turns. With nobody alive the
+   game goes to the add-a-player screen. The button reads back the saved
+   state and starts a new cycle from it.
+3. **Room lists never hold individuals 5 to 15** (traced). On the map an
+   encounter area's creatures do take turns.
+
+**Checked by capture** (capture.md 10.22, `rr18`; `scripts/roundcheck.py`):
+item 1 in three cases (either player first, coming in on the map visit's
+last round or its second), with the carried moves read at each turn's
+start; item 2 with F1 and with the button in 5 runs (5 death messages
+in the F1 ones), a friend behind the killer still taking its turn. Spec:
+creatures 2.2.4 to 2.2.6, movement 2.3, magic 7.4, tagged [research] and
+[capture]; the engine follows them. **Open:** a player killed before its
+own turn in the same round (no list of ours can show it) and room lists
+without 5 to 15 (nothing of ours is numbered so), both [research,
+unconfirmed]; going from one room region to another through a door
+([research, unconfirmed], traced only); when the saved state the button
+restores is written ([unknown], with the maintainer; in every capture it
+was the state at the visit's start, which began with a region change).
+Two engine choices went in as [unknown]: which full moves the idle
+healing roll uses on a turn of carried moves (magic 5.3.1) and whether
+carried moves are halved beside an enemy (creatures 2.6).
+
+**No third pass.** What is left is cheaper to capture than to research
+(section 2 of the README): when the saved state is written (a player who
+saves mid-visit, then dies, then the button; and one player alone in a
+room region over several visits with no region change, then a death);
+declining to add a player with nobody alive (answer "none" on the
+add-a-player screen and watch the scheduler); a move between two room
+regions (a one-way door of ours into a second room region, the region and
+counter read at each turn's start); whether every room door into another
+room ends the turn (a two-way door as well as the portal of 10.10.3,
+reading the moves left); and the carried moves beside an enemy (rr16's
+death disk already has EE beside the entry square: read the moves left at
+T's first room turn). The idle healing range on a carried-moves turn can
+be read from `--draws` on the same runs. Only a player killed before its
+own turn stays out of reach, and the engine's choice (skipped like any
+dead individual) is the generic rule; not worth a pass alone.
