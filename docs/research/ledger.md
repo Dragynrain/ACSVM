@@ -17,7 +17,7 @@ daily cap: 3 passes closed per day
 | combat | 1-3 | closed | next: the player's attempt to fire, a Speed 0 friend's turn, the dropped treasure's square |
 | stores | 1 | closed | next: map stores, saving the stock, the hang with a store and a disappearing bow |
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
-| encounters | 1 | specced | confirmed and specced by the World map encounters research session (59aa038, rr15, capture.md); engine-implementer waits until that session is no longer waiting on the maintainer, to avoid two writers |
+| encounters | 1 | checked | engine already matched 59aa038's spec; 5 tests pin it; close waits for tomorrow (daily cap) |
 | turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
 | combat | 4 | checked | engine for creature firing, the Speed 0 turn and the drop square only; ESCALATED: the player's fire (combat 8.8) changes Command::Fire and so the save command log; fire draw sweeps fire-e3/e0/ready-e5 still running in rr20 |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
@@ -27,6 +27,8 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: encounters, 1, engine-implementer, no code change, 5 tests pin the captured behaviour; tests and clippy pass; committed; close tomorrow.
+- 2026-11-14: encounters, 1, the World map session has closed; engine-implementer started on 59aa038's spec changes.
 - 2026-11-14: escalations, the player's Fire (combat 8.8) and Retire (characters 7) in the engine and walk mode, save version 2 (a version 1 fire loads as leave_store); checker all PASS; engine choices recorded in the spec; committed.
 - 2026-11-14: the maintainer approved taking on all five escalations in any order: the player's Fire and Retire (save version 1 to 2), the catch-up and area items (MODEL_VERSION 3 to 4), and capturing the restore point. No push.
 - 2026-11-14 digest: combat p4 committed (48655f5) and checked; its close waits for tomorrow (daily cap of 3 reached). Nothing running. Escalations waiting: turn-order restore point; area items in the model (MODEL_VERSION); characters Retire (replay log) and catch-up (MODEL_VERSION); combat player's Fire (save command log). Encounters p1 engine step held for the World map session.

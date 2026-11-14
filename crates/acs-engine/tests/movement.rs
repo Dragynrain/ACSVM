@@ -1332,3 +1332,198 @@ fn idle_drain_is_a_wait_one_step_at_a_time() {
     idled.apply(Command::Idle);
     assert_eq!(idled.current_player().moves_left, full - 1);
 }
+
+// ---- encounters as captured (capture.md 10.20) -----------------------------
+//
+// Exact generator states are compared only when nothing hit: a hit ends the
+// turn, and the next round starts (with its own draws) in the same apply.
+
+/// The generator's state, read from the game's serialized form.
+fn rng_of(g: &Game) -> acs_engine::Rng {
+    serde_json::from_value(serde_json::to_value(g).expect("serializes")["rng"].clone()).expect("an Rng")
+}
+
+fn fast_game(a: &Adventure, seed: u64) -> Game {
+    Game::new(
+        a.clone(),
+        seed,
+        Rules { diagonals: true },
+        PlayerSetup {
+            speed: 15,
+            ..Default::default()
+        },
+    )
+    .0
+}
+
+#[test]
+fn a_step_rolls_once_per_record_on_the_terrain_and_nothing_else() {
+    // WOLF on the patch (terrain 4); records 1..7 empty on terrain 0.
+    let a = encounter_adventure(&[(4, 15, 4)]);
+    let (mut hit, mut miss) = (false, false);
+    for seed in 0..60 {
+        // Onto the patch: WOLF's one roll, nothing else, hit or miss (2.5,
+        // 2.7).
+        let mut g = fast_game(&a, seed);
+        let mut want = rng_of(&g);
+        let hits = want.percent(60);
+        let ev = mv(&mut g, Dir::SW);
+        assert_eq!(encounters(&ev) == [(0, Some(8))], hits, "seed {seed}");
+        if hits {
+            hit = true;
+            assert_eq!(g.players()[0].at, area(1, 12, 4));
+        } else {
+            // A miss leaves the turn going: the one roll was all.
+            miss = true;
+            assert_eq!(rng_of(&g), want, "seed {seed}");
+        }
+        // Onto grass (terrain 0): the 7 empty records roll against 0 and
+        // never hit.
+        let mut g = fast_game(&a, seed);
+        let mut want = rng_of(&g);
+        assert!(!(0..7).any(|_| want.percent(0)));
+        let ev = mv(&mut g, Dir::SE);
+        assert!(encounters(&ev).is_empty());
+        assert_eq!(rng_of(&g), want);
+    }
+    assert!(hit && miss);
+    // WOLF on the grass: 8 rolls, WOLF's first.
+    let a = encounter_adventure(&[(0, 15, 4)]);
+    for seed in 0..60 {
+        let mut g = fast_game(&a, seed);
+        let mut want = rng_of(&g);
+        let hits = want.percent(60);
+        assert!(!(0..7).any(|_| want.percent(0)));
+        let ev = mv(&mut g, Dir::SE);
+        assert_eq!(!encounters(&ev).is_empty(), hits, "seed {seed}");
+        if !hits {
+            assert_eq!(rng_of(&g), want, "seed {seed}");
+        }
+    }
+}
+
+#[test]
+fn code_15_hits_on_59_and_misses_on_60() {
+    let a = encounter_adventure(&[(4, 15, 4)]);
+    let (mut saw59, mut saw60) = (false, false);
+    for seed in 0..20_000 {
+        let g = fast_game(&a, seed);
+        let roll = rng_of(&g).below(100);
+        if roll != 59 && roll != 60 {
+            continue;
+        }
+        let mut g = g;
+        let ev = mv(&mut g, Dir::SW);
+        assert_eq!(!encounters(&ev).is_empty(), roll == 59, "seed {seed}");
+        saw59 |= roll == 59;
+        saw60 |= roll == 60;
+        if saw59 && saw60 {
+            return;
+        }
+    }
+    panic!("no seed rolled 59 and 60");
+}
+
+#[test]
+fn the_player_lands_on_12_4_entering_east_or_north() {
+    let a = encounter_adventure(&[(4, 15, 4)]);
+    for (from, dir) in [((18, 21), Dir::E), ((19, 22), Dir::N)] {
+        let mut found = false;
+        for seed in 0..200 {
+            let mut g = fast_game(&a, seed);
+            g.place(0, Location::World { x: from.0, y: from.1 });
+            let ev = mv(&mut g, dir);
+            if encounters(&ev).is_empty() {
+                continue;
+            }
+            // 3.1, 3.6, 5.1: area 1, 12,4, the entrance the square entered,
+            // the turn over.
+            assert_eq!(g.players()[0].at, area(1, 12, 4));
+            assert_eq!(g.area_entrance(1), Some(PATCH));
+            assert!(ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 })));
+            found = true;
+            break;
+        }
+        assert!(found, "{dir:?}");
+    }
+}
+
+#[test]
+fn one_copy_per_hit_in_slots_8_and_9_by_record() {
+    let a = encounter_adventure(&[(4, 15, 4), (4, 15, 3)]);
+    let (mut both, mut hare_alone) = (false, false);
+    for seed in 0..400 {
+        let mut g = fast_game(&a, seed);
+        let mut want = rng_of(&g);
+        let (wolf, hare) = (want.percent(60), want.percent(60));
+        let hits = encounters(&mv(&mut g, Dir::SW));
+        match (wolf, hare) {
+            (true, true) => {
+                both = true;
+                assert_eq!(hits, [(0, Some(8)), (1, Some(9))]);
+                assert_eq!(g.creature(0, 9).map(|c| (c.x, c.y)), Some((3, 3)));
+            }
+            (false, true) => {
+                // 3.6: record 1 on 3,3 even alone in slot 8.
+                hare_alone = true;
+                assert_eq!(hits, [(1, Some(8))]);
+                assert_eq!(g.creature(0, 8).map(|c| (c.x, c.y, c.room)), Some((3, 3, 1)));
+                assert!(g.creature(0, 9).is_none());
+            }
+            (true, false) => assert_eq!(hits, [(0, Some(8))]),
+            (false, false) => {
+                // The two rolls and nothing more.
+                assert!(hits.is_empty());
+                assert_eq!(rng_of(&g), want);
+            }
+        }
+    }
+    assert!(both && hare_alone);
+}
+
+#[test]
+fn walking_out_keeps_the_moves_left_and_the_next_step_rolls() {
+    let a = encounter_adventure(&[(4, 15, 0)]);
+    let (mut g, _) = pulled_in(&a);
+    // The next round: T in area 1 with a fresh turn.
+    assert_eq!(g.current(), 0);
+    g.place(0, area(1, 1, 5));
+    let before = g.current_player().moves_left;
+    let mut want = rng_of(&g);
+    let ev = mv(&mut g, Dir::W);
+    // 7.1: on the entrance with one move used, no roll for the return.
+    assert_eq!(
+        g.players()[0].at,
+        Location::World {
+            x: PATCH.0,
+            y: PATCH.1
+        }
+    );
+    assert_eq!(g.current_player().moves_left, before - 1);
+    // 7.2: closed and free, the entrance forgotten, slot 8 empty.
+    assert!(ev.iter().any(|e| matches!(
+        e,
+        Event::CreatureRemoved {
+            region: 0,
+            slot: 8,
+            reason: acs_engine::RemovalReason::AreaClosed
+        }
+    )));
+    assert!(g.region(0).unwrap().rooms[1].deleted);
+    assert_eq!(g.area_entrance(1), None);
+    assert!(g.creature(0, 8).is_none());
+    assert_eq!(rng_of(&g), want);
+    // 2.3: no cool-down, the next step onto the patch's terrain rolls. Step
+    // off west onto grass first (7 empty records), then back on (WOLF's
+    // roll).
+    assert!(g.current_player().moves_left >= 2);
+    assert!(!(0..7).any(|_| want.percent(0)));
+    mv(&mut g, Dir::W);
+    assert_eq!(rng_of(&g), want);
+    let hits = want.percent(60);
+    let ev = mv(&mut g, Dir::E);
+    assert_eq!(!encounters(&ev).is_empty(), hits);
+    if !hits {
+        assert_eq!(rng_of(&g), want);
+    }
+}
