@@ -606,7 +606,53 @@ pub struct MoveBasic {
     /// The region's stock: treasures of ours (things `STOCK`..) of these
     /// values and counts.
     pub stock: Vec<Ware>,
+    /// The world map's random creatures, slots 0, 1, .. (at most 8;
+    /// pictures `MAP_CREATURE_PICTURE`..).
+    pub map_creatures: Vec<MapCreature>,
+    /// A patch of terrain `PATCH_TERRAIN` (GRASS, open, a sparse dot
+    /// picture) over these inclusive map bounds, inside the field; the
+    /// markers and the door stay on top.
+    pub patch: Option<(u8, u8, u8, u8)>,
 }
+
+/// A random creature of the world map: who it is, the terrain it appears
+/// in and its chance code (the low nibble the decoder reads: 0..4 give 0
+/// to 8 % in steps of 2, 5..15 give 10 to 60 % in steps of 5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapCreature {
+    pub creature: Resident,
+    pub terrain: u8,
+    pub chance: u8,
+}
+
+impl MapCreature {
+    /// The `Resident::parse` keys plus `terrain` (0..15, default 0, the
+    /// field) and `chance` (the code, 0..15, default 15: 60 %).
+    pub fn parse(spec: &str) -> Result<Self, String> {
+        let (mut terrain, mut chance) = (0u8, 15u8);
+        let mut rest = Vec::new();
+        for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let num = |v: &str| v.parse::<u8>().map_err(|_| format!("{kv}: bad number"));
+            match kv.split_once('=') {
+                Some(("terrain", v)) => terrain = num(v)?.min(15),
+                Some(("chance", v)) => chance = num(v)?.min(15),
+                _ => rest.push(kv),
+            }
+        }
+        Ok(MapCreature {
+            creature: Resident::parse(&rest.join(","))?,
+            terrain,
+            chance,
+        })
+    }
+}
+
+/// The encounter patch's terrain and picture, and map creature 0's
+/// picture (a 12 x 12 box; the next ones solid).
+pub const PATCH_TERRAIN: u8 = 5;
+pub const PIC_PATCH: usize = 6;
+pub const MAP_CREATURE_PICTURE: u8 = 71;
+pub const MAP_CREATURE_BOX: (usize, usize) = (12, 12);
 
 /// A locked one-way room door of ours.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -764,6 +810,8 @@ impl Default for MoveBasic {
             blade: None,
             bow: None,
             mail: None,
+            map_creatures: Vec::new(),
+            patch: None,
         }
     }
 }
@@ -852,7 +900,12 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     for n in 64..110 {
         picture(&mut f, n, [0xFF; 16], [0xFF; 16]);
     }
-    for (i, &(w, h)) in RESIDENT_BOXES.iter().enumerate() {
+    let boxes = RESIDENT_BOXES
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| (65 + i, b))
+        .chain(std::iter::once((MAP_CREATURE_PICTURE as usize, MAP_CREATURE_BOX)));
+    for (n, (w, h)) in boxes {
         // A byte is 4 double-width pixels: 8 screen pixels of one half,
         // the first in the top two bits. Colour 3 is bit pair 11.
         let (a, b) = (RESIDENT_INSET, RESIDENT_INSET + w);
@@ -864,8 +917,11 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         let on = |r: usize| (RESIDENT_INSET..RESIDENT_INSET + h).contains(&r);
         let rows: [u8; 16] = std::array::from_fn(|r| if on(r) { byte(0) } else { 0 });
         let right: [u8; 16] = std::array::from_fn(|r| if on(r) { byte(1) } else { 0 });
-        picture(&mut f, 65 + i, rows, right);
+        picture(&mut f, n, rows, right);
     }
+    // The patch: one colour-2 dot pixel every fourth row, left half only.
+    let dots: [u8; 16] = std::array::from_fn(|r| if r % 4 == 1 { 0x20 } else { 0 });
+    picture(&mut f, PIC_PATCH, dots, [0; 16]);
 
     let w = l.world_map;
     // Terrain 0: open field, blank picture. Terrain 1: impassable wall.
@@ -911,6 +967,12 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
                 4
             } else if (xu, yu) == s.door {
                 12
+            } else if s
+                .patch
+                .is_some_and(|(px0, py0, px1, py1)| (px0..=px1).contains(&xu) && (py0..=py1).contains(&yu))
+                && inside
+            {
+                PATCH_TERRAIN
             } else if inside {
                 0
             } else {
@@ -936,6 +998,40 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         "MARKER 3",
         wm::TERRAIN_NAME_LEN,
     );
+    if s.patch.is_some() {
+        let t = PATCH_TERRAIN as usize;
+        f.put(w + wm::TERRAIN + 2 * t, &[0x40 | PIC_PATCH as u8, 0]);
+        f.ascii(
+            w + wm::TERRAIN_NAMES + t * wm::TERRAIN_NAME_LEN,
+            "GRASS",
+            wm::TERRAIN_NAME_LEN,
+        );
+    }
+    // The map's random creatures: record, chance code and terrain, name.
+    // Not on any region (byte 0x10 = 0, as the master has it). The
+    // template's slots are cleared first, so only ours can appear.
+    assert!(
+        s.map_creatures.len() <= wm::CREATURE_COUNT,
+        "at most 8 map creatures"
+    );
+    for i in 0..wm::CREATURE_COUNT {
+        f.put(w + wm::CREATURES + i * cr::RECORD_LEN, &[0; cr::RECORD_LEN]);
+        f.put(w + wm::CREATURE_CHANCES + i, &[0]);
+    }
+    for (i, m) in s.map_creatures.iter().enumerate() {
+        assert!(m.creature.carry.is_empty(), "map creatures carry nothing of ours");
+        let mut r = m.creature.record(MAP_CREATURE_PICTURE + i as u8, CARRY);
+        r[0x10] = 0;
+        f.put(w + wm::CREATURES + i * cr::RECORD_LEN, &r);
+        f.put(
+            w + wm::CREATURE_CHANCES + i,
+            &[m.terrain << 4 | (m.chance & 0x0F)],
+        );
+        f.packed(
+            w + wm::CREATURE_NAMES + i * acs_core::layout::NAME_LEN,
+            &m.creature.stats.name,
+        );
+    }
     for (i, sp) in s.spells.iter().enumerate() {
         // Type 6, cost, action, parameter.
         let n = SPELL as usize - i;
@@ -1068,11 +1164,13 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         .chain(s.player2.iter())
         .chain(s.residents.iter().map(|c| &c.stats))
         .chain(s.random_creature.iter().map(|c| &c.stats))
+        .chain(s.map_creatures.iter().map(|m| &m.creature.stats))
         .collect();
     let sword = s
         .residents
         .iter()
         .chain(s.random_creature.iter())
+        .chain(s.map_creatures.iter().map(|m| &m.creature))
         .find_map(|c| c.sword);
     let mut top_record = None;
     for (kit, given, name, record) in [
@@ -1530,6 +1628,35 @@ mod tests {
         let c = &r.random_creatures[0];
         assert!(c.in_use);
         assert_eq!((c.name.as_str(), c.speed), ("RR", 2));
+    }
+
+    #[test]
+    fn map_creatures_and_the_patch_decode() {
+        let s = MoveBasic {
+            map_creatures: vec![
+                MapCreature::parse("name=WOLF,spd=4,align=enemy,terrain=5,chance=15").unwrap(),
+                MapCreature::parse("name=HARE,chance=4").unwrap(),
+            ],
+            patch: Some((13, 10, 16, 12)),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let w = &adv.world;
+        let c = &w.random_creatures;
+        assert!(c[0].creature.in_use && c[1].creature.in_use && !c[2].creature.in_use);
+        assert_eq!((c[0].creature.name.as_str(), c[0].creature.speed), ("WOLF", 4));
+        assert_eq!((c[0].terrain, c[0].chance), (5, 60));
+        assert_eq!(
+            (c[1].creature.name.as_str(), c[1].terrain, c[1].chance),
+            ("HARE", 0, 8)
+        );
+        assert_eq!(w.tiles[10][13], PATCH_TERRAIN);
+        assert_eq!(w.tiles[12][16], PATCH_TERRAIN);
+        assert_eq!(w.tiles[12][17], 0);
+        assert_eq!(w.tiles[14][15], 2, "the marker stays");
+        assert_eq!(w.terrain[PATCH_TERRAIN as usize].name, "GRASS");
     }
 
     #[test]

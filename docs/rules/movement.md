@@ -257,7 +257,11 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    - Whether the roll happens before a refused move too: [unknown]
      **Engine:** every move command on the map rolls, refused or not.
    - Which terrain counts, the one left or the one entered: [unknown]
-     **Engine:** the cell the character stands on before the move.
+     **Engine:** the cell the character stands on before the move. A
+     capture contradicts it: a step from the field onto grass, only the
+     grass having a creature (60%), brought the encounter at once
+     [capture: capture.md 10.19, one run]; settled by the encounters
+     research pass (`docs/research/encounters.md`).
    - Several creatures for the same terrain: [unknown] **Engine:** rolled in
      list order; the first hit wins.
    - The encounter area itself (size, layout) is [unknown]. **Engine:** for

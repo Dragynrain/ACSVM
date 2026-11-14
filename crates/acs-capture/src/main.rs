@@ -173,6 +173,14 @@ enum Cmd {
         /// treasures to sell are `--player goods=...` (things 13, ..).
         #[arg(long)]
         stock: Option<String>,
+        /// A random creature of the world map (repeatable; slots 0, 1, ..):
+        /// the --creature keys plus terrain (0..15, default 0 the field) and
+        /// chance (the code 0..15, default 15 = 60 %; docs/capture.md 10.19).
+        #[arg(long)]
+        map_creature: Vec<String>,
+        /// A patch of GRASS (terrain 5) on the map: `X0,Y0,X1,Y1`, inclusive.
+        #[arg(long)]
+        patch: Option<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -380,6 +388,8 @@ fn main() {
             mail,
             store,
             stock,
+            map_creature,
+            patch,
         } => {
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
@@ -416,6 +426,14 @@ fn main() {
                     (v[0] as u8, v[1] as u8, v[2])
                 })
                 .collect();
+            let map_creatures: Vec<scenario::MapCreature> = map_creature
+                .iter()
+                .map(|c| scenario::MapCreature::parse(c).unwrap_or_else(|e| fail(&e)))
+                .collect();
+            let patch = patch.map(|t| {
+                let v = nums(&t, 4..=4);
+                (v[0] as u8, v[1] as u8, v[2] as u8, v[3] as u8)
+            });
             let random_creature =
                 random_creature.map(|c| scenario::Resident::parse(&c).unwrap_or_else(|e| fail(&e)));
             let side = side_room.then_some(((7, 4), (2, 4)));
@@ -469,6 +487,8 @@ fn main() {
                         mail,
                         store,
                         stock: stock.clone(),
+                        map_creatures: map_creatures.clone(),
+                        patch,
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())

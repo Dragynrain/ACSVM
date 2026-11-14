@@ -1521,3 +1521,24 @@ In this order (planned November 2026):
      possible"; at the turn's end the program offered to restore the last
      saved game and resurrect a dead character: the poked characters had
      died. A real fifth player needs four real ones (characters 6).
+19. **Map encounters, the research brief's inputs** (2026-11-14;
+   `docs/research/encounters.md`). `ACSVM-research/capture/runs/rr14/`.
+   New scenario options: `--map-creature` (repeatable, world map random
+   creature slots 0, 1, ..: the `--creature` keys plus `terrain` and
+   `chance`, the stored code 0..15, default 15 = 60%; every other slot is
+   cleared, the template's included) and `--patch X0,Y0,X1,Y1` (GRASS,
+   terrain 5, open, a picture of sparse colour-2 dots). Map creature 0 is
+   drawn as a 12 x 12 box (picture 71), the next ones solid.
+   - `build.sh`: `field` (WOLF, an enemy holding our blade, on the field
+     at 60%), `patch` (WOLF on a grass patch at 13..16, 10..12) and `two`
+     (WOLF and HARE on the patch), each started to T's first turn by
+     `start-retired.txt` (T Speed 6, holding the blade).
+   - `walk.txt` from `patch`: one push east from 12,12 onto the grass
+     brought the encounter area at once, bordered with the grass, a gap in
+     its left side, T on the right and WOLF moving. Under the engine's
+     choice (movement 7.1: the terrain stood on before the move, here the
+     field, which has no creature) no roll could have hit: the terrain
+     entered counts, or the roll follows the step. One run.
+   - `walk5.txt` from `field`: five pushes east; the first an ordinary
+     step, the area showing after the second (no border: the field's
+     picture is blank).
