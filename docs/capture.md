@@ -646,6 +646,7 @@ screen offers next to "create new player".
 | `$E532` + 37 x (s - 8) | The map region's creature slot s (8..15), where encounter copies go: +0 nonzero while alive, +13, +14 the square, +16 the area | Researcher, encounters first pass, 2026-11-14 |
 | `$E40A` + 37 x r, `$E65A` + r | The map's random creature record r (0..7), and its byte of terrain (high four bits) and chance code (low four); setting the chance byte before a step forces or forbids an encounter | Researcher, encounters first pass, 2026-11-14 |
 | `$1C0D` in drive 8 | The drive's timer-interrupt flags (its own address space, the binary monitor's memory space 1): bit 6 comes and goes in a working drive, stays set in one that never serves the interrupt; read by `drivecheck` and every `run` and `snap` (10.21) | Researcher, stores second pass, 2026-11-14 (`docs/research/stores.md`) |
+| `$F59F` + 37 x (k - 1) | Player slot k's alive byte (record +0): nonzero while alive, 0 once the player dies; read by `rr18` (10.22) | Researcher, turn-order second pass, 2026-11-14 (`docs/research/turn-order.md`) |
 | `$0003` in drive 8 | The job code of the buffer the program's block commands use: 128 a read waiting to run, below 128 once done; 128 in every hung snapshot (10.21) | Researcher, stores second pass, 2026-11-14 |
 
 These are the only addresses in the original program in use, and they
@@ -1651,3 +1652,80 @@ In this order (planned November 2026):
      (research 8.3: every thing the store offers would be on its shelves).
      In the hung `noreset` run the same bytes read other values once the
      region change had begun.
+22. **Confirming the turn-order second pass** (2026-11-14;
+   `docs/research/turn-order.md` pass 2). `ACSVM-research/capture/runs/rr18/`.
+   New in `run mem`: `--death-f1` answers the death message (read as
+   text in the message's own colour: the one offering F1) with F1, fed
+   again if it is still up 2 million instructions later; `--answer-text
+   W1,W2` presses the button for any message holding one of the words,
+   whoever the strip names; `--ram` reads the watched bytes from the
+   `ram` bank: without it a byte under the KERNAL ROM (`$F65B`, the
+   player records) reads the ROM's byte (the counter's is 3) whenever the
+   program has the ROM banked in, for up to 1.5M instructions while a
+   region loads. With `--answer`, an `end{run}.png` at the run's end.
+   `scripts/roundcheck.py` (new) rebuilds each run's turns from the
+   region, counter and current individual (a turn starts when the
+   individual is set, from nobody or from another; on the map a new
+   round with the same one current counts too), prints each round's list
+   and checks: no individual 5 to 15 on a room region's list, no player
+   left out of a room round between two it has turns in, and every death
+   message after the counter went up. All runs below pass. A `mem` run
+   has no jitter: each case is one run.
+   - **Item 1** (`rooms/run.sh`, from rr4's `rooms2/two.vsf`; watched:
+     region, counter, individual, T's and U's places, the moves left
+     `$719A`). `held` (south held 40M): U in through the map door in
+     round 11, T in round 12 after 4 of its 12 squares (moves left 8,
+     then 0 at the door, the individual 0); the room region from round 13,
+     **T (1) its first mover** at about 12.2M, then U, AA, BB (2, 16, 17),
+     and T, U, AA, BB in rounds 14 and 15. `tfirst` (U's turn idled out,
+     then 1M pushes): T in, then U, both in round 12; round 13 on went T,
+     U, AA, BB, to round 17. `ulater`: U in round 11, T alone on the map
+     in rounds 12 to 14 and in during round 14 (the map visit's second
+     round of a new cycle, which its leaving ended); round 15 on went T,
+     U, AA, BB, to round 18, U having no turns in rounds 12 to 14 (its
+     region not marked in that cycle). So no round was missed in any of
+     the three, either order, entry in round 12 or 14. Seen besides: the
+     first room turn after the map door starts with the moves left at
+     the door (T: 8 in `held` and `tfirst`, 1 in `ulater`), and with the
+     full Speed when none were left (U: 4 after its 4 squares). `late30`
+     and `late60` (south held from 30M and 60M) moved nobody in: a
+     player whose turn began with the stick already held stood still;
+     dropped.
+   - **Item 2** (watched: region, counter, individual, T's and U's Life
+     Force, alive bytes `$F59F`, `$F5C4`, places `$F5AF`, `$F5D4`, the
+     queue's first entry `$F65F`). `death/f1.sh`, rr16's death disk
+     answered with F1: `f1-two` (both in): EE killed U in round 22; round
+     23 went on in region 1 with T, EE (no U); EE killed T; the second
+     message, F1, and **the add-a-player screen** (`end0.png`; T's place
+     went to 0 then). `f1-split` (T in, U on the map): EE killed T in
+     round 40, region 1's first; F1; **U alone on the map every round
+     from 41 to 76**, region 1 never visited again. `after/` is the same
+     disk with FF (a peaceful friend, slot 1) on 12,7 behind EE: in
+     `f1`, EE killed U (alive byte 0 at 22.10M) and **FF still had its
+     turn** (22.54M) before the counter went to 23 (23.74M) and the
+     message came (23.76M); round 23 went T, EE, FF; EE killed T and FF
+     again had its turn before the counter went to 24 and the message.
+     In all 5 death messages the counter had gone up 20,000 to 40,000
+     instructions before; 3 came with a living player left (U's death
+     with T in the room, twice; T's with U on the map), 2 with nobody. The queue's first entry read 0 throughout (nothing
+     queued), so the queue's carrying on isn't shown. `button` and
+     `button2` (`--answer-text CONTROL,CONTINUE`, through the "one of the
+     adventurers is" and "press button of the joystick that will control
+     this player" screens): the counter went to 23, the region to 255,
+     then the counter back to 22 and U's Life Force and alive byte back
+     to 40; about 1M instructions after the last screen region 1 was
+     visited again from round 22, the same round replayed (T, U, EE
+     killing U, FF), 8 times in 150M instructions, identically. rr16's
+     four button runs (10.10.4's death inputs) agree up to those screens.
+     Not reached: a player killed before its own turn in the same round
+     (no list of ours has a creature before a player of its room, and our
+     players don't fight each other).
+   - **Item 3**: no room region's list in any of these 10 runs held an
+     individual 5 to 15 (players 1 and 2, creatures 16 and 17); nothing of
+     ours is numbered 5 to 15 in a room region, so the finding's reading
+     can't be told from the first pass's by these runs. Side run
+     (`area.sh`, rr14's `patch`, the random state 0, one push east into
+     encounter area 1): the map region's rounds 15 to 17 went **T, then 8**
+     (the WOLF copy, map slot 8), as encounters 6.1 says; the finding's
+     remark that the map's numbers 8 to 15 are not used for turns
+     doesn't hold for an area's creatures.

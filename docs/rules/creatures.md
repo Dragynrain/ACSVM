@@ -43,19 +43,56 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       visits the marked regions, lowest number first, so the world map
       first. A region a player reaches during the cycle waits for the next
       one.
-   2. A **visit** is at most 10 **rounds**. It ends sooner after a round in
-      which no living player is left in the region, or in which the number
-      of living players went down.
+   2. A **visit** is at most 10 **rounds**. It ends sooner after a round
+      that leaves no living player in the region, or when the game is left
+      by restoring the saved game (2.2.6). A death alone does not end it.
    3. A **round's turn list** is built at its start. On the map: every
-      living player there, in joining order. In a room region: the rooms
-      that hold a living player (at most 4, in player order), and in each,
-      its players in joining order, then its creatures in slot order.
-      Turns go in list order; the dead are skipped and nobody is added
-      during the round. So a creature takes one turn a round, after the
-      players of its room, and a room counts only if a player stands in it
-      when the round begins; a creature already on the list takes its turn
-      even if the player has left. Anything asked for during the round
-      (adding or retiring a player, saving) happens after it.
+      living player on the open map, in joining order, then the
+      individuals of the encounter areas in use ([encounters](encounters.md)
+      6.1). In a room region: the rooms that hold a living player (at most
+      4, in player order), and in each, its players in joining order, then
+      the region's creatures standing there in slot order; nothing
+      numbered between the players and the region's creatures (5 to 15)
+      is ever on a room's list. Turns go in list order; the dead are
+      skipped and nobody is added during the round. So a creature takes
+      one turn a round, after the players of its room, and a room counts
+      only if a player stands in it when the round begins; a creature
+      already on the list takes its turn even if the player has left.
+   4. **A player who goes through a map door into a room ends its turn
+      there**, whatever moves it has left. It is on the list of the first
+      round of its new region's next visit, by its player number like any
+      other player there; no round is missed, whichever round of the map
+      visit it came in and whichever player came in first. If it was the
+      last living player on the map, that visit ends at the round's end
+      and, when the room's region is the next marked one, its first round
+      begins with this player, so the two turns run back to back. Its
+      first turn in the room starts with the moves it had left at the
+      door, or its full Speed if it had none left. Two things about such a
+      turn are [unknown]: the full moves the idle healing roll uses
+      ([magic](magic.md) 5.3) and whether the carried moves are halved
+      beside an enemy (2.6); the engine's choices are given there.
+   5. **After each round**, in this order: the round counter goes up by
+      one and anything queued for that round is handled; in a room region,
+      the end-of-round random creature rolls (2.4); if the number of
+      living players (counted over every region) changed during the round,
+      the death message (one, however many died); the requests made during
+      the round (retiring a player, adding one, saving); then the visit
+      ends if 2.2.2 says so. A round is never cut short by a death: every
+      individual still on the list takes its turn.
+   6. **The death message** comes after every round in which a player
+      died, whether or not another lives and wherever it stands. It offers
+      the button (restore the last saved game) or F1 (go on). **F1** changes
+      nothing in the scheduler: the visit, the round counter and the queue
+      go on. The dead player keeps its record and place but is out of the
+      cycle's marks and gets no more turns; when the visit ends, the next
+      marked region is visited, or a new cycle is marked from the living
+      players' places. With nobody alive anywhere, the game does not end:
+      it goes to the add-a-player screen (from another adventure, a new
+      character, or none), and an added player takes the first dead
+      player's slot. **The button** clears the marks and requests, reads
+      back the saved state (players, round counter, queue), shows each
+      living player's "one of the adventurers is" screen, ends the visit
+      and starts a new cycle from the restored places.
    [research: turn-order first pass, 2026-11-12, `docs/research/turn-order.md`] Confirmed: with T in a room with three creatures and U
    on the map, the scheduler's region and round counter, read at every
    turn's start, showed U alone for rounds 21 to 39 (the rest of one map
@@ -67,20 +104,59 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    the creatures in 21 phases of 7 runs, never after T alone; and the
    first creature turns after both players had walked in only once both
    stood in the room at a round's start. [capture: turns, capture.md
-   10.10] **Engine:** the rule above. A player who dies mid-round ends
-   the visit at the round's end; the "restore the last saved game" screen
-   the original then shows is the front end's business.
-   Two players in different rooms of one region: T in the side room, U
-   and two creatures in room 0; every round from the region's second on
-   went T, then U and the creatures, in 3 runs. [capture: turns, case
-   rooms2, capture.md 10.10.4] But in the region's first round T had no
-   turn: U and the creatures only. T had come in through the map door in
-   the map visit's last round (with or without going on through the
-   portal), U a round earlier; taking the portal later, inside the
-   region's visit, cost T no round (3 and 3 runs). [capture] [unknown]
-   **Engine:** lists T as usual. Not settled: that missed round (the
-   turn-order brief), the individuals the researcher saw numbered 5 to
-   15 on room lists.
+   10.10] Two players in different rooms of one region: T in the side
+   room, U and two creatures in room 0; every round went T, then U and
+   the creatures, in 3 runs. [capture: turns, case rooms2, capture.md
+   10.10.4]
+   **The map door and the first room round (2.2.4)** [research:
+   turn-order second pass, 2026-11-14, `docs/research/turn-order.md`].
+   The name strip had seemed to show T missing the room region's first
+   round when it came in on the map visit's last round; that was its
+   map-door turn and its first room turn merged. Read from the
+   scheduler's state at every turn's start: U in through the map door in
+   round 11, T in round 12 after 4 of its 12 squares (its moves left 8,
+   the current individual cleared at the door), and round 13, the room
+   region's first, went T, U, AA, BB, as every round after; the same
+   with T coming in first (both in round 12) and with T coming in during
+   round 14, the second round of a later map visit (room rounds from 15,
+   U idle in rounds 12 to 14 as its region was not marked). T's first
+   room turn began with 8, 8 and 1 moves (what it had left), U's with 4
+   (its full Speed, having used all 4). [capture: mem, cases held,
+   tfirst, ulater, capture.md 10.22] This also accounts for movement 2.3
+   (a lone player seems to go on with the rest of its turn). Going from
+   one room region to another the same way is [research, unconfirmed]
+   (traced only). **Room lists never hold 5 to 15** [research,
+   unconfirmed]: none of ours could show it either way (in 10 runs no
+   room list held one, but nothing of ours is numbered so; capture.md
+   10.22). On the map, an encounter area's creature does take turns
+   (T, then map slot 8, in rounds 15 to 17; capture.md 10.22, as
+   encounters 6.1).
+   **Deaths (2.2.5, 2.2.6)** [research: turn-order second pass,
+   2026-11-14]. With F1 answered: EE killed U, round 23 went on in the
+   room region with T and EE and no U; EE then killed T, and after the
+   second message came the add-a-player screen. With T killed in the
+   room region's first round and U on the map, the map was visited with
+   U alone every round from 41 to 76, the room region never again. With
+   a friend behind EE on the list, the friend still had its turn after
+   each kill, before the counter went up. In all 5 death messages the
+   counter had gone up just before; 3 came with a living player left, 2
+   with nobody. With the button: the region went to none and the counter
+   and Life Forces back to the visit's start, and after the "one of the
+   adventurers" screens the room region was visited again from that
+   round. [capture: mem, cases f1-two, f1-split, after/f1, button,
+   button2, capture.md 10.22] Not shown: the queue going on after F1
+   (nothing was queued). A player killed before its own turn in the same
+   round is skipped like any dead individual [research, unconfirmed]: no
+   list of ours had its killer before it. When the saved state the
+   button restores is written (at each region change, at a save, or
+   both) is [unknown]; in every capture it was the state at the start of
+   the current visit, which had begun with a region change.
+   **Engine:** the rules 2.2.1 to 2.2.6. A dead player is skipped on
+   every list and left out of the marks; the round finishes after a
+   death. The death message, its two answers and the add-a-player
+   screen are the front end's: F1 is simply going on; the button is
+   loading the front end's last save (magic 7.4); with nobody alive the
+   engine reports it (`AllPlayersDead`) and waits for a new player.
 3. So creatures act only while a player stands in their room at a round's
    start, and move once a round however many players share the room. Two
    players in different places do not alternate: each gets its region's
@@ -164,6 +240,11 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    for a player (`hindered`); a creature's `CreatureTurn` gives the moves.
    Applied at turn start only; whether walking up to such an individual
    mid-turn shortens the rest of the bar is not captured.
+   **A turn that starts with carried moves** (after a map door, 2.2.4):
+   whether the moves carried over are halved when such an individual
+   stands beside the player is [unknown]; no capture had one there.
+   **Engine:** they are not halved, and `TurnStarted` reports `hindered`
+   false for that turn.
 
 ## 3. Random room creatures
 
@@ -469,7 +550,8 @@ creatures replay exactly.
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
-   and not a friend). Still open: mid-turn, odd Speeds.
+   and not a friend). Still open: mid-turn, odd Speeds, and a turn that
+   starts with moves carried through a map door (2.2.4) beside an enemy.
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5), and for a fighter enemy going for the player

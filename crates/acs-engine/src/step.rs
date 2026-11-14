@@ -145,7 +145,22 @@ impl Game {
                 .map(|d| d.destination);
             if let Some(dest) = door {
                 self.travel(p, from, Some(dest), None, ev);
-                self.spend(ev);
+                if !self.players[p].alive {
+                    return;
+                }
+                // 2.3, creatures 2.2.4: a map door into a room ends the
+                // turn; the moves left go to the next turn's start.
+                if self.players[p].at.room().is_some_and(|(rg, _)| rg != 0) {
+                    let left = self.players[p].moves_left.saturating_sub(1);
+                    self.players[p].moves_left = 0;
+                    self.carried.retain(|&(q, _)| q != p);
+                    if left > 0 {
+                        self.carried.push((p, left));
+                    }
+                    self.end_turn(ev);
+                } else {
+                    self.spend(ev);
+                }
                 return;
             }
         }

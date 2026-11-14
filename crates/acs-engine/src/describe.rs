@@ -601,7 +601,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 format!("{} dies, leaving {}.", name(w), things.join(", "))
             }
         }
-        Event::AllPlayersDead => "Everyone is dead. Resume from the last save.".into(),
+        Event::AllPlayersDead => "Everyone is dead. Resume from the last save, or add a player.".into(),
         Event::AddRefused => format!(
             "No one else can join: {} characters already play.",
             crate::game::MAX_PLAYERS

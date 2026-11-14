@@ -237,6 +237,10 @@ pub struct Game {
     /// Each encounter area's entrance square while it is open (7.1).
     #[serde(default)]
     pub(crate) entrances: [Option<(u8, u8)>; crate::encounters::AREAS as usize],
+    /// Moves a player had left at a map door into a room, for the start of
+    /// its next turn (creatures 2.2.4, movement 2.3).
+    #[serde(default)]
+    pub(crate) carried: Vec<(usize, u8)>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -255,8 +259,6 @@ pub(crate) struct Schedule {
     pub pos: usize,
     /// Rounds since the game began (magic 5.2 counts in them).
     pub round: u32,
-    /// Living players when the round began.
-    pub living: usize,
     /// The rooms on this round's list (creatures 2.2, 2.4).
     pub rooms: Vec<u8>,
 }
@@ -306,6 +308,7 @@ impl Game {
             placed: Vec::new(),
             map: crate::encounters::map_region(),
             entrances: Default::default(),
+            carried: Vec::new(),
         };
         let mut ev = Vec::new();
         match first {
@@ -333,10 +336,25 @@ impl Game {
     }
 
     /// Runs one command for the player whose turn it is.
-    /// Once every player is dead (magic 7.4) commands are ignored.
+    /// Once every player is dead (magic 7.4) only adding a player is
+    /// accepted, and it starts a new cycle (creatures 2.2.6).
     pub fn apply(&mut self, cmd: Command) -> Vec<Event> {
         let mut ev = Vec::new();
         if self.over {
+            if !matches!(cmd, Command::AddPlayer { .. } | Command::CreatePlayer { .. }) {
+                return ev;
+            }
+            self.log.push(cmd.clone());
+            match cmd {
+                Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
+                Command::CreatePlayer { name } => self.create_player(&name, &mut ev),
+                _ => {}
+            }
+            if self.players.iter().any(|p| p.alive) {
+                self.over = false;
+                self.begin_cycle();
+                self.next_turn(&mut ev);
+            }
             return ev;
         }
         self.log.push(cmd.clone());
@@ -521,7 +539,6 @@ impl Game {
             rooms_of(&self.players, region)
         };
         self.sched.pos = 0;
-        self.sched.living = self.players.iter().filter(|p| p.alive).count();
     }
 
     /// Runs the list on: creatures take their turns, and the next living
@@ -554,17 +571,14 @@ impl Game {
                     }
                 }
             }
-            if !self.players.iter().any(|p| p.alive) {
-                self.over = true;
-                ev.push(Event::AllPlayersDead);
-                return;
-            }
         }
     }
 
-    /// The end of a round: the round counter and what falls due on it
-    /// (magic 5.2), random creatures left behind (2.4), then the next round
-    /// of this visit, or the next visit (creatures 2.2).
+    /// The end of a round (creatures 2.2.5): the round counter and what
+    /// falls due on it (magic 5.2), random creatures left behind (2.4); with
+    /// nobody alive the game waits for a new player (2.2.6); then the next
+    /// round of this visit, or the next visit (2.2.2). A death alone ends no
+    /// visit; the death message and its answers are the front end's.
     fn end_round(&mut self, ev: &mut Vec<Event>) {
         self.sched.round += 1;
         self.reversals_due(ev);
@@ -572,10 +586,14 @@ impl Game {
         self.turn_exits.clear();
         self.turn_rooms.clear();
         self.sched.rounds += 1;
-        let living = self.players.iter().filter(|p| p.alive).count();
+        if !self.players.iter().any(|p| p.alive) {
+            self.over = true;
+            ev.push(Event::AllPlayersDead);
+            return;
+        }
         let region = self.sched.region;
         let here = self.players.iter().any(|p| p.alive && p.at.region() == region);
-        if self.sched.rounds >= VISIT_ROUNDS || !here || living < self.sched.living {
+        if self.sched.rounds >= VISIT_ROUNDS || !here {
             if !self.next_visit() {
                 self.begin_cycle();
             }
@@ -635,6 +653,13 @@ impl Game {
         setup.name = crate::characters::fold_name(&setup.name);
         let s = self.adv.world.start;
         let at = Location::World { x: s.x, y: s.y };
+        // Creatures 2.2.6: with nobody alive, the newcomer takes the first
+        // dead player's slot.
+        let slot = if self.players.iter().any(|p| p.alive) {
+            None
+        } else {
+            self.players.iter().position(|p| !p.alive)
+        };
         let mut possessions = setup.possessions;
         let mut gold = setup.gold;
         possessions.retain(|&t| {
@@ -643,7 +668,7 @@ impl Game {
             }
             t != crate::inventory::GOLD
         });
-        self.players.push(Player {
+        let player = Player {
             name: setup.name,
             speed: setup.speed,
             strength: setup.strength,
@@ -667,11 +692,19 @@ impl Game {
             missile: setup.missile,
             magic_defense: setup.magic_defense,
             alive: true,
-        });
-        ev.push(Event::PlayerAdded {
-            player: self.players.len() - 1,
-            at,
-        });
+        };
+        let index = match slot {
+            Some(i) => {
+                self.players[i] = player;
+                self.carried.retain(|&(q, _)| q != i);
+                i
+            }
+            None => {
+                self.players.push(player);
+                self.players.len() - 1
+            }
+        };
+        ev.push(Event::PlayerAdded { player: index, at });
     }
 
     /// Uses one square of the current player's bar; ends the turn when empty.
@@ -713,16 +746,11 @@ impl Game {
         }
     }
 
-    /// Ends the current player's turn; the schedule goes on (creatures 2.2,
-    /// magic 7.4).
+    /// Ends the current player's turn; the schedule goes on, the round
+    /// finishing even after a death (creatures 2.2.5, magic 7.4).
     pub(crate) fn end_turn(&mut self, ev: &mut Vec<Event>) {
         let p = self.current;
         ev.push(Event::TurnEnded { player: p });
-        if !self.players.iter().any(|pl| pl.alive) {
-            self.over = true;
-            ev.push(Event::AllPlayersDead);
-            return;
-        }
         self.next_turn(ev);
     }
 
@@ -732,8 +760,22 @@ impl Game {
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
         // Magic 3.2: summonses are answered on the following turn.
         self.answer_summons(ev);
-        let hindered = self.players[self.current].speed > 0 && self.hindered(self.current);
-        let moves = self.players[self.current].turn_speed(&self.adv, hindered);
+        // Creatures 2.2.4: the first turn after a map door into a room
+        // starts with the moves left at the door. The bar is not refilled,
+        // so it keeps its full size from the door turn.
+        let me = self.current;
+        let carried = self
+            .carried
+            .iter()
+            .position(|&(q, _)| q == me)
+            .map(|i| self.carried.remove(i).1);
+        let (moves, hindered) = match carried {
+            Some(left) => (left, false),
+            None => {
+                let hindered = self.players[me].speed > 0 && self.hindered(me);
+                (self.players[me].turn_speed(&self.adv, hindered), hindered)
+            }
+        };
         if let Some(r) = self.players[self.current].at.room() {
             if !self.turn_rooms.contains(&r) {
                 self.turn_rooms.push(r);
@@ -741,7 +783,9 @@ impl Game {
         }
         let p = &mut self.players[self.current];
         p.moves_left = moves;
-        p.turn_moves = moves;
+        if carried.is_none() {
+            p.turn_moves = moves;
+        }
         ev.push(Event::TurnStarted {
             player: self.current,
             moves,

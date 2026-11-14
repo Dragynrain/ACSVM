@@ -524,7 +524,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             ui.label(place_name(g, p.at));
             if g.is_over() || !p.alive {
                 ui.label(
-                    RichText::new("Dead. Play resumes from the last save (the last region change).")
+                    RichText::new("Dead. Resume from the last save (the last region change), or add someone.")
                         .color(Color32::from_rgb(255, 110, 110)),
                 );
             }
@@ -763,7 +763,7 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
                 .hint_text(format!("PLAYER {}", players.len() + 1))
                 .desired_width(130.0),
         );
-        let can = living < acs_engine::MAX_PLAYERS && !g.is_over();
+        let can = living < acs_engine::MAX_PLAYERS;
         if ui
             .add_enabled(can, egui::Button::new("Add Someone"))
             .on_hover_text(

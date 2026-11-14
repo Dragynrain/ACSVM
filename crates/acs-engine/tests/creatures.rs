@@ -900,3 +900,113 @@ fn players_apart_take_ten_round_visits() {
         assert_eq!(who, want);
     });
 }
+
+fn on_map(a: Adventure, speed: u8) -> Game {
+    Game::new(
+        a,
+        3,
+        Rules { diagonals: true },
+        PlayerSetup {
+            speed,
+            ..Default::default()
+        },
+    )
+    .0
+}
+
+fn moves_at_start(ev: &[Event], player: usize) -> Option<u8> {
+    ev.iter().find_map(|e| match *e {
+        Event::TurnStarted { player: q, moves, .. } if q == player => Some(moves),
+        _ => None,
+    })
+}
+
+/// 2.2.4, movement 2.3: a map door into a room ends the turn; a lone
+/// player's first room turn follows at once with the moves it had left.
+#[test]
+fn a_map_door_ends_the_turn_and_keeps_the_moves_left() {
+    both(|p| {
+        let mut g = on_map(adventure(p), 15);
+        let ev = g.apply(Command::Move { dir: Dir::N });
+        let ended = ev.iter().position(|e| *e == Event::TurnEnded { player: 0 });
+        let entered = ev.iter().position(|e| matches!(e, Event::EnteredRoom { .. }));
+        assert!(entered.is_some() && entered < ended, "{ev:?}");
+        assert_eq!(moves_at_start(&ev, 0), Some(14));
+        assert_eq!(g.current_player().moves_left, 14);
+        assert_eq!(g.current_player().at, at(0, 2, 2));
+        // The turn after is a full one.
+        let ev = wait(&mut g);
+        assert_eq!(moves_at_start(&ev, 0), Some(15));
+    });
+}
+
+/// 2.2.4: with no moves left at the door the first room turn has full Speed.
+#[test]
+fn a_map_door_on_the_last_move_gives_a_full_turn() {
+    both(|p| {
+        let mut g = on_map(adventure(p), 2);
+        g.apply(Command::Move { dir: Dir::E });
+        let ev = g.apply(Command::Move { dir: Dir::NW });
+        assert!(
+            ev.iter().any(|e| matches!(e, Event::EnteredRoom { .. })),
+            "{ev:?}"
+        );
+        assert_eq!(moves_at_start(&ev, 0), Some(2));
+    });
+}
+
+/// 2.2.3, 2.2.4: players come into the room region by player number
+/// whichever came in first, the later one with its moves left; then the
+/// room's creatures.
+#[test]
+fn the_first_room_round_lists_players_by_number() {
+    both(|p| {
+        let mut a = adventure(p);
+        put(
+            &mut a,
+            1,
+            Spec {
+                speed: 0,
+                ..spec(0, 7, 5, Alignment::Friend, false)
+            },
+        );
+        let mut g = on_map(a, 15);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        wait(&mut g);
+        // Next map round: player 0 waits, player 1 takes the door.
+        wait(&mut g);
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::Move { dir: Dir::N });
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::EnteredRoom { player: 1, .. })));
+        // The map goes on with player 0 alone; player 1 waits for its region
+        // (and keeps its 14 moves).
+        assert_eq!(g.current(), 0);
+        g.apply(Command::Move { dir: Dir::E });
+        let ev = g.apply(Command::Move { dir: Dir::NW });
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::EnteredRoom { player: 0, .. })));
+        assert_eq!(moves_at_start(&ev, 0), Some(13));
+        assert!(!ev
+            .iter()
+            .any(|e| matches!(e, Event::TurnStarted { player: 1, .. })));
+        let ev = wait(&mut g);
+        assert_eq!(moves_at_start(&ev, 1), Some(14));
+        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureTurn { .. })));
+        let ev = wait(&mut g);
+        let creature = ev
+            .iter()
+            .position(|e| matches!(e, Event::CreatureTurn { slot: 1, .. }));
+        let next = ev
+            .iter()
+            .position(|e| matches!(e, Event::TurnStarted { player: 0, .. }));
+        assert!(creature.is_some() && creature < next, "{ev:?}");
+    });
+}

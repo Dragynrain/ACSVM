@@ -1278,3 +1278,146 @@ fn reversals_come_one_to_six_rounds_apart() {
         }
     });
 }
+
+/// Creatures 2.2.2, 2.2.6: a death alone ends no visit; the dead player is
+/// skipped and the visit runs its 10 rounds before the map's turn.
+#[test]
+fn a_death_does_not_end_the_visit() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        for name in ["TWO", "THREE"] {
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: name.into(),
+                    ..setup()
+                },
+            });
+        }
+        // 0 and 1 in the hall, 2 on the map: the hall's visit from here.
+        g.place(1, hall(2, 4));
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.iter().any(|e| matches!(e, Event::Died { who: ME, .. })));
+        assert_eq!(g.current(), 1);
+        let mut who = Vec::new();
+        for _ in 0..10 {
+            g.apply(Command::Wait);
+            who.push(g.current());
+        }
+        let mut want = vec![1; 9];
+        want.push(2);
+        assert_eq!(who, want);
+    });
+}
+
+/// Creatures 2.2.5: the round finishes after the last player dies (the
+/// creature after it on the list still takes its turn), and only then
+/// does the game wait for a new player (2.2.6, magic 7.4).
+#[test]
+fn the_round_finishes_before_all_players_dead() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        put_creature(&mut a, 1, 7, 4, |c| c.strategy.alignment = Alignment::Friend);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        let ev = mv(&mut g, Dir::E);
+        let died = ev.iter().position(|e| matches!(e, Event::Died { who: ME, .. }));
+        let turn = ev
+            .iter()
+            .position(|e| matches!(e, Event::CreatureTurn { slot: 1, .. }));
+        let over = ev.iter().position(|e| *e == Event::AllPlayersDead);
+        assert!(died < turn && turn < over && died.is_some(), "{ev:?}");
+        assert_eq!(ev.last(), Some(&Event::AllPlayersDead));
+        assert!(g.is_over());
+    });
+}
+
+/// Creatures 2.2.6, magic 7.4: with nobody alive every command but adding
+/// a player is ignored; the newcomer takes the first dead player's slot
+/// and play goes on, and the game replays.
+#[test]
+fn after_all_players_dead_a_new_player_takes_the_first_dead_slot() {
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        put_item(&mut a, 0, 3, 4, DISEASE_DOWN, 0);
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "TWO".into(),
+                ..setup()
+            },
+        });
+        g.place(1, hall(2, 4));
+        g.set_life_force(1, 4);
+        mv(&mut g, Dir::E);
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.contains(&Event::AllPlayersDead));
+        assert!(g.apply(Command::Wait).is_empty());
+        let logged = g.log().len();
+        let ev = g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "NEW".into(),
+                ..setup()
+            },
+        });
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })));
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::TurnStarted { player: 0, .. })));
+        assert!(!g.is_over());
+        assert_eq!(g.log().len(), logged + 1);
+        assert_eq!(g.players().len(), 2);
+        assert_eq!(g.players()[0].name, "NEW");
+        assert!(g.players()[0].alive && !g.players()[1].alive);
+        assert_eq!(g.current(), 0);
+        // On the map, alone: one turn a round.
+        g.apply(Command::Wait);
+        assert_eq!(g.current(), 0);
+        // A rolled character is accepted the same way.
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 2, DISEASE_DOWN, 0);
+        let mut h = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 9,
+                ..setup()
+            },
+        );
+        assert!(mv(&mut h, Dir::E).contains(&Event::AllPlayersDead));
+        let ev = h.apply(Command::CreatePlayer { name: "ROLL".into() });
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })));
+        assert!(!h.is_over() && h.players().len() == 1);
+    });
+}

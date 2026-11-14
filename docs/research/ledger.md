@@ -17,16 +17,25 @@ daily cap: 3 passes closed per day
 | combat | 1-3 | closed | next: the player's attempt to fire, a Speed 0 friend's turn, the dropped treasure's square |
 | stores | 1 | closed | next: map stores, saving the stock, the hang with a store and a disappearing bow |
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
-| encounters | 1 | reviewed | in the spec and engine as [research] but never confirmed by a capture of ours: confirm items 1, 2 and 4; on hold: another session (World map encounters research) is already capturing them in capture/runs/rr15; take its result, relaunch the confirmer only if it stops without one |
-| turn-order | 2 | reviewed | items: the missed round after coming in at the map visit's end, a player's death, rooms with individuals 5-15; queue/turn-order-p2 |
-| combat | 4 | researching | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
+| encounters | 1 | specced | confirmed and specced by the World map encounters research session (59aa038, rr15, capture.md); engine-implementer waits until that session is no longer waiting on the maintainer, to avoid two writers |
+| turn-order | 2 | checked | items: the missed round after coming in at the map visit's end, a player's death, rooms with individuals 5-15; queue/turn-order-p2 |
+| combat | 4 | reviewed | items: the player's attempt to fire, a Speed 0 creature's turn, the dropped treasure's square; queue/combat-p4; capture.md has no entry for its rr16 inputs yet |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
-| characters | 2 | researching | items: Retire, another adventure's player, name entry, how many players, catching up; queue/characters-p2 |
+| characters | 2 | reviewed | items: Retire, another adventure's player, name entry, how many players, catching up; queue/characters-p2 |
 
 ## Log
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: turn-order, 2, checker, all PASS but fmt, whose only flag is script.rs from the characters confirmer's edit in progress; committed without script.rs, the staged tree rebuilt and tested apart.
+- 2026-11-14: encounters, 1, confirmed and specced in 59aa038 by the World map encounters research session; engine step held while that session waits on the maintainer.
+- 2026-11-14: turn-order, 2, engine-implementer, visit end, map door ends the turn with moves carried, add a player after all dead (engine and viewer), 6 tests; two engine choices sent to the spec as [unknown].
+- 2026-11-14: turn-order, 2, spec-writer, creatures.md 2.2.2-2.2.6, movement.md 2.3/2.6, magic.md 7.4; engine-implementer started.
+- 2026-11-14: turn-order, 2, capture-confirmer, items 1 and 2 confirmed (rr18, capture.md 10.22), killed-before-its-turn and item 3 unreachable; an area creature takes map turns (agrees with encounters 6.1); escalated sub-point: when the restore state is written (unsure); spec-writer started.
+- 2026-11-14: combat, 4, findings-reviewer, PASS (1 player fires only through FIRE, likely, corrects pass 1; 2 Speed 0 turn; 3 drop square, 80 of 80 in the inputs); capture-confirmer started.
+- 2026-11-14: combat, 4, research done; findings-reviewer started.
+- 2026-11-14: characters, 2, findings-reviewer, PASS (all five answered; the garbled name strip unsure, held out; gold for another adventure's player corrects pass 1); capture-confirmer started.
+- 2026-11-14: characters, 2, research done; findings-reviewer started.
 - 2026-11-14: stores, 2, brief-writer, closed; no pass 3.
 - 2026-11-14: stores, 2, checker, all PASS; committed (stores files only, the staged tree rebuilt and tested apart).
 - 2026-11-14: stores, 2, engine-implementer, no rules change, 3 tests pin 2.5 and 2.7; spec 2.7 wording fixed (region 0 stock is always empty); area items in the model would be a MODEL_VERSION question, left for the maintainer; checker started.

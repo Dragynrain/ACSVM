@@ -67,6 +67,17 @@ pub struct MemSetup {
     pub answer: Option<Vec<String>>,
     /// The stick from the run's start (`parse_push`), then let go.
     pub push: Vec<(String, u64)>,
+    /// With `answer`: the death message (the one offering F1, 10.22) is
+    /// answered with F1 instead of the button, whoever the strip names.
+    pub death_f1: bool,
+    /// Read the watched bytes from RAM (the `ram` bank), not as the CPU
+    /// sees them: bytes under the ROMs otherwise read the ROM's byte
+    /// whenever the program has it banked in (10.22).
+    pub ram: bool,
+    /// With `answer`: also answer with the button, whoever the strip
+    /// names, any message holding one of these comma-separated words (the restore's "press button
+    /// of the joystick" screens, 10.22).
+    pub answer_text: Option<String>,
 }
 
 /// Rows of the inner screen below the name strip, where messages show.
@@ -88,6 +99,40 @@ fn message_shown(f: &crate::screen::Frame) -> bool {
     total - bg > 50
 }
 
+/// The message area read as text, in the message's own colour (the most
+/// common colour below the name strip other than black and the
+/// background), one string
+/// per text line, blank lines dropped.
+pub fn message_text(f: &crate::screen::Frame, t: &crate::glyphs::Table) -> Vec<String> {
+    let (_, _, w, h) = f.inner();
+    let mut counts = [0usize; 256];
+    // Below the name strip (to 176), whose colour would otherwise win.
+    for y in (176..MESSAGE_ROWS.end).filter(|&y| y < h) {
+        for x in 0..w {
+            counts[f.at(x, y) as usize] += 1;
+        }
+    }
+    counts[0] = 0;
+    let mut order: Vec<usize> = (0..256).filter(|&i| counts[i] > 0).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(counts[i]));
+    let Some(&ink) = order.get(1) else {
+        return Vec::new();
+    };
+    let rgb = f.palette.get(ink).copied().unwrap_or([255, 0, 255]);
+    let y0 = MESSAGE_ROWS.start.saturating_sub(8);
+    let s = crate::glyphs::Screen::from_frame(f, &[rgb], &[]).rows(y0, MESSAGE_ROWS.end - y0);
+    crate::glyphs::read(&s, t)
+        .lines
+        .into_iter()
+        .filter(|l| !l.trim().is_empty())
+        .collect()
+}
+
+/// Whether message lines are the death message: it offers F1.
+pub fn is_death_message(lines: &[String]) -> bool {
+    lines.iter().any(|l| l.contains("F1"))
+}
+
 impl Runner<'_> {
     /// One `mem` run: restore, set `sets` and (if `state`) the random state,
     /// then look every 20,000 instructions for `limit` instructions, or until
@@ -102,6 +147,9 @@ impl Runner<'_> {
             draws,
             answer,
             push,
+            death_f1,
+            ram,
+            answer_text,
         } = setup;
         let (sets, watch, limit, until_refill, draws) =
             (&sets[..], &watch[..], *limit, *until_refill, *draws);
@@ -129,6 +177,9 @@ impl Runner<'_> {
         let mut draw_log = Vec::new();
         let mut answered = Vec::new();
         let mut pressed = false;
+        // When F1 was last fed: fed again only if the message is still up
+        // 2 million instructions later (a fed key is sometimes dropped).
+        let mut fed: Option<u64> = None;
         for &(a, v) in sets {
             self.s.vice.mon.mem_set(a, &[v]).map_err(|e| e.to_string())?;
         }
@@ -139,15 +190,28 @@ impl Runner<'_> {
                 .mem_set(RANDOM_STATE, &[s])
                 .map_err(|e| e.to_string())?;
         }
+        let bank = if *ram {
+            let banks = self.s.vice.mon.banks_available().map_err(|e| e.to_string())?;
+            Some(
+                banks
+                    .iter()
+                    .find(|(_, n)| n == "ram")
+                    .map(|(i, _)| *i)
+                    .ok_or(format!("no ram bank in {banks:?}"))?,
+            )
+        } else {
+            None
+        };
         let read = |r: &mut Self| -> Result<Vec<u8>, String> {
             watch
                 .iter()
                 .map(|&a| {
-                    r.s.vice
-                        .mon
-                        .mem_read(a, a, false)
-                        .map_err(|e| e.to_string())
-                        .map(|b| b.first().copied().unwrap_or(0))
+                    match bank {
+                        Some(b) => r.s.vice.mon.mem_read_bank(a, a, b),
+                        None => r.s.vice.mon.mem_read(a, a, false),
+                    }
+                    .map_err(|e| e.to_string())
+                    .map(|b| b.first().copied().unwrap_or(0))
                 })
                 .collect()
         };
@@ -228,7 +292,22 @@ impl Runner<'_> {
                         .as_ref()
                         .ok_or("no glyph table (--glyphs or ACSVM_CAPTURE_GLYPHS)")?;
                     let (mover, _) = crate::turns::strip(&f, t_);
-                    if !mover.is_empty() && !players.contains(&mover) && message_shown(&f) {
+                    let shown = message_shown(&f);
+                    let death = *death_f1
+                        && shown
+                        && fed.is_none_or(|w| t >= w + 2_000_000)
+                        && is_death_message(&message_text(&f, t_));
+                    let waiting = *death_f1 && fed.is_some_and(|w| t < w + 2_000_000);
+                    let text_hit = !death
+                        && shown
+                        && answer_text.as_ref().is_some_and(|w| {
+                            let lines = message_text(&f, t_);
+                            w.split(',').any(|w| lines.iter().any(|l| l.contains(w)))
+                        });
+                    if death
+                        || (!waiting
+                            && (text_hit || (!mover.is_empty() && !players.contains(&mover) && shown)))
+                    {
                         if answered.len() < 16 {
                             let png = self
                                 .s
@@ -236,9 +315,20 @@ impl Runner<'_> {
                                 .join(format!("answer{run}-{:02}.png", answered.len() + 1));
                             f.save_png(&png, false, 2).map_err(|e| e.to_string())?;
                         }
-                        self.joy("fire")?;
-                        pressed = true;
-                        answered.push(json!({"t": t, "mover": mover}));
+                        if death {
+                            // F1 goes on from here; the next look waits
+                            // for the message to go (no stick to let go).
+                            self.s
+                                .vice
+                                .mon
+                                .keyboard_feed(&crate::script::petscii("{F1}"))
+                                .map_err(|e| e.to_string())?;
+                            fed = Some(t);
+                        } else {
+                            self.joy("fire")?;
+                            pressed = true;
+                        }
+                        answered.push(json!({"t": t, "mover": mover, "f1": death}));
                     }
                 }
             }
@@ -252,6 +342,11 @@ impl Runner<'_> {
                 }
             }
             bar = b;
+        }
+        if answer.is_some() {
+            let f = self.s.frame().map_err(|e| e.to_string())?;
+            f.save_png(&self.s.out.join(format!("end{run}.png")), false, 2)
+                .map_err(|e| e.to_string())?;
         }
         if let Some(n) = checkpoint {
             self.s.vice.mon.delete_checkpoint(n).map_err(|e| e.to_string())?;
@@ -280,5 +375,16 @@ mod tests {
             vec![("e".into(), 300_000), ("none".into(), 1_000_000)]
         );
         assert!(parse_push("up").is_err());
+    }
+
+    #[test]
+    fn death_message() {
+        let l = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(is_death_message(&l(&[
+            "PRESS BUTTON TO RESTORE",
+            "PRESS F1 TO GO ON"
+        ])));
+        assert!(!is_death_message(&l(&["EE HARMS", "T WITH"])));
+        assert!(!is_death_message(&[]));
     }
 }

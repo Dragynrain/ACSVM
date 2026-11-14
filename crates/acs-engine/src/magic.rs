@@ -337,6 +337,9 @@ impl Game {
     pub(crate) fn forget_vitals(&mut self, who: Who) {
         self.vitals.retain(|v| v.who != who);
         self.reversals.retain(|r| r.who != who);
+        if let Who::Player { player } = who {
+            self.carried.retain(|&(q, _)| q != player);
+        }
     }
 
     /// Living individuals in a room, players by number then creatures by slot.

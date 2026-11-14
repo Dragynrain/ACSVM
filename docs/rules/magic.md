@@ -254,7 +254,11 @@ magic item after it is used. [unknown]
       roll of 0 to (the turn's full moves - 1) and heals on a 0: 1 in the
       turn's full moves. Walking, using an item or casting takes no such
       roll. So a turn waited out in full heals 1 on average whatever the
-      Speed (a Speed 1 turn always 1);
+      Speed (a Speed 1 turn always 1). On a turn that starts with the
+      moves carried through a map door ([creatures](creatures.md)
+      2.2.4), which full moves the roll uses (the door turn's full bar or
+      the moves carried) is [unknown]. **Engine:** the door turn's full
+      bar, as it does not reset the turn's full moves there;
    2. the **top of each turn**, just after drift, rolls a die and heals on
       a 2: 1 in 6, needed or not.
    [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
@@ -339,10 +343,15 @@ Combat will reuse this; spells are the first thing that can kill.
    everything is lost. One `Died` event lists what was left.
 3. A dead creature frees its slot. [data: creatures 1.1]
 4. A dead player stays in the player list, marked dead, and gets no more
-   turns. When no player is left alive the game emits `AllPlayersDead` and
-   ignores further commands. After a death, play resumes from the last save
-   (the region change before it). [manual] **Engine:** saves are the front
-   end's snapshots at `EnteredRegion` / `LeftRegion` (movement 6.6).
+   turns. After a death, play resumes from the last save (the region change
+   before it). [manual] On the C64 the offer comes after every round in
+   which a player died, and play may also go on from there; with nobody
+   left alive the game goes to the add-a-player screen rather than ending
+   ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] When the
+   save restored is written is [unknown]. **Engine:** when no player is
+   left alive the game emits `AllPlayersDead` and ignores every command
+   but adding a player; saves are the front end's snapshots at
+   `EnteredRegion` / `LeftRegion` (movement 6.6).
 5. A player who dies during their own turn ends it at once.
 
 ## 8. Characters
@@ -368,7 +377,9 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing: captured, researched and
    confirmed (5.1-5.3). Still open: creatures' healing, a temporary fall,
-   an individual out of play when its reversal is due.
+   an individual out of play when its reversal is due, and the idle
+   roll's range on a turn that starts with moves carried through a map
+   door (5.3, creatures 2.2.4).
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
 5. Add to Room: where the thing lands.

@@ -251,6 +251,18 @@ enum Cmd {
         /// players' names, comma-separated (docs/capture.md 10.14.4).
         #[arg(long)]
         answer: Option<String>,
+        /// mem, with --answer: answer the death message (the one offering
+        /// F1) with F1, "continue playing from here" (docs/capture.md 10.22).
+        #[arg(long)]
+        death_f1: bool,
+        /// mem: read the watched bytes from RAM, under the ROMs (10.22).
+        #[arg(long)]
+        ram: bool,
+        /// mem, with --answer: also press the button, whoever moves, for
+        /// any message holding one of these words, comma-separated
+        /// (docs/capture.md 10.22).
+        #[arg(long)]
+        answer_text: Option<String>,
         /// mem: the stick from the run's start, DIR:N,DIR:N,.. (each held
         /// N instructions, k and m suffixes; `none` lets go), then let go.
         #[arg(long)]
@@ -555,6 +567,9 @@ fn main() {
             run_for,
             until_refill,
             answer,
+            death_f1,
+            ram,
+            answer_text,
             push,
             draws,
             peek,
@@ -675,6 +690,9 @@ fn main() {
                             .as_ref()
                             .map(|a| a.split(',').map(str::to_string).collect()),
                         push: push.clone(),
+                        death_f1,
+                        ram,
+                        answer_text: answer_text.clone(),
                     };
                     result = r.mem_run(run, state, &setup);
                     if result.is_err() {
