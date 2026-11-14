@@ -269,6 +269,10 @@ enum Cmd {
         /// (docs/capture.md 10.22).
         #[arg(long)]
         answer_text: Option<String>,
+        /// mem: save a snapshot with disks at each run's end,
+        /// OUT/end{run}.vsf, to go on from there with a script (10.28).
+        #[arg(long)]
+        end_dump: bool,
         /// mem: the stick from the run's start, DIR:N,DIR:N,.. (each held
         /// N instructions, k and m suffixes; `none` lets go), then let go.
         #[arg(long)]
@@ -599,6 +603,7 @@ fn main() {
             death_f1,
             ram,
             answer_text,
+            end_dump,
             push,
             draws,
             peek,
@@ -722,6 +727,7 @@ fn main() {
                         death_f1,
                         ram,
                         answer_text: answer_text.clone(),
+                        end_dump,
                     };
                     result = r.mem_run(run, state, &setup);
                     if result.is_err() {

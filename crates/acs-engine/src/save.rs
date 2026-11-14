@@ -14,7 +14,8 @@ use std::fmt;
 /// The `format` field of every save (saves 2).
 pub const SAVE_FORMAT: &str = "acsvm-save";
 /// The save format version this engine writes (saves 2.1). Version 3 has
-/// `save_game` and the autosave of creatures 2.2.7. Version 2 is read as it
+/// `save_game` (which ends no turn) and the autosave of creatures 2.2.7.
+/// Version 2 is read as it
 /// is: its commands mean the same, and its `autosave` (made at the door
 /// step) is kept as written. Version 1 is still read: its `fire` (the old
 /// refusal, no move, nothing drawn) is mapped to `leave_store`, which does

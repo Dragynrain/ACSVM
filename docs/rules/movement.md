@@ -275,9 +275,10 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    made at the door step but when the scheduler next begins a visit in a
    different region from the visit before it, with that visit's first
    round on the counter; visits of one region one after another save
-   nothing, and a SAVE GAME from the menu saves at its round's end. The
-   later of the two is restored ([creatures](creatures.md) 2.2.7).
-   [capture: rr21, capture.md 10.25] **Engine:** the same; the save point
+   nothing, and a SAVE GAME from the menu or a Retire with Save saves at
+   its round's end. The latest of these is restored
+   ([creatures](creatures.md) 2.2.7). [capture: rr21, rr24, capture.md
+   10.25, 10.28] **Engine:** the same; the save point
    is kept in the save file (`docs/saves.md` 1.4). `EnteredRegion` /
    `LeftRegion` still report the door step but no longer mark the save.
 

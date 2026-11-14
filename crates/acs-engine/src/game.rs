@@ -469,14 +469,16 @@ impl Game {
     /// Commands played when the game was last saved (creatures 2.2.7,
     /// saves 1.4): at the start of a visit to a region other than the one
     /// visited before, or at the end of a round in which SAVE GAME was
-    /// chosen; 0 at the game's start. The later save wins.
+    /// chosen or a player retired with Save; 0 at the game's start. The
+    /// later save wins.
     pub fn save_point(&self) -> usize {
         self.saved_at
     }
 
     /// What restoring the saved game goes back to now (creatures 2.2.6):
     /// after a command whose round ended with the death message, the save
-    /// as it stood at that message (a SAVE GAME of that round, or the visit
+    /// as it stood at that message (a SAVE GAME or Retire with Save of that
+    /// round, or the visit
     /// that follows it, is not yet made when the button is pressed);
     /// otherwise [`Game::save_point`].
     pub fn restore_point(&self) -> usize {
@@ -602,13 +604,14 @@ impl Game {
         });
     }
 
-    /// SAVE GAME (creatures 2.2.7): recorded for the round's end, where it
-    /// is made after the retirement and the adds; it ends the turn with no
-    /// move used and no draw. Asked twice in a round, it saves once.
+    /// SAVE GAME (creatures 2.2.7.2): recorded for the round's end, where
+    /// it is made after the retirement and the adds. It uses no move,
+    /// draws nothing and ends no turn: the moves left are walked or run
+    /// out as idle moves, each with its healing roll (magic 5.3). Asked
+    /// twice in a round, it saves once.
     fn request_save(&mut self, ev: &mut Vec<Event>) {
         self.save_asked = true;
         ev.push(Event::SaveRequested { player: self.current });
-        self.end_turn(ev);
     }
 
     /// Creatures 2.2.6: by the add-a-player screen every player record is
@@ -743,9 +746,15 @@ impl Game {
             // 2.2.6: the message's button restores the save made so far.
             self.offered = Some(self.saved_at);
         }
-        self.take_retirement(ev);
+        // 2.2.7.3, characters 7.3: a Retire with Save is a save point.
+        let retired_saved = self.take_retirement(ev);
+        if retired_saved {
+            self.save(None, ev);
+        }
         self.take_adds(ev);
-        if std::mem::take(&mut self.save_asked) {
+        // One save a round: a SAVE GAME after a Retire with Save is the
+        // same point.
+        if std::mem::take(&mut self.save_asked) && !retired_saved {
             self.save(None, ev);
         }
         if !self.players.iter().any(|p| p.alive) {

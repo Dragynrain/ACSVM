@@ -248,11 +248,14 @@ magic item after it is used. [unknown]
    taken back (11 just after a temporary +10).
 3. **Natural healing.** Life Force below Constitution heals on its own, about
    6 times slower than resting. [manual] On the C64 there are two chances,
-   both only while Life Force (temporary part and all) is below
-   Constitution, 1 point each, never above it:
+   each healing 1 point only while Life Force (temporary part and all)
+   is below Constitution, never above it; the rolls are drawn either way:
    1. each **idle move**, a move of the bar used up by waiting, takes a
       roll of 0 to (the turn's full moves - 1) and heals on a 0: 1 in the
-      turn's full moves. Walking, using an item or casting takes no such
+      turn's full moves. The roll is drawn at full Life Force too, healing
+      nothing. [capture: mem `--draws`, rr24 `c1-button`, capture.md
+      10.28: 4 idle moves at Life Force 40 of 40, one draw each; ours, no
+      research pass, 2026-11-14] Walking, using an item or casting takes no such
       roll. So a turn waited out in full heals 1 on average whatever the
       Speed (a Speed 1 turn always 1). With full moves 0 (a creature of
       Speed 0, whose one action may be an idle move, creatures 2.7) the
@@ -280,9 +283,12 @@ magic item after it is used. [unknown]
    rule above. A `Wait` uses up the turn's remaining moves as idle moves,
    one healing roll each, and so does each `Idle` (the real-time drain,
    movement 2.4); a turn ended by walking its last move, casting
-   or readying armor takes none, and nor does one ended by SAVE GAME
-   (whether the original rolls for the moves SAVE GAME leaves is
-   [unknown], [creatures](creatures.md) 2.2.7); creatures roll for the moves their turn
+   or readying armor takes none. SAVE GAME ends no turn
+   ([creatures](creatures.md) 2.2.7): the moves it leaves are walked or
+   run out as idle moves with their rolls, as in the original (one draw
+   per idle move, Life Force +1 at 4 of 32 such moves against 7 of 40
+   without the save; [capture: rr24 `c4-save`, `c4-idle`, capture.md
+   10.28]); creatures roll for the moves their turn
    leaves unused ([research, unconfirmed]: the researcher read that
    creatures share the players' turn routine). Rest comes with a later
    rule set.
@@ -396,19 +402,22 @@ Combat will reuse this; spells are the first thing that can kill.
    which a player died, and play may also go on from there; with nobody
    left alive the game goes to the add-a-player screen rather than ending
    ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] The
-   save restored is the later of the start of the last visit that began
-   in a different region from the visit before it, and the last SAVE
-   GAME (written at the end of the round it was chosen in); the round
-   counter comes back as that visit's first round (or the round after
-   the save), not the round of the door step (creatures 2.2.7). [capture:
-   rr21, capture.md 10.25] By the add-a-player screen the player records
+   save restored is the latest of the start of the last visit that began
+   in a different region from the visit before it, the last SAVE GAME
+   and the last Retire with Save (both written at the end of the round
+   they were asked in); the round counter comes back as that visit's
+   first round (or the round after the save), not the round of the door
+   step (creatures 2.2.7). [capture: rr21, rr24, capture.md 10.25, 10.28]
+   The button at a death message restores the save from before that
+   round, even when a SAVE GAME was asked in it; answered with F1, that
+   SAVE GAME is written, with nobody alive if nobody is, and a newcomer's
+   first visit then saves over it (creatures 2.2.7). By the add-a-player screen the player records
    are cleared; declining to add a player shows the same screen again
    and no turn is taken (creatures 2.2.6). [capture: rr21 `decline`] The
    same screen comes back when the last player retires
-   ([characters](characters.md) 7.6). A SAVE GAME in the same round as a
-   region change, one in the round the last player dies, and whether a
-   Retire with Save (which writes the game too, characters 7.3) is
-   restored are [unknown] (creatures 2.2.7, with the engine's choices).
+   ([characters](characters.md) 7.6). Whether the all-dead save can come
+   back when the last player died on the world map and the newcomer
+   starts there is [unknown] (creatures 2.2.7, with the engine's choice).
    **Engine:** when no player is
    left alive, or the last one has retired, the game emits
    `AllPlayersDead` ("nobody is left in play") and ignores every command

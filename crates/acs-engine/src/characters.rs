@@ -190,12 +190,14 @@ impl Game {
     /// the gold as one pile land on its square, top of the stack (7.5's
     /// engine choice). Either way only the slot is freed (7.6), and the
     /// reversals due for it are dropped (7.3).
-    pub(crate) fn take_retirement(&mut self, ev: &mut Vec<Event>) {
+    /// True when a Save was taken: the round's end then saves the game
+    /// (7.3, creatures 2.2.7.3).
+    pub(crate) fn take_retirement(&mut self, ev: &mut Vec<Event>) -> bool {
         let Some(Retirement { player, save }) = self.retire.take() else {
-            return;
+            return false;
         };
         if !self.players.get(player).is_some_and(|p| p.alive) {
-            return;
+            return false;
         }
         if self.store.as_ref().is_some_and(|s| s.player == player) {
             self.leave_store(ev);
@@ -232,6 +234,7 @@ impl Game {
         if let Location::Room { region: 0, room, .. } = at {
             self.close_if_empty(room, ev);
         }
+        save
     }
 }
 

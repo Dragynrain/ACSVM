@@ -78,6 +78,8 @@ pub struct MemSetup {
     /// names, any message holding one of these comma-separated words (the restore's "press button
     /// of the joystick" screens, 10.22).
     pub answer_text: Option<String>,
+    /// Save a snapshot with disks at the run's end, `end{run}.vsf`.
+    pub end_dump: bool,
 }
 
 /// Rows of the inner screen below the name strip, where messages show.
@@ -150,6 +152,7 @@ impl Runner<'_> {
             death_f1,
             ram,
             answer_text,
+            end_dump,
         } = setup;
         let (sets, watch, limit, until_refill, draws) =
             (&sets[..], &watch[..], *limit, *until_refill, *draws);
@@ -350,6 +353,14 @@ impl Runner<'_> {
         }
         if let Some(n) = checkpoint {
             self.s.vice.mon.delete_checkpoint(n).map_err(|e| e.to_string())?;
+        }
+        if *end_dump {
+            let p = self.s.out.join(format!("end{run}.vsf"));
+            self.s
+                .vice
+                .mon
+                .dump(&p.display().to_string(), true)
+                .map_err(|e| e.to_string())?;
         }
         let names: Vec<String> = watch.iter().map(|a| format!("{a:04X}")).collect();
         self.write(json!({

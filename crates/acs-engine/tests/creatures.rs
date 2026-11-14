@@ -1217,7 +1217,7 @@ fn a_visit_to_another_region_saves_at_its_first_round() {
     });
 }
 
-/// 2.2.7.2: SAVE GAME ends the turn with no move used and saves at the
+/// 2.2.7.2: SAVE GAME uses no move and ends no turn, and saves at the
 /// round's end, after the adds, with the counter gone up; asked twice in
 /// one round it saves once. The command replays.
 #[test]
@@ -1232,26 +1232,145 @@ fn save_game_saves_at_the_end_of_its_round() {
             },
         });
         let ev = g.apply(Command::SaveGame);
-        assert_eq!(ev[0], Event::SaveRequested { player: 0 });
-        assert_eq!(ev[1], Event::TurnEnded { player: 0 });
+        assert_eq!(ev, [Event::SaveRequested { player: 0 }]);
+        assert_eq!(g.current(), 0);
+        let ev = wait(&mut g);
         let added = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
         let save = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
         assert!(added.is_some() && added < save, "{ev:?}");
         assert_eq!(saved(&ev), [(round + 1, None)]);
-        assert_eq!(g.save_point(), 2);
+        assert_eq!(g.save_point(), 3);
         // Both players in WEST: each asks in the same round, one save.
         g.place(1, at(0, 3, 2));
         let base = g.save_point();
         assert_eq!(base, g.log().len());
         assert_eq!(g.current(), 0);
-        let ev = g.apply(Command::SaveGame);
+        g.apply(Command::SaveGame);
+        let ev = wait(&mut g);
         assert!(saved(&ev).is_empty());
         assert_eq!(g.current(), 1);
-        let ev = g.apply(Command::SaveGame);
+        g.apply(Command::SaveGame);
+        let ev = wait(&mut g);
         assert_eq!(saved(&ev).len(), 1, "{ev:?}");
         assert_eq!(g.save_point(), g.log().len());
         let json = serde_json::to_string(&Command::SaveGame).unwrap();
         assert_eq!(json, r#"{"command":"save_game"}"#);
+    });
+}
+
+/// 2.2.7.2, magic 5.3: SAVE GAME ends no turn. Its moves are walked on,
+/// or a Wait runs them out as idle moves with one healing roll each, the
+/// same draws as without the save, at full Life Force too.
+#[test]
+fn save_game_leaves_the_turn_and_its_idle_rolls() {
+    both(|p| {
+        for low in [None, Some(3)] {
+            let mut plain = start(adventure(p), 0, 2, 2);
+            if let Some(lf) = low {
+                plain.set_life_force(0, lf);
+            }
+            let mut asked = plain.clone();
+            let left = asked.current_player().moves_left;
+            assert!(left > 1);
+            assert_eq!(
+                asked.apply(Command::SaveGame),
+                [Event::SaveRequested { player: 0 }]
+            );
+            assert_eq!(asked.current_player().moves_left, left);
+            // Walked on: the turn has its moves.
+            let mut walked = asked.clone();
+            walked.apply(Command::Move { dir: Dir::E });
+            assert_eq!(walked.current(), 0);
+            assert_eq!(walked.current_player().moves_left, left - 1);
+            // Run out: the same draws as a plain Wait.
+            let a = asked.apply(Command::Wait);
+            let b = plain.apply(Command::Wait);
+            assert!(a.contains(&Event::TurnEnded { player: 0 }), "{a:?}");
+            assert_eq!(asked.players(), plain.players());
+            assert_eq!(asked.round(), plain.round());
+            assert_eq!(saved(&a).len(), 1, "{a:?}");
+            assert!(saved(&b).is_empty());
+            // And the rolls after it stay in step.
+            for _ in 0..5 {
+                asked.apply(Command::Wait);
+                plain.apply(Command::Wait);
+            }
+            assert_eq!(asked.players(), plain.players());
+        }
+    });
+}
+
+/// 2.2.7.3, characters 7.3: a Retire with Save saves at the round's end, a
+/// `Saved` after `Retired`; with a SAVE GAME in the same round it saves
+/// once. A Destroy saves nothing.
+#[test]
+fn a_retire_with_save_is_a_save_point() {
+    both(|p| {
+        for (save, also_save_game) in [(true, false), (true, true), (false, false)] {
+            let mut g = start(adventure(p), 0, 2, 2);
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    speed: 15,
+                    ..Default::default()
+                },
+            });
+            wait(&mut g);
+            g.place(1, at(0, 3, 2));
+            let before = g.save_point();
+            let round = g.round();
+            assert_eq!(g.current(), 0);
+            g.apply(Command::Retire { save });
+            if also_save_game {
+                g.apply(Command::SaveGame);
+            }
+            let ev = wait(&mut g);
+            assert!(saved(&ev).is_empty());
+            let ev = wait(&mut g);
+            let retired = ev
+                .iter()
+                .position(|e| matches!(e, Event::Retired { player: 0, .. }));
+            assert!(retired.is_some(), "{ev:?}");
+            if save {
+                let s = ev
+                    .iter()
+                    .position(|e| matches!(e, Event::Saved { visit: None, .. }));
+                assert!(retired < s, "{ev:?}");
+                assert_eq!(saved(&ev), [(round + 1, None)]);
+                assert_eq!(g.save_point(), g.log().len());
+            } else {
+                assert!(saved(&ev).is_empty(), "{ev:?}");
+                assert_eq!(g.save_point(), before);
+            }
+            assert_eq!(g.restore_point(), g.save_point());
+        }
+    });
+}
+
+/// 2.2.7, 2.2.6: a death in the round of a Retire with Save offers the
+/// save from before that round; the retire's save is made after it.
+#[test]
+fn a_death_in_a_retire_round_offers_the_earlier_save() {
+    both(|p| {
+        let mut g = start(with_pit(p), 0, 2, 2);
+        g.apply(Command::AddPlayer { setup: frail() });
+        wait(&mut g);
+        g.place(1, at(0, 2, 4));
+        let before = g.save_point();
+        assert_eq!(g.current(), 0);
+        g.apply(Command::Retire { save: true });
+        wait(&mut g);
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        let msg = ev.iter().position(|e| matches!(e, Event::LivingChanged { .. }));
+        let retired = ev
+            .iter()
+            .position(|e| matches!(e, Event::Retired { player: 0, .. }));
+        let save = ev
+            .iter()
+            .position(|e| matches!(e, Event::Saved { visit: None, .. }));
+        assert!(msg.is_some() && msg < retired && retired < save, "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.restore_point(), before);
     });
 }
 
@@ -1276,7 +1395,8 @@ fn save_game_and_a_region_change_in_one_round() {
         for _ in 0..40 {
             if g.current() == 1 {
                 let round = g.round();
-                let ev = g.apply(Command::SaveGame);
+                g.apply(Command::SaveGame);
+                let ev = wait(&mut g);
                 let s = saved(&ev);
                 assert_eq!(s[0], (round + 1, None), "{ev:?}");
                 if s.len() > 1 {
@@ -1307,6 +1427,7 @@ fn a_death_offers_the_save_made_before_its_round_ends() {
         let before = g.save_point();
         assert_eq!(g.current(), 0);
         g.apply(Command::SaveGame);
+        wait(&mut g);
         assert_eq!(g.current(), 1);
         let ev = g.apply(Command::Move { dir: Dir::E });
         let msg = ev

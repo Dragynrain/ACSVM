@@ -179,8 +179,8 @@ pub enum Command {
     /// answer is given with the request. No move used.
     Retire { save: bool },
     /// The menu's SAVE GAME (creatures 2.2.7): the game is saved at the end
-    /// of the round, with the round's other requests; ends the turn, no
-    /// move used.
+    /// of the round, with the round's other requests. No move used and the
+    /// turn goes on.
     SaveGame,
     /// In an open store (stores 3): buys one of `thing` (stores 4).
     Buy { thing: ThingId },
@@ -890,7 +890,8 @@ pub enum Event {
     },
     /// The game was saved (creatures 2.2.7): at the start of a visit to
     /// region `visit`, another than the one visited before, or (`None`) at
-    /// the end of a round with SAVE GAME. `round` is the counter it holds,
+    /// the end of a round with SAVE GAME or a Retire with Save (after
+    /// `Retired`). `round` is the counter it holds,
     /// the round play resumes in. Restoring goes back to the latest save
     /// ([`Game::restore_point`]).
     Saved {

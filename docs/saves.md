@@ -36,14 +36,19 @@ loads it.
      resuming replays up to the start of that round, its counter the
      visit's first round. Visits of one region in a row move nothing.
    - at the end of a round in which SAVE GAME was chosen (a logged
-     command), after the counter has gone up; the point is the commands
-     played by then.
-   The later of the two is the autosave. A SAVE GAME in the same round as
-   a region change is [unknown]; the engine takes the visit start that
-   follows the round's end. A Retire with Save does not move the
-   autosave, and a SAVE GAME in the round the last player dies makes the
-   all-dead state the autosave; both are [unknown] in the original
-   (creatures 2.2.7).
+     command that does not end the turn), after the counter has gone up;
+     the point is the commands played by then.
+   - at the end of a round in which a player retired with Save
+     (characters 7.3), the same way.
+   The latest of these is the autosave. [capture: capture.md 10.25,
+   10.28] A SAVE GAME in the same round as a region change gives the
+   same state either way; the engine takes the visit start that follows
+   the round's end. A SAVE GAME in the round the last player dies (or
+   the last player's Retire with Save) makes the all-dead state the
+   autosave, as the original writes it after F1; a newcomer's first visit
+   to another region moves the autosave on, so it comes back only if
+   the newcomer starts in the region the last player died in, which is
+   [unknown] in the original (creatures 2.2.7).
 
 ## 2. The file
 
@@ -68,7 +73,9 @@ dropped file is recognised by its `format` field, not its name.
 
 - **3** (creatures 2.2.7): `save_game` (`{"command":"save_game"}`, the
   menu's SAVE GAME) is new, and `autosave` is the point of 1.4: a visit
-  to another region beginning, or the end of a round with SAVE GAME.
+  to another region beginning, or the end of a round with SAVE GAME or a
+  Retire with Save. Changed in place before any version 3 save left
+  development: `save_game` no longer ends the turn.
 - **2** (combat 8.8, characters 7): `fire` takes the cursor's square and
   the weapon chosen from the menu (`{"command":"fire","target":[x,y],
   "weapon":N}`, both optional), and `retire` (`{"command":"retire",

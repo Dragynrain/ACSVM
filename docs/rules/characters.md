@@ -320,18 +320,24 @@ holds Constitution with magic defense in the top two bits.
    too). Nothing is left on the square. In play only the slot's first byte
    is zeroed (7.6). The adventure block is written to the disk at the same
    moment, the round counter in it (7.7) and the retired slot's first byte
-   0, so the game state is saved along with the character; whether the
-   death message's button later restores that write, as it does a SAVE
-   GAME ([creatures](creatures.md) 2.2.7), is [unknown]. Reversals due later for
+   0, so the game state is saved along with the character, and that
+   write is a save point like SAVE GAME's ([creatures](creatures.md)
+   2.2.7): a later death message's button brings back the retire's round
+   end, the counter gone up, the character still retired and the other
+   players as they stood then. [capture: mem, rr24 `c2-button`,
+   capture.md 10.28, 1 run; ours, no research pass, 2026-11-14: T retired
+   with Save in round 24, U killed in round 26, back to counter 25, not
+   the visit start of round 22] Reversals due later for
    the character (magic 5.2) are dropped [research, pass 2, unconfirmed].
    [research, pass 2; capture: rr19 `ret-save`, `ret-save2`, `last-save`,
    3 runs: Life Force 3 and 4 under Constitution 11 saved as 11, Power 5
    under Wisdom 13 kept, gold 777, the blade held, the mail worn and four
    possessions in the roster's first entry, a room square kept]
    **Engine:** the same when rosters come; until then the front end keeps
-   the saved character. A retire saves the character record only: it is
-   not one of the engine's save points (creatures 2.2.7), so the restore
-   point stays where it was. Pending reversals are dropped, as the finding
+   the saved character. A Retire with Save is also one of the engine's
+   save points (creatures 2.2.7): taken at the round's end, it moves the
+   restore point there (a `Saved` event after `Retired`); a Destroy does
+   not. Pending reversals are dropped, as the finding
    says. Bringing a saved character back from the roster (3.1) is not
    built yet: the engine keeps no roster, so a retired character rejoins
    only as a setup the front end gives `AddPlayer`.
@@ -409,6 +415,6 @@ holds Constitution with magic defense in the top two bits.
    byte zeroed (F1 at the offer), then "Add Someone" by two players in one
    round; read which slots the newcomers' records land in and the turn
    order after (6.1, 6.2).
-6. A Retire with Save while another player lives, then that player
-   killed and the death message's button pressed: whether the counter and
-   records come back to the retire's round end (7.3, creatures 2.2.7).
+6. A Retire with Save as a save point: captured (7.3, creatures 2.2.7,
+   capture.md 10.28). Still open: a Destroy in a room (7.5) and whether
+   it writes the game.

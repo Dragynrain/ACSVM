@@ -643,7 +643,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             if ui
                 .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
                 .on_hover_text(
-                    "The original saves when a visit to another region begins, and at the end of                      a round in which SAVE GAME was chosen.",
+                    "The original saves when a visit to another region begins, and at the end of                      a round in which SAVE GAME was chosen or a player retired with Save.",
                 )
                 .clicked()
             {
@@ -964,7 +964,7 @@ fn actions_panel(
         if ui
             .button("SAVE GAME")
             .on_hover_text(
-                "The menu's SAVE GAME: the game is saved at the end of this round,                  and a death goes back there. Ends the turn.",
+                "The menu's SAVE GAME: the game is saved at the end of this round,                  and a death goes back there. The turn goes on.",
             )
             .clicked()
         {
@@ -1499,12 +1499,16 @@ mod tests {
     fn save_game_moves_the_restore_point() {
         let a = adventure();
         let mut w = Walk::new(&a, 3, Rules::default());
+        // The turn goes on: the save comes at the round's end.
         w.apply(Command::SaveGame);
-        assert_eq!(w.save.log(), [Command::SaveGame]);
-        assert_eq!(w.restore_target().log().len(), 1);
+        assert!(w.save.log().is_empty());
+        w.apply(Command::Wait);
+        let kept = [Command::SaveGame, Command::Wait];
+        assert_eq!(w.save.log(), kept);
+        assert_eq!(w.restore_target().log().len(), 2);
         w.apply(Command::Wait);
         w.resume();
-        assert_eq!(w.game.log(), [Command::SaveGame]);
+        assert_eq!(w.game.log(), kept);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
     }
 }

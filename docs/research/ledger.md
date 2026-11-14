@@ -27,6 +27,8 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: SAVE GAME ends no turn, Retire with Save is a save point (creatures 2.2.7.3, capture.md 10.28) in the engine; save version 3 changed in place (never pushed); harness run mem --end-dump; checker all PASS; committed. Open: the all-dead save when the last player dies on the map and the newcomer starts there.
+- 2026-11-14: capture rr24 (capture.md 10.28): SAVE GAME in the last death's round restores the save before (engine holds); Retire with Save is a third save point and SAVE GAME does not end the turn (both against the engine); spec-writer started.
 - 2026-11-14: escalations, the restore point and SAVE GAME in the engine and walk mode (creatures 2.2.7), save version 3; engine choices recorded ([unknown]: a SAVE GAME in the round the last player dies, high-priority capture); checker all PASS; committed. All five escalations done.
 - 2026-11-14: escalations, MODEL_VERSION 4 (catch-up: last_turn_round; encounter-area item lists at world-map +0x810, rr22 capture.md 10.26) and captures of the restore point (10.25) and catch-up N=0 (10.27) into the specs; checker all PASS; committed. Next: the restore point and SAVE GAME in the engine.
 - 2026-11-14: encounters, 1, engine-implementer, no code change, 5 tests pin the captured behaviour; tests and clippy pass; committed; close tomorrow.

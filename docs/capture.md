@@ -1949,7 +1949,8 @@ In this order (planned November 2026):
      of MOVE). The button there: "I will save the game as soon as
      possible, please continue playing"; the button; "if you want to
      return to the ACS editor after the game is saved, press F1 now"; the
-     button ends the turn. At the round's end (after FF's turn, the
+     button ends the turn (corrected in 10.28: the turn goes on, and the
+     moves it had left ran out as idle moves). At the round's end (after FF's turn, the
      counter 25): "saving game", "the adventure has been saved", the
      button, then T's turn in round 25.
    - **(a) An explicit save mid-visit** (`walk24.txt`, `menu.txt`,
@@ -2084,3 +2085,75 @@ In this order (planned November 2026):
    snapshot's own state), and the states that give it differ between
    B = 0 (40), 39 (168, 184, 200, 248) and 40 (85, 136); the 9 repeats
    (`again-*`) gave the same. Why the byte moves a later roll is not known.
+28. **SAVE GAME, Retire with Save and the restore point, the open cases**
+   (2026-11-14; ours, no research pass; [creatures](rules/creatures.md)
+   2.2.7 and "Captures needed" 1, [characters](rules/characters.md)
+   "Captures needed" 6). `ACSVM-research/capture/runs/rr24/` (the harness
+   binary in `bin/`, `env.sh`; scripts `c1.txt`, `c1n.txt`, `c2.txt`,
+   `genc3.py` writing `c3.txt`, `c3b.txt`; `chg.py` lists a `mem` run's
+   changes, answers and draws in time order, `c4.py` the draws per idle
+   move). From rr21's states (10.25): `b-walk/pre.vsf` (T alone in room
+   region 1 since round 14, T's turn in round 46, EE an enemy beside it),
+   `walk24/t24.vsf` (T and U in the room since round 22, T's turn in round
+   24), rr18's `after/two.vsf` with rr21's split route. New in `run mem`:
+   `--end-dump` saves `end{run}.vsf` with disks at the run's end, to go on
+   with a script. Markers as 10.25 (gold, EE's class). A `mem` run has no
+   jitter: one run a case, every restore of a run the same.
+   - **SAVE GAME does not end the turn.** After the menu's SAVE GAME and
+     its two buttons T's prompt ("move with the joystick ...") came back
+     with its moves left (4 of 6), in both states tried (`c1`, `c3`). With
+     the stick pushed south from there (`c4-push`) T walked 4 squares, 4,4
+     to 4,8; left alone, the 4 moves went one by one as idle moves (about
+     1.85M instructions each). The save is still made at the round's end
+     ("saving game", "the adventure has been saved", the button). 10.25's
+     "the button ends the turn" was this drain.
+   - **Item 4, its moves' draws** (`c4-save`: from `c1/asked.vsf`, T's
+     Life Force set to 10 under Constitution 40, the random state 0..7,
+     8 runs, `--draws`; control `c4-idle`: the same from `pre.vsf` with no
+     SAVE GAME, 8 runs). **One draw each idle move** in both (32 and 40
+     moves; one run's first move two), with Life Force +1 at 4 of the 32
+     and 7 of the 40: SAVE GAME's moves left are ordinary idle moves and
+     take the healing roll. At full Life Force (`c1-button`, 40 of 40) the
+     4 idle moves drew one each as well.
+   - **Item 1, SAVE GAME in the round the last player dies** (`c1.txt`:
+     at T's turn in round 46 gold 77, SAVE GAME; EE killed T in round 46).
+     With the button at the death message (`c1-button`): **the counter
+     back to 14, gold 0, Life Force 40**, the start of the room visit
+     that began with a region change (as 10.25's `b-button`), not the
+     save asked for; 15 restores in 200M, all 14. With F1 (`c1-f1`,
+     `c1-f1e`): **"saving game", "the adventure has been saved"**, then
+     the add-a-player screen; without SAVE GAME (rr21 `b-f1`) F1 goes
+     straight to that screen. So the save is made after the death message
+     and only if it is answered with F1: the state saved has nobody alive.
+     Then (`c1n.txt`): the button, the add-a-player screen (T's record all
+     0, the counter 47), a new player N created (10.23's newcomer steps),
+     N on the map (rounds to 68, gold 55 poked), in through the map door,
+     gold 66 at its first room turn (round 69); EE killed N
+     (`c1n-button`): **the counter back to 69, gold 55**, N alive on the
+     room's entry square, 35 restores in 300M, all 69. The new player's
+     map visit and room visit both begin with a region change, which
+     comes after the all-dead save, so whether the button could ever
+     restore that save isn't reachable this way.
+   - **Item 2, Retire with Save** (`c2.txt`: T's and U's gold 111, T asks
+     RETIRE in round 24; at round 24's end the offer, the button,
+     "saving game", "the adventure has been saved"; U's gold 222 and EE
+     230 at U's turn in round 26). EE killed U in round 26 (`c2-button`):
+     **the counter back to 25, U alive with gold 111, T's slot still
+     retired (first byte 0), EE 182**: the retire's round end, not the
+     room visit's start (22, T alive, gold 0 as rr21's `a-nosave`). U
+     then had every turn, rounds 25 to 39. So a Retire with Save is a
+     save point like SAVE GAME.
+   - **Item 3, SAVE GAME in the first round of a visit that began with a
+     region change** (`c3.txt`: rr21's split route, region 1 visited from
+     round 40 and again from 60, the map with U between; T's gold the
+     turn's index, 9 at round 49; at T's turn in round 60 gold 500 and
+     SAVE GAME; the save at round 60's end; `c3b.txt` T's gold 7 at round
+     61, EE 230). EE killed T in round 62 (`c3-button2`): **the counter
+     back to 61, gold 500**, Life Force 33, then the map first (U, rounds
+     61 on): the SAVE GAME at round 60's end, not the visit start of round
+     60 (gold 9). A save at a visit's last round followed by a region
+     change (the engine's two `Saved` events in one round) would give the
+     same counter either way (the next visit's first round) with nothing
+     to poke between them; not run. Seen besides: 600 gold left T unable
+     to move ("you can't move. perhaps you are carrying too much", moves
+     0) with the menu coming up at each press (`c3-button`, dropped).
