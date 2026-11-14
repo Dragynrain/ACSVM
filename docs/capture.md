@@ -131,7 +131,7 @@ lists at the end of each `docs/rules/` spec.
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
-| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `type`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`). |
+| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `type`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`, `peek`, `poke`, `dpeek` and `drivecheck` for drive 8 (10.21)). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
 | `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
 | `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
@@ -645,6 +645,8 @@ screen offers next to "create new player".
 | `$E0A2` + 2 x (n - 1) | Encounter area n's entrance square, column then row (41, 41 when free) | Researcher, encounters first pass, 2026-11-14 |
 | `$E532` + 37 x (s - 8) | The map region's creature slot s (8..15), where encounter copies go: +0 nonzero while alive, +13, +14 the square, +16 the area | Researcher, encounters first pass, 2026-11-14 |
 | `$E40A` + 37 x r, `$E65A` + r | The map's random creature record r (0..7), and its byte of terrain (high four bits) and chance code (low four); setting the chance byte before a step forces or forbids an encounter | Researcher, encounters first pass, 2026-11-14 |
+| `$1C0D` in drive 8 | The drive's timer-interrupt flags (its own address space, the binary monitor's memory space 1): bit 6 comes and goes in a working drive, stays set in one that never serves the interrupt; read by `drivecheck` and every `run` and `snap` (10.21) | Researcher, stores second pass, 2026-11-14 (`docs/research/stores.md`) |
+| `$0003` in drive 8 | The job code of the buffer the program's block commands use: 128 a read waiting to run, below 128 once done; 128 in every hung snapshot (10.21) | Researcher, stores second pass, 2026-11-14 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -1591,3 +1593,61 @@ In this order (planned November 2026):
    Not run: a second player joining, a death in an area, all four areas
    or all eight slots in use, a creature through the door, save and
    retire inside.
+21. **Confirming the stores second pass** (2026-11-14;
+   `docs/research/stores.md` pass 2). `ACSVM-research/capture/runs/rr17/`.
+   New in the harness: the drive's own memory (`dpeek ADDR [N]`, memory
+   space 1) and `drivecheck [SAMPLES [GAP]]`, which reads drive 8's
+   timer-interrupt flags (`$1C0D` there, section 9) 30 times 500
+   instructions apart and calls the drive dead when bit 6 never clears.
+   `run` and `snap` now restore their snapshot once before the first run
+   and check the drive, warning on stderr when it is dead; the runs
+   restore again, so their output is unchanged (2 `run mem` runs from
+   rr12's `bow-break-turn-end.vsf` byte for byte as rr12's). `--reset-drive`
+   resets drive 8 after every restore.
+   - `scan.sh`: every saved snapshot of rr12 and rr16 (60), restored and
+     checked. **Dead in 10, all of them from the two store-and-disappearing-
+     bow disks** (rr12 `bow-once`: start, room, room-long, turn-end;
+     `bo-store-far`: start, room twice; rr16 `bow-once`: start, near,
+     entering): the flag set in 30 of 30 reads. Alive in the other 50,
+     `bo-nostore` and `bow-break` included (clear in 29 or 30 of 30). The
+     drive's job code (`$0003`) is 128, a read never started, in the 6
+     dead snapshots taken after the map door, 1 in the 4 before it.
+   - `noreset.txt`, `reset.txt` from rr16 `bow-once/near.vsf`: without a
+     reset the drive stays dead and the push onto the door gives "THE
+     ACTION MOVES TO TEST REGION" and nothing else for 24M instructions
+     (job code 128, visited region `$397C` still 0). With `reset 8` first
+     (2M to settle) the drive is alive and the room appears about 10M
+     instructions after the push, the store on 2,2 drawn, `$397C` 1, and
+     27M in EE has already fired: the stock's bow bit (`$E076` bit 7) on.
+   - `fresh.txt`: a new disk from rr12's `bow-once` keys, then
+     `start-retired.txt` without its dump and `enter-room.txt`'s walk in
+     the same session: the drive alive at the first turn and in the room,
+     and **the room loads** (`$397C` 1). rr12's `start.vsf`, saved by the
+     same chain at that first turn, restores with a dead drive. So the
+     hang is the restored drive, not the adventure (stores research 7.1 to
+     7.3).
+   - `rounds.sh`: turn-end snapshots from the reset room
+     (`bow-once-turn-end.vsf`) and the fresh room (`fresh-turn-end.vsf`),
+     16 runs each as rr12's (`run mem --set-random-state --draws`, EE's
+     weapon `$E1B7` and the stock bytes watched, 16M instructions, three
+     VICE processes). `scripts/stockcheck.py` (new) finds, run by run, when
+     the thing left its holder's byte and when its stock bit went on (a
+     value counted once it stays two samples): **the bow went in 32 of 32
+     runs and joined the stock in every one**, in the same 20k sample or
+     the next (stores 2.5, research 7.4). `combatcheck.py --case
+     bow-once`: 16 of 16 right from each (16 shots each). `stockcheck.py`
+     on rr12's runs gives rr12's counts again: `bow-break` 16 of 16 (3
+     gone), `once` with `--thing 59` 16 of 16 (13), `mail-parry` with
+     `--thing 40 --holder F5B4` 16 of 16 (3).
+   - Stores on the world map (research 8): the harness can't put a store
+     on a map square or in an encounter area's item list (our scenario
+     writer has no thing on the map, and the area's item list has no
+     address in section 9), so a store there is not reached. What it can
+     read: `mapstock.txt` and `mappeek.txt` peek the stock bytes `$E06D`
+     to `$E07A` with the map the visited region: **255 in all 14 bytes**
+     at the first turn of rr14's `patch`, `field` and `two` and in rr16's
+     `bow-once/near.vsf`, inside encounter area 1 (`patch`, state 0, one
+     push east, place 1) and after walking out, as the researcher saw
+     (research 8.3: every thing the store offers would be on its shelves).
+     In the hung `noreset` run the same bytes read other values once the
+     region change had begun.

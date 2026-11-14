@@ -901,11 +901,18 @@ fn a_bow_that_disappears_goes_after_one_shot() {
             used_up: true
         }));
         assert_eq!(g.creature(1, 1).map(|c| c.weapon), Some(0));
-        // Stores 2.5: it goes back into the region's stock.
-        assert!(ev.contains(&Event::Restocked {
-            region: 1,
-            thing: BOW
-        }));
+        // Stores 2.5: it goes back into the region's stock in the same
+        // moment it leaves its creature, like other weapons and armor.
+        let broke = ev
+            .iter()
+            .position(|e| matches!(e, Event::Broke { thing: BOW, .. }));
+        let restocked = ev.iter().position(|e| {
+            *e == Event::Restocked {
+                region: 1,
+                thing: BOW,
+            }
+        });
+        assert_eq!(restocked, broke.map(|i| i + 1));
         assert_eq!(acs_engine::stores::stocked(g.stock(1), BOW), 1);
     });
 }

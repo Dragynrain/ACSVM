@@ -10,10 +10,10 @@ Tags as in [movement](movement.md): **[manual]** paraphrased from the
 manual, **[data]** from the stored format or corpus counts, **[unknown]**
 with the engine's choice as **Engine:**, **[recollection]** for the
 project owner's memory of play, a lead for captures rather than a source,
-**[research]** for the clean-room researcher's first stores pass
-(2026-11-13, `docs/research/stores.md`) and **[capture]** where our own
-runs confirm it; "[research, unconfirmed]" means no capture of ours has
-checked it yet.
+**[research]** for the clean-room researcher's stores passes
+(`docs/research/stores.md`: the first 2026-11-13, the second "pass 2",
+2026-11-14) and **[capture]** where our own runs confirm it; "[research,
+unconfirmed]" means no capture of ours has checked it yet.
 Counts cover all 15 corpus adventures (222 regions).
 
 ## 1. The store thing
@@ -52,17 +52,51 @@ Counts cover all 15 corpus adventures (222 regions).
    the stock watched: the disappearing blade went from its creature in 13
    of 16 runs and joined the stock at once each time, never in the other
    3; broken mail (3 runs) and a broken bow (3 runs) joined it the same
-   way] Not seen: a disappearing missile weapon, because a region with a
-   store and a bow set to disappear never finished loading on the C64
-   ("the action moves to" stayed up; without the store, or with the bow
-   only breakable, it loaded; capture.md 10.17). A magic item used up was
-   not tried. **Engine:** as stated (`Restocked`).
+   way] A missile weapon set to disappear joins it the same way: the bow
+   left its creature and joined the stock in the same moment or the next
+   in every run. [research, pass 2, 2026-11-14; capture: rr17 `rounds`,
+   32 of 32 runs, capture.md 10.21] A magic item used up was not tried.
+   **Engine:** as stated (`Restocked`).
+
+   Harness note, not a rule: a region with a store and a disappearing bow
+   once seemed never to finish loading ("the action moves to" stayed up).
+   That was the emulated disk drive, dead in the snapshots saved for
+   those two disks; after a drive reset, or played from a fresh boot,
+   the same disk loads. No game rule makes a region hang, and the engine
+   copies nothing from it. [research, pass 2; capture: rr17 `scan`,
+   `reset`, `fresh`, capture.md 10.21]
 6. **The limits.** A stock holds at most 3 of things 1..32 and 1 of things
    33..80, as possessions do (inventory 1.2); an addition past the limit is
    lost and a removal below none does nothing. [research; capture 5.3]
-7. **Stores on the world map.** In region 0 buying and selling never
-   change the stock. [research, unconfirmed] Whether a store can stand on
-   the map at all is not known. **Engine:** as stated.
+7. **Stores on the world map.** A player can't meet a store while the
+   world map (region 0) is the visited region. A step on the open map
+   checks only for a map door, never for a thing on the square, so a
+   store can't open there. An encounter area ([encounters](encounters.md))
+   holds only its door: opening it adds creatures, closing it removes
+   everything but the door, nothing dropped there can be a store (the
+   store is thing 83, possessions only 1..80), and the editor places no
+   things in an area. [research, pass 2, 2026-11-14, unconfirmed: the
+   harness can't put a store on a map square or in an area's item list,
+   capture.md 10.21] Only an adventure file written with a store in an
+   area's item list could have one. The researcher poked one there: it
+   opened the ordinary store screen and leaving worked as in a room
+   (section 3), the player back on the store's square; its shelves showed
+   whatever the map's own data holds where a room region's stock is kept
+   (no record holds a stock for the map), every thing in that scenario;
+   buying and selling paid as usual but never changed that stock, so a
+   thing could be bought again and again. [research, pass 2, unconfirmed;
+   capture agrees as far as it reached: those 14 stock bytes all set
+   while the map was the visited region, in 4 scenarios, inside an area
+   and after walking out, rr17 `mapstock`, `mappeek`] **Engine:** no
+   store on the open map. A store in an encounter area would open as in a
+   room, but its shelves are always empty: the file holds no stock record
+   for region 0 (the decoder numbers regions from 1), the engine builds
+   the map region with an empty stock, and the map data the original
+   reads isn't modelled. So every shelf place says it is out of stock (4.1), and
+   selling pays as usual but stocks nothing, since in region 0 buying and
+   selling never change the stock. In practice no adventure can have such
+   a store yet: the model reads no items for an encounter area, and
+   reading them would be a model change (Captures needed 2).
 8. Whether the stock is saved with the game is not known. [unknown]
    **Engine:** it is part of the region's state, kept across visits and
    saved with the game.
@@ -220,10 +254,14 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. Restocking from a disappearing missile weapon and a used-up magic
-   item (2.5), and why a region with a store and a disappearing bow hangs
-   on loading (a research question).
-2. Whether a store can stand on the world map, and its stock there (2.7).
+1. Restocking from a used-up magic item (2.5; the research says it never
+   restocks).
+2. A store in an encounter area (2.7): an adventure file with one in an
+   area's item list, if any exists; what the map's data shows on the
+   shelves in a real adventure; the moves left on leaving it. Open model
+   gap: the decoder reads no encounter-area items, so even a file with such
+   a store would load without it; reading them needs a model change
+   (`MODEL_VERSION`) before the engine can offer one.
 3. Whether the stock is saved and restored with the game (2.8).
 4. A magic item set to act when picked up, bought (4.4); a thing owned 2
    or 3 times offered once per copy (5.2).

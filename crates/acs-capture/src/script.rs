@@ -14,7 +14,7 @@
 //! poke F5B0 20      # set memory (hex address, decimal bytes)
 //! ```
 
-use crate::monitor::{Error, Result};
+use crate::monitor::{Error, Result, MEMSPACE_DRIVE8};
 use crate::screen::Frame;
 use crate::vice::Vice;
 use std::path::{Path, PathBuf};
@@ -29,6 +29,10 @@ pub struct Session {
     /// Register ids of LIN and CYC, once looked up.
     beam_ids: Option<(u8, u8)>,
 }
+
+/// Drive 8's VIA 2 interrupt flag register, in the drive's address space
+/// (the stores researcher, pass 2, 2026-11-14; docs/capture.md section 9).
+pub const DRIVE_VIA2_IFR: u16 = 0x1C0D;
 
 /// PAL C64: 63 cycles a raster line, 312 lines a frame.
 const PAL_LINE_CYCLES: u64 = 63;
@@ -199,6 +203,28 @@ impl Session {
         let p = self.out.join(format!("{name}.png"));
         f.save_png(&p, false, 2)?;
         Ok(p)
+    }
+
+    /// Whether drive 8 serves its timer interrupt (docs/capture.md 10.21):
+    /// its VIA 2 interrupt flags (`$1C0D` in the drive's own memory) read
+    /// `samples` times, `gap` instructions apart. A working idle drive
+    /// clears the timer flag (bit 6) now and then; a dead one (seen in some
+    /// saved snapshots) never does, and its next disk read never starts.
+    /// Returns whether it was ever clear, and the readings.
+    pub fn drive_alive(&mut self, samples: usize, gap: u64) -> Result<(bool, Vec<u8>)> {
+        let mut seen = Vec::with_capacity(samples);
+        for i in 0..samples {
+            if i > 0 {
+                self.run(gap)?;
+            }
+            let b = self
+                .vice
+                .mon
+                .mem_read_space(DRIVE_VIA2_IFR, DRIVE_VIA2_IFR, false, MEMSPACE_DRIVE8)?;
+            seen.push(b.first().copied().unwrap_or(0));
+        }
+        let alive = seen.iter().any(|b| b & 0x40 == 0);
+        Ok((alive, seen))
     }
 
     /// Runs in chunks until two frames `quiet` chunks apart are equal.
@@ -430,6 +456,41 @@ impl Session {
                 }
                 self.vice.mon.mem_set(a, &bytes).map_err(e)?;
                 Ok(format!("${a:04x} <- {bytes:?}"))
+            }
+            "dpeek" => {
+                // dpeek HEXADDR [COUNT]: drive 8's own memory (decimal bytes).
+                let mut parts = arg.split_whitespace();
+                let a = parts
+                    .next()
+                    .and_then(|t| u16::from_str_radix(t.trim_start_matches('$'), 16).ok())
+                    .ok_or("dpeek HEXADDR [COUNT]")?;
+                let n: u16 = parts
+                    .next()
+                    .map(|t| t.parse().map_err(|_| "dpeek: bad count"))
+                    .transpose()?
+                    .unwrap_or(1);
+                let end = a.saturating_add(n.max(1) - 1);
+                let b = self
+                    .vice
+                    .mon
+                    .mem_read_space(a, end, false, MEMSPACE_DRIVE8)
+                    .map_err(e)?;
+                let v: Vec<String> = b.iter().map(|x| x.to_string()).collect();
+                Ok(format!("drive ${a:04x} = {}", v.join(" ")))
+            }
+            "drivecheck" => {
+                // drivecheck [SAMPLES [GAP]]: is drive 8 serving its timer
+                // interrupt (Session::drive_alive)? 30 x 500 by default.
+                let mut parts = arg.split_whitespace();
+                let samples: usize = parts.next().and_then(|t| t.parse().ok()).unwrap_or(30);
+                let gap = parts.next().and_then(parse_count).unwrap_or(500);
+                let (alive, seen) = self.drive_alive(samples, gap).map_err(e)?;
+                let clear = seen.iter().filter(|b| *b & 0x40 == 0).count();
+                Ok(format!(
+                    "drive 8 {}: timer flag clear in {clear} of {}",
+                    if alive { "alive" } else { "DEAD" },
+                    seen.len()
+                ))
             }
             "print" => Ok(arg.to_string()),
             other => Err(format!("unknown command {other}")),

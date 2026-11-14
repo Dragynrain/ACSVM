@@ -2,6 +2,7 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: first pass done 2026-11-13; in the spec and the engine.
+Pass 2 briefed 2026-11-14 (below, before "Findings").
 
 ## Why
 
@@ -81,6 +82,88 @@ count 2) and 3 (WARE3, value 200); the player owns things 13 (GOOD1, value
 | `runs/sell*-offers.jsonl` | the 1,152 sell-back offers (Wisdom 0..31 by 36 values from 1 to 5,100), one JSON line each, all fitting stores.md 5.1 |
 
 The player's Wisdom is `$F5B0` and its gold `$F5B1`-`$F5B2` (capture.md 9).
+
+## Pass 2
+
+Briefed 2026-11-14. The first pass is in the spec (`docs/rules/stores.md`)
+and the engine; capture confirmed restocking from a broken mail, a broken
+bow and a disappearing blade (`rr12`, capture.md 10.17). Two things are
+left that capture can't reach: a region that hangs while loading, and
+stores while the world map is the visited region. Inputs in
+`inputs/pass2/` (table at the end of this section). Read
+`docs/rules/stores.md` 2 and 3 and capture.md 10.17 (the `rr12` part)
+and 10.19; capture.md 9 has the addresses already in use.
+
+Not asked, because capture settles it: whether a region's stock is kept
+when the player leaves and comes back, and in the adventure file the
+original saves on entering and leaving a region (movement 6.6). We can buy,
+walk out to the map and back, and read the region's stock off the disk
+image and the shelves.
+
+### What we ask
+
+1. **The region that never loads.** Our combat scenario with a creature
+   (EE, on 9,4) holding our bow set to disappear after use, and a store
+   on 2,2 with no stock, stops on "THE ACTION MOVES TO TEST REGION" when
+   T steps onto the map door, and is still there 33 million cycles
+   later. The same disk without the store loads, and so does the same
+   disk with the bow breakable (break chance 15) instead of
+   disappearing. The two store disks differ only in the bow's break
+   chance and its disappear setting (`acs dump`); with the store on 2,7
+   it hung as well. Already seen: in the hanging case the disk is never
+   read ("ACCESSING DISK" never shows, `bow-once-entering-3m.png`), in
+   both others it is within 3 million cycles. What is the program doing
+   when it hangs, and what rule in plain terms makes a store and a
+   disappearing missile weapon in one region hang it (the weapon's
+   owner, its square, the store's stock, the thing's number 41)? Would it
+   hang the same way for a designer's adventure, and is there a setup with
+   both in one region that loads, so a capture can watch a disappearing
+   bow join the stock (stores.md 2.5)?
+2. **Stores on the world map.** The first pass traced that buying and
+   selling never change the stock while the visited region is the world
+   map (region 0; stores.md 2.7). Can a player meet a store then: a store
+   thing on a map square, in one of the four encounter areas (rooms 1..4
+   of map region 0, encounters.md), or anywhere else? If so, what stock
+   does it show and offer (whose record holds it), does the store screen
+   and leaving work as in a room (stores.md 3), and where does the player
+   come out? If not, say what stops it (the editor, the map's format, the
+   program).
+
+Enough for this pass: 1. Item 2 may be "not reachable" with the reason.
+
+### How the answers come back
+
+As the first pass: `findings.md` in plain language only, appended as a
+"Pass 2" part. Addresses only for state a capture must set or read to
+check an answer (for item 1, anything that tells a hang from a slow load;
+for item 2, where a map store's stock is kept, if it has one).
+
+### Inputs (pass 2)
+
+In `ACSVM-research/research/stores/inputs/pass2/` (copies; made by
+`capture/runs/rr12/` and `rr16/`, capture.md 10.15 and 10.17). VICE 3.10
+`x64sc` snapshots saved with their disks; start VICE with
+`-controlport2device 37` (capture.md 2.2). Each case is the combat kit's
+scenario (`cases.txt` has the exact scenario keys): the open field, T
+(Speed 6) on the map, the map door on 12,16 into a 15 x 10 room, EE an
+aggressive enemy on 9,4 holding our bow (thing 41, power 10, range 7).
+`near.txt` is the script that made the snapshots.
+
+| File | What |
+| --- | --- |
+| `bow-once-disk.d64` | the hanging case: the bow set to disappear after use, the store (thing 83) on room square 2,2, no stock |
+| `bow-once-near.vsf`, `.png` | T on the map one square north of the door, its turn under way: one push south steps onto the door |
+| `bow-once-entering.vsf`, `.png` | just after that push: "THE ACTION MOVES TO TEST REGION" |
+| `bow-once-entering-3m.png` | 3 million cycles later, still that screen, no disk access |
+| `bow-once-hung.vsf`, `.png` | the same case about 33 million cycles after the step (made by `rr12`, an earlier build of the same disk): still that screen |
+| `bo-nostore-disk.d64`, `-near.vsf`, `-entering.vsf`, `.png`s | the same without the store: loads ("ACCESSING DISK" by 3 million cycles, then the room) |
+| `bow-break-disk.d64`, `-near.vsf`, `-entering.vsf`, `.png`s | the store on 2,2 and the bow breakable (break chance 15), not disappearing: loads |
+| `cases.txt`, `near.txt` | the cases' scenario keys and the snapshot script |
+
+For item 2 there are no inputs of ours: the harness can't put a store on
+the map. The first pass's `look` inputs show a store in a room, and the
+encounters brief's inputs (`research/encounters/inputs/`, capture.md
+10.19) a map region with its encounter areas.
 
 ## Findings
 

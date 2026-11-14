@@ -12,6 +12,10 @@ const API: u8 = 0x02;
 /// Request id VICE uses for responses it sends on its own (events).
 pub const EVENT_ID: u32 = 0xFFFF_FFFF;
 
+/// Memory spaces of the binary monitor's memory commands.
+pub const MEMSPACE_MAIN: u8 = 0;
+pub const MEMSPACE_DRIVE8: u8 = 1;
+
 pub mod cmd {
     pub const MEM_GET: u8 = 0x01;
     pub const MEM_SET: u8 = 0x02;
@@ -33,6 +37,7 @@ pub mod cmd {
     pub const AUTOSTART: u8 = 0xDD;
     pub const REGISTERS_GET: u8 = 0x31;
     pub const REGISTERS_AVAILABLE: u8 = 0x83;
+    pub const BANKS_AVAILABLE: u8 = 0x82;
     pub const STOPPED: u8 = 0x62;
     pub const RESUMED: u8 = 0x63;
 }
@@ -214,10 +219,16 @@ impl Monitor {
     /// Reads `start..=end` of main memory; `side_effects` reads I/O registers
     /// as the CPU would (live port values).
     pub fn mem_read(&mut self, start: u16, end: u16, side_effects: bool) -> Result<Vec<u8>> {
+        self.mem_read_space(start, end, side_effects, MEMSPACE_MAIN)
+    }
+
+    /// Reads `start..=end` of a memory space: `MEMSPACE_MAIN`, or
+    /// `MEMSPACE_DRIVE8` (the emulated 1541's own address space).
+    pub fn mem_read_space(&mut self, start: u16, end: u16, side_effects: bool, space: u8) -> Result<Vec<u8>> {
         let mut body = vec![side_effects as u8];
         body.extend_from_slice(&start.to_le_bytes());
         body.extend_from_slice(&end.to_le_bytes());
-        body.push(0); // main memory
+        body.push(space);
         body.extend_from_slice(&0u16.to_le_bytes()); // default bank
         let b = self.request(cmd::MEM_GET, &body)?;
         Ok(b.get(2..).unwrap_or(&[]).to_vec())
@@ -367,6 +378,35 @@ impl Monitor {
             inner,
             pixels,
         })
+    }
+
+    /// Memory banks of main memory as (id, name): `ram` reads RAM under
+    /// the ROMs whatever the CPU's banking (docs/capture.md 10.22).
+    pub fn banks_available(&mut self) -> Result<Vec<(u16, String)>> {
+        let b = self.request(cmd::BANKS_AVAILABLE, &[])?;
+        let n = u16::from_le_bytes([b[0], b[1]]) as usize;
+        let mut out = Vec::with_capacity(n);
+        let mut i = 2;
+        for _ in 0..n {
+            let size = b[i] as usize;
+            let id = u16::from_le_bytes([b[i + 1], b[i + 2]]);
+            let name_len = b[i + 3] as usize;
+            let name = String::from_utf8_lossy(&b[i + 4..i + 4 + name_len]).into_owned();
+            out.push((id, name));
+            i += 1 + size;
+        }
+        Ok(out)
+    }
+
+    /// Reads `start..=end` of main memory in one bank (`banks_available`).
+    pub fn mem_read_bank(&mut self, start: u16, end: u16, bank: u16) -> Result<Vec<u8>> {
+        let mut body = vec![0u8];
+        body.extend_from_slice(&start.to_le_bytes());
+        body.extend_from_slice(&end.to_le_bytes());
+        body.push(MEMSPACE_MAIN);
+        body.extend_from_slice(&bank.to_le_bytes());
+        let b = self.request(cmd::MEM_GET, &body)?;
+        Ok(b.get(2..).unwrap_or(&[]).to_vec())
     }
 
     /// Register names and ids the CPU exposes (main memory space).

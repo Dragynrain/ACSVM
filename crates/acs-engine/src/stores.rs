@@ -340,4 +340,155 @@ mod tests {
         assert_eq!(sell_offer(5100, 31), 4591);
         assert_eq!(sell_offer(0, 31), 0);
     }
+
+    // ---- 2.7: a store in an encounter area -------------------------------
+    //
+    // No file or play puts a store in an area (the engine builds the areas,
+    // and nothing dropped can be thing 83), so the area and its stock are
+    // set up by hand on the map region the game keeps.
+
+    #[path = "../../../../acs-core/tests/common/mod.rs"]
+    mod common;
+
+    use crate::{Command, Dir, Location, PlayerSetup, Rules};
+    use acs_core::model::RoomItem;
+    use acs_core::{decode, Platform};
+
+    const GEM: ThingId = 1; // treasure, value 50
+    const STORE: ThingId = 83;
+    const AREA: u8 = 1;
+
+    /// A game whose player (Wisdom 13, 500 gold, one gem) stands on 3,3 of
+    /// encounter area 1, west of a store on 4,3; region 0's stock `stock`.
+    fn in_area(p: Platform, stock: Vec<Possession>) -> Game {
+        use acs_core::layout::world_map as wm;
+        let mut f = common::Fixture::new(p);
+        f.header("SHOP", "", "");
+        f.thing(GEM as usize, "GEM", [0x01, 1, 50, 5]);
+        f.thing(GOLD as usize, "GOLD", [0x01, 0, 1, 9]);
+        f.thing(STORE as usize, "STORE", [0x0C, 6, 0, 0]);
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        f.region(common::RegionSpec {
+            name: "ROOM",
+            rooms: vec![common::RoomSpec {
+                name: "ROOM",
+                w: 10,
+                h: 7,
+                wall: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let w = f.l.world_map;
+        f.put(w + wm::TERRAIN, &[1 | 1 << 6, 0]);
+        f.put(w + wm::START_X, &[20, 20]);
+        let adv = decode(&f.build()).expect("decodes").adventure;
+        let (mut g, _) = Game::new(
+            adv,
+            1,
+            Rules::default(),
+            PlayerSetup {
+                speed: 6,
+                wisdom: 13,
+                gold: 500,
+                possessions: vec![GEM],
+                ..Default::default()
+            },
+        );
+        let room = &mut g.map.rooms[AREA as usize];
+        room.deleted = false;
+        room.width = crate::encounters::AREA_WIDTH;
+        room.height = crate::encounters::AREA_HEIGHT;
+        room.items = vec![RoomItem {
+            x: 4,
+            y: 3,
+            thing: STORE,
+            parameter: 0,
+            flag: false,
+            destination: None,
+            gold: None,
+        }];
+        g.map.store = stock;
+        g.place(
+            0,
+            Location::Room {
+                region: 0,
+                room: AREA,
+                x: 3,
+                y: 3,
+            },
+        );
+        g
+    }
+
+    #[test]
+    fn a_store_in_an_area_opens_on_region_0s_stock_which_never_changes() {
+        for p in [Platform::Pc, Platform::C64] {
+            let mut g = in_area(p, vec![Possession { thing: GEM, count: 1 }]);
+            let moves = g.current_player().moves_left;
+            // Opens as in a room: a step onto its square, one move (3.2).
+            let ev = g.apply(Command::Move { dir: Dir::E });
+            assert!(ev.contains(&Event::StoreOpened {
+                player: 0,
+                region: 0,
+                gold: 500
+            }));
+            assert_eq!(g.current_player().moves_left, moves - 1);
+            // Buying pays as usual but the stock stays: bought again and
+            // again.
+            for gold in [450, 400] {
+                let ev = g.apply(Command::Buy { thing: GEM });
+                assert!(ev.contains(&Event::Bought {
+                    player: 0,
+                    thing: GEM,
+                    price: 50,
+                    kept: true
+                }));
+                assert_eq!(g.current_player().gold, gold);
+                assert_eq!(stocked(g.stock(0), GEM), 1);
+            }
+            // Selling pays as usual (a third x 38 / 25) and stocks nothing.
+            let ev = g.apply(Command::Sell { thing: GEM });
+            assert!(ev.contains(&Event::Sold {
+                player: 0,
+                thing: GEM,
+                offer: 24,
+                paid: 24,
+                stocked: false
+            }));
+            assert_eq!(g.stock(0), [Possession { thing: GEM, count: 1 }]);
+            assert_eq!(g.current_player().count(GEM), 2);
+            // Leaving as in a room: on the store's square, one move (3.6, 3.7).
+            g.apply(Command::LeaveStore);
+            let at = Location::Room {
+                region: 0,
+                room: AREA,
+                x: 4,
+                y: 3,
+            };
+            assert_eq!(g.current_player().at, at);
+            assert_eq!(g.current_player().moves_left, 1);
+        }
+    }
+
+    #[test]
+    fn region_0_holds_no_stock_from_the_file() {
+        // The file keeps no stock for the map, so the store in an area
+        // offers nothing, and what is sold there doesn't join it.
+        for p in [Platform::Pc, Platform::C64] {
+            let mut g = in_area(p, Vec::new());
+            assert!(g.stock(0).is_empty());
+            g.apply(Command::Move { dir: Dir::E });
+            assert_eq!(g.store_visit(), Some(StoreVisit { player: 0, region: 0 }));
+            let ev = g.apply(Command::Buy { thing: GEM });
+            assert!(ev.contains(&Event::StoreRefused {
+                player: 0,
+                thing: GEM,
+                reason: StoreRefusal::NotStocked
+            }));
+            g.apply(Command::Sell { thing: GEM });
+            assert!(g.stock(0).is_empty());
+            assert_eq!(g.current_player().gold, 524);
+        }
+    }
 }

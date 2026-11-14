@@ -131,6 +131,8 @@ pub struct Runner<'a> {
     pub out: std::fs::File,
     /// The glyph table, for reading the profile screen (5.3).
     pub glyphs: Option<crate::glyphs::Table>,
+    /// Reset drive 8 after each restore (docs/capture.md 10.21).
+    pub reset_drive: bool,
 }
 
 /// The profile screen read back (docs/capture.md 5.3.5).
@@ -156,10 +158,35 @@ impl Runner<'_> {
     pub(crate) fn reset(&mut self, jitter: u64) -> Result<(), String> {
         let line = format!("undump {}", self.snapshot);
         self.s.line(&line)?;
+        if self.reset_drive {
+            self.s.line("reset 8")?;
+        }
         if jitter > 0 {
             self.s.run(jitter).map_err(|e| e.to_string())?;
         }
         Ok(())
+    }
+
+    /// Restores the snapshot once, outside any run, and checks that
+    /// drive 8 serves its timer interrupt (`Session::drive_alive`); warns
+    /// on stderr when it doesn't. The runs restore again, so their output
+    /// is unchanged. Returns whether the drive was alive.
+    pub fn check_drive(&mut self) -> Result<bool, String> {
+        self.reset(0)?;
+        let (alive, seen) = self.s.drive_alive(30, 500).map_err(|e| e.to_string())?;
+        if !alive {
+            eprintln!(
+                "warning: drive 8 in {} never clears its timer flag ({:?}..): its next disk read will never start; rebuild the snapshot or pass --reset-drive (docs/capture.md 10.21)",
+                self.snapshot,
+                &seen[..3.min(seen.len())]
+            );
+        } else if self.reset_drive {
+            eprintln!(
+                "note: drive 8 alive in {}; --reset-drive resets it anyway",
+                self.snapshot
+            );
+        }
+        Ok(alive)
     }
 
     pub(crate) fn joy(&mut self, dir: &str) -> Result<(), String> {

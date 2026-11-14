@@ -289,6 +289,11 @@ enum Cmd {
         /// ACSVM_CAPTURE_GLYPHS).
         #[arg(long)]
         glyphs: Option<PathBuf>,
+        /// Reset drive 8 after every snapshot restore: cures a snapshot
+        /// whose drive never serves its timer interrupt (docs/capture.md
+        /// 10.21). Every run first checks the drive once and warns.
+        #[arg(long)]
+        reset_drive: bool,
     },
     /// Distil a runs.jsonl into summary.json.
     Summarize {
@@ -333,6 +338,11 @@ enum Cmd {
         /// Cast first, as drift does (none, spell1, spell1-spell2).
         #[arg(long, default_value = "none")]
         plan: String,
+        /// Reset drive 8 after every snapshot restore: cures a snapshot
+        /// whose drive never serves its timer interrupt (docs/capture.md
+        /// 10.21). Every run first checks the drive once and warns.
+        #[arg(long)]
+        reset_drive: bool,
     },
     /// Run a line script (see `script.rs`) against a fresh VICE.
     Script {
@@ -548,6 +558,7 @@ fn main() {
             push,
             draws,
             peek,
+            reset_drive,
         } => {
             let push =
                 acs_capture::memwatch::parse_push(push.as_deref().unwrap_or("")).unwrap_or_else(|e| fail(&e));
@@ -600,7 +611,9 @@ fn main() {
                 place,
                 out: file,
                 glyphs,
+                reset_drive,
             };
+            r.check_drive().unwrap_or_else(|e| fail(&e));
             if from_menu {
                 if name != "cast" {
                     fail("--from-menu is for the cast experiment");
@@ -800,6 +813,7 @@ fn main() {
             walk,
             bar_left,
             plan,
+            reset_drive,
         } => {
             let m = acs_capture::snap::Moment::parse(&moment).unwrap_or_else(|e| fail(&e));
             let plan = acs_capture::power::plan(&plan).unwrap_or_else(|e| fail(&e));
@@ -819,7 +833,9 @@ fn main() {
                 place: experiment::Place::Map,
                 out: log,
                 glyphs: None,
+                reset_drive,
             };
+            r.check_drive().unwrap_or_else(|e| fail(&e));
             let abs = std::path::absolute(&out).unwrap_or(out.clone());
             match r.snap(m, &plan, walk, bar_left, &abs) {
                 Ok(note) => println!("wrote {}: {note}", out.display()),
