@@ -127,6 +127,10 @@ fn bumping_the_store_steps_onto_it_and_leaving_leaves_one_move() {
         // 3.7: no time passes inside.
         g.apply(Command::Sell { thing: GEM });
         assert_eq!(g.current_player().moves_left, moves - 1);
+        // Nor does the real-time drain (movement 2.4): Idle stays inside.
+        assert!(g.apply(Command::Idle).is_empty());
+        assert_eq!(g.store_visit(), Some(StoreVisit { player: 0, region: 1 }));
+        assert_eq!(g.current_player().moves_left, moves - 1);
         // 3.6, 3.7: out on the store's square with exactly one move.
         let ev = g.apply(Command::LeaveStore);
         assert_eq!(ev, [Event::StoreClosed { player: 0 }]);

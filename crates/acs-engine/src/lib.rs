@@ -121,8 +121,11 @@ impl Dir {
 pub enum Command {
     /// One step for the player whose turn it is.
     Move { dir: Dir },
-    /// End the current turn now (also what a real-time drain would send).
+    /// End the current turn now: the rest of the bar goes as idle moves.
     Wait,
+    /// The real-time drain (movement 2.4): one step of the bar went while
+    /// the player did nothing. One idle move; the turn ends with the last.
+    Idle,
     /// "Add Someone" with a character whose ratings are given (a saved
     /// one, characters 3): it joins at the adventure's start.
     AddPlayer { setup: PlayerSetup },

@@ -934,3 +934,35 @@ fn saves_check_the_adventure_and_the_state() {
         Err(SaveError::NotASave(_))
     ));
 }
+
+#[test]
+fn idle_drain_is_a_wait_one_step_at_a_time() {
+    // Movement 2.4, magic 5.3: each drained step is an idle move with its
+    // healing roll, so draining a turn away draws what one Wait draws.
+    let a = adventure(Platform::C64);
+    let setup = PlayerSetup {
+        speed: 6,
+        constitution: 20,
+        life_force: 4,
+        ..Default::default()
+    };
+    let new = || Game::new(a.clone(), 31, Rules::default(), setup.clone()).0;
+    let (mut waited, mut idled) = (new(), new());
+    for turn in 0..12 {
+        mv(&mut waited, Dir::E);
+        mv(&mut idled, Dir::E);
+        let ev = waited.apply(Command::Wait);
+        let left = idled.current_player().moves_left;
+        let mut got = Vec::new();
+        for _ in 0..left {
+            got.extend(idled.apply(Command::Idle));
+        }
+        assert_eq!(got, ev, "turn {turn}");
+        assert_eq!(idled.players(), waited.players(), "turn {turn}");
+    }
+    assert!(idled.current_player().life_force > 4, "healed while idling");
+    // Idle halfway, then walk: the steps drained are gone.
+    let full = idled.current_player().moves_left;
+    idled.apply(Command::Idle);
+    assert_eq!(idled.current_player().moves_left, full - 1);
+}

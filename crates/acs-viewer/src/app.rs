@@ -62,6 +62,8 @@ pub struct Doc {
     pub walk: Option<views::walk::Walk>,
     /// A view asked for the file picker (Load game).
     pub pick: bool,
+    /// Walk mode's bar never drains (design.md, Play options).
+    pub turn_based: bool,
 }
 
 impl Doc {
@@ -88,6 +90,7 @@ impl Doc {
             show_info: true,
             walk: None,
             pick: false,
+            turn_based: false,
         }
     }
 

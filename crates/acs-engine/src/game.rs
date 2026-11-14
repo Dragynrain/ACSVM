@@ -332,11 +332,12 @@ impl Game {
         }
         self.log.push(cmd.clone());
         // Stores 3.8: anything but buying and selling ends a store visit.
-        if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. }) {
+        if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. } | Command::Idle) {
             self.leave_store(&mut ev);
         }
         match cmd {
             Command::Wait => self.wait_out(&mut ev),
+            Command::Idle => self.idle(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.add_player(setup, &mut ev),
             Command::CreatePlayer { name } => self.create_player(&name, &mut ev),
@@ -665,6 +666,25 @@ impl Game {
         self.idle_moves(Who::Player { player: self.current }, left, full, ev);
         if self.players[self.current].alive {
             self.end_turn(ev);
+        }
+    }
+
+    /// The drain of one step (movement 2.4): an idle move with its healing
+    /// roll (magic 5.3), the turn ending with the last move. A turn with
+    /// no moves left ends at once; in a store nothing happens.
+    fn idle(&mut self, ev: &mut Vec<Event>) {
+        if self.store.is_some() {
+            return;
+        }
+        let p = &self.players[self.current];
+        if p.moves_left == 0 {
+            self.end_turn(ev);
+            return;
+        }
+        let full = p.turn_moves;
+        self.idle_moves(Who::Player { player: self.current }, 1, full, ev);
+        if self.players[self.current].alive {
+            self.spend(ev);
         }
     }
 

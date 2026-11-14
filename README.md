@@ -76,6 +76,8 @@ Power against Wisdom, spells and readied weapon; a coloured dot on each
 one's square shows its alignment (red enemy, green friend, yellow neutral,
 purple thief). The viewer keeps the autosave the original makes on entering
 or leaving a region; after a death, Resume from last save goes back to it.
+As in the original, the movement bar drains while you do nothing (a step
+about every 7 seconds); tick Turn-based to make it wait for you instead.
 Save game writes a small save file (the seed and the moves played,
 [docs/saves.md](docs/saves.md)); Load game, or dropping the file on the
 window, replays it over the same adventure. The adventure is not in the
@@ -85,7 +87,7 @@ save, so a save can go with a bug report.
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
 `creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
 `--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
-steps can also be `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`
+steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`
 and `use:T[:target]` (T is a thing number; a target is `me`, `pN` for player
 N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
 starts the walk on a room square instead of the start (a tool shortcut that

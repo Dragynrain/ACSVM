@@ -21,6 +21,14 @@ use egui::{Key, Modifiers, RichText};
 const MAP_VIEW: (u8, u8) = (15, 10);
 /// Log lines kept.
 const LOG_MAX: usize = 500;
+/// The real-time drain (movement 2.4): frames of idle time per step of the
+/// bar, the turn's extra frames before the first, and the PAL C64's frame
+/// rate.
+const DRAIN_FRAMES: f64 = 354.0;
+const DRAIN_FIRST: f64 = 17.0;
+const PAL_HZ: f64 = 50.125;
+/// Longest frame the drain clock counts, so a stall doesn't drain a turn.
+const DRAIN_DT_MAX: f64 = 0.25;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
@@ -52,6 +60,9 @@ pub struct Walk {
     save: Game,
     /// The name typed for the next "Add Someone".
     new_name: String,
+    /// Idle seconds this turn, and the steps they have drained so far.
+    idle: f64,
+    drained: u32,
 }
 
 impl Walk {
@@ -80,7 +91,40 @@ impl Walk {
             gold_amount: 1,
             hindered: false,
             new_name: String::new(),
+            idle: 0.0,
+            drained: 0,
         }
+    }
+
+    /// Idle seconds at which the next step drains (movement 2.4).
+    fn next_drain(&self) -> f64 {
+        (DRAIN_FIRST + DRAIN_FRAMES * f64::from(self.drained + 1)) / PAL_HZ
+    }
+
+    /// The share of the next step already drained, 0 to 1.
+    fn drain_part(&self) -> f64 {
+        let start = if self.drained == 0 {
+            0.0
+        } else {
+            (DRAIN_FIRST + DRAIN_FRAMES * f64::from(self.drained)) / PAL_HZ
+        };
+        ((self.idle - start) / (self.next_drain() - start)).clamp(0.0, 1.0)
+    }
+
+    /// Runs the drain clock for `dt` seconds: an `Idle` for each step that
+    /// runs out. Returns the seconds until the next one.
+    fn drain(&mut self, dt: f64) -> f64 {
+        self.idle += dt.min(DRAIN_DT_MAX);
+        while self.idle >= self.next_drain() && !self.game.is_over() {
+            let turn = self.game.log().len();
+            self.drained += 1;
+            self.apply(Command::Idle);
+            // A new turn (record() resets the clock) or nothing happened.
+            if self.drained == 0 || self.game.log().len() == turn {
+                break;
+            }
+        }
+        (self.next_drain() - self.idle).max(0.0)
     }
 
     /// A walk from a save file's text (docs/saves.md), replayed over `adv`.
@@ -198,6 +242,8 @@ impl Walk {
         for e in events {
             if let Event::TurnStarted { hindered, .. } = e {
                 self.hindered = *hindered;
+                self.idle = 0.0;
+                self.drained = 0;
             }
             let kind = match e {
                 Event::TurnStarted { .. } | Event::TurnEnded { .. } => Kind::Turn,
@@ -313,6 +359,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
             };
             Ok(match head {
                 "wait" => Command::Wait,
+                "idle" => Command::Idle,
                 "drop" => Command::Drop {
                     thing: num(parts.next())?,
                     dir: dir(parts.next())?,
@@ -435,6 +482,20 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         if let Some(cmd) = key_command(ui.ctx()) {
             walk.key(cmd);
         }
+        // The original's bar drains while the player does nothing
+        // (movement 2.4); the clock stops in a store, while typing, out of
+        // focus, and in turn-based play.
+        let ctx = ui.ctx();
+        let paused = doc.turn_based
+            || walk.game.is_over()
+            || walk.game.store_visit().is_some()
+            || ctx.memory(|m| m.focused().is_some())
+            || !ctx.input(|i| i.focused);
+        if !paused {
+            let dt = f64::from(ctx.input(|i| i.stable_dt));
+            let wait = walk.drain(dt);
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait.min(0.1)));
+        }
     }
     let mut click: Option<Command> = None;
     let mut restart: Option<Rules> = None;
@@ -476,8 +537,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 (true, false) => format!(" (slowed from {})", p.speed),
                 _ => String::new(),
             };
+            let drained = if doc.turn_based || p.moves_left == 0 {
+                0.0
+            } else {
+                walk.drain_part() as f32
+            };
             ui.add(
-                egui::ProgressBar::new(p.moves_left as f32 / p.turn_moves.max(1) as f32)
+                egui::ProgressBar::new((p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32)
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
             party_panel(ui, g, &mut walk.new_name, &mut click);
@@ -496,6 +562,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 {
                     restart = Some(rules);
                 }
+                ui.checkbox(&mut doc.turn_based, "Turn-based").on_hover_text(
+                    "The bar waits for you. Off: it drains while you do nothing,                      a step about every 7 seconds, as in the original.",
+                );
                 if ui.button("Restart").clicked() {
                     restart = Some(g.rules());
                 }
@@ -1130,4 +1199,53 @@ fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u
         } if (rg, rm) == (region, room) => Some(grid.cell_rect(x as u32, y as u32)),
         _ => None,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[path = "../../../../../acs-core/tests/common/mod.rs"]
+    mod common;
+
+    fn adventure() -> Adventure {
+        let mut f = common::Fixture::new(acs_core::Platform::C64);
+        f.header("DRAINS", "", "");
+        acs_core::decode(&f.build()).expect("decodes").adventure
+    }
+
+    /// Feeds the clock `secs` seconds in frames of 1/50 s.
+    fn run(w: &mut Walk, secs: f64) {
+        for _ in 0..(secs * 50.0).round() as u32 {
+            w.drain(0.02);
+        }
+    }
+
+    #[test]
+    fn the_bar_drains_a_step_every_354_frames() {
+        let a = adventure();
+        let mut w = Walk::new(&a, 3, Rules::default());
+        let full = w.game.current_player().moves_left;
+        assert!(full > 1);
+        // Movement 2.4: the first step after 371 frames, then every 354.
+        run(&mut w, 7.3);
+        assert_eq!(w.game.current_player().moves_left, full);
+        run(&mut w, 0.2);
+        assert_eq!(w.game.current_player().moves_left, full - 1);
+        assert_eq!(w.game.log(), [Command::Idle]);
+        run(&mut w, 354.0 / PAL_HZ);
+        assert_eq!(w.game.current_player().moves_left, full - 2);
+        // A stall counts at most a quarter second.
+        w.drain(60.0);
+        assert_eq!(w.game.current_player().moves_left, full - 2);
+        // The rest of the turn drains away and the next turn starts afresh.
+        let turns = |w: &Walk| w.log.iter().filter(|(k, _)| *k == Kind::Turn).count();
+        let before = turns(&w);
+        run(&mut w, f64::from(full - 2) * 354.0 / PAL_HZ + 0.1);
+        assert!(turns(&w) > before, "a new turn");
+        assert_eq!(w.drained, 0);
+        // The drain is in the log, so a save brings the same game back.
+        let (_, text) = w.save_file(&a);
+        assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
+    }
 }

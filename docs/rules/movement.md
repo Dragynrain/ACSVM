@@ -93,9 +93,22 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    first `refuse` run saw against the obstacle went before the push: that
    case pushed at once on entering the room, while the bar was still
    hidden. Loading a region through a door doesn't drain the bar either.
-   **Engine:** no
-   real-time drain in the rules; a front end may send `Wait` to end the
-   turn, and later a timer option can do so on a clock.
+   **Engine:** the rules have no clock. A front end keeps it and sends
+   `Idle` each time a step's worth of the bar has drained: one idle move,
+   with its healing roll ([magic](magic.md) 5.3), the turn ending when it
+   was the last (a turn with no moves left ends at once). So the drain is
+   in the command log and replays exactly, and a turn idled out in full
+   draws the same rolls as one `Wait`. The bar drains in whole steps, one
+   every 354 frames of idle time, the first after 371 (the turn's extra
+   17 frames); whether a step needs a whole step's pixels left, or the
+   original lets a part-drained step be walked, is [unknown]. `Idle`
+   during a store visit does nothing, as no time passes inside
+   ([stores](stores.md) 3.7), and the front end stops the clock there.
+   The viewer's walk mode drains in real time by default (50.125 frames a
+   second, the PAL C64's rate) and stops the clock while a store or a
+   text field has the keys, or the window is out of focus; its
+   **Turn-based** option stops the drain altogether (design.md, Play
+   options).
 5. With one character and no creatures in the room, the same character moves
    again when the bar refills. With several players, or creatures in the room,
    each gets a turn first. [manual] **Engine:** players take turns in order;

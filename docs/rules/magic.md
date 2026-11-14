@@ -269,7 +269,8 @@ magic item after it is used. [unknown]
    fast" does not hold: on average healing gives 7 points in 6 waited
    turns, the reversal of a temporary +10 1 in 3.5 rounds. **Engine:** the
    rule above. A `Wait` uses up the turn's remaining moves as idle moves,
-   one healing roll each; a turn ended by walking its last move, casting
+   one healing roll each, and so does each `Idle` (the real-time drain,
+   movement 2.4); a turn ended by walking its last move, casting
    or readying armor takes none; creatures roll for the moves their turn
    leaves unused ([research, unconfirmed]: the researcher read that
    creatures share the players' turn routine). Rest comes with a later
