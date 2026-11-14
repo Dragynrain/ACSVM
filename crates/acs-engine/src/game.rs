@@ -172,6 +172,36 @@ pub struct Player {
 }
 
 impl Player {
+    /// A slot cleared to 0 (creatures 2.2.6): no name, no ratings, nothing
+    /// carried, on map square 0,0, not alive.
+    pub(crate) fn cleared() -> Self {
+        Player {
+            name: String::new(),
+            speed: 0,
+            strength: 0,
+            constitution: 0,
+            life_force: 0,
+            moves_left: 0,
+            turn_moves: 0,
+            at: Location::World { x: 0, y: 0 },
+            possessions: Vec::new(),
+            gold: 0,
+            weapon: None,
+            armor: None,
+            dexterity: 0,
+            wisdom: 0,
+            power: 0,
+            size: 0,
+            dodge: 0,
+            parry: 0,
+            armor_skill: 0,
+            melee: 0,
+            missile: 0,
+            magic_defense: MagicDefense::None,
+            alive: false,
+        }
+    }
+
     pub fn owns(&self, thing: ThingId) -> bool {
         self.count(thing) > 0
     }
@@ -248,6 +278,20 @@ pub struct Game {
     /// The RETIRE waiting for the round's end (characters 7.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) retire: Option<crate::characters::Retirement>,
+    /// SAVE GAME was chosen this round: the save is made with the round's
+    /// other requests (creatures 2.2.7).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) save_asked: bool,
+    /// Commands played when the game was last saved (creatures 2.2.7,
+    /// saves 1.4). The replay makes it, so it is not in the state's
+    /// fingerprint.
+    #[serde(skip)]
+    saved_at: usize,
+    /// The save the round-end message of the last command offered: the
+    /// last save as it stood at the message (creatures 2.2.6), before the
+    /// round's requests and the next visit. Not in the fingerprint.
+    #[serde(skip)]
+    offered: Option<usize>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -333,12 +377,15 @@ impl Game {
             carried: Vec::new(),
             adds: Vec::new(),
             retire: None,
+            save_asked: false,
+            saved_at: 0,
+            offered: None,
         };
         let mut ev = Vec::new();
         // The first player joins as given: the front end has asked again
         // for a refused name (characters 5.7) before starting the game.
         g.join(first, &mut ev);
-        g.begin_cycle();
+        g.begin_cycle(&mut ev);
         g.next_turn(&mut ev);
         (g, ev)
     }
@@ -368,6 +415,7 @@ impl Game {
                 return ev;
             }
             self.log.push(cmd.clone());
+            self.offered = None;
             // The add-a-player screen of nobody in play: at once.
             if let Some(n) = newcomer(cmd) {
                 if self.name_ok(&n, &mut ev) {
@@ -377,12 +425,13 @@ impl Game {
             // A refused name leaves nobody in play: still waiting.
             if self.players.iter().any(|p| p.alive) {
                 self.over = false;
-                self.begin_cycle();
+                self.begin_cycle(&mut ev);
                 self.next_turn(&mut ev);
             }
             return ev;
         }
         self.log.push(cmd.clone());
+        self.offered = None;
         // Stores 3.8: anything but buying and selling ends a store visit.
         if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. } | Command::Idle) {
             self.leave_store(&mut ev);
@@ -400,6 +449,7 @@ impl Game {
             Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
             Command::Fire { target, weapon } => self.fire_command(target, weapon, &mut ev),
             Command::Retire { save } => self.request_retire(save, &mut ev),
+            Command::SaveGame => self.request_save(&mut ev),
             Command::Buy { thing } => self.buy(thing, &mut ev),
             Command::Sell { thing } => self.sell(thing, &mut ev),
             Command::LeaveStore => {}
@@ -414,6 +464,33 @@ impl Game {
     /// True once no player is left alive.
     pub fn is_over(&self) -> bool {
         self.over
+    }
+
+    /// Commands played when the game was last saved (creatures 2.2.7,
+    /// saves 1.4): at the start of a visit to a region other than the one
+    /// visited before, or at the end of a round in which SAVE GAME was
+    /// chosen; 0 at the game's start. The later save wins.
+    pub fn save_point(&self) -> usize {
+        self.saved_at
+    }
+
+    /// What restoring the saved game goes back to now (creatures 2.2.6):
+    /// after a command whose round ended with the death message, the save
+    /// as it stood at that message (a SAVE GAME of that round, or the visit
+    /// that follows it, is not yet made when the button is pressed);
+    /// otherwise [`Game::save_point`].
+    pub fn restore_point(&self) -> usize {
+        self.offered.unwrap_or(self.saved_at)
+    }
+
+    /// Rounds since the game began: the round counter (creatures 2.2.5).
+    pub fn round(&self) -> u32 {
+        self.sched.round
+    }
+
+    /// The region being visited (creatures 2.2.1; 0 the world map).
+    pub fn visiting(&self) -> u8 {
+        self.sched.region
     }
 
     pub fn adventure(&self) -> &Adventure {
@@ -455,6 +532,9 @@ impl Game {
         });
         self.players[player].at = at;
         self.reschedule();
+        // A tool's fresh start: play resumes from here.
+        self.saved_at = self.log.len();
+        self.offered = None;
     }
 
     /// The tool placements made so far (saves 1.3).
@@ -490,20 +570,54 @@ impl Game {
 
     /// Creatures 2.2: a new cycle marks the regions with a living player and
     /// begins the first visit.
-    fn begin_cycle(&mut self) {
+    fn begin_cycle(&mut self, ev: &mut Vec<Event>) {
         self.sched.marks = self.player_regions();
-        self.next_visit();
+        self.next_visit(ev);
     }
 
-    /// Begins the next marked region's visit; false if none is left.
-    fn next_visit(&mut self) -> bool {
+    /// Begins the next marked region's visit; false if none is left. A
+    /// visit to another region than the one before it saves the game, its
+    /// first round on the counter (creatures 2.2.7).
+    fn next_visit(&mut self, ev: &mut Vec<Event>) -> bool {
         if self.sched.marks.is_empty() {
             return false;
         }
+        let before = self.sched.region;
         self.sched.region = self.sched.marks.remove(0);
         self.sched.rounds = 0;
         self.begin_round();
+        if self.sched.region != before {
+            self.save(Some(self.sched.region), ev);
+        }
         true
+    }
+
+    /// Saves the game here (creatures 2.2.7): the point is the commands
+    /// played so far, so resuming replays up to the end of this command.
+    fn save(&mut self, visit: Option<u8>, ev: &mut Vec<Event>) {
+        self.saved_at = self.log.len();
+        ev.push(Event::Saved {
+            round: self.sched.round,
+            visit,
+        });
+    }
+
+    /// SAVE GAME (creatures 2.2.7): recorded for the round's end, where it
+    /// is made after the retirement and the adds; it ends the turn with no
+    /// move used and no draw. Asked twice in a round, it saves once.
+    fn request_save(&mut self, ev: &mut Vec<Event>) {
+        self.save_asked = true;
+        ev.push(Event::SaveRequested { player: self.current });
+        self.end_turn(ev);
+    }
+
+    /// Creatures 2.2.6: by the add-a-player screen every player record is
+    /// cleared to 0, place and gold included.
+    fn clear_records(&mut self) {
+        for p in &mut self.players {
+            *p = Player::cleared();
+        }
+        self.carried.clear();
     }
 
     /// Builds the round's list for the region being visited: on the map its
@@ -611,8 +725,9 @@ impl Game {
     /// falls due on it (magic 5.2), random creatures left behind (2.4);
     /// the round-end message when the living count changed either way
     /// (characters 6.3); the retirement and then the add requests
-    /// (characters 7.1, 6.2); with nobody in play the game waits for a new
-    /// player (2.2.6, characters 7.6); then the next round of this
+    /// (characters 7.1, 6.2) and SAVE GAME (2.2.7); with nobody in play the
+    /// records are cleared and the game waits for a new player (2.2.6,
+    /// characters 7.6); then the next round of this
     /// visit, or the next visit (2.2.2). A death alone ends no visit; the
     /// message's answers are the front end's.
     fn end_round(&mut self, ev: &mut Vec<Event>) {
@@ -625,19 +740,25 @@ impl Game {
         let (before, after) = (self.sched.living, self.living());
         if before != after {
             ev.push(Event::LivingChanged { before, after });
+            // 2.2.6: the message's button restores the save made so far.
+            self.offered = Some(self.saved_at);
         }
         self.take_retirement(ev);
         self.take_adds(ev);
+        if std::mem::take(&mut self.save_asked) {
+            self.save(None, ev);
+        }
         if !self.players.iter().any(|p| p.alive) {
             self.over = true;
+            self.clear_records();
             ev.push(Event::AllPlayersDead);
             return;
         }
         let region = self.sched.region;
         let here = self.players.iter().any(|p| p.alive && p.at.region() == region);
         if self.sched.rounds >= VISIT_ROUNDS || !here {
-            if !self.next_visit() {
-                self.begin_cycle();
+            if !self.next_visit(ev) {
+                self.begin_cycle(ev);
             }
         } else {
             self.begin_round();

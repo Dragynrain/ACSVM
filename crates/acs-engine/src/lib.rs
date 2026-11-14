@@ -178,6 +178,10 @@ pub enum Command {
     /// round, saved for later adventures (`save`) or destroyed. The offer's
     /// answer is given with the request. No move used.
     Retire { save: bool },
+    /// The menu's SAVE GAME (creatures 2.2.7): the game is saved at the end
+    /// of the round, with the round's other requests; ends the turn, no
+    /// move used.
+    SaveGame,
     /// In an open store (stores 3): buys one of `thing` (stores 4).
     Buy { thing: ThingId },
     /// In an open store: sells one of `thing` (stores 5).
@@ -524,7 +528,8 @@ pub enum Event {
         region: u8,
         room: u8,
     },
-    /// Entering or leaving a region is when the original autosaves.
+    /// Went into another region; the save comes when its visit begins
+    /// (`Saved`, creatures 2.2.7), not here.
     EnteredRegion {
         player: usize,
         region: u8,
@@ -877,6 +882,21 @@ pub enum Event {
         saved: Option<Box<Player>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         left: Vec<(ThingId, u16)>,
+    },
+    /// SAVE GAME taken: the game will be saved at the end of the round
+    /// (creatures 2.2.7).
+    SaveRequested {
+        player: usize,
+    },
+    /// The game was saved (creatures 2.2.7): at the start of a visit to
+    /// region `visit`, another than the one visited before, or (`None`) at
+    /// the end of a round with SAVE GAME. `round` is the counter it holds,
+    /// the round play resumes in. Restoring goes back to the latest save
+    /// ([`Game::restore_point`]).
+    Saved {
+        round: u32,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        visit: Option<u8>,
     },
     /// "Add Someone" taken: the newcomer is handled at the end of the round
     /// (characters 6.2).

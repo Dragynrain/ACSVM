@@ -280,7 +280,9 @@ magic item after it is used. [unknown]
    rule above. A `Wait` uses up the turn's remaining moves as idle moves,
    one healing roll each, and so does each `Idle` (the real-time drain,
    movement 2.4); a turn ended by walking its last move, casting
-   or readying armor takes none; creatures roll for the moves their turn
+   or readying armor takes none, and nor does one ended by SAVE GAME
+   (whether the original rolls for the moves SAVE GAME leaves is
+   [unknown], [creatures](creatures.md) 2.2.7); creatures roll for the moves their turn
    leaves unused ([research, unconfirmed]: the researcher read that
    creatures share the players' turn routine). Rest comes with a later
    rule set.
@@ -404,7 +406,9 @@ Combat will reuse this; spells are the first thing that can kill.
    and no turn is taken (creatures 2.2.6). [capture: rr21 `decline`] The
    same screen comes back when the last player retires
    ([characters](characters.md) 7.6). A SAVE GAME in the same round as a
-   region change is [unknown].
+   region change, one in the round the last player dies, and whether a
+   Retire with Save (which writes the game too, characters 7.3) is
+   restored are [unknown] (creatures 2.2.7, with the engine's choices).
    **Engine:** when no player is
    left alive, or the last one has retired, the game emits
    `AllPlayersDead` ("nobody is left in play") and ignores every command

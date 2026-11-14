@@ -5,8 +5,8 @@
 //! All rules live in `acs-engine`; this view only turns keys and buttons into
 //! commands, draws where the engine says the player is, shows what it
 //! carries, and lists the engine's events in a message log. It also keeps
-//! the autosave the original makes on entering or leaving a region, so a
-//! death can be undone the original's way.
+//! the game as it stood at the engine's save points (creatures 2.2.7), so
+//! a death can be undone the original's way.
 
 use super::*;
 use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
@@ -64,9 +64,11 @@ pub struct Walk {
     retired: Vec<Player>,
     /// The current turn's bar was halved by a creature (creatures 2.6).
     hindered: bool,
-    /// The last autosave: the game as it stood after the last region change
-    /// (or the start), what the original resumes from after a death.
+    /// The game at the engine's last save point (`Game::save_point`), and
+    /// at the one before it: after a death in a round that also saved, the
+    /// button restores the earlier one (`Game::restore_point`).
     save: Game,
+    older: Game,
     /// The name typed for the next "Add Someone".
     new_name: String,
     /// Idle seconds this turn, and the steps they have drained so far.
@@ -94,6 +96,7 @@ impl Walk {
     fn with(game: Game, save: Game) -> Self {
         Walk {
             game,
+            older: save.clone(),
             save,
             log: Vec::new(),
             pending_drop: None,
@@ -173,7 +176,7 @@ impl Walk {
 
     /// The save file of this walk: a file name for it and its text.
     pub fn save_file(&self, original: &Adventure) -> (String, String) {
-        let text = SaveFile::new(&self.game, original, &self.save).to_json();
+        let text = SaveFile::new(&self.game, original, self.restore_target()).to_json();
         let stem: String = original
             .name
             .trim()
@@ -201,19 +204,27 @@ impl Walk {
         }
         let ev = self.game.apply(cmd);
         self.record(&ev);
-        // The original autosaves on entering or leaving a region.
-        let saves = ev
-            .iter()
-            .any(|e| matches!(e, Event::EnteredRegion { .. } | Event::LeftRegion { .. }));
-        if saves && !self.game.is_over() {
-            self.save = self.game.clone();
+        // The engine saved during this command: keep the game as it is now.
+        let point = self.game.save_point();
+        if point == self.game.log().len() && point != self.save.log().len() {
+            self.older = std::mem::replace(&mut self.save, self.game.clone());
         }
-        // Characters 7.3: a retirement with Save saves the game at once.
+        // Characters 7.3: the front end keeps characters retired with Save.
         for e in &ev {
             if let Event::Retired { saved: Some(p), .. } = e {
                 self.retired.push(p.as_ref().clone());
-                self.save = self.game.clone();
             }
+        }
+    }
+
+    /// The game restoring goes back to now: the kept game at the engine's
+    /// restore point (a save loaded from an older file keeps its own).
+    fn restore_target(&self) -> &Game {
+        let point = self.game.restore_point();
+        if point != self.save.log().len() && point == self.older.log().len() {
+            &self.older
+        } else {
+            &self.save
         }
     }
 
@@ -222,12 +233,15 @@ impl Walk {
     pub fn place(&mut self, at: Location) {
         self.game.place(self.game.current(), at);
         self.save = self.game.clone();
+        self.older = self.game.clone();
         self.note("Placed by --place (a tool shortcut, not replayed).".into());
     }
 
     /// Back to the last autosave (after a death, as in the original).
     fn resume(&mut self) {
-        self.game = self.save.clone();
+        self.game = self.restore_target().clone();
+        self.save = self.game.clone();
+        self.older = self.game.clone();
         self.pending_drop = None;
         self.pending_fire = None;
         self.note("Resumed from the last save.".into());
@@ -414,7 +428,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], fire[:X:Y[:T]], retire[:save|destroy], buy:T, sell:T, leave, add[:NAME])");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], fire[:X:Y[:T]], retire[:save|destroy], save, buy:T, sell:T, leave, add[:NAME])");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
@@ -462,6 +476,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     thing: num(parts.next())?,
                 },
                 "leave" => Command::LeaveStore,
+                "save" => Command::SaveGame,
                 "fire" => {
                     let target = match parts.next() {
                         None => None,
@@ -627,7 +642,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             }
             if ui
                 .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
-                .on_hover_text("The original autosaves on entering or leaving a region.")
+                .on_hover_text(
+                    "The original saves when a visit to another region begins, and at the end of                      a round in which SAVE GAME was chosen.",
+                )
                 .clicked()
             {
                 resume = true;
@@ -943,6 +960,15 @@ fn actions_panel(
                     }
                 }
             });
+        }
+        if ui
+            .button("SAVE GAME")
+            .on_hover_text(
+                "The menu's SAVE GAME: the game is saved at the end of this round,                  and a death goes back there. Ends the turn.",
+            )
+            .clicked()
+        {
+            *click = Some(Command::SaveGame);
         }
         ui.menu_button("Retire", |ui| {
             ui.label(RichText::new("At the end of the round:").weak());
@@ -1465,5 +1491,20 @@ mod tests {
         // The drain is in the log, so a save brings the same game back.
         let (_, text) = w.save_file(&a);
         assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
+    }
+
+    /// Creatures 2.2.7: SAVE GAME moves the kept save to the round's end;
+    /// resuming goes back there.
+    #[test]
+    fn save_game_moves_the_restore_point() {
+        let a = adventure();
+        let mut w = Walk::new(&a, 3, Rules::default());
+        w.apply(Command::SaveGame);
+        assert_eq!(w.save.log(), [Command::SaveGame]);
+        assert_eq!(w.restore_target().log().len(), 1);
+        w.apply(Command::Wait);
+        w.resume();
+        assert_eq!(w.game.log(), [Command::SaveGame]);
+        assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
     }
 }

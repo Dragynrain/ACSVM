@@ -40,7 +40,10 @@ loads it.
      played by then.
    The later of the two is the autosave. A SAVE GAME in the same round as
    a region change is [unknown]; the engine takes the visit start that
-   follows the round's end.
+   follows the round's end. A Retire with Save does not move the
+   autosave, and a SAVE GAME in the round the last player dies makes the
+   all-dead state the autosave; both are [unknown] in the original
+   (creatures 2.2.7).
 
 ## 2. The file
 
@@ -49,7 +52,7 @@ A JSON object (UTF-8, written on one line). Fields:
 | Field | Meaning |
 | --- | --- |
 | `format` | Always `"acsvm-save"`. |
-| `version` | The save format version, now 2. A newer version is refused; version 1 is read as 2.1 says. |
+| `version` | The save format version, now 3. A newer version is refused; versions 1 and 2 are read as 2.1 says. |
 | `engine` | The engine version that wrote it (informational). |
 | `adventure` | `name`: the adventure's name; `fingerprint`: 16 hex digits identifying the decoded adventure (section 3). |
 | `seed`, `rules`, `first` | As given to `Game::new`. |
@@ -63,10 +66,18 @@ dropped file is recognised by its `format` field, not its name.
 
 ### 2.1 Versions
 
+- **3** (creatures 2.2.7): `save_game` (`{"command":"save_game"}`, the
+  menu's SAVE GAME) is new, and `autosave` is the point of 1.4: a visit
+  to another region beginning, or the end of a round with SAVE GAME.
 - **2** (combat 8.8, characters 7): `fire` takes the cursor's square and
   the weapon chosen from the menu (`{"command":"fire","target":[x,y],
   "weapon":N}`, both optional), and `retire` (`{"command":"retire",
-  "save":true}`, false for Destroy) is new.
+  "save":true}`, false for Destroy) is new. The front end took the
+  autosave at the door step (`EnteredRegion` / `LeftRegion`). A version 2
+  save is loaded as it is: its commands mean the same, it has no
+  `save_game`, and its `autosave` is kept as written, so resuming goes
+  back to the door step it was made at until play makes a new save
+  (1.4). Saving again writes version 3.
 - **1**: `fire` had no fields and was always refused, with no move and
   nothing drawn; like every command but buying and selling it ended an
   open store visit, and that was all it did. A version 1 save is loaded
@@ -109,7 +120,10 @@ dropped file is recognised by its `format` field, not its name.
 1. The viewer's walk mode has **Save game** (writes the file: a save
    dialog on the desktop, a download in the browser) and **Load game** (a
    file picker). Dropping a save file on the window loads it into the open
-   adventure's walk.
+   adventure's walk. Its **SAVE GAME** button is the original's menu entry,
+   the logged command of 1.4, not a file; **Resume from last save** goes
+   back to the autosave (after a death in a round that also saved, the
+   save before it, creatures 2.2.6).
 2. A replay is a save too: sharing a save file with its adventure name is
    enough to reproduce a bug exactly, as long as the other side owns the
    same adventure file.

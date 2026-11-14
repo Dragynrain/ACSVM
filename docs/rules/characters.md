@@ -318,14 +318,20 @@ holds Constitution with magic defense in the top two bits.
    magic defense, gold, weapon held, armor worn, every possession, the
    picture, the joystick and the place (a room's region, room and square
    too). Nothing is left on the square. In play only the slot's first byte
-   is zeroed (7.6), and the game is saved at once. Reversals due later for
+   is zeroed (7.6). The adventure block is written to the disk at the same
+   moment, the round counter in it (7.7) and the retired slot's first byte
+   0, so the game state is saved along with the character; whether the
+   death message's button later restores that write, as it does a SAVE
+   GAME ([creatures](creatures.md) 2.2.7), is [unknown]. Reversals due later for
    the character (magic 5.2) are dropped [research, pass 2, unconfirmed].
    [research, pass 2; capture: rr19 `ret-save`, `ret-save2`, `last-save`,
    3 runs: Life Force 3 and 4 under Constitution 11 saved as 11, Power 5
    under Wisdom 13 kept, gold 777, the blade held, the mail worn and four
    possessions in the roster's first entry, a room square kept]
    **Engine:** the same when rosters come; until then the front end keeps
-   the saved character. Pending reversals are dropped, as the finding
+   the saved character. A retire saves the character record only: it is
+   not one of the engine's save points (creatures 2.2.7), so the restore
+   point stays where it was. Pending reversals are dropped, as the finding
    says. Bringing a saved character back from the roster (3.1) is not
    built yet: the engine keeps no roster, so a retired character rejoins
    only as a setup the front end gives `AddPlayer`.
@@ -403,3 +409,6 @@ holds Constitution with magic defense in the top two bits.
    byte zeroed (F1 at the offer), then "Add Someone" by two players in one
    round; read which slots the newcomers' records land in and the turn
    order after (6.1, 6.2).
+6. A Retire with Save while another player lives, then that player
+   killed and the death message's button pressed: whether the counter and
+   records come back to the retire's round end (7.3, creatures 2.2.7).

@@ -99,7 +99,14 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    region are seeded from the four lists once, when the game starts, and
    keep their items from then on like any room (closing deletes all but
    the door, 7.2). Room 0's list (empty in the corpus) is kept for
-   round-tripping and not placed on the open map.
+   round-tripping and not placed on the open map. How the original treats
+   a list it cannot read is [unknown]. **Engine:** a list the decoder
+   cannot read is a `BadRoomItems` error, and that list and every list
+   after it are left empty; the decoder warns (it does not refuse) on an
+   area with no door or several, a door parameter above 3, an item outside
+   15 x 10, a non-empty room 0 list, and bytes at world map + 0x806 or
+   + 0x80E other than the corpus's ([format notes](../format-notes.md),
+   the world map's tail).
 5. **The way out is the list's door item**: thing 82 on the left wall,
    column 0, row 5, with a parameter n (0..3 for areas 1..4 in the
    corpus). [data] It is an ordinary item, not a fixed square: moved to
@@ -119,6 +126,13 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    point when that area is free, or n is above 3); stepping onto it is
    walking out (7.1). Front ends draw its square as an opening, and an
    area with no such item has no way out.
+   **Several doors on one square**: what the original does is [unknown].
+   **Engine:** any item of thing 82 there makes the square a door; the
+   first such item in the room's item list gives the parameter.
+   **A door leading to another open area's entrance**: whether the player
+   joins that area is [unknown]. **Engine:** it does not; the player is
+   put on that map square as on any door's destination, which is not a
+   step, so it neither joins the area (5.2) nor takes a roll (2.2).
 6. **Squares**: the player on **12,4**, whichever way it came. [research,
    run: entering eastward and northward] Each creature by its record
    number r: **column 2 + (r mod 2), row 3 + (r div 2)**, so record 0 on
@@ -191,9 +205,11 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    treasure's entry in area 1's list marked deleted in place, the door's
    entry kept] Items written into the file's lists go too, so a treasure
    an area starts with is most likely there only until it first closes
-   (reopening the area after that was not captured). Which entries count as "the door" with several door items or a door
-   moved is [unknown]. **Engine:** every item of thing 82 stays, every
-   other item is deleted; `AreaClosed`.
+   (reopening the area after that was not captured). Which entries count
+   as "the door" with several door items or a door moved is [unknown].
+   **Engine:** every item of thing 82 stays, wherever it lies and however
+   many there are (as 3.5, any of them is a door), every other item is
+   deleted; `AreaClosed`.
 3. **The creatures dying or leaving does not end the area**; only its last
    player leaving or dying does. [research, traced]
 4. **A player dying in the area** closes it if no player is left, as 7.2,
@@ -221,3 +237,11 @@ second player joining, a death in an area, a creature through the door,
 all areas or slots in use (capture.md 10.20); an area reopened after its
 listed items were deleted, several doors in one area, and changing the
 entries at + 0x806 (capture.md 10.26).
+
+**Captures needed** for the engine's choices above: several door items
+on one square (which parameter counts) and a door moved off 0,5 at
+closing (3.5, 7.2); a door whose parameter names another open area's
+entrance, and whether the player joins that area (3.5); how the game
+loads a damaged area list and lists with no door, several doors, a
+parameter above 3, an item outside 15 x 10 or items in room 0's list
+(3.4); and other bytes at + 0x806 / + 0x80E.

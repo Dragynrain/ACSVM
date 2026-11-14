@@ -12,10 +12,12 @@ use acs_core::model::{Alignment, SpellAction, SpellActionKind, ThingId};
 
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
+    // A record cleared once nobody is in play (creatures 2.2.6) has no name.
     let who = |p: &usize| {
         game.players()
             .get(*p)
             .map(|pl| pl.name.clone())
+            .filter(|n| !n.is_empty())
             .unwrap_or_else(|| format!("player {}", p + 1))
     };
     let thing = |t: ThingId| {
@@ -212,10 +214,10 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             format!("Entered {}.", room_name(game, *region, *room))
         }
         Event::EnteredRegion { region, .. } => {
-            format!("Entered region {} (autosave point).", region_name(game, *region))
+            format!("Entered region {}.", region_name(game, *region))
         }
         Event::LeftRegion { region, .. } => {
-            format!("Left region {} (autosave point).", region_name(game, *region))
+            format!("Left region {}.", region_name(game, *region))
         }
         Event::EnteredWorldMap { .. } => {
             format!("Out on {}.", map_name(game))
@@ -642,6 +644,17 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 )
             }
         }
+        Event::SaveRequested { player } => {
+            format!("{}: the game will be saved at the end of the round.", who(player))
+        }
+        Event::Saved { round, visit } => match visit {
+            Some(0) => format!("Game saved at the start of the visit to the world map, round {round}."),
+            Some(r) => format!(
+                "Game saved at the start of the visit to region {}, round {round}.",
+                region_name(game, *r)
+            ),
+            None => format!("Game saved: a restore starts at round {round}."),
+        },
         Event::AddRequested => "A new player will be added at the end of the round.".into(),
         Event::AddRefused => format!(
             "No one else can join: {} characters already play; one must retire first.",
@@ -661,6 +674,7 @@ fn individual(game: &Game, who: Who) -> String {
             .players()
             .get(player)
             .map(|p| p.name.clone())
+            .filter(|n| !n.is_empty())
             .unwrap_or_else(|| format!("player {}", player + 1)),
         Who::Creature { region, slot } => creature(game, region, slot),
     }

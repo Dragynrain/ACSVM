@@ -1133,3 +1133,224 @@ fn the_first_room_round_lists_players_by_number() {
         assert!(creature.is_some() && creature < next, "{ev:?}");
     });
 }
+
+// ---- the restore point (2.2.6, 2.2.7) --------------------------------------
+
+const PIT: u16 = 90; // space, Life Force -10 (kills a player of 9)
+
+/// The fixture with a deadly space at WEST (3,4).
+fn with_pit(p: Platform) -> Adventure {
+    use acs_core::model::{Access, SpellAction, SpellActionKind, ThingKind};
+    let mut a = adventure(p);
+    let t = &mut a.things[PIT as usize - 1];
+    t.name = "PIT".into();
+    t.raw = [0; 4];
+    t.kind = ThingKind::Space {
+        picture: 4,
+        access: Access::InvokeSpell {
+            action: SpellAction {
+                kind: SpellActionKind::ChangeLifeForce,
+                parameter: 0x80 | 10,
+            },
+        },
+    };
+    item(&mut a, 0, 3, 4, PIT, 0);
+    a
+}
+
+fn frail() -> PlayerSetup {
+    PlayerSetup {
+        name: "FRAIL".into(),
+        speed: 15,
+        life_force: 9,
+        ..Default::default()
+    }
+}
+
+fn saved(ev: &[Event]) -> Vec<(u32, Option<u8>)> {
+    ev.iter()
+        .filter_map(|e| match *e {
+            Event::Saved { round, visit } => Some((round, visit)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// 2.2.7.1: the save is made when the room region's visit begins, its
+/// first round on the counter, not at the map door; visits of the same
+/// region one after another save nothing; going back to the map saves.
+#[test]
+fn a_visit_to_another_region_saves_at_its_first_round() {
+    both(|p| {
+        let mut g = on_map(adventure(p), 15);
+        assert_eq!(g.save_point(), 0);
+        let door_round = g.round();
+        let ev = g.apply(Command::Move { dir: Dir::N });
+        let entered = ev.iter().position(|e| matches!(e, Event::EnteredRegion { .. }));
+        let save = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
+        assert!(entered.is_some() && entered < save, "{ev:?}");
+        assert_eq!(saved(&ev), [(door_round + 1, Some(1))]);
+        assert_eq!((g.round(), g.visiting()), (door_round + 1, 1));
+        assert_eq!(g.save_point(), 1);
+        // Visit after visit of region 1 alone: nothing more is saved.
+        for _ in 0..25 {
+            assert!(saved(&wait(&mut g)).is_empty());
+        }
+        assert_eq!(g.save_point(), 1);
+        assert_eq!(g.restore_point(), 1);
+        // Out through WEST's map door (4,0): the map's visit saves.
+        g.apply(Command::Move { dir: Dir::E });
+        g.apply(Command::Move { dir: Dir::E });
+        g.apply(Command::Move { dir: Dir::N });
+        let ev = g.apply(Command::Move { dir: Dir::N });
+        assert!(
+            ev.iter().any(|e| matches!(e, Event::EnteredWorldMap { .. })),
+            "{ev:?}"
+        );
+        // A room door to the map does not end the turn: the save comes with
+        // the map visit, after the round.
+        assert!(saved(&ev).is_empty());
+        let r = g.round();
+        let ev = wait(&mut g);
+        assert_eq!(saved(&ev), [(r + 1, Some(0))]);
+        assert_eq!(g.save_point(), g.log().len());
+    });
+}
+
+/// 2.2.7.2: SAVE GAME ends the turn with no move used and saves at the
+/// round's end, after the adds, with the counter gone up; asked twice in
+/// one round it saves once. The command replays.
+#[test]
+fn save_game_saves_at_the_end_of_its_round() {
+    both(|p| {
+        let mut g = start(adventure(p), 0, 2, 2);
+        let round = g.round();
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        let ev = g.apply(Command::SaveGame);
+        assert_eq!(ev[0], Event::SaveRequested { player: 0 });
+        assert_eq!(ev[1], Event::TurnEnded { player: 0 });
+        let added = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
+        let save = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
+        assert!(added.is_some() && added < save, "{ev:?}");
+        assert_eq!(saved(&ev), [(round + 1, None)]);
+        assert_eq!(g.save_point(), 2);
+        // Both players in WEST: each asks in the same round, one save.
+        g.place(1, at(0, 3, 2));
+        let base = g.save_point();
+        assert_eq!(base, g.log().len());
+        assert_eq!(g.current(), 0);
+        let ev = g.apply(Command::SaveGame);
+        assert!(saved(&ev).is_empty());
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::SaveGame);
+        assert_eq!(saved(&ev).len(), 1, "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        let json = serde_json::to_string(&Command::SaveGame).unwrap();
+        assert_eq!(json, r#"{"command":"save_game"}"#);
+    });
+}
+
+/// 2.2.7, the engine's choice: a SAVE GAME in the round whose end brings
+/// a visit to another region saves at the round's end, then the visit's
+/// start saves again, and that is the later one (the same command).
+#[test]
+fn save_game_and_a_region_change_in_one_round() {
+    both(|p| {
+        let mut g = on_map(adventure(p), 15);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        wait(&mut g);
+        // Player 0 in the room region, player 1 on the map: the map's
+        // visits alternate with the room's.
+        g.place(0, at(0, 2, 2));
+        let mut both_in_one = None;
+        for _ in 0..40 {
+            if g.current() == 1 {
+                let round = g.round();
+                let ev = g.apply(Command::SaveGame);
+                let s = saved(&ev);
+                assert_eq!(s[0], (round + 1, None), "{ev:?}");
+                if s.len() > 1 {
+                    both_in_one = Some((round, s));
+                    break;
+                }
+            } else {
+                wait(&mut g);
+            }
+        }
+        let (round, s) = both_in_one.expect("a map visit ended on a SAVE GAME");
+        assert_eq!(s, [(round + 1, None), (round + 1, Some(1))]);
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.visiting(), 1);
+    });
+}
+
+/// 2.2.6: the death message's button restores the save as it stood at the
+/// message; a SAVE GAME of the same round is made after it (2.2.5), so it
+/// counts only once play goes on (F1).
+#[test]
+fn a_death_offers_the_save_made_before_its_round_ends() {
+    both(|p| {
+        let mut g = start(with_pit(p), 0, 2, 2);
+        g.apply(Command::AddPlayer { setup: frail() });
+        wait(&mut g);
+        g.place(1, at(0, 2, 4));
+        let before = g.save_point();
+        assert_eq!(g.current(), 0);
+        g.apply(Command::SaveGame);
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        let msg = ev
+            .iter()
+            .position(|e| *e == Event::LivingChanged { before: 2, after: 1 });
+        let save = ev
+            .iter()
+            .position(|e| matches!(e, Event::Saved { visit: None, .. }));
+        assert!(msg.is_some() && msg < save, "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.restore_point(), before);
+        // F1: play goes on, and the round's save is the one to go back to.
+        wait(&mut g);
+        assert_eq!(g.restore_point(), g.save_point());
+        assert_eq!(g.save_point(), g.log().len() - 1);
+    });
+}
+
+/// 2.2.6: with nobody alive every record is cleared to 0; declining needs
+/// no command (anything else is ignored: no turn, the counter and region
+/// stay); an added player's visit to the map is a region change and saves.
+#[test]
+fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
+    both(|p| {
+        let mut g = start(with_pit(p), 0, 2, 4);
+        g.set_life_force(0, 9);
+        g.give(0, GOLD);
+        let point = g.save_point();
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        assert_eq!(ev.last(), Some(&Event::AllPlayersDead), "{ev:?}");
+        assert_eq!(g.restore_point(), point);
+        let p0 = &g.players()[0];
+        assert!(!p0.alive && p0.name.is_empty() && p0.gold == 0 && p0.life_force == 0);
+        assert_eq!(p0.at, Location::World { x: 0, y: 0 });
+        assert!(p0.possessions.is_empty() && p0.speed == 0);
+        let (round, region, logged) = (g.round(), g.visiting(), g.log().len());
+        for cmd in [Command::Wait, Command::SaveGame, Command::Move { dir: Dir::E }] {
+            assert!(g.apply(cmd).is_empty());
+        }
+        assert_eq!((g.round(), g.visiting(), g.log().len()), (round, region, logged));
+        assert_eq!(g.restore_point(), point);
+        let ev = g.apply(Command::AddPlayer { setup: frail() });
+        assert_eq!(saved(&ev), [(round, Some(0))], "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.players()[0].name, "FRAIL");
+    });
+}

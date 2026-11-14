@@ -74,8 +74,10 @@ Below it, the creatures in the room are listed with their personality
 (fighter or slinker; enemy, friend, neutral or thief), speed, Life Force,
 Power against Wisdom, spells and readied weapon; a coloured dot on each
 one's square shows its alignment (red enemy, green friend, yellow neutral,
-purple thief). The viewer keeps the autosave the original makes on entering
-or leaving a region; after a death, Resume from last save goes back to it.
+purple thief). The viewer keeps the save the original makes when a visit
+to another region begins, or at the end of a round in which SAVE GAME was
+chosen; after a death, Resume from last save goes back to it (after a death
+in a round that also saved, to the save before that round).
 As in the original, the movement bar drains while you do nothing (a step
 about every 7 seconds); tick Turn-based to make it wait for you instead.
 Save game writes a small save file (the seed and the moves played,
@@ -87,8 +89,9 @@ save, so a save can go with a bug report.
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
 `creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
 `--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
-steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`
-and `use:T[:target]` (T is a thing number; a target is `me`, `pN` for player
+steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
+`use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),
+`fire[:X:Y[:T]]` (at a square, with weapon T) and `retire[:save|destroy]` (T is a thing number; a target is `me`, `pN` for player
 N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
 starts the walk on a room square instead of the start (a tool shortcut that
 is not part of the replayable command log). `--save OUT.json` writes the

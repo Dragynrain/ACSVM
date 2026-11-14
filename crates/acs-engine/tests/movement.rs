@@ -1375,8 +1375,9 @@ fn replay_from_seed_and_log_is_exact() {
 }
 
 /// A walk through the map door into HALL and about, with a rolled first
-/// character; returns the game, the autosave (taken at the region change,
-/// as walk mode does) and the adventure.
+/// character; returns the game, the autosave (the game whenever the
+/// engine's save point moved to it, as walk mode keeps it) and the
+/// adventure.
 fn saved_walk() -> (Game, Game, Adventure) {
     let a = adventure(Platform::C64);
     let first = Newcomer::Create {
@@ -1384,13 +1385,11 @@ fn saved_walk() -> (Game, Game, Adventure) {
     };
     let (mut g, _) = Game::new(a.clone(), 77, Rules { diagonals: true }, first);
     g.place(0, Location::World { x: 20, y: 20 });
+    assert_eq!(g.save_point(), 0);
     let mut autosave = g.clone();
     for d in [Dir::E, Dir::W, Dir::N, Dir::S, Dir::E, Dir::E] {
-        let ev = mv(&mut g, d);
-        if ev
-            .iter()
-            .any(|e| matches!(e, Event::EnteredRegion { .. } | Event::LeftRegion { .. }))
-        {
+        mv(&mut g, d);
+        if g.save_point() == g.log().len() {
             autosave = g.clone();
         }
     }
@@ -1455,7 +1454,7 @@ fn saves_check_the_adventure_and_the_state() {
     ));
 }
 
-/// Saves 2.1: version 2 is written; a version 1 save still loads, its old
+/// Saves 2.1: version 3 is written; a version 1 save still loads, its old
 /// `fire` (refused, no move, no draw) read as `leave_store`, which plays
 /// the same, so the command count, autosave and placements keep their
 /// places and the game comes out the same.
@@ -1463,7 +1462,7 @@ fn saves_check_the_adventure_and_the_state() {
 fn version_1_saves_load_with_fire_mapped() {
     let (g, autosave, a) = saved_walk();
     let save = SaveFile::new(&g, &a, &autosave);
-    assert_eq!(save.version, 2);
+    assert_eq!(save.version, 3);
     let mut v: serde_json::Value = serde_json::from_str(&save.to_json()).unwrap();
     v["version"] = 1.into();
     let commands = v["commands"].as_array_mut().unwrap();
@@ -1489,6 +1488,40 @@ fn version_1_saves_load_with_fire_mapped() {
             weapon: None
         }
     );
+}
+
+/// Saves 2.1: a version 2 save loads as it is, its autosave (made at the
+/// door step then) kept as written, and replays to the same game; a
+/// version 3 save carries SAVE GAME and the autosave of creatures 2.2.7.
+#[test]
+fn version_2_saves_load_unchanged_and_save_game_replays() {
+    let (mut g, autosave, a) = saved_walk();
+    let save = SaveFile::new(&g, &a, &autosave);
+    let mut v: serde_json::Value = serde_json::from_str(&save.to_json()).unwrap();
+    v["version"] = 2.into();
+    v["autosave"] = 2.into();
+    let old = SaveFile::from_json(&v.to_string()).unwrap();
+    let r = old.restore(&a).unwrap();
+    assert_eq!(r.game, g);
+    assert_eq!(r.autosave.log().len(), 2);
+    assert!(!r.diverged && !r.adventure_changed);
+    // SAVE GAME is a logged command; the save point comes back on replay.
+    g.apply(Command::SaveGame);
+    while g.save_point() != g.log().len() {
+        g.apply(Command::Wait);
+    }
+    let at_save = g.clone();
+    g.apply(Command::Wait);
+    let saved = SaveFile::new(&g, &a, &at_save);
+    assert_eq!(saved.autosave, g.save_point());
+    let back = SaveFile::from_json(&saved.to_json())
+        .unwrap()
+        .restore(&a)
+        .unwrap();
+    assert_eq!(back.game, g);
+    assert_eq!(back.autosave, at_save);
+    assert_eq!(back.game.save_point(), g.save_point());
+    assert!(back.game.log().contains(&Command::SaveGame));
 }
 
 #[test]

@@ -409,10 +409,12 @@ runs rr22). Offsets are from the world map block's start.
 - **In the model** (`MODEL_VERSION` 4): `WorldMap::area_items` (areas
   1..4), `open_map_items` (room 0, kept, never placed), `unknown_806`
   and `unknown_80e` as stored. Version 3 JSON loads with the editor's
-  values. The decoder warns on an area with no door or several, a door
-  parameter above 3, an item outside 15 x 10, a non-empty room 0 list
-  and unusual 0x806 / 0x80E bytes; a list it can't read is an error, and
-  it and the lists after it are left empty.
+  values. The decoder warns (diagnostics, not errors) on an area with no
+  door or several, a door parameter above 3, an item outside 15 x 10, a
+  non-empty room 0 list and 0x806 / 0x80E bytes other than the corpus's;
+  a list it can't read is a `BadRoomItems` error, and it and the lists
+  after it are left empty. How the C64 program loads any of these is
+  unknown (rules/encounters 3.4, 3.5 and its captures needed).
 - **The door table guess.** Read as door-table entries (Doors above),
   `00 41`..`00 44` would be region 0 with a point index of 0x41..0x44,
   past the 64-entry point table, which would suit a special "area n's

@@ -117,10 +117,37 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
          save is made with the round's other requests (2.2.5), so it holds
          the state at that round's end with the counter already gone up:
          chosen in round 24, it restores to the start of round 25.
-      A save in the same round as a region change is [unknown]. **Engine:**
-      the later of the two, as above; SAVE GAME is a command logged like
-      any other, taken at the round's end; with both in one round, the
-      visit start that follows the round's end is the later one.
+      A save in the same round as a region change is [unknown].
+      Three more points about these saves are [unknown], not captured:
+      - **A Retire with Save** writes the adventure block to the disk as
+        well, at the round's end with the counter gone up and the retired
+        slot's first byte 0 ([characters](characters.md) 7.3, 7.7;
+        [capture: rr19 `ret-save`, `last-save`, capture.md 10.23]).
+        Whether the button then restores that write, making it a third
+        kind of save point, was not tried.
+      - **SAVE GAME in the round the last player dies**: by 2.2.5 the save
+        is made with that round's requests, after the death message, so
+        the state saved has nobody alive. Read literally, a later death
+        would restore a game with nobody in it. Whether the original
+        writes it so, skips it, or the add-a-player screen comes first is
+        not known.
+      - **The moves SAVE GAME leaves unused**: whether they take idle-move
+        healing rolls ([magic](magic.md) 5.3) was not watched (10.25's
+        runs did not log draws).
+      **Engine:** the later of the two saves above; SAVE GAME is a command
+      logged like any other, it ends the turn and the save is taken at the
+      round's end (a `Saved` event). Its unused moves draw no healing
+      roll, as for a turn ended by casting (magic 5.3). F1's offer to
+      return to the editor is not made: the engine has no editor, and the
+      save is the same either way. With SAVE GAME and a region change in
+      one round there are two `Saved` events; the visit start that follows
+      the round's end is the later one and is the save point. A Retire
+      with Save saves the character (the front end keeps it, characters
+      7.3) but does not move the save point. A SAVE GAME in the round the
+      last player died is made as 2.2.5 reads: the all-dead state becomes
+      the save point. The button at that round's death message still
+      restores the save before it, since the button clears the round's
+      requests (2.2.6).
    [research: turn-order first pass, 2026-11-12, `docs/research/turn-order.md`] Confirmed: with T in a room with three creatures and U
    on the map, the scheduler's region and round counter, read at every
    turn's start, showed U alone for rounds 21 to 39 (the rest of one map
@@ -682,8 +709,18 @@ creatures replay exactly.
 1. Turn order: captured and researched (2.2, 2.3), players in different
    places and two players in different rooms of one region included.
    Deaths, the restore point and declining to add a player captured
-   (2.2.5 to 2.2.7). Still open: a SAVE GAME in the same round as a
-   region change (2.2.7).
+   (2.2.5 to 2.2.7). Still open (2.2.7):
+   - **High priority:** SAVE GAME in the round the last player dies, F1
+     at the death message, a new player added, then that player killed
+     and the button pressed: read whether the counter and records come
+     back as the all-dead round's end (nobody to play) or as the save
+     before it. The engine's literal reading may leave a game with
+     nothing useful to restore.
+   - A Retire with Save, then a death of another player, the button:
+     whether the counter comes back to the retire's round end.
+   - A SAVE GAME in the same round as a region change.
+   - SAVE GAME with moves left, `--draws`: whether the unused moves take
+     idle-move healing rolls.
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
