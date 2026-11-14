@@ -351,6 +351,12 @@ The numbers keep Classic's proportions: residents are stored per region, but tur
 
 Open question: the bundle's name and file extension, which must avoid the ACS trademark.
 
+## Play options
+
+Settings the player picks, separate from the adventure's profile: any adventure, Classic or Extended, plays under any of them. The default is always the original behaviour. Nice to have some day, after 1.0; nothing here is scheduled.
+
+- **Turn-based mode.** The movement bar never drains: the game waits for the player's command however long they take, like a classic roguelike. Nothing else changes (creatures still move in the same order and roll the same dice), so a run in this mode is the same sequence of commands as one at original speed, and replays and the golden tests are unaffected. In online play it is the "off" choice of the host's turn timer (see Multiplayer).
+
 ## Multiplayer
 
 Hot-seat play ships in 1.0 and online co-op in 1.1. Both come almost for free because the engine is turn-based and deterministic.
