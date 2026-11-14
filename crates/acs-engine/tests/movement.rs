@@ -642,17 +642,19 @@ fn non_owner_space_obstacles_store_and_residents() {
             blocked(&mv(&mut g, Dir::SE)),
             Some(BlockReason::ClosedToOwnersOf { thing: KEY })
         );
-        // Store.
-        assert_eq!(
-            blocked(&mv(&mut g, Dir::S)),
-            Some(BlockReason::Store { thing: SHOP })
-        );
         // Pillar on top of a key: the pillar decides.
         assert_eq!(
             blocked(&mv(&mut g, Dir::E)),
             Some(BlockReason::Obstacle { thing: WALL })
         );
         assert_eq!(g.current_player().moves_left, 15);
+        // Store (stores 3.2): a step onto its square, and it opens.
+        let ev = mv(&mut g, Dir::S);
+        assert_eq!(blocked(&ev), None);
+        assert!(ev.iter().any(|e| matches!(e, Event::StoreOpened { .. })));
+        assert_eq!(g.current_player().at, hall(1, 4));
+        assert_eq!(g.current_player().moves_left, 14);
+        g.apply(Command::LeaveStore);
 
         // Chest: bump spell, then it vanishes.
         g.place(0, hall(4, 3));

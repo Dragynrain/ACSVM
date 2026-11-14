@@ -1,7 +1,7 @@
 # Research brief: stores
 
 A request to the project's clean-room researcher (docs/research/README.md).
-Licensed CC BY 4.0. Status: briefed 2026-11-13, inputs ready; not started.
+Licensed CC BY 4.0. Status: first pass done 2026-11-13; in the spec and the engine.
 
 ## Why
 
@@ -84,4 +84,29 @@ The player's Wisdom is `$F5B0` and its gold `$F5B1`-`$F5B2` (capture.md 9).
 
 ## Findings
 
-None yet.
+First pass, 2026-11-13 (`ACSVM-research/research/stores/findings.md`),
+reviewed and written into `docs/rules/stores.md` (sections 2, 3, 4, 5).
+
+- **The layout** is one fixed 15 x 10 map for every store, a shelf place
+  for each thing 1..80, aisles in columns 1, 4, 7, 10, 13 and row 5; the
+  player appears on 7,5. Confirmed by the five captured places and a
+  walk onto the outer ring (capture.md 10.17, `rr11`).
+- **Leaving**: the exits are 0,4 and 14,4, one row above the ends of the
+  cross aisle (why our walks missed them). The bump is an ordinary step
+  onto the store's square, no time passes inside, and the player comes
+  out there with exactly one move left. Confirmed (`rr11`, both exits, and
+  a bump with the last move).
+- **Buying** at the limit takes the gold and the stock and loses the
+  thing (confirmed). A bought weapon is not readied and nothing acts
+  (traced, unconfirmed).
+- **Selling** into a full stock pays and loses the thing (confirmed);
+  held and worn things are offered, things above 80 never stock (traced).
+- **The sell-back rule** is the captured one, for every value.
+- **Stock over time**: broken and used-up weapons and armor go back into
+  the region's stock; stock in region 0 never changes (traced,
+  unconfirmed). Saving was not traced.
+
+Next pass, when wanted: confirm restocking by capture (a weapon breaking
+in a room with a store), a store on the world map, the stock across a
+save and restore, a bought weapon, and a store in a room of another
+size. Each needs a "Pass 2" section here with its inputs.

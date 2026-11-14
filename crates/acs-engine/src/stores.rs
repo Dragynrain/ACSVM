@@ -2,14 +2,14 @@
 
 //! Stores: opening one, buying, selling back, leaving. Spec:
 //! `docs/rules/stores.md` (section numbers in the comments refer to it).
-//! A store is opened by bumping its square (`step.rs`); while it is open
-//! the player buys and sells with `Command::Buy`, `Command::Sell` and
-//! leaves with `Command::LeaveStore`. How the store looks is the front
-//! end's (3.2).
+//! A store is opened by stepping onto its square (`step.rs`); while it is
+//! open the player buys and sells with `Command::Buy`, `Command::Sell` and
+//! leaves with `Command::LeaveStore`. Walking about the store screen is the
+//! front end's, from the fixed layout here (3.3, 3.8).
 
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
-use crate::{Event, Slot, StoreRefusal};
+use crate::{Event, StoreRefusal};
 use acs_core::model::{Adventure, Possession, ThingId, ThingKind};
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,65 @@ use serde::{Deserialize, Serialize};
 pub const CUT_MAX: i32 = 1334;
 /// The most of a third of the value the Wisdom bonus counts (5.1).
 pub const THIRD_MAX: i32 = 666;
+
+/// The store screen's size in squares (3.3).
+pub const SCREEN_W: u8 = 15;
+pub const SCREEN_H: u8 = 10;
+/// Where the player appears on the store screen (3.3).
+pub const ENTRY: (u8, u8) = (7, 5);
+
+/// The store screen, row by row (3.3): a thing's shelf place (1..80),
+/// `0` floor, `EXIT` a way out.
+const EXIT: u8 = 255;
+#[rustfmt::skip]
+const LAYOUT: [[u8; SCREEN_W as usize]; SCREEN_H as usize] = [
+    [ 0, 32,  0,  0, 30,  0,  0, 76,  0,  0, 78,  0,  0, 80,  0],
+    [74,  0, 26, 21,  0, 16, 11,  0, 45, 50,  0, 55, 60,  0, 67],
+    [73,  0, 25, 20,  0, 15, 10,  0, 44, 49,  0, 54, 59,  0, 66],
+    [72,  0, 24, 19,  0, 14,  9,  0, 43, 48,  0, 53, 58,  0, 65],
+    [EXIT, 0, 8,  6,  0,  4,  2,  0, 34, 36,  0, 38, 40,  0, EXIT],
+    [71,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 64],
+    [68,  0,  7,  5,  0,  3,  1,  0, 33, 35,  0, 37, 39,  0, 61],
+    [69,  0, 27, 22,  0, 17, 12,  0, 41, 46,  0, 51, 56,  0, 62],
+    [70,  0, 28, 23,  0, 18, 13,  0, 42, 47,  0, 52, 57,  0, 63],
+    [ 0, 31,  0,  0, 29,  0,  0, 75,  0,  0, 77,  0,  0, 79,  0],
+];
+
+/// What a square of the store screen is (3.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StoreSquare {
+    /// The player can stand here.
+    Floor,
+    /// The shelf place of one thing.
+    Shelf(ThingId),
+    /// A way out (3.6).
+    Exit,
+}
+
+/// The store screen's square `x`, `y` (3.3); `None` off the screen, where
+/// a push says the item is out of stock (3.5).
+pub fn square(x: u8, y: u8) -> Option<StoreSquare> {
+    let b = *LAYOUT.get(y as usize)?.get(x as usize)?;
+    Some(match b {
+        0 => StoreSquare::Floor,
+        EXIT => StoreSquare::Exit,
+        t => StoreSquare::Shelf(t as ThingId),
+    })
+}
+
+/// Where `thing`'s shelf place is on the store screen (3.3); things above
+/// 80 have none.
+pub fn shelf_place(thing: ThingId) -> Option<(u8, u8)> {
+    (0..SCREEN_H)
+        .flat_map(|y| (0..SCREEN_W).map(move |x| (x, y)))
+        .find(|&(x, y)| square(x, y) == Some(StoreSquare::Shelf(thing)))
+}
+
+/// Whether `thing` can be in a store's stock: things 1..80 (2.3).
+fn stockable(thing: ThingId) -> bool {
+    (1..=80).contains(&thing)
+}
 
 /// A store visit in progress: whose, and which region's stock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,11 +141,44 @@ impl Game {
         });
     }
 
-    /// 3.4: leaving puts the player back where it bumped the store from,
-    /// its turn going on.
+    /// 3.6, 3.7: leaving puts the player on the store's square (where the
+    /// bump put it) with exactly one move left in its turn.
     pub(crate) fn leave_store(&mut self, ev: &mut Vec<Event>) {
         if let Some(v) = self.store.take() {
+            self.players[v.player].moves_left = 1;
             ev.push(Event::StoreClosed { player: v.player });
+        }
+    }
+
+    /// One of `thing` joins `region`'s stock within its limit (2.5, 2.6);
+    /// never on the world map (2.7) or for things above 80. Returns whether
+    /// it joined.
+    fn add_to_stock(&mut self, region: u8, thing: ThingId) -> bool {
+        if region == 0 || !stockable(thing) {
+            return false;
+        }
+        let Some(r) = self.region_mut(region) else {
+            return false;
+        };
+        match r.store.iter_mut().find(|s| s.thing == thing) {
+            Some(s) if (s.count as u16) < inventory::limit(thing) => {
+                s.count += 1;
+                true
+            }
+            Some(_) => false,
+            None => {
+                r.store.push(Possession { thing, count: 1 });
+                r.store.sort_by_key(|s| s.thing);
+                true
+            }
+        }
+    }
+
+    /// 2.5: a weapon or armor broken or used up goes back into the stock of
+    /// the region where it happened.
+    pub(crate) fn restock(&mut self, region: u8, thing: ThingId, ev: &mut Vec<Event>) {
+        if self.add_to_stock(region, thing) {
+            ev.push(Event::Restocked { region, thing });
         }
     }
 
@@ -113,41 +205,36 @@ impl Game {
             ev.push(refuse(StoreRefusal::NotStocked));
             return;
         }
-        let p = &self.players[player];
-        // 4.3: too little gold; at the carry limit (inventory 2.2).
-        if (p.gold as i32) < price {
+        // 4.3: gold is the only check.
+        if (self.players[player].gold as i32) < price {
             ev.push(refuse(StoreRefusal::NotEnoughGold));
             return;
         }
-        if p.count(thing) >= inventory::limit(thing) {
-            ev.push(refuse(StoreRefusal::CarryLimit));
-            return;
-        }
-        if let Some(r) = self.region_mut(region) {
-            if let Some(i) = r.store.iter().position(|s| s.thing == thing) {
-                r.store[i].count -= 1;
-                if r.store[i].count == 0 {
-                    r.store.remove(i);
+        // 2.7: on the world map the stock never changes.
+        if region != 0 {
+            if let Some(r) = self.region_mut(region) {
+                if let Some(i) = r.store.iter().position(|s| s.thing == thing) {
+                    r.store[i].count -= 1;
+                    if r.store[i].count == 0 {
+                        r.store.remove(i);
+                    }
                 }
             }
         }
+        // 4.3, 4.4: one more owned, unless at the limit, when it is lost;
+        // nothing is readied and nothing acts.
         let p = &mut self.players[player];
         p.gold -= price as u16;
-        p.possessions.push(thing);
-        ev.push(Event::Bought { player, thing, price });
-        // 4.4: as if picked up: a weapon is readied (inventory 2.4); a
-        // magic item set to act when picked up does not act.
-        if matches!(
-            self.thing(thing).map(|t| &t.kind),
-            Some(ThingKind::MeleeWeapon { .. } | ThingKind::MissileWeapon { .. })
-        ) {
-            self.players[player].weapon = Some(thing);
-            ev.push(Event::Readied {
-                player,
-                thing,
-                slot: Slot::Weapon,
-            });
+        let kept = p.count(thing) < inventory::limit(thing);
+        if kept {
+            p.possessions.push(thing);
         }
+        ev.push(Event::Bought {
+            player,
+            thing,
+            price,
+            kept,
+        });
     }
 
     /// 5: selling one of `thing` to the open store.
@@ -184,7 +271,8 @@ impl Game {
         p.gold = (p.gold as i32 + offer).min(GOLD_LIMIT as i32) as u16;
         let paid = (p.gold - before) as i32;
         // 5.3, 5.4: it joins the stock within the thing's limit (things
-        // 1..80), unless it is a treasure that disappears when dropped.
+        // 1..80, not on the map), unless it is a treasure that disappears
+        // when dropped.
         let disappears = matches!(
             self.thing(thing).map(|t| &t.kind),
             Some(ThingKind::Treasure {
@@ -192,23 +280,7 @@ impl Game {
                 ..
             })
         );
-        let mut joined = false;
-        if !disappears && (1..=80).contains(&thing) {
-            if let Some(r) = self.region_mut(region) {
-                match r.store.iter_mut().find(|s| s.thing == thing) {
-                    Some(s) if (s.count as u16) < inventory::limit(thing) => {
-                        s.count += 1;
-                        joined = true;
-                    }
-                    Some(_) => {}
-                    None => {
-                        r.store.push(Possession { thing, count: 1 });
-                        r.store.sort_by_key(|s| s.thing);
-                        joined = true;
-                    }
-                }
-            }
-        }
+        let joined = !disappears && self.add_to_stock(region, thing);
         ev.push(Event::Sold {
             player,
             thing,
@@ -222,6 +294,30 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_layout() {
+        // 3.3: every thing 1..80 has exactly one place; the captured ones.
+        for t in 1..=80 {
+            assert!(shelf_place(t).is_some(), "{t}");
+        }
+        assert_eq!(shelf_place(81), None);
+        assert_eq!(shelf_place(1), Some((6, 6)));
+        assert_eq!(shelf_place(2), Some((6, 4)));
+        assert_eq!(shelf_place(3), Some((5, 6)));
+        assert_eq!(shelf_place(13), Some((6, 8)));
+        assert_eq!(shelf_place(14), Some((5, 3)));
+        assert_eq!(square(0, 4), Some(StoreSquare::Exit));
+        assert_eq!(square(14, 4), Some(StoreSquare::Exit));
+        assert_eq!(square(ENTRY.0, ENTRY.1), Some(StoreSquare::Floor));
+        assert_eq!(square(6, 0), Some(StoreSquare::Floor));
+        assert_eq!(square(15, 0), None);
+        let places = (0..SCREEN_H)
+            .flat_map(|y| (0..SCREEN_W).map(move |x| square(x, y)))
+            .filter(|s| matches!(s, Some(StoreSquare::Shelf(_))))
+            .count();
+        assert_eq!(places, 80);
+    }
 
     #[test]
     fn the_captured_offers() {

@@ -3,13 +3,17 @@
 Behaviour spec for stores: where they stand, what they stock, buying,
 selling back, and how Wisdom changes the deal. Licensed CC BY 4.0. The
 engine implements it in `crates/acs-engine/src/stores.rs` (opened from
-`step.rs`, where bumping the store refuses the step, [movement](movement.md)
+`step.rs`, where bumping the store steps onto it, [movement](movement.md)
 5.5).
 
 Tags as in [movement](movement.md): **[manual]** paraphrased from the
 manual, **[data]** from the stored format or corpus counts, **[unknown]**
-with the engine's choice as **Engine:**, and **[recollection]** for the
-project owner's memory of play, a lead for captures rather than a source.
+with the engine's choice as **Engine:**, **[recollection]** for the
+project owner's memory of play, a lead for captures rather than a source,
+**[research]** for the clean-room researcher's first stores pass
+(2026-11-13, `docs/research/stores.md`) and **[capture]** where our own
+runs confirm it; "[research, unconfirmed]" means no capture of ours has
+checked it yet.
 Counts cover all 15 corpus adventures (222 regions).
 
 ## 1. The store thing
@@ -39,38 +43,93 @@ Counts cover all 15 corpus adventures (222 regions).
 4. **Stock with no store.** 5 regions have stock but no placed store
    (leftovers from a deleted store). [data] **Engine:** that stock can't be
    reached and is kept unchanged for round-tripping.
-5. Stock is not restocked over time. [unknown] **Engine:** stock changes only
-   by buying and selling (sections 4 and 5).
+5. **Restocking.** When a weapon or armor breaks, a missile weapon breaks,
+   or a weapon set to disappear after use goes, one of it leaves its owner
+   (player or creature) and one joins the stock of the region where that
+   happened, within the limits of 2.6 and for things 1..80 only; never on
+   the world map (region 0). A magic item used up does not join it. That is
+   the only restocking. [research, unconfirmed] **Engine:** as stated
+   (`Restocked`).
+6. **The limits.** A stock holds at most 3 of things 1..32 and 1 of things
+   33..80, as possessions do (inventory 1.2); an addition past the limit is
+   lost and a removal below none does nothing. [research; capture 5.3]
+7. **Stores on the world map.** In region 0 buying and selling never
+   change the stock. [research, unconfirmed] Whether a store can stand on
+   the map at all is not known. **Engine:** as stated.
+8. Whether the stock is saved with the game is not known. [unknown]
+   **Engine:** it is part of the region's state, kept across visits and
+   saved with the game.
 
-## 3. Opening a store
+## 3. The store screen
 
 1. How a player gets into a store isn't described in the manual. [manual]
-   **[recollection]** The project owner remembers a separate area the
-   player walks into, the stock laid out as items, and bumping an item to
-   see it for sale. On the C64, bumping the store opens a **separate
-   screen** with no walls: the player among the stock drawn as things, its
-   gold shown ("T has 500 to spend"), the button to sell (section 5) and
-   the stick to browse. The player walks about it; bumping a stocked thing
-   offers it for sale (section 4), bumping an empty place or the room's
-   edge says the item is out of stock. Each thing seems to have its own
-   place: stocked things 1 to 3 and things 13 and 14 sold to the store
-   showed on squares round the store's, in no order we could see. Nothing
-   on the screen drains the movement bar: 60 million instructions of
-   waiting changed nothing. [capture: look, capture.md 10.17]
-   [unknown] the layout and how to leave (no push, key or button we tried
-   leaves): asked in `docs/research/stores.md`.
-2. **Engine:** bumping the store square refuses the move without using
-   one ([movement](movement.md) 5.5) and opens the region's store
-   (`StoreOpened`), the player staying on its square. While it is open
-   the player buys (`Command::Buy`) and sells (`Command::Sell`) with no
-   moves used; how the store is shown is the front end's (the viewer lists
-   the stock with prices, the player's goods with offers, and a way out).
-3. **Engine:** `Command::LeaveStore`, or any command other than buying and
-   selling, closes the store (`StoreClosed`), the player on the square it
-   bumped from with the moves it had left. [unknown] what leaving costs.
-4. Only players use stores. [unknown] **Engine:** creatures never open one,
-   and still can't step onto a store square ([creatures](creatures.md)
-   5.1).
+   On the C64, bumping the store opens a **separate screen** with no
+   walls: the player among the stock drawn as things, its gold shown ("T
+   has 500 to spend"), the button to sell (section 5) and the stick to
+   browse. [capture: look, capture.md 10.17] As the project owner
+   remembered. [recollection]
+2. **The bump is an ordinary step.** The player steps onto the store's
+   square, using one move, and the store opens there. [research; capture:
+   rr11, 5 moves became 4] The store stays in the room under the player.
+3. **The layout is one fixed map**, the same for every store, whatever
+   the store's square, the room or the approach: 15 squares across, 10
+   down, each square floor, the shelf place of one thing 1..80, or an
+   exit. [research] The player always appears on 7,5. [research; capture]
+   The map (x across, y down; a number is that thing's place, `.` floor,
+   `X` an exit):
+
+   ```
+        x  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14
+   y 0     .  32 .  .  30 .  .  76 .  .  78 .  .  80 .
+     1     74 .  26 21 .  16 11 .  45 50 .  55 60 .  67
+     2     73 .  25 20 .  15 10 .  44 49 .  54 59 .  66
+     3     72 .  24 19 .  14 9  .  43 48 .  53 58 .  65
+     4     X  .  8  6  .  4  2  .  34 36 .  38 40 .  X
+     5     71 .  .  .  .  .  .  .  .  .  .  .  .  .  64
+     6     68 .  7  5  .  3  1  .  33 35 .  37 39 .  61
+     7     69 .  27 22 .  17 12 .  41 46 .  51 56 .  62
+     8     70 .  28 23 .  18 13 .  42 47 .  52 57 .  63
+     9     .  31 .  .  29 .  .  75 .  .  77 .  .  79 .
+   ```
+
+   Aisles run down columns 1, 4, 7, 10 and 13 with a cross aisle along
+   row 5; the gaps in the outer ring are floor too. [research; capture:
+   things 1, 2, 3, 13, 14 on their places; rr11 `ring`, 7,1 to 6,0 to 5,0]
+4. **What is drawn.** Every stocked thing on its place with its own
+   picture, one square however many; empty places, floor and exits look
+   like floor (the aisles in the room's floor picture). A thing sold is
+   drawn at once; one bought until none are left is erased. [research;
+   capture]
+5. **Moving on it.** One push moves one square in any of eight
+   directions. Pushing toward floor steps there; toward a stocked thing's
+   place offers it (4.1); toward another place says it is out of stock
+   (the button continues); toward an exit leaves (3.6). [research;
+   capture] A push off the map reads past its edge (thing 32 above the
+   top row and left of 0,0; off the sides it wraps to the row above or
+   below). [research] **Engine:** a push off the map is out of stock.
+6. **Leaving.** The exits are 0,4 and 14,4, at the ends of row 4: pushing
+   into one says "Thank you, T. Please come back soon", and the button
+   returns the player to the room on the store's square. [research;
+   capture: rr11, both exits] No key, the button or waiting does anything
+   else. [capture]
+7. **What the visit costs.** No game time passes inside the store: the
+   round, the movement bar and everyone else stand still. [research;
+   capture] On leaving, the player has **exactly one move left** in that
+   turn, set to one, not reduced: a player that bumped the store with its
+   last move comes out with one move it would not otherwise have had.
+   [research; capture: rr11 `lastmove`, 1, then 0 inside, then 1]
+8. **Engine:** the bump steps onto the store square (one move, ending
+   no turn) and opens the region's store (`StoreOpened`). While it is
+   open the player buys (`Command::Buy`) and sells (`Command::Sell`)
+   with no moves used. `Command::LeaveStore`, or any command other than
+   buying and selling, closes it (`StoreClosed`), the player on the
+   store's square with one move left; the command then runs. Walking
+   about the store screen is the front end's, from the layout of 3.3
+   (`stores::square`, `stores::shelf_place`): it changes nothing in play.
+9. Only players use stores. A creature that walks into a store spends one
+   move and stays where it was. [research, unconfirmed] **Engine:**
+   creatures never choose a store square ([creatures](creatures.md) 5.1),
+   so the case doesn't arise.
 
 ## 4. Buying
 
@@ -83,15 +142,19 @@ Counts cover all 15 corpus adventures (222 regions).
 2. **Wisdom doesn't change the buying price**: 50 at Wisdom 0, 1, 5, 13,
    20, 25 and 31. [capture] The manual ties Wisdom only to selling.
 3. A purchase is refused with too little gold ("does not have enough gold
-   for the X"): 5,100 with 500 or 5,000 gold. [capture] Whether owning as
-   many of that thing as allowed (inventory 2.2) refuses one is not
-   captured. Weight never refuses a purchase; it only slows the player
-   (inventory 3). [manual, by analogy with picking up]
+   for the X"): 5,100 with 500 or 5,000 gold. [capture] It goes through
+   with exactly enough. [research] Gold is the only check: **owning as
+   many as allowed doesn't refuse a purchase**. The gold is paid and the
+   stock goes down by one, but the thing is lost, the player's count
+   staying at its limit. [research; capture: rr11 `buy-limit`, 3 owned,
+   gold 500 to 490, stock 1 to 0, still 3] Weight never refuses a
+   purchase; it only slows the player (inventory 3). [research]
 4. A thing bought leaves the stock, one at a time: a line of 2 sold twice,
-   the gold going down by the price each time. [capture] It joins the
-   player's possessions as if picked up: a weapon is readied; a magic item
-   set to act when picked up does not act. [unknown] **Engine:** as stated
-   (`Bought`, then `Readied` for a weapon); refusals give `StoreRefused`.
+   the gold going down by the price each time. [capture] A purchase only
+   adds one to the player's count: **a weapon bought is not readied**, and
+   a magic item set to act when picked up does not act. [research,
+   unconfirmed] **Engine:** as stated (`Bought`, with `kept` false when
+   the thing was lost to the limit); refusals give `StoreRefused`.
 
 ## 5. Selling back
 
@@ -118,15 +181,19 @@ Counts cover all 15 corpus adventures (222 regions).
    stocked or not, each at the same rule (a blade, bow and mail of value 10
    offered 4, a magic item of value 1 offered 0); never spells (a spell
    owned was not offered). The goods come in thing order. [capture:
-   sellkit, capture.md 10.17] Whether a held weapon or worn armor is
-   offered is not captured (ours were owned, not held). **Engine:** yes;
-   selling it empties the hand or body. Gold can't be sold.
+   sellkit, capture.md 10.17] A held weapon or worn armor is offered like
+   anything else owned, and selling the last one empties the hand or the
+   body; a thing owned 2 or 3 times is offered once per copy. [research,
+   unconfirmed] **Engine:** as stated. Gold can't be sold. The button sells
+   only at the store's first prompt; once the player has moved it only
+   answers offers and messages. [research]
 3. **A sold thing joins the store's stock** and shows on its shelf place
-   at once. [capture: look, two goods sold] Whether that holds past the
-   thing's limit, or for things numbered above 80, is [unknown].
-   **Engine:** it joins the stock while the stock is under that thing's
-   limit and the thing is numbered 1..80 (2.3); otherwise it is gone from
-   the adventure.
+   at once. [capture: look, two goods sold] Past the thing's limit the
+   player is still paid and the thing is gone from the adventure.
+   [research; capture: rr11 `sell-full`, stock of 3, sold for 4, gold 500
+   to 504, stock still 3] A thing numbered above 80 is paid for and never
+   joins the stock. [research, unconfirmed] In region 0 nothing joins it
+   (2.7).
 4. A treasure set to disappear when dropped still sells. [unknown]
    **Engine:** yes, and it is then gone, never stocked.
 5. **The purse cap**: a sale is never refused for it. At 24,998 gold a
@@ -142,12 +209,9 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. Opening the store, browsing, buying and selling: captured (capture.md
-   10.17). Still open: leaving the store and what the visit costs in
-   moves; where each thing's shelf place is (a researcher question).
-2. The sell-back rate and the buying price at every Wisdom: captured.
-3. What a store does with magic items, weapons, armor, spells and gold
-   offered for sale, and with a thing past its limit.
-4. Whether a store's stock is kept per region across visits and saves.
-5. What a thing bought does on arrival (a weapon readied, a magic item
-   that acts when picked up).
+1. Restocking from broken weapons and armor (2.5): break a weapon in a
+   room with a store, then look at the stock.
+2. Whether a store can stand on the world map, and its stock there (2.7).
+3. Whether the stock is saved and restored with the game (2.8).
+4. A bought weapon not readied, a held weapon offered for sale (4.4, 5.2).
+5. A store in a room of another size (the layout is fixed either way).

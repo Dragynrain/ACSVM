@@ -10,7 +10,7 @@ use acs_core::layout::world_map as wm;
 use acs_core::{decode, Adventure, Platform};
 use acs_engine::inventory::GOLD;
 use acs_engine::stores::{self, StoreVisit};
-use acs_engine::{BlockReason, Command, Dir, Event, Game, Location, PlayerSetup, Rules, Slot, StoreRefusal};
+use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rules, StoreRefusal};
 use common::{Fixture, RegionSpec, RoomSpec};
 
 const GEM: u16 = 1; // treasure, value 50; 3 in stock
@@ -101,31 +101,41 @@ fn stock(g: &Game, thing: u16) -> u8 {
     stores::stocked(g.stock(1), thing)
 }
 
+const STORE_SQUARE: Location = Location::Room {
+    region: 1,
+    room: 0,
+    x: 4,
+    y: 3,
+};
+
 #[test]
-fn bumping_the_store_opens_it_without_a_step() {
+fn bumping_the_store_steps_onto_it_and_leaving_leaves_one_move() {
     both(|p| {
-        let mut g = start(p, 13, 500, &[]);
+        let mut g = start(p, 13, 500, &[GEM]);
         let moves = g.current_player().moves_left;
         let ev = open(&mut g);
-        assert!(ev.iter().any(|e| matches!(
-            e,
-            Event::Blocked {
-                reason: BlockReason::Store { thing: STORE },
-                ..
-            }
-        )));
+        // Stores 3.2: an ordinary step, one move.
+        assert!(matches!(ev[0], Event::Moved { to: STORE_SQUARE, .. }));
         assert!(ev.contains(&Event::StoreOpened {
             player: 0,
             region: 1,
             gold: 500
         }));
         assert_eq!(g.store_visit(), Some(StoreVisit { player: 0, region: 1 }));
-        assert_eq!(g.current_player().moves_left, moves);
-        assert_eq!(g.current_player().at.room(), Some((1, 0)));
-        // Stores 3.4: leaving, or anything but buying and selling, closes it.
+        assert_eq!(g.current_player().moves_left, moves - 1);
+        assert_eq!(g.current_player().at, STORE_SQUARE);
+        // 3.7: no time passes inside.
+        g.apply(Command::Sell { thing: GEM });
+        assert_eq!(g.current_player().moves_left, moves - 1);
+        // 3.6, 3.7: out on the store's square with exactly one move.
         let ev = g.apply(Command::LeaveStore);
         assert_eq!(ev, [Event::StoreClosed { player: 0 }]);
         assert_eq!(g.store_visit(), None);
+        assert_eq!(g.current_player().at, STORE_SQUARE);
+        assert_eq!(g.current_player().moves_left, 1);
+        // 3.8: any other command leaves first, then runs with that move.
+        let ev = g.apply(Command::Move { dir: Dir::W });
+        assert!(ev.iter().any(|e| matches!(e, Event::TurnStarted { .. })));
         open(&mut g);
         let ev = g.apply(Command::Wait);
         assert_eq!(ev[0], Event::StoreClosed { player: 0 });
@@ -150,7 +160,8 @@ fn buying_costs_the_full_value_at_any_wisdom() {
             assert!(ev.contains(&Event::Bought {
                 player: 0,
                 thing: GEM,
-                price: 50
+                price: 50,
+                kept: true
             }));
             assert_eq!(g.current_player().gold, 450);
             assert_eq!(g.current_player().count(GEM), 1);
@@ -173,17 +184,16 @@ fn purchases_are_refused_for_gold_stock_and_the_carry_limit() {
             &g.apply(Command::Buy { thing: CROWN }),
             StoreRefusal::NotEnoughGold
         ));
-        // Three gems owned: at the limit.
-        assert!(refused(
-            &g.apply(Command::Buy { thing: GEM }),
-            StoreRefusal::CarryLimit
-        ));
         assert!(refused(
             &g.apply(Command::Buy { thing: WAND }),
             StoreRefusal::NotStocked
         ));
         assert_eq!(g.current_player().gold, 5000);
-        assert_eq!(stock(&g, GEM), 3);
+        // Exactly enough gold buys.
+        let mut g = start(p, 13, 50, &[]);
+        open(&mut g);
+        g.apply(Command::Buy { thing: GEM });
+        assert_eq!(g.current_player().gold, 0);
         // Bought out: the last one goes from the stock.
         let mut g = start(p, 13, 6000, &[]);
         open(&mut g);
@@ -197,18 +207,34 @@ fn purchases_are_refused_for_gold_stock_and_the_carry_limit() {
 }
 
 #[test]
-fn a_weapon_bought_is_readied() {
+fn a_weapon_bought_is_not_readied() {
     both(|p| {
         let mut g = start(p, 13, 500, &[]);
         open(&mut g);
         let ev = g.apply(Command::Buy { thing: SWORD });
-        assert!(ev.contains(&Event::Readied {
-            player: 0,
-            thing: SWORD,
-            slot: Slot::Weapon
-        }));
-        assert_eq!(g.current_player().weapon, Some(SWORD));
+        assert!(!ev.iter().any(|e| matches!(e, Event::Readied { .. })));
+        assert_eq!(g.current_player().weapon, None);
+        assert_eq!(g.current_player().count(SWORD), 1);
         assert_eq!(g.current_player().gold, 490);
+    });
+}
+
+#[test]
+fn buying_at_the_limit_pays_and_loses_the_thing() {
+    // Stores 4.3: three gems owned, one more bought.
+    both(|p| {
+        let mut g = start(p, 13, 500, &[GEM, GEM, GEM]);
+        open(&mut g);
+        let ev = g.apply(Command::Buy { thing: GEM });
+        assert!(ev.contains(&Event::Bought {
+            player: 0,
+            thing: GEM,
+            price: 50,
+            kept: false
+        }));
+        assert_eq!(g.current_player().gold, 450);
+        assert_eq!(stock(&g, GEM), 2);
+        assert_eq!(g.current_player().count(GEM), 3);
     });
 }
 

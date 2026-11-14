@@ -300,7 +300,7 @@ impl Game {
             return ev;
         }
         self.log.push(cmd.clone());
-        // Stores 3.4: anything but buying and selling ends a store visit.
+        // Stores 3.8: anything but buying and selling ends a store visit.
         if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. }) {
             self.leave_store(&mut ev);
         }

@@ -546,9 +546,13 @@ impl Game {
                     ev,
                 );
             }
-            // Stores 3.2: the move is refused and the store opens.
+            // Stores 3.2: an ordinary step onto the store's square (one
+            // move, ending no turn: 3.7), and the store opens there.
             ThingKind::Store { .. } => {
-                ev.push(block(BlockReason::Store { thing: item.thing }));
+                self.players[p].at = to;
+                ev.push(Event::Moved { player: p, from, to });
+                let pl = &mut self.players[p];
+                pl.moves_left = pl.moves_left.saturating_sub(1);
                 self.open_store(p, region, ev);
             }
             ThingKind::RoomFloor { .. } | ThingKind::Undefined | ThingKind::Unknown { .. } => {

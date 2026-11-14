@@ -155,11 +155,11 @@ pub enum Command {
     Buy { thing: ThingId },
     /// In an open store: sells one of `thing` (stores 5).
     Sell { thing: ThingId },
-    /// Leaves the open store (stores 3.4).
+    /// Leaves the open store (stores 3.8).
     LeaveStore,
 }
 
-/// Why a store refused a purchase or a sale (stores 4.3, 5.2).
+/// Why a store refused a purchase or a sale (stores 4.1, 4.3, 5.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StoreRefusal {
@@ -168,8 +168,6 @@ pub enum StoreRefusal {
     /// The store has none of it.
     NotStocked,
     NotEnoughGold,
-    /// The player owns as many as allowed (inventory 2.2).
-    CarryLimit,
     /// Spells and gold can't be sold.
     NotSellable,
     /// The player has none to sell.
@@ -204,8 +202,6 @@ pub enum BlockReason {
     Wall,
     /// An obstacle or custom obstacle (master thing number).
     Obstacle { thing: ThingId },
-    /// A store: bumping it opens it (stores 3).
-    Store { thing: ThingId },
     /// A diagonal step while [`Rules::diagonals`] is off.
     Diagonal,
     /// The movement bar is empty (Speed 0); only `Wait` helps.
@@ -641,15 +637,24 @@ pub enum Event {
         region: u8,
         gold: u16,
     },
-    /// The store visit ended (stores 3.4).
+    /// The store visit ended (stores 3.8).
     StoreClosed {
         player: usize,
     },
-    /// One of `thing` bought for `price` gold (stores 4).
+    /// One of `thing` bought for `price` gold (stores 4); `kept` is false
+    /// when the player already owned as many as allowed and the thing was
+    /// lost (stores 4.3).
     Bought {
         player: usize,
         thing: ThingId,
         price: i32,
+        kept: bool,
+    },
+    /// One of `thing`, broken or used up, joined `region`'s store stock
+    /// (stores 2.5).
+    Restocked {
+        region: u8,
+        thing: ThingId,
     },
     /// One of `thing` sold: the store's `offer`, the gold `paid` once the
     /// purse cap took its share, and whether it joined the stock (stores 5).

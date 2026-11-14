@@ -627,6 +627,10 @@ screen offers next to "create new player".
 | `$E1A3` on, `$F59F` on | Fighting bytes of a creature slot and of the first player's record (the stored record layout): +0 magic defense (top 2 bits), +2 Dexterity, +3 Life Force, +5 Power, +6 to +10 Dodge, Parry, Armor, Melee, Missile skills, +15 Size, +20 the weapon held, +21 the armor worn; read by `rr8/rounds.sh` (10.15) | Researcher, combat first pass, 2026-11-13 (`docs/research/combat.md`) |
 | `$B799` | The current attack's blows left; while firing, the shots left after the current one | Researcher, combat first pass, 2026-11-13; shots seen in our `bow` runs (10.14.10) |
 | `$F5B0`, `$F5B1`-`$F5B2` | The first player's Wisdom and gold (the record at `$F59F`, +0x11 and +0x12, from the stored record layout); poked by `rr10/sweep.sh` (10.17), the store screen showing and using both | Researcher, combat first pass (the record's address), 2026-11-13 |
+| `$E06D`-`$E07A` | The visited region's store stock: things 1 to 32 two bits each (a count 0..3, four to a byte, thing 1 in the top two bits of `$E06D`), then things 33 to 80 one bit each from `$E075` (thing 33 the top bit); read and set by `rr11` (10.17) | Researcher, stores first pass, 2026-11-13 (`docs/research/stores.md`) |
+| `$F5B6` on | The first player's possessions in the same layout (record +0x17); set by `rr11` | Researcher, stores first pass, 2026-11-13 |
+| `$F5AC`, `$F5AD` | The first player's square (record +13, +14): on the store screen its square there (7,5 on arrival), in a room the room square | Researcher, stores first pass, 2026-11-13 |
+| `$719A` | The moves left in the current turn | Researcher, stores first pass, 2026-11-13; seen 5, 4, 1 in `rr11` |
 | `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
 
 These are the only addresses in the original program in use, and they
@@ -1393,3 +1397,27 @@ In this order (planned November 2026):
    magic item of value 1 and a spell, and a treasure of 100): the sell
    menu offered the treasure (50), MAIL, BOW, BLADE (4 each) and the item
    (0), in thing order, and never the spell.
+   *The research findings, confirmed* (2026-11-13; `docs/research/stores.md`
+   first pass). `ACSVM-research/capture/runs/rr11/`, scripts there, all
+   from the `look` case (`rr10/look-room.vsf`), reading the addresses the
+   researcher gave (section 9) with `peek`. On the store screen a push of
+   60k cycles moves one square; 300k walks several.
+   - `leave-e`, `leave-w`: from 7,5 east (or west) along row 5 to 13,5
+     (1,5), then north-east (north-west) into **the exit on 14,4 (0,4)**:
+     "Thank you, T. Please come back soon", the button, and T is in the
+     room **on the store's square 5,4**. Moves: 5 before the bump, 4 on
+     the store screen, **1 after leaving** (stores 3.2, 3.6, 3.7).
+   - `lastmove`: four steps in the room (5 to 1 moves), then the bump with
+     the last: 0 on the store screen, 1 after leaving.
+   - `ring`: from 7,4 north to 7,1, north-west onto **6,0** and west onto
+     5,0: the outer ring's gaps are floor (stores 3.3).
+   - `buy-limit`: T poked to own 3 of thing 1 (`$F5B6` = 192); a push from
+     the opening prompt only starts browsing (T to 7,4), then south-west
+     to 6,5 and south bumps thing 1 on 6,6: bought, gold 500 to 490, the
+     stock of thing 1 from 1 to 0, **T still owning 3** (stores 4.3).
+   - `sell-full`: the stock of thing 1 poked to 3 (`$E06D` = 228), T to own
+     one (`$F5B6` = 64); the button sells it for 4, gold 500 to 504, **the
+     stock still 3**, T owning none (stores 5.3).
+   Not confirmed (left [research, unconfirmed] in the spec): a bought
+   weapon not readied, a held weapon offered, broken weapons going back
+   into stock, stores on the world map.

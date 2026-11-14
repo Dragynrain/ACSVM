@@ -69,7 +69,6 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 }
                 BlockReason::Wall => "a wall".into(),
                 BlockReason::Obstacle { thing: t } => thing(t),
-                BlockReason::Store { thing: t } => format!("{}: the store opens", thing(t)),
                 BlockReason::Diagonal => "diagonal moves are off".into(),
                 BlockReason::NoMovesLeft => "no moves left".into(),
                 BlockReason::CarryLimit { thing: t } => {
@@ -402,12 +401,21 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             player,
             thing: t,
             price,
+            kept,
         } => {
+            let lost = if *kept {
+                ""
+            } else {
+                ", who can't carry another: it is lost"
+            };
             format!(
-                "The storekeeper sells {} to {} for {price} gold.",
+                "The storekeeper sells {} to {} for {price} gold{lost}.",
                 thing(*t),
                 who(player)
             )
+        }
+        Event::Restocked { thing: t, .. } => {
+            format!("{} goes back into the store's stock.", thing(*t))
         }
         Event::Sold {
             player,
@@ -433,7 +441,6 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 R::NoStore => "no store is open".to_string(),
                 R::NotStocked => format!("{} is out of stock", thing(*t)),
                 R::NotEnoughGold => format!("not enough gold for {}", thing(*t)),
-                R::CarryLimit => format!("can't carry another {}", thing(*t)),
                 R::NotSellable => format!("the store won't buy {}", thing(*t)),
                 R::NotOwned => format!("has no {} to sell", thing(*t)),
             };

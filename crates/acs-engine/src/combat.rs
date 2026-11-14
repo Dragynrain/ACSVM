@@ -798,6 +798,12 @@ impl Game {
                 }
             }
             ev.push(Event::Broke { who, thing, used_up });
+            // Stores 2.5: it goes back into the region's stock.
+            let region = match who {
+                Who::Player { player } => self.players[player].at.region(),
+                Who::Creature { region, .. } => region,
+            };
+            self.restock(region, thing, ev);
         }
     }
 

@@ -183,7 +183,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    | custom space, "when dropped here" | moves | nothing on entry | [manual] |
    | obstacle | refused | its spell if "bump invokes spell" | [manual] |
    | custom obstacle | refused | its spell, parameter from the placement | [manual] |
-   | store | refused | opens the store ([stores](stores.md) 3) | [unknown] |
+   | store | moves (one step); the store opens with the player on its square ([stores](stores.md) 3.2) | the store screen | [research; capture] |
    | floor / undefined / unknown type | moves | nothing | [data] (never placed) |
 
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
