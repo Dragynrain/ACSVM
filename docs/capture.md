@@ -1420,4 +1420,41 @@ In this order (planned November 2026):
      stock still 3**, T owning none (stores 5.3).
    Not confirmed (left [research, unconfirmed] in the spec): a bought
    weapon not readied, a held weapon offered, broken weapons going back
-   into stock, stores on the world map.
+   into stock, stores on the world map. The first three were confirmed
+   next (rr12, below).
+   *Weapons in and out of stock* (2026-11-14; stores 2.5, 4.4, 5.2).
+   `ACSVM-research/capture/runs/rr12/`: `all.sh` builds the cases
+   (`cases.txt`, `case.sh` as rr8's), `rounds.sh` runs the combat ones,
+   `buy.txt` and `sell.txt` the store ones. The combat cases are rr8's
+   `once` and rr9's `mail-parry`, `bow-break` and `bow-once` with a store
+   added on 2,2 (no stock), 16 runs each (`run mem`, as rr8), watching the
+   stock bytes of the kit as well (`$E075` bit 0 the mail, thing 40;
+   `$E076` bit 7 the bow, 41; `$E078` bit 5 the blade, 59). The stock
+   bytes, like the others watched, sometimes read other values for one
+   20k sample and then return (seen in every case, before and after a
+   change); only values that stay are counted.
+   - `once`: EE's blade disappeared in 13 runs, and in each its bit went on
+     in the stock in the same 20k sample; in the 3 runs it stayed, the
+     stock stayed empty. `mail-parry`: T's mail broke in 3 runs (`$F5B4`
+     40 to 0) and joined the stock each time. `bow-break`: EE's bow broke
+     in 3 runs and joined the stock each time (stores 2.5).
+   - `bow-once`: **never got into the room.** Walking in from the map
+     stopped on "THE ACTION MOVES TO TEST REGION" and stayed there 33
+     million cycles later (`enter-long.txt`), twice built, with the store
+     on 2,2 or 2,7. The same case without the store (`bo-nostore`)
+     loaded, as rr9's did; with the bow breakable instead (`bow-break`) it
+     loaded with the store. The two disks differ only in the bow's break
+     chance and disappear bit (`acs dump`). Not understood; a question
+     for the researcher.
+   - `buy-blade` (`buy.txt`): T holding nothing, gold 500, the blade
+     poked into the stock (`$E078` = 32). From 7,5 east to 13,5, north to
+     13,2, west bumps the blade on 12,2 ("purchase"), the button: "the
+     storekeeper sells the BLADE to T", gold 490, the blade owned
+     (`$F5C1` bit 5), the stock empty, **the hand still empty** (`$F5B3`
+     0). The button continues; south twice and east into the exit on
+     14,4, the button: back on 5,4 with 1 move, the hand still empty
+     (stores 4.4).
+   - `sell-held` (`sell.txt`): T holding the blade (`$F5B3` = 59), gold
+     500, Wisdom 13. The button at the store's first prompt: "T has 1
+     BLADE", "sell it for 4"; the button: gold 504, **the hand empty**,
+     the blade no longer owned, and in the stock (stores 5.2).

@@ -48,8 +48,15 @@ Counts cover all 15 corpus adventures (222 regions).
    (player or creature) and one joins the stock of the region where that
    happened, within the limits of 2.6 and for things 1..80 only; never on
    the world map (region 0). A magic item used up does not join it. That is
-   the only restocking. [research, unconfirmed] **Engine:** as stated
-   (`Restocked`).
+   the only restocking. [research; capture: rr12, a store in the room and
+   the stock watched: the disappearing blade went from its creature in 13
+   of 16 runs and joined the stock at once each time, never in the other
+   3; broken mail (3 runs) and a broken bow (3 runs) joined it the same
+   way] Not seen: a disappearing missile weapon, because a region with a
+   store and a bow set to disappear never finished loading on the C64
+   ("the action moves to" stayed up; without the store, or with the bow
+   only breakable, it loaded; capture.md 10.17). A magic item used up was
+   not tried. **Engine:** as stated (`Restocked`).
 6. **The limits.** A stock holds at most 3 of things 1..32 and 1 of things
    33..80, as possessions do (inventory 1.2); an addition past the limit is
    lost and a removal below none does nothing. [research; capture 5.3]
@@ -151,8 +158,10 @@ Counts cover all 15 corpus adventures (222 regions).
    purchase; it only slows the player (inventory 3). [research]
 4. A thing bought leaves the stock, one at a time: a line of 2 sold twice,
    the gold going down by the price each time. [capture] A purchase only
-   adds one to the player's count: **a weapon bought is not readied**, and
-   a magic item set to act when picked up does not act. [research,
+   adds one to the player's count: **a weapon bought is not readied**,
+   not even on leaving. [research; capture: rr12 `buy-blade`, the blade
+   bought for 10, owned, the hand still empty in the store and back in the
+   room] A magic item set to act when picked up does not act. [research,
    unconfirmed] **Engine:** as stated (`Bought`, with `kept` false when
    the thing was lost to the limit); refusals give `StoreRefused`.
 
@@ -183,8 +192,10 @@ Counts cover all 15 corpus adventures (222 regions).
    owned was not offered). The goods come in thing order. [capture:
    sellkit, capture.md 10.17] A held weapon or worn armor is offered like
    anything else owned, and selling the last one empties the hand or the
-   body; a thing owned 2 or 3 times is offered once per copy. [research,
-   unconfirmed] **Engine:** as stated. Gold can't be sold. The button sells
+   body. [research; capture: rr12 `sell-held`, the held blade offered for
+   4, sold, the hand empty, the blade in stock] A thing owned 2 or 3 times
+   is offered once per copy. [research, unconfirmed] **Engine:** as
+   stated. Gold can't be sold. The button sells
    only at the store's first prompt; once the player has moved it only
    answers offers and messages. [research]
 3. **A sold thing joins the store's stock** and shows on its shelf place
@@ -209,9 +220,11 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. Restocking from broken weapons and armor (2.5): break a weapon in a
-   room with a store, then look at the stock.
+1. Restocking from a disappearing missile weapon and a used-up magic
+   item (2.5), and why a region with a store and a disappearing bow hangs
+   on loading (a research question).
 2. Whether a store can stand on the world map, and its stock there (2.7).
 3. Whether the stock is saved and restored with the game (2.8).
-4. A bought weapon not readied, a held weapon offered for sale (4.4, 5.2).
+4. A magic item set to act when picked up, bought (4.4); a thing owned 2
+   or 3 times offered once per copy (5.2).
 5. A store in a room of another size (the layout is fixed either way).
