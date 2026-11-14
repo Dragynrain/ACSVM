@@ -373,6 +373,30 @@ watch for:
 - **A white cravat right under the chin** reads as a goatee; give the neck
   a row of skin first.
 
+**Faces and hands, fourth pass (November 2026, all 36 people).** The
+first three passes placed eyes, but skin was still painted in other ramps:
+whole faces in leather (the boarder, diver, house guard, bosun, cabin boy,
+mermaid) or sand and wood (the captain, navigator, quartermaster),
+rust-orange mouths, chins and ears that read as lipstick or blood, and
+15 people's forearms and hands in flat bright rust. `skinaudit.py`
+(research `_scripts/`) lists rust, leather and kraken pixels that touch skin;
+bright rust below the head is almost always a hand. The rules now:
+
+- **Skin is the skin ramp only.** Pick a base step for the person and remap
+  the other ramp onto it step for step (leather 0, 1, 2 to skin 2, 3, 4 for
+  brown skin), inside a box: the mermaid's rock is leather too.
+- **Shade the side away from the light:** one step darker down the right
+  edge of the face and of each forearm; a highlight pixel on a bald head.
+- **Mouth** two steps darker than the base, one or two pixels, centred
+  under the eyes; **nose** one step darker or none. No rust on a face.
+  Undead keep their own ramp (moss for the drowned captain, bone for
+  skeletons, whose sockets stay two pixels apart, not a band).
+- **Under a hat brim,** the shadow row is one skin step darker, never
+  leather or stone.
+
+Edits are `handfinish4/_faces.json`, applied by `faces.py`; `assemble.py`
+lays `handfinish4/done` over the earlier passes.
+
 **Where the finishing work is.** In the first set of 35, nearly all of it
 was on the 16 people: faces, skin colour, a speckled waistcoat, a held key
 that read as a goblet. After `tidy.py`, 18 of the 19 creatures, objects and
@@ -744,3 +768,11 @@ tip stir (10 to 50), a quiet idle that suits her seated pose. Everything that
 doesn't move matches pixel for pixel from frame to frame. The
 shared box must hold the widest frame, so a hero comes out a little smaller
 than its still tile; frame 0 is not the still.
+
+**Faces in the loops.** Wan starts from the raw pick, so a loop's frames
+never get the still's hand-placed face: the mermaid's loop had no eyes at
+all. `_scripts/facepaste.py` (research folder) finds the head in each frame
+by the offset that best matches the finished still's silhouette, then
+copies the still's face box into it, outline pixels excepted unless named
+as eyes, and can repeat a ramp remap above a given row. Run it after
+`frames64.py` whenever a hero's still face changes.
