@@ -416,6 +416,16 @@ was on the 16 people: faces, skin colour, a speckled waistcoat, a held key
 that read as a goblet. After `tidy.py`, 18 of the 19 creatures, objects and
 weapons needed nothing (the crab got two eye-shine pixels). Budget hand time
 for people.
+
+**Non-people of the later rounds (fifth pass, November 2026).** All 41
+checked at 4x: the 24 kit 2 objects and creatures and the 17 KP objects.
+37 needed nothing. The four that did were faces again: Vail's portrait
+(one eye a grey smudge, a leather stroke that read as a scar; redone to his
+tile's face), the bat (eyes a dark band on its darkest leather, so a mask;
+the face one step lighter with one eye pixel each side), the jaguar (gold
+irises in gold fur; the brightest gold beside each pupil) and the boar (a
+bright rust snout that read as a clown nose; now leather). An animal's eyes
+need a value step against the fur around them, as a person's do.
 ## 10. Kit LoRA
 
 **v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
