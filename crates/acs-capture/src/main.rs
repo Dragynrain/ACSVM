@@ -164,6 +164,15 @@ enum Cmd {
         /// Our armor's stats (thing 40): as --blade, adj -65..10.
         #[arg(long)]
         mail: Option<String>,
+        /// move-basic: the region's store (thing 83) on room 0 square X,Y
+        /// (docs/capture.md 10.17).
+        #[arg(long)]
+        store: Option<String>,
+        /// The store's stock: treasures of ours (things 1, 2, ..) of these
+        /// values, `V` or `VxCOUNT` (1..3) joined by `+`. The player's own
+        /// treasures to sell are `--player goods=...` (things 13, ..).
+        #[arg(long)]
+        stock: Option<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -369,6 +378,8 @@ fn main() {
             blade,
             bow,
             mail,
+            store,
+            stock,
         } => {
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
@@ -393,6 +404,11 @@ fn main() {
                 v
             };
             let things: Vec<Vec<u16>> = thing.iter().map(|t| nums(t, 2..=3)).collect();
+            let store = store.map(|t| {
+                let v = nums(&t, 2..=2);
+                (v[0] as u8, v[1] as u8)
+            });
+            let stock = scenario::Ware::list(stock.as_deref().unwrap_or("")).unwrap_or_else(|e| fail(&e));
             let gold: Vec<(u8, u8, u16)> = gold
                 .iter()
                 .map(|t| {
@@ -451,6 +467,8 @@ fn main() {
                         blade,
                         bow,
                         mail,
+                        store,
+                        stock: stock.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())

@@ -48,6 +48,11 @@ Counts cover all 15 corpus adventures (222 regions).
    ago, that a store opens a separate area the player walks into, with the
    stock laid out as items, and that bumping an item shows it for sale. This
    is the first thing to capture.
+   On the C64, bumping the store opens a separate screen with the wares
+   laid out round the player, its gold shown, the button to sell and the
+   stick to browse; selling a treasure of value 100 at Wisdom 13 was
+   offered 50, with no random roll drawn. [capture: look, capture.md
+   10.17]
 2. **Engine:** following that recollection. Bumping the store square uses a
    move, and the move is refused as before ([movement](movement.md) 5.5). The
    player is then moved into a **store room** the engine builds from the
@@ -67,35 +72,59 @@ Counts cover all 15 corpus adventures (222 regions).
 ## 4. Buying
 
 1. Stores price everything from the value the designer gave the thing.
-   [manual] **Engine:** the buying price is the thing's full value (with its
-   multiplier), paid in gold.
-2. Whether Wisdom also lowers the buying price. [unknown] The manual ties
-   Wisdom only to selling. **Engine:** no.
-3. A purchase is refused if the player has too little gold or already owns
-   as many of that thing as allowed (inventory 2.2). Weight never refuses a
-   purchase; it only slows the player (inventory 3). [manual, by analogy
-   with picking up]
-4. A thing bought leaves the stock (one at a time) and joins the player's
-   possessions as if picked up: a weapon is readied; a magic item set to act
-   when picked up does not act. [unknown] **Engine:** as stated.
+   [manual] **The buying price is the thing's full value** (with its x20
+   multiplier), paid in gold. Bumping a stocked thing on the store screen
+   offers it ("purchase X for N", the button buys, the stick moves on);
+   bumping an empty shelf place says the item is out of stock. [capture:
+   look, buyb; a treasure of value 50 and one of 5,100, capture.md 10.17]
+2. **Wisdom doesn't change the buying price**: 50 at Wisdom 0, 1, 5, 13,
+   20, 25 and 31. [capture] The manual ties Wisdom only to selling.
+3. A purchase is refused with too little gold ("does not have enough gold
+   for the X"): 5,100 with 500 or 5,000 gold. [capture] Whether owning as
+   many of that thing as allowed (inventory 2.2) refuses one is not
+   captured. Weight never refuses a purchase; it only slows the player
+   (inventory 3). [manual, by analogy with picking up]
+4. A thing bought leaves the stock, one at a time: a line of 2 sold twice,
+   the gold going down by the price each time. [capture] It joins the
+   player's possessions as if picked up: a weapon is readied; a magic item
+   set to act when picked up does not act. [unknown] **Engine:** as stated.
 
 ## 5. Selling back
 
 1. Stores buy items back at a reduced rate, and a wiser player gets a better
-   deal. [manual] Wisdom ranges 0..31. [manual] The rate is [unknown].
-   **Engine:** the store pays value × (32 + Wisdom) / 96, rounded down: a
-   third of value at Wisdom 0, about two thirds at 31.
-2. **What a store will buy.** [unknown] **Engine:** anything it could have
-   stocked (2.1): treasures, magic items, weapons and armor, whether or not
-   it stocks that thing. Gold can't be sold.
-3. **Where a sold thing goes.** Whether it joins the store's stock (and can be
-   bought back) is [unknown]. **Engine:** it joins the stock while the stock
-   is under that thing's limit and the thing is numbered 1..80 (2.3);
-   otherwise it is gone from the adventure.
+   deal. [manual] Wisdom ranges 0..31. [manual] **The offer** for a thing of
+   value V (with its multiplier), by a player of Wisdom W:
+   - the base: V minus the store's cut, the cut being the smaller of
+     V - V / 3 (rounded down) and 1,334; so V / 3 up to a value of 2,000,
+     and V - 1,334 above;
+   - plus the Wisdom bonus: the smaller of V / 3 (rounded down) and 666,
+     times W, divided by 25, rounded down.
+
+   So up to 2,000 the offer is V / 3 x (25 + W) / 25: a third at Wisdom 0,
+   1.52 thirds at 13, 2.24 thirds at 31 (100 brings 33, 50 and 73).
+   [capture: sell, sell2, sell3, 36 values from 1 to 5,100 at every Wisdom
+   0..31, 1,152 offers, every one; no random roll drawn, capture.md 10.17]
+   Values above 255 are multiples of 20, so nothing between 2,000 and 2,020
+   can be tested.
+2. **Selling**: the button on the store screen offers the player's goods
+   one at a time ("X has 1 Y", "sell it for N"); the button sells at once
+   (no confirmation) and offers the next, the stick skips to the next;
+   after the last it is back at the store's first prompt. [capture]
+   **What a store will buy**: our treasures, stocked or not. Magic items,
+   weapons, armor, spells and gold are not captured. [unknown]
+   **Engine:** anything it could have stocked (2.1): treasures, magic
+   items, weapons and armor. Gold can't be sold.
+3. **A sold thing joins the store's stock** and shows on its shelf place
+   at once. [capture: look, two goods sold] Whether that holds past the
+   thing's limit, or for things numbered above 80, is [unknown].
+   **Engine:** it joins the stock while the stock is under that thing's
+   limit and the thing is numbered 1..80 (2.3); otherwise it is gone from
+   the adventure.
 4. A treasure set to disappear when dropped still sells. [unknown]
    **Engine:** yes, and it is then gone, never stocked.
-5. Gold paid out is capped at 25,000 in the player's purse (inventory 1.3).
-   **Engine:** a sale that would pass the cap is refused.
+5. **The purse cap**: a sale is never refused for it. At 24,998 gold a
+   sale of 50 left 25,000, and a further sale of 19 still went through,
+   the gold staying at 25,000: what passes the cap is lost. [capture]
 
 ## 6. Extended adventures
 
@@ -106,12 +135,12 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. What opening a store looks like: whether it is a separate area, how the
-   stock is laid out, how bumping an item offers it, how selling and leaving
-   work, and what it costs in moves.
-2. The sell-back rate at several Wisdom values, and whether Wisdom changes
-   the buying price.
-3. Whether a sold thing appears in the stock, and what a store does with a
-   thing it doesn't stock.
-4. Whether a store buys magic spells or gold.
-5. Whether a store's stock is kept per region across visits and saves.
+1. Opening the store, browsing, buying and selling: captured (capture.md
+   10.17). Still open: leaving the store and what the visit costs in
+   moves; where each thing's shelf place is (a researcher question).
+2. The sell-back rate and the buying price at every Wisdom: captured.
+3. What a store does with magic items, weapons, armor, spells and gold
+   offered for sale, and with a thing past its limit.
+4. Whether a store's stock is kept per region across visits and saves.
+5. What a thing bought does on arrival (a weapon readied, a magic item
+   that acts when picked up).

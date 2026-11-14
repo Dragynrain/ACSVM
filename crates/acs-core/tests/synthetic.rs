@@ -142,6 +142,7 @@ fn sample(platform: Platform) -> Fixture {
         header_03: None,
         residents: vec![(0, "GUARD", guard)],
         random_creatures: Vec::new(),
+        store: [0; 14],
     });
     f
 }

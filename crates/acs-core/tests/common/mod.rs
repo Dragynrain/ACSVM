@@ -45,6 +45,8 @@ pub struct RegionSpec {
     pub residents: Vec<(usize, &'static str, [u8; 37])>,
     /// (record 0..8, name, record): the region's random creatures.
     pub random_creatures: Vec<(usize, &'static str, [u8; 37])>,
+    /// The store's stock: 14 bytes of possession bits.
+    pub store: [u8; 14],
 }
 
 impl Fixture {
@@ -179,6 +181,7 @@ impl Fixture {
             for (k, p) in spec.portals.iter().enumerate() {
                 self.put(heap + table + k * 2, p);
             }
+            self.put(base + rg::STORE, &spec.store);
             for (slot, name, rec) in &spec.residents {
                 self.packed(heap + names_ptr + slot * 10, name);
                 self.put(base + rg::RESIDENTS + slot * 37, rec);

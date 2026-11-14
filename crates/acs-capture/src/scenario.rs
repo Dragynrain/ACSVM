@@ -52,7 +52,66 @@ pub struct Player {
     /// Weapons and armor of ours it owns, holds and wears, and its magic
     /// defense (the combat captures, docs/capture.md 10.15).
     pub gear: Gear,
+    /// Gold carried (record bytes 0x12-0x13; a player's purse).
+    pub gold: u16,
+    /// Treasures of ours it owns, to sell (things `GOODS`..; the store
+    /// captures, docs/capture.md 10.17).
+    pub goods: Vec<Ware>,
 }
+
+/// A treasure of ours for the store captures: its value in gold and how
+/// many (1..3; things 1-32 take counts). `V` or `VxN`; a value above 255
+/// must be a multiple of 20 (stored x20), at most 5,100.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ware {
+    pub value: u16,
+    pub count: u8,
+}
+
+impl Ware {
+    pub fn parse(spec: &str) -> Result<Ware, String> {
+        let (v, n) = spec.split_once('x').unwrap_or((spec, "1"));
+        let value: u16 = v.trim().parse().map_err(|_| format!("{spec}: bad value"))?;
+        let count: u8 = n.trim().parse().map_err(|_| format!("{spec}: bad count"))?;
+        if !(1..=3).contains(&count) {
+            return Err(format!("{spec}: a count of 1..3"));
+        }
+        value_bytes(value)?;
+        Ok(Ware { value, count })
+    }
+
+    pub fn list(spec: &str) -> Result<Vec<Ware>, String> {
+        spec.split('+')
+            .filter(|s| !s.is_empty())
+            .map(Ware::parse)
+            .collect()
+    }
+}
+
+/// A treasure's value as its first property byte's x20 bit and the value
+/// byte: x1 up to 255, else x20 for multiples of 20 up to 5,100.
+pub fn value_bytes(v: u16) -> Result<(u8, u8), String> {
+    match v {
+        0..=255 => Ok((0, v as u8)),
+        _ if v % 20 == 0 && v <= 5100 => Ok((0x80, (v / 20) as u8)),
+        _ => Err(format!("value {v}: up to 255, or a multiple of 20 up to 5100")),
+    }
+}
+
+/// Sets the count (1..3) of thing `n` (1..=32) in a 14-byte possession
+/// bitmap: 2 bits each, four to a byte, high bits first.
+pub fn own_count(bits: &mut [u8], n: u8, count: u8) {
+    assert!((1..=32).contains(&n) && count <= 3, "thing {n} x{count}");
+    let i = n as usize - 1;
+    bits[i / 4] |= count << (6 - 2 * (i % 4));
+}
+
+/// The first master thing slot of the store's stock (things 1..) and of
+/// the player's goods to sell (things 13..); both treasures.
+pub const STOCK: u8 = 1;
+pub const GOODS: u8 = 13;
+/// The store (type 12), the one every adventure has (docs/rules/stores.md).
+pub const STORE: u8 = 83;
 
 /// One of our weapons or armor (things `BLADE`, `BOW`, `MAIL`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -217,6 +276,8 @@ impl Default for Player {
             melee: 31,
             missile: 22,
             gear: Gear::default(),
+            gold: 0,
+            goods: Vec::new(),
         }
     }
 }
@@ -225,7 +286,8 @@ impl Player {
     /// Applies `key=value` pairs separated by commas (con, lf, str, dex,
     /// spd, wis, pow, size, dodge, parry, armor, melee, missile, name; and
     /// the kit: `own=blade+bow+mail`, `hold=blade` or `bow`, `wear=mail`,
-    /// `md=0..3` magic defense).
+    /// `md=0..3` magic defense; `gold=N`; `goods=V+VxN` treasures of these
+    /// values to sell, things `GOODS`..).
     pub fn with(mut self, spec: &str) -> Result<Self, String> {
         for kv in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             let (k, v) = kv.split_once('=').ok_or(format!("{kv}: want key=value"))?;
@@ -258,6 +320,20 @@ impl Player {
                         Ok(n) if n <= 3 => n,
                         _ => return Err(format!("{kv}: 0..3")),
                     };
+                    continue;
+                }
+                "gold" => {
+                    self.gold = match v.parse::<u16>() {
+                        Ok(n) if n <= 25_000 => n,
+                        _ => return Err(format!("{kv}: 0..25000")),
+                    };
+                    continue;
+                }
+                "goods" => {
+                    self.goods = Ware::list(v)?;
+                    if self.goods.len() > 12 {
+                        return Err(format!("{kv}: at most 12"));
+                    }
                     continue;
                 }
                 _ => {}
@@ -321,6 +397,10 @@ impl Player {
         }
         if self.gear.wear {
             r[0x15] = MAIL;
+        }
+        r[0x12..0x14].copy_from_slice(&self.gold.to_le_bytes());
+        for (i, g) in self.goods.iter().enumerate() {
+            own_count(&mut r[0x17..0x25], GOODS + i as u8, g.count);
         }
         r
     }
@@ -521,6 +601,11 @@ pub struct MoveBasic {
     pub blade: Option<KitSpec>,
     pub bow: Option<KitSpec>,
     pub mail: Option<KitSpec>,
+    /// The region's store (thing `STORE`) on this room 0 square.
+    pub store: Option<(u8, u8)>,
+    /// The region's stock: treasures of ours (things `STOCK`..) of these
+    /// values and counts.
+    pub stock: Vec<Ware>,
 }
 
 /// A locked one-way room door of ours.
@@ -674,6 +759,8 @@ impl Default for MoveBasic {
             room_chance: 0,
             side_chance: 0,
             gold: Vec::new(),
+            store: None,
+            stock: Vec::new(),
             blade: None,
             bow: None,
             mail: None,
@@ -1017,6 +1104,39 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             "the template's magic item records start at {off}, over our kit's"
         );
     }
+    // The store and its stock, and the goods the players own: treasures
+    // of weight 1, the door picture, of the values given.
+    if let Some((x, y)) = s.store {
+        f.thing(STORE as usize, "STORE", [0x0C, PIC_MARKER as u8, 0, 0]);
+        items.push((x, y, STORE, 0));
+    }
+    let mut stock = [0u8; 14];
+    let goods = s
+        .player
+        .iter()
+        .chain(s.player2.iter())
+        .map(|p| &p.goods)
+        .max_by_key(|g| g.len());
+    for (first, name, wares) in [
+        (STOCK, "WARE", &s.stock),
+        (GOODS, "GOOD", goods.unwrap_or(&Vec::new())),
+    ] {
+        assert!(wares.len() <= 12, "at most 12 {name}s");
+        for (i, w) in wares.iter().enumerate() {
+            let n = first + i as u8;
+            let (x20, v) = value_bytes(w.value).expect("value");
+            f.thing(
+                n as usize,
+                // Lettered (GOODA, GOODB, ..): names pack few digits.
+                &format!("{name}{}", char::from(b'A' + i as u8)),
+                [x20 | 0x01, 1, v, PIC_DOOR as u8],
+            );
+            no_messages(&mut f, n as usize);
+            if first == STOCK {
+                own_count(&mut stock, n, w.count);
+            }
+        }
+    }
     // Treasures residents carry: things CARRY.., never placed.
     let mut next = CARRY;
     let mut first_carry = Vec::new();
@@ -1088,6 +1208,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         portals,
         residents,
         random_creatures,
+        store: stock,
         ..RegionSpec::default()
     });
     f.build()
@@ -1115,6 +1236,44 @@ mod tests {
         assert_eq!(m.tiles[14][27], 3);
         assert_eq!(m.tiles[14][9], 4);
         assert!(adv.retired_players.is_empty());
+    }
+
+    #[test]
+    fn the_store_its_stock_and_the_goods_decode() {
+        let s = MoveBasic {
+            player: Some(Player::default().with("gold=1234,goods=100+40x2").unwrap()),
+            store: Some((6, 4)),
+            stock: Ware::list("10+300x3+60").unwrap(),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let r = &adv.regions[0];
+        let stock: Vec<(u16, u8)> = r.store.iter().map(|p| (p.thing, p.count)).collect();
+        assert_eq!(stock, [(1, 1), (2, 3), (3, 1)]);
+        assert!(r.rooms[0]
+            .items
+            .iter()
+            .any(|i| (i.x, i.y, i.thing) == (6, 4, u16::from(STORE))));
+        assert!(matches!(
+            adv.things[82].kind,
+            acs_core::model::ThingKind::Store { .. }
+        ));
+        let value = |n: usize| match &adv.things[n - 1].kind {
+            acs_core::model::ThingKind::Treasure { carry, .. } => {
+                (adv.things[n - 1].name.clone(), carry.value)
+            }
+            k => panic!("{k:?}"),
+        };
+        assert_eq!(value(2), ("WAREB".into(), 300));
+        assert_eq!(value(14), ("GOODB".into(), 40));
+        let p = &adv.retired_players[0];
+        assert_eq!(p.wealth, 1234);
+        let owned: Vec<(u16, u8)> = p.possessions.iter().map(|p| (p.thing, p.count)).collect();
+        assert_eq!(owned, [(13, 1), (14, 2)]);
+        assert!(Ware::parse("301").is_err() && Ware::parse("5x4").is_err());
+        assert!(Player::default().with("gold=25001").is_err());
     }
 
     #[test]

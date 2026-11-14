@@ -626,6 +626,7 @@ screen offers next to "create new player".
 | `$E1A3` on | The visited region's creature slots, 37 bytes each: +0 Constitution (0 when free), +6 bit 7 the random mark, +13 and +14 the square | Researcher, random-rolls third pass, 2026-11-12 |
 | `$E1A3` on, `$F59F` on | Fighting bytes of a creature slot and of the first player's record (the stored record layout): +0 magic defense (top 2 bits), +2 Dexterity, +3 Life Force, +5 Power, +6 to +10 Dodge, Parry, Armor, Melee, Missile skills, +15 Size, +20 the weapon held, +21 the armor worn; read by `rr8/rounds.sh` (10.15) | Researcher, combat first pass, 2026-11-13 (`docs/research/combat.md`) |
 | `$B799` | The current attack's blows left; while firing, the shots left after the current one | Researcher, combat first pass, 2026-11-13; shots seen in our `bow` runs (10.14.10) |
+| `$F5B0`, `$F5B1`-`$F5B2` | The first player's Wisdom and gold (the record at `$F59F`, +0x11 and +0x12, from the stored record layout); poked by `rr10/sweep.sh` (10.17), the store screen showing and using both | Researcher, combat first pass (the record's address), 2026-11-13 |
 | `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
 
 These are the only addresses in the original program in use, and they
@@ -1319,3 +1320,62 @@ In this order (planned November 2026):
    (`$E2AC`, 158) stays set after it is removed, in all 114 removals,
    which is why the round's end still draws its percentile (creatures
    2.4).
+17. **Stores, a first look** (2026-11-13; `docs/rules/stores.md`).
+   Scenario keys: `--store X,Y` puts the store (thing 83, type 12, the
+   marker picture) on a room 0 square; `--stock V+VxN` the region's
+   stock, treasures of ours (things 1, 2, .., weight 1, the door picture)
+   of value V (above 255 a multiple of 20, stored x20) and count N (1..3);
+   `--player gold=N,goods=V+VxN` the player's purse and treasures of
+   ours to sell (things 13, ..). `ACSVM-research/capture/runs/rr10/`:
+   `case.sh NAME 'ARGS'` builds a case and saves `NAME-room.vsf` with
+   T's first turn in the room under way; `bump.txt`, `cont.txt`,
+   `sell.txt`, `buy.txt` are the scripts below (absolute paths: VICE
+   reads a relative snapshot path from its own folder and boots a bare
+   C64). Case `look`: T (gold 500, Wisdom 13, goods of value 100 and 40)
+   on 4,4, the store on 5,4, stock 10, 50 x2 and 200.
+   - Pushing east into the store opens a **separate screen**: no walls,
+     T among the wares (three squares of the ware picture for the three
+     stock lines; the count-2 line shows as one square), the room's name
+     still in the strip, and "T HAS 500 TO SPEND", then "press the button
+     to sell, move the stick to continue". As the project owner remembered
+     (stores 3.1).
+   - The stick: an invitation to browse and examine the merchandise; T
+     walks about the store screen.
+   - The button: "T HAS 1 GOOD1", and an offer to sell it for **50** (its
+     value 100, Wisdom 13), button to sell, stick to go on.
+   - **No random draw** from the button press to the offer, in 4 runs
+     with different random states (`mem --draws --push fire:100k`): the
+     selling price is a fixed function, readable off the screen.
+   *The store sweep* (2026-11-13). New script command `poke HEXADDR
+   BYTE..`; the player's Wisdom is `$F5B0` and its gold `$F5B1`-`$F5B2`
+   (the first player's record, +0x11 and +0x12; section 9), and the store
+   screen reads both. `scripts/storeread.py` reads the four message lines
+   from screenshots with letter shapes learned from known lines (this font
+   draws 0 and O alike); the gold line, poked to 23456 or 17890, teaches
+   the digits. `rr10/sweep.sh CASE`: from `CASE-room.vsf`, for Wisdom
+   0..31, poke Wisdom and gold, bump the store, press the button and step
+   through the 12 goods with the stick, a shot each (about 2 minutes a
+   case).
+   - **Selling** (cases `sell`, `sell2`, `sell3`: 36 values from 1 to
+     5,100): **1,152 offers, every one** as `storeread.py check` predicts
+     (stores 5.1): value / 3 x (25 + Wisdom) / 25 up to a value of 2,000;
+     above, the store's cut stays at 1,334 and the Wisdom bonus at
+     666 x Wisdom / 25. 99, 100 and 101 all bring 33 at Wisdom 0.
+   - **Buying** (`look`; `buyb`, a ware of 5,100): from the browse prompt
+     (`cont.vsf`) a diagonal push south-west bumps a ware: "purchase X for
+     N, by pushing the button, or move on". N is the value, at Wisdom 0,
+     1, 5, 13, 20, 25 and 31 alike. The button buys ("the storekeeper
+     sells the X to T"), the gold going down by N (500 to 450; 6,000 to
+     900), twice for a line of 2; with too little gold, "T does not have
+     enough gold for the X". Bumping an empty place: "Sorry, T, but that
+     item is out of stock" (`buy3`, `buy4`): each thing seems to have its
+     own shelf place, the stocked ones drawn.
+   - **Selling for real** (`sold.txt`): the button sells at once, no
+     confirmation (500, 550, 569), and offers the next good; the sold
+     goods then show on two new shelf places. From 24,998 gold
+     (`capsell.txt`) a sale of 50 left 25,000 and a sale of 19 still went
+     through, the gold staying 25,000.
+   Not yet seen: leaving the store and its cost in moves; selling magic
+   items, weapons, armor, spells; a purchase past the thing's limit; the
+   shelf place of each thing (the stocked things 1 to 3 and the sold 13
+   and 14 sat at no order we could see).

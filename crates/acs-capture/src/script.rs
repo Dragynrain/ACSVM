@@ -11,6 +11,7 @@
 //! settle 20m        # run until the screen stops changing (or the limit)
 //! dump boot.vsf     # snapshot; undump boot.vsf to restore
 //! attach scen.d64   # disk image into drive 8
+//! poke F5B0 20      # set memory (hex address, decimal bytes)
 //! ```
 
 use crate::monitor::{Error, Result};
@@ -386,6 +387,23 @@ impl Session {
                 let a = u16::from_str_radix(arg.trim_start_matches('$'), 16).map_err(|_| "peek HEXADDR")?;
                 let b = self.vice.mon.mem_read(a, a, true).map_err(e)?;
                 Ok(format!("${a:04x} = {:08b}", b.first().copied().unwrap_or(0)))
+            }
+            "poke" => {
+                // poke HEXADDR BYTE..: set memory (a researcher-given
+                // address, docs/capture.md section 9), e.g. a player's stat.
+                let mut parts = arg.split_whitespace();
+                let a = parts
+                    .next()
+                    .and_then(|t| u16::from_str_radix(t.trim_start_matches('$'), 16).ok())
+                    .ok_or("poke HEXADDR BYTE..")?;
+                let bytes: Vec<u8> = parts
+                    .map(|t| t.parse::<u8>().map_err(|_| "poke: bytes 0..255".to_string()))
+                    .collect::<std::result::Result<_, String>>()?;
+                if bytes.is_empty() {
+                    return Err("poke HEXADDR BYTE..".into());
+                }
+                self.vice.mon.mem_set(a, &bytes).map_err(e)?;
+                Ok(format!("${a:04x} <- {bytes:?}"))
             }
             "print" => Ok(arg.to_string()),
             other => Err(format!("unknown command {other}")),
