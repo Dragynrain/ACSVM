@@ -203,6 +203,9 @@ pub struct Game {
     /// Temporary changes still to be taken back (magic 5.2).
     #[serde(default)]
     pub(crate) reversals: Vec<crate::magic::Reversal>,
+    /// The store visit in progress (stores 3).
+    #[serde(default)]
+    pub(crate) store: Option<crate::stores::StoreVisit>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -267,6 +270,7 @@ impl Game {
             over: false,
             sched: Schedule::default(),
             reversals: Vec::new(),
+            store: None,
         };
         let mut ev = Vec::new();
         g.add_player(first, &mut ev);
@@ -292,6 +296,10 @@ impl Game {
             return ev;
         }
         self.log.push(cmd.clone());
+        // Stores 3.4: anything but buying and selling ends a store visit.
+        if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. }) {
+            self.leave_store(&mut ev);
+        }
         match cmd {
             Command::Wait => self.wait_out(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
@@ -302,6 +310,9 @@ impl Game {
             Command::Cast { thing, target } => self.cast_command(thing, target, &mut ev),
             Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
             Command::Fire => ev.push(Event::CannotFire { player: self.current }),
+            Command::Buy { thing } => self.buy(thing, &mut ev),
+            Command::Sell { thing } => self.sell(thing, &mut ev),
+            Command::LeaveStore => {}
         }
         // Magic 7.5: a player who died during their own turn ends it.
         if !self.over && !self.players[self.current].alive {

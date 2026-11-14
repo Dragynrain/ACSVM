@@ -1379,3 +1379,17 @@ In this order (planned November 2026):
    items, weapons, armor, spells; a purchase past the thing's limit; the
    shelf place of each thing (the stocked things 1 to 3 and the sold 13
    and 14 sat at no order we could see).
+   *Leaving, and selling other things* (2026-11-13). The store screen uses
+   the room's grid without walls: the player appears on 7,5 after bumping
+   the store on 5,4 from 4,4, and walks freely; walking into where the
+   walls would be, or into some empty squares (the store's own among
+   them), says the item is out of stock. No way out was found: pushes in
+   all eight directions from the opening prompt (the diagonals only go
+   back to it), walks to all four ends, the button at the browse prompt,
+   keys (RETURN, SPACE, F1 to F7, Q, X, L, E) and 60 million instructions
+   of waiting (nothing on screen changed, the movement bar included).
+   Asked in `docs/research/stores.md`, with copies of the `look` inputs.
+   Case `sellkit` (T owning the blade, bow and mail of value 10, our
+   magic item of value 1 and a spell, and a treasure of 100): the sell
+   menu offered the treasure (50), MAIL, BOW, BLADE (4 each) and the item
+   (0), in thing order, and never the spell.

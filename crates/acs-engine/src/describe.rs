@@ -69,7 +69,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 }
                 BlockReason::Wall => "a wall".into(),
                 BlockReason::Obstacle { thing: t } => thing(t),
-                BlockReason::Store { thing: t } => format!("{} (stores come later)", thing(t)),
+                BlockReason::Store { thing: t } => format!("{}: the store opens", thing(t)),
                 BlockReason::Diagonal => "diagonal moves are off".into(),
                 BlockReason::NoMovesLeft => "no moves left".into(),
                 BlockReason::CarryLimit { thing: t } => {
@@ -393,6 +393,51 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 "{} can't fire: only creatures shoot missiles.",
                 name(&Who::Player { player: *player })
             )
+        }
+        Event::StoreOpened { player, gold, .. } => {
+            format!("{} enters the store with {gold} gold to spend.", who(player))
+        }
+        Event::StoreClosed { player } => format!("{} leaves the store.", who(player)),
+        Event::Bought {
+            player,
+            thing: t,
+            price,
+        } => {
+            format!(
+                "The storekeeper sells {} to {} for {price} gold.",
+                thing(*t),
+                who(player)
+            )
+        }
+        Event::Sold {
+            player,
+            thing: t,
+            offer,
+            paid,
+            ..
+        } => {
+            let capped = if paid < offer {
+                format!(" ({paid} fit in the purse)")
+            } else {
+                String::new()
+            };
+            format!("{} sells {} for {offer} gold{capped}.", who(player), thing(*t))
+        }
+        Event::StoreRefused {
+            player,
+            thing: t,
+            reason,
+        } => {
+            use crate::StoreRefusal as R;
+            let why = match reason {
+                R::NoStore => "no store is open".to_string(),
+                R::NotStocked => format!("{} is out of stock", thing(*t)),
+                R::NotEnoughGold => format!("not enough gold for {}", thing(*t)),
+                R::CarryLimit => format!("can't carry another {}", thing(*t)),
+                R::NotSellable => format!("the store won't buy {}", thing(*t)),
+                R::NotOwned => format!("has no {} to sell", thing(*t)),
+            };
+            format!("{}: {why}.", who(player))
         }
         Event::Broke {
             who: w,

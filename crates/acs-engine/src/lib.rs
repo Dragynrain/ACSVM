@@ -24,6 +24,7 @@ pub mod inventory;
 pub mod magic;
 pub mod rng;
 mod step;
+pub mod stores;
 
 pub use combat::BlowOutcome;
 pub use describe::describe;
@@ -150,6 +151,29 @@ pub enum Command {
     /// Firing a missile weapon: players can't (combat 8.1); a message, no
     /// shot, no move used.
     Fire,
+    /// In an open store (stores 3): buys one of `thing` (stores 4).
+    Buy { thing: ThingId },
+    /// In an open store: sells one of `thing` (stores 5).
+    Sell { thing: ThingId },
+    /// Leaves the open store (stores 3.4).
+    LeaveStore,
+}
+
+/// Why a store refused a purchase or a sale (stores 4.3, 5.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StoreRefusal {
+    /// No store is open.
+    NoStore,
+    /// The store has none of it.
+    NotStocked,
+    NotEnoughGold,
+    /// The player owns as many as allowed (inventory 2.2).
+    CarryLimit,
+    /// Spells and gold can't be sold.
+    NotSellable,
+    /// The player has none to sell.
+    NotOwned,
 }
 
 /// Choices the original leaves open or that are still unmeasured
@@ -180,7 +204,7 @@ pub enum BlockReason {
     Wall,
     /// An obstacle or custom obstacle (master thing number).
     Obstacle { thing: ThingId },
-    /// A store (stores come with a later rule set).
+    /// A store: bumping it opens it (stores 3).
     Store { thing: ThingId },
     /// A diagonal step while [`Rules::diagonals`] is off.
     Diagonal,
@@ -609,6 +633,38 @@ pub enum Event {
     /// happens.
     CannotFire {
         player: usize,
+    },
+    /// Bumping a store opened it (stores 3): `region`'s stock, `gold` to
+    /// spend.
+    StoreOpened {
+        player: usize,
+        region: u8,
+        gold: u16,
+    },
+    /// The store visit ended (stores 3.4).
+    StoreClosed {
+        player: usize,
+    },
+    /// One of `thing` bought for `price` gold (stores 4).
+    Bought {
+        player: usize,
+        thing: ThingId,
+        price: i32,
+    },
+    /// One of `thing` sold: the store's `offer`, the gold `paid` once the
+    /// purse cap took its share, and whether it joined the stock (stores 5).
+    Sold {
+        player: usize,
+        thing: ThingId,
+        offer: i32,
+        paid: i32,
+        stocked: bool,
+    },
+    /// A purchase or sale refused (stores 4.3, 5.2).
+    StoreRefused {
+        player: usize,
+        thing: ThingId,
+        reason: StoreRefusal,
     },
     /// A weapon or armor broke (combat 6.3), or was used up (`used_up`,
     /// 6.4), and is gone from its owner.

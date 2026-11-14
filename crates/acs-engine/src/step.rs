@@ -546,7 +546,11 @@ impl Game {
                     ev,
                 );
             }
-            ThingKind::Store { .. } => ev.push(block(BlockReason::Store { thing: item.thing })),
+            // Stores 3.2: the move is refused and the store opens.
+            ThingKind::Store { .. } => {
+                ev.push(block(BlockReason::Store { thing: item.thing }));
+                self.open_store(p, region, ev);
+            }
             ThingKind::RoomFloor { .. } | ThingKind::Undefined | ThingKind::Unknown { .. } => {
                 if edge {
                     ev.push(block(BlockReason::Wall));

@@ -1,9 +1,10 @@
 # Rules: stores
 
 Behaviour spec for stores: where they stand, what they stock, buying,
-selling back, and how Wisdom changes the deal. Licensed CC BY 4.0. Not yet
-implemented; [movement](movement.md) 5.5 refuses a step onto a store square
-and leaves opening it to this spec.
+selling back, and how Wisdom changes the deal. Licensed CC BY 4.0. The
+engine implements it in `crates/acs-engine/src/stores.rs` (opened from
+`step.rs`, where bumping the store refuses the step, [movement](movement.md)
+5.5).
 
 Tags as in [movement](movement.md): **[manual]** paraphrased from the
 manual, **[data]** from the stored format or corpus counts, **[unknown]**
@@ -43,31 +44,33 @@ Counts cover all 15 corpus adventures (222 regions).
 
 ## 3. Opening a store
 
-1. How a player gets into a store isn't described in the manual. [unknown]
-   **[recollection]** The project owner remembers, from playing it years
-   ago, that a store opens a separate area the player walks into, with the
-   stock laid out as items, and that bumping an item shows it for sale. This
-   is the first thing to capture.
-   On the C64, bumping the store opens a separate screen with the wares
-   laid out round the player, its gold shown, the button to sell and the
-   stick to browse; selling a treasure of value 100 at Wisdom 13 was
-   offered 50, with no random roll drawn. [capture: look, capture.md
-   10.17]
-2. **Engine:** following that recollection. Bumping the store square uses a
-   move, and the move is refused as before ([movement](movement.md) 5.5). The
-   player is then moved into a **store room** the engine builds from the
-   region's stock: one stocked thing per square, a count of 2 or 3 shown as
-   one square, and an exit door. The engine emits `StoreOpened`.
-3. **Engine:** in the store room, bumping a stocked thing shows its name and
-   price (`StoreOffer`), and a separate Buy command takes it (section 4).
-   Stocked things can't be picked up by walking onto them. Selling is a
-   command while in the store room (section 5).
-4. **Engine:** walking out through the exit puts the player back on the
-   square they bumped the store from, with the moves they had left. Time
-   passes as on any turn while they browse. [unknown]
-5. Only players use stores. [unknown] **Engine:** creatures never open one,
-   and still can't step onto a store square ([creatures](creatures.md) 5.1).
-   Creatures don't follow a player into the store room.
+1. How a player gets into a store isn't described in the manual. [manual]
+   **[recollection]** The project owner remembers a separate area the
+   player walks into, the stock laid out as items, and bumping an item to
+   see it for sale. On the C64, bumping the store opens a **separate
+   screen** with no walls: the player among the stock drawn as things, its
+   gold shown ("T has 500 to spend"), the button to sell (section 5) and
+   the stick to browse. The player walks about it; bumping a stocked thing
+   offers it for sale (section 4), bumping an empty place or the room's
+   edge says the item is out of stock. Each thing seems to have its own
+   place: stocked things 1 to 3 and things 13 and 14 sold to the store
+   showed on squares round the store's, in no order we could see. Nothing
+   on the screen drains the movement bar: 60 million instructions of
+   waiting changed nothing. [capture: look, capture.md 10.17]
+   [unknown] the layout and how to leave (no push, key or button we tried
+   leaves): asked in `docs/research/stores.md`.
+2. **Engine:** bumping the store square refuses the move without using
+   one ([movement](movement.md) 5.5) and opens the region's store
+   (`StoreOpened`), the player staying on its square. While it is open
+   the player buys (`Command::Buy`) and sells (`Command::Sell`) with no
+   moves used; how the store is shown is the front end's (the viewer lists
+   the stock with prices, the player's goods with offers, and a way out).
+3. **Engine:** `Command::LeaveStore`, or any command other than buying and
+   selling, closes the store (`StoreClosed`), the player on the square it
+   bumped from with the moves it had left. [unknown] what leaving costs.
+4. Only players use stores. [unknown] **Engine:** creatures never open one,
+   and still can't step onto a store square ([creatures](creatures.md)
+   5.1).
 
 ## 4. Buying
 
@@ -87,7 +90,8 @@ Counts cover all 15 corpus adventures (222 regions).
 4. A thing bought leaves the stock, one at a time: a line of 2 sold twice,
    the gold going down by the price each time. [capture] It joins the
    player's possessions as if picked up: a weapon is readied; a magic item
-   set to act when picked up does not act. [unknown] **Engine:** as stated.
+   set to act when picked up does not act. [unknown] **Engine:** as stated
+   (`Bought`, then `Readied` for a weapon); refusals give `StoreRefused`.
 
 ## 5. Selling back
 
@@ -110,10 +114,13 @@ Counts cover all 15 corpus adventures (222 regions).
    one at a time ("X has 1 Y", "sell it for N"); the button sells at once
    (no confirmation) and offers the next, the stick skips to the next;
    after the last it is back at the store's first prompt. [capture]
-   **What a store will buy**: our treasures, stocked or not. Magic items,
-   weapons, armor, spells and gold are not captured. [unknown]
-   **Engine:** anything it could have stocked (2.1): treasures, magic
-   items, weapons and armor. Gold can't be sold.
+   **What a store will buy**: treasures, weapons, armor and magic items,
+   stocked or not, each at the same rule (a blade, bow and mail of value 10
+   offered 4, a magic item of value 1 offered 0); never spells (a spell
+   owned was not offered). The goods come in thing order. [capture:
+   sellkit, capture.md 10.17] Whether a held weapon or worn armor is
+   offered is not captured (ours were owned, not held). **Engine:** yes;
+   selling it empties the hand or body. Gold can't be sold.
 3. **A sold thing joins the store's stock** and shows on its shelf place
    at once. [capture: look, two goods sold] Whether that holds past the
    thing's limit, or for things numbered above 80, is [unknown].

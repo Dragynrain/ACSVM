@@ -149,7 +149,12 @@ impl Walk {
                 | Event::LostOnMap { .. }
                 | Event::VanishedWhenDropped { .. }
                 | Event::Readied { .. }
-                | Event::ThingUsedUp { .. } => Kind::Item,
+                | Event::ThingUsedUp { .. }
+                | Event::StoreOpened { .. }
+                | Event::StoreClosed { .. }
+                | Event::Bought { .. }
+                | Event::Sold { .. } => Kind::Item,
+                Event::StoreRefused { .. } => Kind::Block,
                 Event::TookDoor { .. }
                 | Event::EnteredRoom { .. }
                 | Event::EnteredRegion { .. }
@@ -220,7 +225,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS])");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], buy:T, sell:T, leave)");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
@@ -260,6 +265,13 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     thing: num(parts.next())?,
                     target: target(parts.next())?,
                 },
+                "buy" => Command::Buy {
+                    thing: num(parts.next())?,
+                },
+                "sell" => Command::Sell {
+                    thing: num(parts.next())?,
+                },
+                "leave" => Command::LeaveStore,
                 d => Command::Move {
                     dir: parse_dir(d).ok_or_else(bad)?,
                 },
@@ -434,6 +446,10 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 });
         });
 
+    if walk.game.store_visit().is_some() {
+        store_window(ui.ctx(), &walk.game, &mut click);
+    }
+
     egui::CentralPanel::no_frame().show(ui, |ui| {
         let g = &walk.game;
         let at = g.current_player().at;
@@ -452,6 +468,77 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
     }
+}
+
+/// The open store (stores 3-5): its stock with the buying prices, the
+/// player's goods with the store's offers, and the way out. How the
+/// original lays the store out is not yet known (docs/research/stores.md),
+/// so this is a plain list.
+fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
+    use acs_engine::stores;
+    let Some(visit) = g.store_visit() else { return };
+    let a = g.adventure();
+    let p = &g.players()[visit.player];
+    let name = |t: u16| {
+        a.things
+            .get(t as usize - 1)
+            .map(|t| t.name.trim().to_string())
+            .unwrap_or_else(|| format!("thing {t}"))
+    };
+    egui::Window::new("Store")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(ctx, |ui| {
+            ui.label(format!("{} has {} gold to spend.", p.name, p.gold));
+            ui.separator();
+            ui.label(RichText::new("For sale").strong());
+            let stock = g.stock(visit.region);
+            if stock.is_empty() {
+                ui.label(RichText::new("Nothing in stock.").weak());
+            }
+            for s in stock {
+                let price = stores::buy_price(a, s.thing).unwrap_or(0);
+                ui.horizontal(|ui| {
+                    let count = if s.count > 1 {
+                        format!("{} x ", s.count)
+                    } else {
+                        String::new()
+                    };
+                    ui.label(format!("{count}{}: {price} gold", name(s.thing)));
+                    let can = p.gold as i32 >= price && p.count(s.thing) < inventory::limit(s.thing);
+                    if ui.add_enabled(can, egui::Button::new("Buy").small()).clicked() {
+                        *click = Some(Command::Buy { thing: s.thing });
+                    }
+                });
+            }
+            ui.separator();
+            ui.label(RichText::new("To sell").strong());
+            let mut goods = p.possessions.clone();
+            goods.sort_unstable();
+            goods.dedup();
+            let mut any = false;
+            for t in goods {
+                let Some(value) = stores::value(a, t) else {
+                    continue;
+                };
+                any = true;
+                let offer = stores::sell_offer(value, p.wisdom);
+                ui.horizontal(|ui| {
+                    ui.label(format!("{}: the store offers {offer}", name(t)));
+                    if ui.small_button("Sell").clicked() {
+                        *click = Some(Command::Sell { thing: t });
+                    }
+                });
+            }
+            if !any {
+                ui.label(RichText::new("Nothing the store would buy.").weak());
+            }
+            ui.separator();
+            if ui.button("Leave the store").clicked() {
+                *click = Some(Command::LeaveStore);
+            }
+        });
 }
 
 /// Life Force, Power and the other ratings spells change (magic 3, 5).
