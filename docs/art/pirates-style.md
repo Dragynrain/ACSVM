@@ -721,9 +721,25 @@ What it took on a 16 GB card:
   shapes, and all of them shrank the head, so a loop of them flickers. Wan
   keeps colour and outline steady from frame to frame.
 
+**Ask for big motion, and pin the colours.** At 60 px a sway of a few
+video pixels is under one tile pixel: the motion vanishes and only shading
+noise survives, which reads as pixels shifting, not as movement. The first
+captain loop asked him to "stand still, sway very slightly" over 9 frames,
+and that is what it looked like. The rerun names a large action (a heavy
+breath, a side-to-side sway, coat tails billowing out and settling), drops
+"stays still", and asks for 25 frames. The bigger motion made Wan lose
+track of the character: on one seed his green hat turned black halfway
+through. Naming the hat's colour in the prompt ("stays green the whole
+time; his colours never change") held it on all four rerolls. Check each
+take before cutting it: compare the mean colour of the top of the figure in
+every frame with frame 0 (the black hat drifted by 56, steady takes by 2
+or 3). Then pick the take by eye at 64 px; the take with the most motion
+broke its coat into fragments.
+
 Three heroes have loops: the kraken head breathes and curls its tentacles
 while its water swells (400 to 900 pixels change per frame); the drowned
-captain sways and his coat drifts (20 to 140); the mermaid's hair and tail
+captain breathes and his coat flares open and closes (130 to 240, seed 804;
+the first loop was 20 to 140); the mermaid's hair and tail
 tip stir (10 to 50), a quiet idle that suits her seated pose. Everything that
 doesn't move matches pixel for pixel from frame to frame. The
 shared box must hold the widest frame, so a hero comes out a little smaller
