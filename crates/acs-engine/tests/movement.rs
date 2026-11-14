@@ -1265,6 +1265,42 @@ fn saves_check_the_adventure_and_the_state() {
     ));
 }
 
+/// Saves 2.1: version 2 is written; a version 1 save still loads, its old
+/// `fire` (refused, no move, no draw) read as `leave_store`, which plays
+/// the same, so the command count, autosave and placements keep their
+/// places and the game comes out the same.
+#[test]
+fn version_1_saves_load_with_fire_mapped() {
+    let (g, autosave, a) = saved_walk();
+    let save = SaveFile::new(&g, &a, &autosave);
+    assert_eq!(save.version, 2);
+    let mut v: serde_json::Value = serde_json::from_str(&save.to_json()).unwrap();
+    v["version"] = 1.into();
+    let commands = v["commands"].as_array_mut().unwrap();
+    let at = commands.len() - 1;
+    commands.insert(at, serde_json::json!({ "command": "fire" }));
+    let old = SaveFile::from_json(&v.to_string()).unwrap();
+    assert_eq!(old.commands[at], Command::LeaveStore);
+    assert_eq!(old.commands.len(), g.log().len() + 1);
+    let r = old.restore(&a).unwrap();
+    assert_eq!(r.game.players(), g.players());
+    assert_eq!(r.autosave, autosave);
+    // The log holds the mapped command, so the state fingerprint differs:
+    // loaded with the diverged warning.
+    assert!(r.diverged);
+    // A version 2 `fire` is the new command.
+    let mut v2 = v.clone();
+    v2["version"] = 2.into();
+    let new = SaveFile::from_json(&v2.to_string()).unwrap();
+    assert_eq!(
+        new.commands[at],
+        Command::Fire {
+            target: None,
+            weapon: None
+        }
+    );
+}
+
 #[test]
 fn idle_drain_is_a_wait_one_step_at_a_time() {
     // Movement 2.4, magic 5.3: each drained step is an idle move with its

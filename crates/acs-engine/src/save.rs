@@ -13,8 +13,10 @@ use std::fmt;
 
 /// The `format` field of every save (saves 2).
 pub const SAVE_FORMAT: &str = "acsvm-save";
-/// The save format version this engine writes and reads.
-pub const SAVE_VERSION: u32 = 1;
+/// The save format version this engine writes. Version 1 is still read:
+/// its `fire` (the old refusal, no move, nothing drawn) is mapped to
+/// `leave_store`, which does the same to the game (saves 2.1).
+pub const SAVE_VERSION: u32 = 2;
 
 /// A tool placement (`Game::place`): made after `after` commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,6 +107,21 @@ pub fn fingerprint<T: Serialize + ?Sized>(value: &T) -> String {
     format!("{h:016x}")
 }
 
+/// Saves 2.1: version 1's `fire` command was refused with no move and no
+/// draw, ending only an open store visit, which is what `leave_store` does;
+/// the command count stays, so the autosave and placements keep their
+/// places.
+fn upgrade_v1(save: &mut serde_json::Value) {
+    let Some(commands) = save.get_mut("commands").and_then(|c| c.as_array_mut()) else {
+        return;
+    };
+    for c in commands {
+        if c.get("command").and_then(|n| n.as_str()) == Some("fire") {
+            *c = serde_json::json!({ "command": "leave_store" });
+        }
+    }
+}
+
 impl SaveFile {
     /// The save of `game`, played on `original` (the adventure as decoded,
     /// before play changed it), with its last autosave `autosave` (a game
@@ -146,7 +163,12 @@ impl SaveFile {
         if head.version > SAVE_VERSION {
             return Err(SaveError::Version(head.version));
         }
-        serde_json::from_str(text).map_err(|e| SaveError::Damaged(e.to_string()))
+        let mut value: serde_json::Value =
+            serde_json::from_str(text).map_err(|e| SaveError::Damaged(e.to_string()))?;
+        if head.version < 2 {
+            upgrade_v1(&mut value);
+        }
+        serde_json::from_value(value).map_err(|e| SaveError::Damaged(e.to_string()))
     }
 
     /// Replays the save over `adv` (saves 3.2).

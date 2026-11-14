@@ -923,13 +923,484 @@ fn a_bow_that_disappears_goes_after_one_shot() {
     });
 }
 
+// ---- the player's fire (8.8) ----------------------------------------------
+
+/// The generator's state, read from the game's serialized form.
+fn rng(g: &Game) -> acs_engine::Rng {
+    serde_json::from_value(serde_json::to_value(g).expect("serializes")["rng"].clone()).expect("an Rng")
+}
+
+/// A player of Speed `speed` and Dexterity 11 on WEST (2,3), holding the
+/// plain bow (range 7) when `held`, else only owning it; creature slot 1 a
+/// Speed 0, unarmed creature on (7,3), 5 squares east, of `class`, Life
+/// Force 63, Wisdom 10.
+fn bowman(p: Platform, seed: u64, speed: u8, held: bool, class: (Alignment, bool)) -> Game {
+    let mut a = adventure(p);
+    plain_bow(&mut a);
+    let mut s = spec(0, 7, 3, class.0, class.1);
+    s.speed = 0;
+    put(&mut a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.constitution = 63;
+    c.life_force = 63;
+    c.wisdom = 10;
+    let (mut g, _) = Game::new(
+        a,
+        seed,
+        Rules { diagonals: true },
+        PlayerSetup {
+            speed,
+            possessions: vec![BOW],
+            missile: 127,
+            ..Default::default()
+        },
+    );
+    g.place(0, at(0, 2, 3));
+    if held {
+        let ev = g.apply(Command::Ready { thing: BOW });
+        assert!(ev.iter().any(|e| matches!(e, Event::Readied { thing: BOW, .. })));
+        g.apply(Command::Wait);
+    }
+    g
+}
+
+fn fire(target: Option<(u8, u8)>, weapon: Option<u16>) -> Command {
+    Command::Fire { target, weapon }
+}
+
+fn player_shots(ev: &[Event]) -> Option<u8> {
+    ev.iter().find_map(|e| match e {
+        Event::Fired { by: ME, shots, .. } => Some(*shots),
+        _ => None,
+    })
+}
+
 #[test]
-fn a_player_cannot_fire() {
+fn holding_a_bow_the_player_fires_at_the_cursor_with_the_shots_from_its_moves() {
     both(|p| {
-        let mut g = duel(p, 1, PlayerSetup::default(), |_| {});
-        let ev = g.apply(Command::Fire);
-        assert_eq!(ev, [Event::CannotFire { player: 0 }]);
-        assert_eq!(g.current_player().moves_left, 15);
+        let mut g = bowman(p, 3, 6, true, (Alignment::Enemy, false));
+        assert_eq!(g.current_player().moves_left, 6);
+        let ev = g.apply(fire(Some((7, 3)), None));
+        // 8.8.3, 8.2: Dexterity 11 / 8 + 6 / 2 = 4 shots; the turn ends.
+        assert!(ev.contains(&Event::Fired {
+            by: ME,
+            target: None,
+            at: Some((7, 3)),
+            weapon: BOW,
+            shots: 4
+        }));
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+        let fired = ev.iter().position(|e| matches!(e, Event::Fired { .. })).unwrap();
+        let ended = ev
+            .iter()
+            .position(|e| *e == Event::TurnEnded { player: 0 })
+            .unwrap();
+        assert!(fired < ended);
+        // 8.4 with the player as the shooter: 5 per shot still to come.
+        let spreads: Vec<u8> = ev
+            .iter()
+            .filter_map(|e| match e {
+                Event::Shot { by: ME, spread, .. } => Some(*spread),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(spreads.len(), 4);
+    });
+}
+
+#[test]
+fn the_players_shots_draw_break_deviation_and_side_in_order() {
+    // 8.8.3: with the cursor on the player's own square the aim is south;
+    // nobody stands there, so each shot draws only 8.3's three rolls and
+    // stops at the south wall.
+    both(|p| {
+        for seed in 0..10 {
+            let mut g = bowman(p, seed, 6, true, (Alignment::Enemy, false));
+            let mut r = rng(&g);
+            let ev = g.apply(fire(None, None));
+            assert_eq!(player_shots(&ev), Some(4));
+            let mut shots = 0;
+            for e in &ev {
+                match e {
+                    Event::Shot {
+                        by: ME,
+                        spread,
+                        deviation,
+                        side,
+                    } => {
+                        let missile = g.players()[0].missile;
+                        let after = 3 - shots;
+                        assert_eq!(*spread, combat::spread(missile, 0, 0, 11, 0, after));
+                        r.below(100); // the break roll (break chance 0)
+                        assert_eq!(r.below(*spread as u32) as u8, *deviation, "seed {seed}");
+                        assert_eq!(r.below(2) == 1, *side, "seed {seed}");
+                        shots += 1;
+                    }
+                    Event::MissileStopped { by: ME, y, .. } => assert_eq!(*y, 6, "seed {seed}"),
+                    Event::Dodged { .. } | Event::MissileHit { .. } => panic!("nobody south: {ev:?}"),
+                    _ => {}
+                }
+            }
+            assert_eq!(shots, 4);
+        }
+    });
+}
+
+#[test]
+fn an_arrow_flies_the_bows_range_past_a_cursor_short_of_the_creature() {
+    // 8.8.3: the cursor's square sets only the direction.
+    both(|p| {
+        let mut reached_it = false;
+        for seed in 0..10 {
+            let mut g = bowman(p, seed, 6, true, (Alignment::Enemy, false));
+            let ev = g.apply(fire(Some((3, 3)), None));
+            reached_it |= reached(&ev).iter().flatten().any(|r| r.0 == C1);
+        }
+        assert!(reached_it);
+    });
+}
+
+#[test]
+fn every_damaging_player_arrow_draws_section_7s_roll_whatever_the_class() {
+    // 8.8.3: the roll of 0 to 9 after each damaging arrow, so the draws
+    // that follow are the same whatever the creature's class; only the
+    // class changes (section 7) differ.
+    both(|p| {
+        let mut damaged = false;
+        for seed in 0..20 {
+            let classes = [
+                (Alignment::Enemy, true),
+                (Alignment::Neutral, true),
+                (Alignment::Friend, false),
+                (Alignment::Thief, false),
+            ];
+            let runs: Vec<Vec<Event>> = classes
+                .iter()
+                .map(|&class| {
+                    let mut g = bowman(p, seed, 15, true, class);
+                    let mut ev = g.apply(fire(Some((7, 3)), None));
+                    let end = ev
+                        .iter()
+                        .position(|e| *e == Event::TurnEnded { player: 0 })
+                        .unwrap();
+                    ev.truncate(end);
+                    ev
+                })
+                .collect();
+            let hits = runs[0]
+                .iter()
+                .filter(|e| matches!(e, Event::MissileHit { outcome, .. } if damaging(outcome)))
+                .count();
+            damaged |= hits > 0;
+            let plain = |ev: &[Event]| -> Vec<Event> {
+                ev.iter()
+                    .filter(|e| !matches!(e, Event::CreatureTurned { .. }))
+                    .cloned()
+                    .collect()
+            };
+            for run in &runs[1..] {
+                assert_eq!(plain(run), plain(&runs[0]), "seed {seed}");
+            }
+            // An aggressive enemy never turns; a friend turns neutral at
+            // the first damaging arrow; a peaceful thief aggressive.
+            let turned = |ev: &[Event]| -> Vec<(Alignment, bool)> {
+                ev.iter()
+                    .filter_map(|e| match e {
+                        Event::CreatureTurned {
+                            alignment,
+                            aggressive,
+                            ..
+                        } => Some((*alignment, *aggressive)),
+                        _ => None,
+                    })
+                    .collect()
+            };
+            assert!(turned(&runs[0]).is_empty());
+            if hits > 0 {
+                assert_eq!(turned(&runs[2])[0], (Alignment::Neutral, false), "seed {seed}");
+                assert_eq!(turned(&runs[3])[0], (Alignment::Thief, true), "seed {seed}");
+            }
+        }
+        assert!(damaged);
+    });
+}
+
+#[test]
+fn a_foe_beside_refuses_fire_with_no_move_and_no_draw() {
+    both(|p| {
+        // 8.8.2: an aggressive enemy beside (east).
+        let mut g = bowman(p, 1, 6, true, (Alignment::Enemy, true));
+        g.creature_mut(1, 1).unwrap().x = 3;
+        let (moves, before) = (g.current_player().moves_left, rng(&g));
+        let ev = g.apply(fire(Some((7, 3)), None));
+        assert_eq!(
+            ev,
+            [Event::CannotFire {
+                player: 0,
+                reason: acs_engine::FireRefusal::FoeBeside { foe: C1 }
+            }]
+        );
+        assert_eq!(g.current_player().moves_left, moves);
+        assert_eq!(rng(&g), before);
+        // Also holding no missile weapon: refused before FIRE's move.
+        let mut g = bowman(p, 1, 6, false, (Alignment::Enemy, true));
+        g.creature_mut(1, 1).unwrap().x = 3;
+        let ev = g.apply(fire(None, Some(BOW)));
+        assert!(matches!(ev[..], [Event::CannotFire { .. }]));
+        assert_eq!(g.current_player().moves_left, 6);
+        // A peaceful neutral beside, or an aggressive enemy diagonally
+        // next to it, does not stop it.
+        for (x, y, class) in [
+            (3, 3, (Alignment::Neutral, false)),
+            (3, 4, (Alignment::Enemy, true)),
+        ] {
+            let mut g = bowman(p, 1, 6, true, class);
+            let c = g.creature_mut(1, 1).unwrap();
+            c.x = x;
+            c.y = y;
+            let ev = g.apply(fire(Some((7, 3)), None));
+            assert_eq!(player_shots(&ev), Some(4), "{ev:?}");
+        }
+    });
+}
+
+#[test]
+fn fire_with_no_missile_weapon_held_uses_a_move_and_the_chosen_bow_another() {
+    both(|p| {
+        // 8.8.4: NONE: one move, no draw, the turn goes on.
+        let mut g = bowman(p, 2, 5, false, (Alignment::Enemy, false));
+        let before = rng(&g);
+        let ev = g.apply(fire(None, None));
+        assert_eq!(ev, [Event::FireCancelled { player: 0 }]);
+        assert_eq!(g.current_player().moves_left, 4);
+        assert_eq!(g.current(), 0);
+        assert_eq!(rng(&g), before);
+        // The bow chosen: readied at a second move, then 11 / 8 + 3 / 2 =
+        // 2 shots from the 3 moves left (ready5).
+        let mut g = bowman(p, 2, 5, false, (Alignment::Enemy, false));
+        let ev = g.apply(fire(Some((7, 3)), Some(BOW)));
+        let readied = ev
+            .iter()
+            .position(|e| {
+                *e == Event::Readied {
+                    player: 0,
+                    thing: BOW,
+                    slot: Slot::Weapon,
+                }
+            })
+            .expect("readies the bow");
+        let fired = ev.iter().position(|e| matches!(e, Event::Fired { .. })).unwrap();
+        assert!(readied < fired);
+        assert_eq!(player_shots(&ev), Some(2));
+        assert_eq!(g.players()[0].weapon, Some(BOW));
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+        // With a single move it goes ahead with 0: 11 / 8 = 1 shot.
+        let mut g = bowman(p, 2, 1, false, (Alignment::Enemy, false));
+        let ev = g.apply(fire(Some((7, 3)), Some(BOW)));
+        assert_eq!(player_shots(&ev), Some(1));
+        // The engine's own checks: a weapon not owned or not a missile
+        // weapon, a cursor on the wall; no move used.
+        let mut g = bowman(p, 2, 5, false, (Alignment::Enemy, false));
+        g.give(0, SWORD);
+        for cmd in [fire(Some((7, 3)), Some(SWORD)), fire(Some((0, 3)), Some(BOW))] {
+            let ev = g.apply(cmd);
+            assert!(matches!(ev[..], [Event::CannotFire { .. }]), "{ev:?}");
+            assert_eq!(g.current_player().moves_left, 5);
+        }
+    });
+}
+
+#[test]
+fn fire_on_the_world_map_does_nothing() {
+    // 8.8.5: no message in the original; no move, nothing drawn.
+    both(|p| {
+        let (mut g, _) = Game::new(
+            adventure(p),
+            1,
+            Rules { diagonals: true },
+            PlayerSetup {
+                possessions: vec![BOW],
+                ..Default::default()
+            },
+        );
+        g.apply(Command::Ready { thing: BOW });
+        g.apply(Command::Wait);
+        let (moves, before) = (g.current_player().moves_left, rng(&g));
+        let ev = g.apply(fire(None, None));
+        assert_eq!(
+            ev,
+            [Event::CannotFire {
+                player: 0,
+                reason: acs_engine::FireRefusal::WorldMap
+            }]
+        );
+        assert_eq!(g.current_player().moves_left, moves);
+        assert_eq!(rng(&g), before);
+    });
+}
+
+// ---- retiring (characters 7) ---------------------------------------------
+
+/// Two players in WEST: ONE on (2,3) with the sword held, the bow, a gem
+/// and 300 gold, Life Force 4 under Constitution 11; TWO on (5,5).
+fn retirees(p: Platform) -> Game {
+    let (mut g, _) = Game::new(
+        adventure(p),
+        5,
+        Rules { diagonals: true },
+        PlayerSetup {
+            name: "ONE".into(),
+            possessions: vec![SWORD, BOW, GEM],
+            gold: 300,
+            ..Default::default()
+        },
+    );
+    g.apply(Command::AddPlayer {
+        setup: PlayerSetup {
+            name: "TWO".into(),
+            ..Default::default()
+        },
+    });
+    g.apply(Command::Wait);
+    g.place(0, at(0, 2, 3));
+    g.place(1, at(0, 5, 5));
+    g.apply(Command::Ready { thing: SWORD });
+    g.set_life_force(0, 4);
+    assert_eq!(g.current(), 0);
+    g
+}
+
+/// Plays on to the end of the round: returns its events.
+fn to_round_end(g: &mut Game) -> Vec<Event> {
+    let mut ev = Vec::new();
+    for _ in 0..4 {
+        let e = g.apply(Command::Wait);
+        let done = e.iter().any(|e| matches!(e, Event::Retired { .. }));
+        ev.extend(e);
+        if done {
+            break;
+        }
+    }
+    ev
+}
+
+#[test]
+fn retire_waits_for_the_round_end_and_saving_keeps_the_whole_record() {
+    both(|p| {
+        let mut g = retirees(p);
+        let moves = g.current_player().moves_left;
+        // 7.1: only recorded; no move used; a second asker is refused.
+        assert_eq!(
+            g.apply(Command::Retire { save: true }),
+            [Event::RetireRequested { player: 0 }]
+        );
+        assert_eq!(g.current_player().moves_left, moves);
+        assert_eq!(
+            g.apply(Command::Retire { save: false }),
+            [Event::RetireRefused { player: 0 }]
+        );
+        let ev = g.apply(Command::Wait);
+        assert!(!ev.iter().any(|e| matches!(e, Event::Retired { .. })));
+        assert_eq!(g.current(), 1);
+        assert_eq!(
+            g.apply(Command::Retire { save: true }),
+            [Event::RetireRefused { player: 1 }]
+        );
+        // TWO's turn ends the round (no creature in WEST).
+        let ev = g.apply(Command::Wait);
+        let saved = ev
+            .iter()
+            .find_map(|e| match e {
+                Event::Retired {
+                    player: 0,
+                    saved: Some(r),
+                    left,
+                } => {
+                    assert!(left.is_empty());
+                    Some(r.clone())
+                }
+                _ => None,
+            })
+            .expect("ONE retires at the round's end");
+        // 7.3: Life Force raised to Constitution, everything else kept.
+        assert_eq!(saved.life_force, 11);
+        assert_eq!(saved.weapon, Some(SWORD));
+        assert_eq!(saved.possessions, [SWORD, BOW, GEM]);
+        assert_eq!(saved.gold, 300);
+        assert_eq!(saved.at, at(0, 2, 3));
+        // Nothing left on the square; 7.6: the slot is free, TWO plays on.
+        assert_eq!(top(&g, 0, 2, 3), None);
+        assert!(!g.players()[0].alive);
+        assert!(!ev.iter().any(|e| matches!(e, Event::LivingChanged { .. })));
+        assert_eq!(g.current(), 1);
+        g.apply(Command::Wait);
+        assert_eq!(g.current(), 1);
+    });
+}
+
+#[test]
+fn destroyed_in_a_room_everything_lands_on_the_square_and_on_the_map_nothing() {
+    both(|p| {
+        // 7.5's engine choice: every possession and the gold as one pile.
+        let mut g = retirees(p);
+        g.apply(Command::Retire { save: false });
+        let ev = to_round_end(&mut g);
+        let left = ev
+            .iter()
+            .find_map(|e| match e {
+                Event::Retired {
+                    player: 0,
+                    saved: None,
+                    left,
+                } => Some(left.clone()),
+                _ => None,
+            })
+            .expect("retired");
+        assert_eq!(left, [(GOLD, 300), (SWORD, 1), (BOW, 1), (GEM, 1)]);
+        assert_eq!(top(&g, 0, 2, 3), Some(GEM));
+        let p0 = &g.players()[0];
+        assert!(!p0.alive && p0.possessions.is_empty() && p0.gold == 0 && p0.weapon.is_none());
+        // 7.4: on the world map nothing is put down.
+        let mut g = retirees(p);
+        g.place(0, Location::World { x: 20, y: 20 });
+        g.apply(Command::Retire { save: false });
+        let ev = to_round_end(&mut g);
+        assert!(ev.contains(&Event::Retired {
+            player: 0,
+            saved: None,
+            left: vec![]
+        }));
+        assert!(!g.players()[0].alive);
+    });
+}
+
+#[test]
+fn the_last_player_retiring_leaves_nobody_in_play_and_a_newcomer_takes_the_slot() {
+    both(|p| {
+        let mut g = start(adventure(p), 0, 2, 3);
+        g.apply(Command::Retire { save: true });
+        let ev = g.apply(Command::Wait);
+        assert!(ev.iter().any(|e| matches!(e, Event::Retired { player: 0, .. })));
+        // 7.6: the add-player screen of a game's start.
+        assert!(ev.contains(&Event::AllPlayersDead));
+        assert!(g.is_over());
+        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        assert!(!g.is_over());
+        assert_eq!(g.players().len(), 1);
+        assert_eq!(g.players()[0].name, "NEW");
+        // 7.1: retire, then add, at one round's end: the slot freed is
+        // filled at once.
+        let mut g = start(adventure(p), 0, 2, 3);
+        g.apply(Command::Retire { save: false });
+        g.apply(Command::CreatePlayer { name: "NEXT".into() });
+        let ev = g.apply(Command::Wait);
+        let retired = ev.iter().position(|e| matches!(e, Event::Retired { .. }));
+        let added = ev
+            .iter()
+            .position(|e| matches!(e, Event::PlayerAdded { player: 0, .. }));
+        assert!(retired.is_some() && retired < added, "{ev:?}");
+        assert!(!ev.contains(&Event::AllPlayersDead));
+        assert_eq!(g.players().len(), 1);
     });
 }
 

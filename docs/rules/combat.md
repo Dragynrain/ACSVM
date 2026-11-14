@@ -482,6 +482,10 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       drawn. [capture: rr20 `beside-draws`, 4 runs, capture.md 10.24: no
       draw at FIRE, the run's one draw an idle move] [unknown] whether this test comes before or
       after 8.8.4's. **Engine:** before it, so the refusal costs nothing.
+      [unknown] which individuals count beside a player: capture had an
+      aggressive enemy beside, never another player or an aggressive
+      friend. **Engine:** a creature beside the player that is aggressive
+      and not a friend of the player's side; other players never count.
    3. **Holding a missile weapon**, no foe beside: a target cursor appears
       on the player's own square; each push of the stick moves it one
       square, anywhere inside the room's walls; the button fires at the
@@ -513,6 +517,10 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       class was not read), so the class change stays as section 7 says.
       **Engine:** after each damaging player arrow, section 7's change by
       the target's class, with the roll of 0 to 9 drawn every time.
+      [unknown] whether the roll comes after an arrow that kills, and after
+      one that damages another player (capture's targets were a creature
+      left alive). **Engine:** drawn after a killing arrow too; not drawn
+      when the arrow damages a player.
    4. **Holding no missile weapon**: FIRE uses **one move** at once, then
       the message "select a missile weapon" and a menu of NONE and the
       missile weapons owned. NONE ends it: no shot, and the turn goes on
@@ -538,7 +546,13 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       square (the front end's), `weapon` the owned missile weapon to ready
       when none is held (none for NONE). The refusals (a foe beside, the
       world map) give `CannotFire` with the reason and use no move; then
-      `Fired` and the shots as for a creature.
+      `Fired` and the shots as for a creature. Two more refusals guard
+      against what the original's menus and cursor can't produce, so their
+      behaviour there is not a question; each is `CannotFire`, no move
+      used, nothing drawn: a `target` outside the room's walls (8.8.3's
+      cursor can't leave them; `BadTarget`), and a `weapon` that is not a
+      missile weapon the player owns (8.8.4's menu lists only those;
+      `NotAMissileWeapon`).
 
 Not run: what section 7 does after a player's damaging arrow (the roll
 is captured, 8.8.3; the class change it decides is not).
@@ -546,8 +560,9 @@ is captured, 8.8.3; the class change it decides is not).
 ## 9. Left for later
 
 - Firing's open points (section 8, "Not run"; why 8.8.4 takes a second
-  move; the order of 8.8.2's and 8.8.4's tests), and the engine's choices
-  there.
+  move; the order of 8.8.2's and 8.8.4's tests; who counts beside a
+  player, 8.8.2; the roll of 0 to 9 after a killing arrow or one on a
+  player, 8.8.3), and the engine's choices there.
 - **Mimics** copying their opponent.
 - Fights in encounter areas ([encounters](encounters.md)): the bit cleared
   with a copy's Power, what a dead copy drops and its gold.
@@ -584,4 +599,7 @@ is captured, 8.8.3; the class change it decides is not).
    `map-draws`). Still open: why 8.8.4 takes a second move (capture
    disagrees with the research), what the roll of 0 to 9 after a damaging
    arrow decides (8.8.3; the target's class watched), and whether 8.8.2's
-   test comes before 8.8.4's.
+   test comes before 8.8.4's. Also open (engine choices): whether the roll
+   of 0 to 9 is drawn after an arrow that kills its target, and after one
+   that damages another player (8.8.3); whether another player, or an
+   aggressive friend, beside the player stops FIRE (8.8.2).

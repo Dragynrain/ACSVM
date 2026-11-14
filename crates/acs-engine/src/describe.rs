@@ -5,8 +5,8 @@
 use crate::game::Game;
 use crate::magic::amount;
 use crate::{
-    BlockReason, BlowOutcome, CastRefusal, DropRefusal, Event, Location, ReadyRefusal, RemovalReason, Slot,
-    SpellSource, Stat, Who,
+    BlockReason, BlowOutcome, CastRefusal, DropRefusal, Event, FireRefusal, Location, ReadyRefusal,
+    RemovalReason, Slot, SpellSource, Stat, Who,
 };
 use acs_core::model::{Alignment, SpellAction, SpellActionKind, ThingId};
 
@@ -359,16 +359,17 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         Event::Fired {
             by,
             target,
+            at,
             weapon,
             shots,
         } => {
             let n = if *shots == 1 { "shot" } else { "shots" };
-            format!(
-                "{} fires {} at {} ({shots} {n}).",
-                name(by),
-                thing(*weapon),
-                name(target)
-            )
+            let aim = match (target, at) {
+                (Some(t), _) => name(t),
+                (None, Some((x, y))) => format!("({x},{y})"),
+                (None, None) => "nothing".into(),
+            };
+            format!("{} fires {} at {aim} ({shots} {n}).", name(by), thing(*weapon))
         }
         Event::Shot {
             by,
@@ -404,12 +405,19 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         Event::MissileStopped { by, x, y } => {
             format!("{}'s missile stops at ({x},{y}).", name(by))
         }
-        Event::CannotFire { player } => {
-            format!(
-                "{} can't fire: only creatures shoot missiles.",
-                name(&Who::Player { player: *player })
-            )
-        }
+        Event::CannotFire { player, reason } => match reason {
+            FireRefusal::FoeBeside { foe } => format!(
+                "{} may not use a missile weapon while next to {}.",
+                who(player),
+                name(foe)
+            ),
+            FireRefusal::WorldMap => format!("{} can't fire on the world map.", who(player)),
+            FireRefusal::BadTarget => format!("{} can't aim outside the room's walls.", who(player)),
+            FireRefusal::NotAMissileWeapon => {
+                format!("{} has no such missile weapon to fire.", who(player))
+            }
+        },
+        Event::FireCancelled { player } => format!("{} fires nothing.", who(player)),
         Event::StoreOpened { player, gold, .. } => {
             format!("{} enters the store with {gold} gold to spend.", who(player))
         }
@@ -601,7 +609,39 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 format!("{} dies, leaving {}.", name(w), things.join(", "))
             }
         }
-        Event::AllPlayersDead => "Everyone is dead. Resume from the last save, or add a player.".into(),
+        Event::AllPlayersDead => "Nobody is left in play. Resume from the last save, or add a player.".into(),
+        Event::RetireRequested { player } => {
+            format!("{} will retire at the end of the round.", who(player))
+        }
+        Event::RetireRefused { player } => {
+            format!(
+                "{} can't retire yet: another player will retire first.",
+                who(player)
+            )
+        }
+        Event::Retired { player, saved, left } => {
+            if saved.is_some() {
+                format!("{} retires, saved for later adventures.", who(player))
+            } else if left.is_empty() {
+                format!("{} retires and is gone for good.", who(player))
+            } else {
+                let things: Vec<String> = left
+                    .iter()
+                    .map(|&(t, n)| {
+                        if t == crate::inventory::GOLD {
+                            format!("{n} {}", thing(t))
+                        } else {
+                            thing(t)
+                        }
+                    })
+                    .collect();
+                format!(
+                    "{} retires and is gone for good, leaving {}.",
+                    who(player),
+                    things.join(", ")
+                )
+            }
+        }
         Event::AddRequested => "A new player will be added at the end of the round.".into(),
         Event::AddRefused => format!(
             "No one else can join: {} characters already play; one must retire first.",

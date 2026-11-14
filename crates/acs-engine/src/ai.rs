@@ -165,7 +165,7 @@ impl Game {
                     individual: Some(o), ..
                 }) = goal
                 {
-                    self.fire(me, o.who, left, ev);
+                    self.fire(me, crate::combat::Aim::Individual(o.who), left, ev);
                 }
                 self.creature(region, slot)?;
                 return Some((0, moves));

@@ -383,7 +383,8 @@ Combat will reuse this; spells are the first thing that can kill.
    save restored is written is [unknown]. The same screen comes back when
    the last player retires ([characters](characters.md) 7.6).
    **Engine:** when no player is
-   left alive the game emits `AllPlayersDead` and ignores every command
+   left alive, or the last one has retired, the game emits
+   `AllPlayersDead` ("nobody is left in play") and ignores every command
    but adding a player; saves are the front end's snapshots at
    `EnteredRegion` / `LeftRegion` (movement 6.6).
 5. A player who dies during their own turn ends it at once.

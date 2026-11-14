@@ -299,6 +299,13 @@ holds Constitution with magic defense in the top two bits.
    is recorded. A player dead by the round's end is offered nothing.
    Restoring the saved game or starting play drops a waiting request.
    [research, pass 2, unconfirmed]
+   **Engine:** one command, `Command::Retire { save }`, carries both the
+   request and the answer to the offer (7.2: `save` true for the button,
+   false for the second F1). The original asks the question only at the
+   round's end; as the offer draws nothing and nothing in play depends on
+   when the answer is given, the outcome is the same. The request is
+   refused (`RetireRefused`) while another waits; otherwise
+   `RetireRequested`, and `Retired` at the round's end.
 2. **The offer**: the button saves the character for later adventures; F1
    warns that it will never be seen again and asks once more, where the
    button still saves and a second F1 destroys. [research, pass 2;
@@ -318,7 +325,10 @@ holds Constitution with magic defense in the top two bits.
    under Wisdom 13 kept, gold 777, the blade held, the mail worn and four
    possessions in the roster's first entry, a room square kept]
    **Engine:** the same when rosters come; until then the front end keeps
-   the saved character.
+   the saved character. Pending reversals are dropped, as the finding
+   says. Bringing a saved character back from the roster (3.1) is not
+   built yet: the engine keeps no roster, so a retired character rejoins
+   only as a setup the front end gives `AddPlayer`.
 4. **Destroy on the world map**: nothing is put down; possessions and gold
    are lost. Only the slot's first byte changes, nothing is written to the
    roster and the game is not saved then. [research, pass 2; capture:
@@ -336,6 +346,12 @@ holds Constitution with magic defense in the top two bits.
    10.23] **Engine:** the 5-of-5 case: every possession, the held weapon
    and the worn armor land on the character's square, top of the stack,
    with the gold as one pile (inventory 2.5), nothing lost; then as 7.4.
+   The order is the engine's own, as the original's is [unknown] (capture
+   saw only the order the things were picked up): the gold pile goes down
+   first, then each possession in the order carried, each on top of the
+   last. Reversals due later for the character (magic 5.2) are dropped,
+   as on Save (7.3); whether the original drops them on Destroy is
+   [unknown].
 6. **Afterwards.** The character is out of play: only the first byte of
    its slot is set to zero, so the slot is free for a newcomer at once
    (6.1); the rest stays until a newcomer clears it. The others play on
@@ -345,8 +361,10 @@ holds Constitution with magic defense in the top two bits.
    keeps coming back while nobody is in play; a saved character is listed
    there, a destroyed one is not. [research, pass 2; capture: rr19
    `last-save`, `last-dest`] **Engine:** as when all players are dead
-   ([magic](magic.md) 7.4): the engine reports nobody in play and waits
-   for a new player.
+   ([magic](magic.md) 7.4): the same `AllPlayersDead` event, whose log
+   line says that nobody is left in play (it covers the dead and the
+   retired alike), and the game waits for a new player. The saved
+   character is not listed by the engine (7.3: no roster yet).
 7. **What the save writes.** The adventure block the save writes is an
    image of the memory around the player slots, so its + 0xE7 and + 0xE8
    are the round counter (low byte first), which a loaded game goes on
@@ -361,7 +379,10 @@ holds Constitution with magic defense in the top two bits.
 
 - Destroy in a room (7.5): which things stay, with one thing of each kind,
   with and without another player present, and the floor read before any
-  newcomer's save.
+  newcomer's save; the order things go down and whether waiting reversals
+  are dropped (the engine's choices in 7.5).
+- Rejoining a retired character from the roster (3.1, 7.3): not built in
+  the engine.
 - Telling disks apart (3.5), the message for a refused disk, and a full
   roster (7.3).
 - Editing keys in name entry (5.5).
@@ -371,7 +392,9 @@ holds Constitution with magic defense in the top two bits.
 ## Captures needed
 
 1. Destroy in a room as the last player, the room read in memory at once
-   (7.5).
+   (7.5); with gold and two or more possessions, read the square's stack
+   order, and with a reversal waiting (a temporary rating change, magic
+   5.2), read whether it still comes due.
 2. "Another adventure" with the adventure's own disk, and the byte that
    decides (3.5).
 3. A roster of 34, then a save (7.3).

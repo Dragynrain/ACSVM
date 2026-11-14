@@ -10,7 +10,7 @@
 use crate::creatures::Other;
 use crate::game::Game;
 use crate::magic::{CAST_CHANCE_MAX, CAST_CHANCE_MIN};
-use crate::{Event, Location, Slot, Stat, Who};
+use crate::{Event, FireRefusal, Location, Slot, Stat, Who};
 use acs_core::model::{Alignment, Creature, ThingId, ThingKind, WeaponStats};
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +29,15 @@ pub enum BlowOutcome {
     /// Magic defense stopped a non-magic weapon; the attack is called off
     /// (5.4).
     Stopped,
+}
+
+/// What a firing aims at (8.1, 8.8.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Aim {
+    /// A creature's goal.
+    Individual(Who),
+    /// A player's cursor square in its room.
+    Square(u8, u8),
 }
 
 /// 1.1: held between 14 and 90.
@@ -501,7 +510,7 @@ impl Game {
         }
         // 7: a player's damaging blow.
         if player_blow && self.alive(target) {
-            self.turn_hostile(target, d.wisdom, ev);
+            self.turn_hostile(target, d.wisdom, None, ev);
         }
         (BlowOutcome::Hit { damage, heavy }, weapon_goes && !counter)
     }
@@ -552,13 +561,15 @@ impl Game {
         self.change_life(target, life as i16 - d.life as i16, false, ev);
     }
 
-    /// Firing (section 8) by `by` at `target` with `left` moves left: the
+    /// Firing (section 8) by `by` at `aim` with `left` moves left: the
     /// shots (8.2), each with its break roll, deviation and side (8.3),
     /// then its flight (8.5, 8.6); a weapon that disappears goes after the
     /// first (8.7). The caller ends the shooter's turn. **Engine:** each
-    /// shot aims at where the target stands then; the firing stops when the
-    /// target is dead or out of the shooter's room.
-    pub(crate) fn fire(&mut self, by: Who, target: Who, left: u8, ev: &mut Vec<Event>) {
+    /// shot at an individual aims at where it stands then; the firing stops
+    /// when it is dead or out of the shooter's room. A player's shots aim
+    /// at the middle of the cursor's square (8.8.3), the square south of
+    /// the player when the cursor is left on its own.
+    pub(crate) fn fire(&mut self, by: Who, aim: Aim, left: u8, ev: &mut Vec<Event>) {
         let Some((weapon, ws, goes)) = self.held_missile(by) else {
             return;
         };
@@ -566,23 +577,42 @@ impl Game {
             return;
         };
         let total = shots(me.dexterity, left);
+        let (target, at) = match aim {
+            Aim::Individual(w) => (Some(w), None),
+            Aim::Square(x, y) => (None, Some((x, y))),
+        };
         ev.push(Event::Fired {
             by,
             target,
+            at,
             weapon,
             shots: total as u8,
         });
         for shot in 0..total {
-            if self.held_missile(by).map(|w| w.0) != Some(weapon) || !self.alive(target) {
+            if self.held_missile(by).map(|w| w.0) != Some(weapon) {
                 break;
             }
-            let (Some(a), Some(from), Some(to)) = (self.side(by), self.room_xy(by), self.room_xy(target))
-            else {
+            let (Some(a), Some(from)) = (self.side(by), self.room_xy(by)) else {
                 break;
             };
-            if (from.0, from.1) != (to.0, to.1) {
-                break;
-            }
+            let (dx, dy) = match aim {
+                Aim::Individual(t) => {
+                    if !self.alive(t) {
+                        break;
+                    }
+                    let Some(to) = self.room_xy(t) else {
+                        break;
+                    };
+                    if (from.0, from.1) != (to.0, to.1) {
+                        break;
+                    }
+                    (to.2 as i32 - from.2 as i32, to.3 as i32 - from.3 as i32)
+                }
+                Aim::Square(x, y) => match (x as i32 - from.2 as i32, y as i32 - from.3 as i32) {
+                    (0, 0) => (0, 1),
+                    d => d,
+                },
+            };
             // 8.3: the break roll, drawn even at break chance 0.
             if self.rng.below(100) < ws.break_chance as u32 {
                 self.lose(by, weapon, false, ev);
@@ -604,19 +634,103 @@ impl Game {
                 deviation: deviation as u8,
                 side,
             });
-            let path = flight(
-                to.2 as i32 - from.2 as i32,
-                to.3 as i32 - from.3 as i32,
-                deviation,
-                side,
-                ws.range.unwrap_or(0),
-            );
+            let path = flight(dx, dy, deviation, side, ws.range.unwrap_or(0));
             self.missile_flies(by, from, &path, ws, ev);
             if goes {
                 self.lose(by, weapon, true, ev);
                 break;
             }
         }
+    }
+
+    /// The menu's FIRE for the current player (8.8): refused with no move
+    /// on the world map (8.8.5) or with a foe beside (8.8.2); holding a
+    /// missile weapon, the shots from the moves left (8.8.3); holding none,
+    /// one move, then NONE (the turn goes on) or the chosen weapon readied
+    /// at a second move and the shots from the moves then left (8.8.4).
+    /// Firing ends the turn.
+    pub(crate) fn fire_command(
+        &mut self,
+        target: Option<(u8, u8)>,
+        weapon: Option<ThingId>,
+        ev: &mut Vec<Event>,
+    ) {
+        let p = self.current;
+        let me = Who::Player { player: p };
+        let refuse = |reason| Event::CannotFire { player: p, reason };
+        let Location::Room { region, room, x, y } = self.players[p].at else {
+            ev.push(refuse(FireRefusal::WorldMap));
+            return;
+        };
+        // 8.8.2 (before 8.8.4's test, the engine's order): a foe beside.
+        if let Some(foe) = self.foe_beside(p) {
+            ev.push(refuse(FireRefusal::FoeBeside { foe }));
+            return;
+        }
+        let held = self.held_missile(me).is_some();
+        // The engine's checks of what the original's cursor and menu can't
+        // give, before any move is used.
+        let (tx, ty) = target.unwrap_or((x, y));
+        if held || weapon.is_some() {
+            let inside = self.room(region, room).is_some_and(|r| {
+                tx >= 1 && ty >= 1 && tx < r.width.saturating_sub(1) && ty < r.height.saturating_sub(1)
+            });
+            if !inside {
+                ev.push(refuse(FireRefusal::BadTarget));
+                return;
+            }
+        }
+        if !held {
+            if let Some(t) = weapon {
+                let missile = matches!(
+                    self.thing(t).map(|t| &t.kind),
+                    Some(ThingKind::MissileWeapon { .. })
+                );
+                if !missile || !self.players[p].owns(t) {
+                    ev.push(refuse(FireRefusal::NotAMissileWeapon));
+                    return;
+                }
+            }
+            // 8.8.4: FIRE's own move, at once; NONE gives the turn back.
+            let Some(t) = weapon else {
+                ev.push(Event::FireCancelled { player: p });
+                self.spend(ev);
+                return;
+            };
+            let pl = &mut self.players[p];
+            pl.moves_left = pl.moves_left.saturating_sub(1);
+            // Readying the chosen weapon (6.1): a second move.
+            self.set_weapon(me, t);
+            ev.push(Event::Readied {
+                player: p,
+                thing: t,
+                slot: Slot::Weapon,
+            });
+            let pl = &mut self.players[p];
+            pl.moves_left = pl.moves_left.saturating_sub(1);
+        }
+        let left = self.players[p].moves_left;
+        self.fire(me, Aim::Square(tx, ty), left, ev);
+        self.players[p].moves_left = 0;
+        if self.players[p].alive && !self.over {
+            self.end_turn(ev);
+        }
+    }
+
+    /// 8.8.2: the first foe beside the player (1.7), an aggressive creature
+    /// not on its side (not a friend); other players are on its side.
+    fn foe_beside(&self, p: usize) -> Option<Who> {
+        let Location::Room { region, room, x, y } = self.players[p].at else {
+            return None;
+        };
+        self.others_in_room(region, room, Some(Who::Player { player: p }))
+            .into_iter()
+            .find(|o| {
+                (o.x as i16 - x as i16).abs() + (o.y as i16 - y as i16).abs() == 1
+                    && o.aggressive
+                    && !matches!(o.alignment, None | Some(Alignment::Friend))
+            })
+            .map(|o| o.who)
     }
 
     /// 8.5, 8.6: one missile along `path` (squares relative to the shooter
@@ -694,8 +808,12 @@ impl Game {
                 if let BlowOutcome::Hit { damage, .. } = outcome {
                     if damage > 0 {
                         self.take_damage(target, &d, damage, ev);
-                        if player_shot && self.alive(target) {
-                            self.turn_hostile(target, d.wisdom, ev);
+                        // 8.8.3: after every damaging player arrow on a
+                        // creature, section 7's roll of 0 to 9, drawn every
+                        // time, then the change by its class.
+                        if player_shot && matches!(target, Who::Creature { .. }) {
+                            let roll = self.rng.below(10);
+                            self.turn_hostile(target, d.wisdom, Some(roll), ev);
                         }
                     }
                 }
@@ -807,8 +925,10 @@ impl Game {
         }
     }
 
-    /// Section 7: a creature a player hurt changes its class.
-    fn turn_hostile(&mut self, target: Who, wisdom: u8, ev: &mut Vec<Event>) {
+    /// Section 7: a creature a player hurt changes its class. `roll` is the
+    /// smartness roll when already drawn (a player's arrow, 8.8.3);
+    /// otherwise it is drawn only for an aggressive neutral that needs it.
+    fn turn_hostile(&mut self, target: Who, wisdom: u8, roll: Option<u32>, ev: &mut Vec<Event>) {
         let Who::Creature { region, slot } = target else {
             return;
         };
@@ -823,7 +943,7 @@ impl Game {
                 let smart = match wisdom {
                     w if w > 14 => true,
                     w if w < 6 => false,
-                    w => self.rng.below(10) < (w - 5) as u32,
+                    w => roll.unwrap_or_else(|| self.rng.below(10)) < (w - 5) as u32,
                 };
                 if !smart {
                     return;

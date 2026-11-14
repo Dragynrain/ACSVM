@@ -164,9 +164,20 @@ pub enum Command {
         #[serde(default)]
         target: Option<Who>,
     },
-    /// Firing a missile weapon: players can't (combat 8.1); a message, no
-    /// shot, no move used.
-    Fire,
+    /// The menu's FIRE (combat 8.8), in a room. `target` is the cursor's
+    /// square (`None`: left on the player's own square), `weapon` the owned
+    /// missile weapon chosen from the menu when none is held (`None` for
+    /// NONE). Refused with no move used beside a foe or on the world map.
+    Fire {
+        #[serde(default)]
+        target: Option<(u8, u8)>,
+        #[serde(default)]
+        weapon: Option<ThingId>,
+    },
+    /// RETIRE (characters 7): the current player retires at the end of the
+    /// round, saved for later adventures (`save`) or destroyed. The offer's
+    /// answer is given with the request. No move used.
+    Retire { save: bool },
     /// In an open store (stores 3): buys one of `thing` (stores 4).
     Buy { thing: ThingId },
     /// In an open store: sells one of `thing` (stores 5).
@@ -295,6 +306,22 @@ pub enum CastRefusal {
     NotUsable,
     /// The target is not an individual in the caster's room.
     BadTarget,
+}
+
+/// Why FIRE did nothing (combat 8.8.2, 8.8.5); no move is used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+pub enum FireRefusal {
+    /// A foe stands beside the player (8.8.2): the message names it.
+    FoeBeside { foe: Who },
+    /// On the world map FIRE does nothing (8.8.5).
+    WorldMap,
+    /// **Engine:** the cursor's square is outside the room's walls (the
+    /// original's cursor can't go there).
+    BadTarget,
+    /// **Engine:** the chosen weapon is not a missile weapon the player
+    /// owns (the original's menu lists only those).
+    NotAMissileWeapon,
 }
 
 /// A trait, skill or other rating a spell can change (magic 3).
@@ -623,11 +650,15 @@ pub enum Event {
         #[serde(flatten)]
         outcome: BlowOutcome,
     },
-    /// A creature fires `weapon` at `target` (combat 8.1): `shots` shots
-    /// (8.2) follow as `Shot`s; it ends the shooter's turn.
+    /// An individual fires `weapon` (combat 8.1, 8.8): a creature at
+    /// `target`, a player at the square `at`; `shots` shots (8.2) follow as
+    /// `Shot`s; it ends the shooter's turn.
     Fired {
         by: Who,
-        target: Who,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        target: Option<Who>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        at: Option<(u8, u8)>,
         weapon: ThingId,
         shots: u8,
     },
@@ -665,9 +696,15 @@ pub enum Event {
         x: u8,
         y: u8,
     },
-    /// A player tried to fire (combat 8.1): players can't; nothing else
-    /// happens.
+    /// FIRE refused (combat 8.8.2, 8.8.5): no move used, nothing drawn.
     CannotFire {
+        player: usize,
+        #[serde(flatten)]
+        reason: FireRefusal,
+    },
+    /// FIRE with no missile weapon held (8.8.4): its move is used and NONE
+    /// was chosen; no shot, the turn goes on.
+    FireCancelled {
         player: usize,
     },
     /// Bumping a store opened it (stores 3): `region`'s stock, `gold` to
@@ -817,8 +854,30 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         left: Vec<(ThingId, u16)>,
     },
-    /// No player is left alive; the game takes no more commands.
+    /// No player is left in play (all dead or retired); the game takes no
+    /// more commands but adding a player (magic 7.4, characters 7.6).
     AllPlayersDead,
+    /// RETIRE taken: the player retires at the end of the round
+    /// (characters 7.1).
+    RetireRequested {
+        player: usize,
+    },
+    /// Another player will retire first: nothing recorded (characters 7.1).
+    RetireRefused {
+        player: usize,
+    },
+    /// At the round's end the player retired and its slot is free
+    /// (characters 7.3-7.6). Saved: `saved` holds the whole record, Life
+    /// Force raised to Constitution, for the front end to keep. Destroyed in
+    /// a room: `left` lists what now lies on its square (thing, amount;
+    /// gold in pieces).
+    Retired {
+        player: usize,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        saved: Option<Box<Player>>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        left: Vec<(ThingId, u16)>,
+    },
     /// "Add Someone" taken: the newcomer is handled at the end of the round
     /// (characters 6.2).
     AddRequested,

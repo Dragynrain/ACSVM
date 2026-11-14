@@ -245,6 +245,9 @@ pub struct Game {
     /// asked (characters 6.2).
     #[serde(default)]
     pub(crate) adds: Vec<Newcomer>,
+    /// The RETIRE waiting for the round's end (characters 7.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) retire: Option<crate::characters::Retirement>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -327,6 +330,7 @@ impl Game {
             entrances: Default::default(),
             carried: Vec::new(),
             adds: Vec::new(),
+            retire: None,
         };
         let mut ev = Vec::new();
         // The first player joins as given: the front end has asked again
@@ -392,7 +396,8 @@ impl Game {
             Command::Ready { thing } => self.ready(thing, &mut ev),
             Command::Cast { thing, target } => self.cast_command(thing, target, &mut ev),
             Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
-            Command::Fire => ev.push(Event::CannotFire { player: self.current }),
+            Command::Fire { target, weapon } => self.fire_command(target, weapon, &mut ev),
+            Command::Retire { save } => self.request_retire(save, &mut ev),
             Command::Buy { thing } => self.buy(thing, &mut ev),
             Command::Sell { thing } => self.sell(thing, &mut ev),
             Command::LeaveStore => {}
@@ -603,9 +608,9 @@ impl Game {
     /// The end of a round (creatures 2.2.5): the round counter and what
     /// falls due on it (magic 5.2), random creatures left behind (2.4);
     /// the round-end message when the living count changed either way
-    /// (characters 6.3); the add requests (characters 6.2; retiring, which
-    /// comes before them, is not in the engine yet); with nobody alive the
-    /// game waits for a new player (2.2.6); then the next round of this
+    /// (characters 6.3); the retirement and then the add requests
+    /// (characters 7.1, 6.2); with nobody in play the game waits for a new
+    /// player (2.2.6, characters 7.6); then the next round of this
     /// visit, or the next visit (2.2.2). A death alone ends no visit; the
     /// message's answers are the front end's.
     fn end_round(&mut self, ev: &mut Vec<Event>) {
@@ -619,6 +624,7 @@ impl Game {
         if before != after {
             ev.push(Event::LivingChanged { before, after });
         }
+        self.take_retirement(ev);
         self.take_adds(ev);
         if !self.players.iter().any(|p| p.alive) {
             self.over = true;

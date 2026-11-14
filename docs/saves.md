@@ -37,7 +37,7 @@ A JSON object (UTF-8, written on one line). Fields:
 | Field | Meaning |
 | --- | --- |
 | `format` | Always `"acsvm-save"`. |
-| `version` | The save format version, now 1. A newer version is refused. |
+| `version` | The save format version, now 2. A newer version is refused; version 1 is read as 2.1 says. |
 | `engine` | The engine version that wrote it (informational). |
 | `adventure` | `name`: the adventure's name; `fingerprint`: 16 hex digits identifying the decoded adventure (section 3). |
 | `seed`, `rules`, `first` | As given to `Game::new`. |
@@ -48,6 +48,23 @@ A JSON object (UTF-8, written on one line). Fields:
 
 Files are named `NAME.acsave.json` by default; any name works, and a
 dropped file is recognised by its `format` field, not its name.
+
+### 2.1 Versions
+
+- **2** (combat 8.8, characters 7): `fire` takes the cursor's square and
+  the weapon chosen from the menu (`{"command":"fire","target":[x,y],
+  "weapon":N}`, both optional), and `retire` (`{"command":"retire",
+  "save":true}`, false for Destroy) is new.
+- **1**: `fire` had no fields and was always refused, with no move and
+  nothing drawn; like every command but buying and selling it ended an
+  open store visit, and that was all it did. A version 1 save is loaded
+  with each `fire` read as `leave_store`, which does exactly that, so the
+  command count, the autosave point and the placements keep their places
+  and the replayed game is the same. The log then holds `leave_store`
+  where the save had `fire`, so the state fingerprint (taken over the
+  whole game, its log included) differs and such a save loads with the
+  diverged warning of 3.2. A version 1 save without `fire` loads as it
+  always did. Saving again writes version 2.
 
 ## 3. Fingerprints and checks
 

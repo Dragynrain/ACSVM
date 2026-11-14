@@ -3,8 +3,10 @@
 //! New characters, names and the profile's marks
 //! (`docs/rules/characters.md`).
 
-use crate::game::{PlayerSetup, NAME_MAX};
+use crate::game::{Game, PlayerSetup, NAME_MAX};
+use crate::inventory::GOLD;
 use crate::rng::Rng;
+use crate::{Event, Location, Who};
 use acs_core::model::MagicDefense;
 use serde::{Deserialize, Serialize};
 
@@ -155,6 +157,81 @@ pub fn mark(rating: Rating, value: u16) -> Option<Mark> {
         Some(Mark::Up)
     } else {
         None
+    }
+}
+
+/// A waiting RETIRE (characters 7.1): who, and the offer's answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Retirement {
+    pub player: usize,
+    /// Saved for later adventures (7.3), else destroyed (7.4, 7.5).
+    pub save: bool,
+}
+
+impl Game {
+    /// RETIRE (7.1): only recorded, no move used, nothing drawn; acted on
+    /// at the end of the round. Only one can wait: another asker is told
+    /// someone will retire first and nothing is recorded.
+    pub(crate) fn request_retire(&mut self, save: bool, ev: &mut Vec<Event>) {
+        let player = self.current;
+        if self.retire.is_some() {
+            ev.push(Event::RetireRefused { player });
+            return;
+        }
+        self.retire = Some(Retirement { player, save });
+        ev.push(Event::RetireRequested { player });
+    }
+
+    /// The round's retirement (7.1), before its add requests: a player
+    /// dead by now is offered nothing. Saved (7.3): the whole record, Life
+    /// Force raised to Constitution, goes to the front end (the engine has
+    /// no roster yet). Destroyed: on the map nothing is put down (7.4); in a
+    /// room every possession (held weapon and worn armor among them) and
+    /// the gold as one pile land on its square, top of the stack (7.5's
+    /// engine choice). Either way only the slot is freed (7.6), and the
+    /// reversals due for it are dropped (7.3).
+    pub(crate) fn take_retirement(&mut self, ev: &mut Vec<Event>) {
+        let Some(Retirement { player, save }) = self.retire.take() else {
+            return;
+        };
+        if !self.players.get(player).is_some_and(|p| p.alive) {
+            return;
+        }
+        if self.store.as_ref().is_some_and(|s| s.player == player) {
+            self.leave_store(ev);
+        }
+        let who = Who::Player { player };
+        let at = self.players[player].at;
+        let mut saved = None;
+        let mut left = Vec::new();
+        if save {
+            let mut record = self.players[player].clone();
+            record.life_force = record.life_force.max(record.constitution);
+            saved = Some(Box::new(record));
+        } else if let Location::Room { region, room, x, y } = at {
+            let p = &mut self.players[player];
+            let things = std::mem::take(&mut p.possessions);
+            let gold = std::mem::take(&mut p.gold);
+            p.weapon = None;
+            p.armor = None;
+            if gold > 0 {
+                self.put_gold(region, room, x, y, gold);
+                left.push((GOLD, gold));
+            }
+            for t in things {
+                self.put_on_top(region, room, x, y, t, 1);
+                left.push((t, 1));
+            }
+        }
+        self.players[player].alive = false;
+        self.reversals.retain(|r| r.who != who);
+        self.forget_vitals(who);
+        self.carried.retain(|&(q, _)| q != player);
+        ev.push(Event::Retired { player, saved, left });
+        // Encounters 7.2: retiring may leave its area empty.
+        if let Location::Room { region: 0, room, .. } = at {
+            self.close_if_empty(room, ev);
+        }
     }
 }
 

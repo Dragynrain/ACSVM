@@ -14,7 +14,9 @@ use acs_core::scene::{self, RoomScene};
 use acs_engine::characters::{mark, Mark, Rating};
 use acs_engine::creatures as cr;
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{describe, Command, Dir, Event, Game, Location, Newcomer, Rules, SaveFile, Stat, Who};
+use acs_engine::{
+    describe, Command, Dir, Event, Game, Location, Newcomer, Player, Rules, SaveFile, Stat, Who,
+};
 use egui::{Key, Modifiers, RichText};
 
 /// The world map window the original shows: 15 wide, 10 high.
@@ -53,6 +55,13 @@ pub struct Walk {
     pending_drop: Option<u16>,
     /// Pieces per gold drop.
     gold_amount: u16,
+    /// FIRE's target cursor (combat 8.8.3): the weapon chosen from the
+    /// menu (`None` when one is held) and the square under the cursor.
+    /// Direction keys move it, Space or Enter fires, Escape cancels.
+    pending_fire: Option<(Option<u16>, (u8, u8))>,
+    /// Characters retired with Save (characters 7.3): the engine has no
+    /// roster yet, so the front end keeps them.
+    retired: Vec<Player>,
     /// The current turn's bar was halved by a creature (creatures 2.6).
     hindered: bool,
     /// The last autosave: the game as it stood after the last region change
@@ -89,6 +98,8 @@ impl Walk {
             log: Vec::new(),
             pending_drop: None,
             gold_amount: 1,
+            pending_fire: None,
+            retired: Vec::new(),
             hindered: false,
             new_name: String::new(),
             idle: 0.0,
@@ -197,6 +208,13 @@ impl Walk {
         if saves && !self.game.is_over() {
             self.save = self.game.clone();
         }
+        // Characters 7.3: a retirement with Save saves the game at once.
+        for e in &ev {
+            if let Event::Retired { saved: Some(p), .. } = e {
+                self.retired.push(p.as_ref().clone());
+                self.save = self.game.clone();
+            }
+        }
     }
 
     /// Tool shortcut: the player stands at `at` (not a command, so not in
@@ -211,11 +229,33 @@ impl Walk {
     fn resume(&mut self) {
         self.game = self.save.clone();
         self.pending_drop = None;
+        self.pending_fire = None;
         self.note("Resumed from the last save.".into());
     }
 
-    /// While a drop is pending, a direction key or Wait sends the drop.
+    /// While a drop is pending, a direction key or Wait sends the drop;
+    /// while FIRE's cursor is up, a direction key moves it inside the
+    /// room's walls and Wait fires.
     fn key(&mut self, cmd: Command) {
+        if let Some((weapon, (x, y))) = self.pending_fire {
+            match cmd {
+                Command::Move { dir } => {
+                    let (w, h) = self.room_size();
+                    let (dx, dy) = dir.delta();
+                    let nx = (x as i16 + dx as i16).clamp(1, (w as i16 - 2).max(1)) as u8;
+                    let ny = (y as i16 + dy as i16).clamp(1, (h as i16 - 2).max(1)) as u8;
+                    self.pending_fire = Some((weapon, (nx, ny)));
+                }
+                _ => {
+                    self.pending_fire = None;
+                    self.apply(Command::Fire {
+                        target: Some((x, y)),
+                        weapon,
+                    });
+                }
+            }
+            return;
+        }
         let Some(thing) = self.pending_drop.take() else {
             self.apply(cmd);
             return;
@@ -232,6 +272,31 @@ impl Walk {
         } else {
             Command::Drop { thing, dir }
         });
+    }
+
+    /// The width and height of the current player's room (1 x 1 on the map).
+    fn room_size(&self) -> (u8, u8) {
+        let Location::Room { region, room, .. } = self.game.current_player().at else {
+            return (1, 1);
+        };
+        self.game
+            .region(region)
+            .and_then(|r| r.rooms.get(room as usize))
+            .map_or((1, 1), |r| (r.width, r.height))
+    }
+
+    /// FIRE (combat 8.8): holding a missile weapon, or with `weapon` chosen
+    /// from the menu, the cursor comes up on the player's square; on the
+    /// map, or with NONE chosen, the command goes at once.
+    fn start_fire(&mut self, weapon: Option<u16>, aim: bool) {
+        let p = self.game.current_player();
+        match p.at {
+            Location::Room { x, y, .. } if aim => {
+                self.pending_drop = None;
+                self.pending_fire = Some((weapon, (x, y)));
+            }
+            _ => self.apply(Command::Fire { target: None, weapon }),
+        }
     }
 
     fn note(&mut self, s: String) {
@@ -253,7 +318,10 @@ impl Walk {
                 | Event::BumpedPlayer { .. }
                 | Event::DropRefused { .. }
                 | Event::ReadyRefused { .. }
+                | Event::CannotFire { .. }
+                | Event::RetireRefused { .. }
                 | Event::AddRefused => Kind::Block,
+                Event::Retired { .. } => Kind::Door,
                 Event::PlayerAdded { .. } => Kind::Door,
                 Event::PickedUp { .. }
                 | Event::GoldPickedUp { .. }
@@ -293,6 +361,11 @@ impl Walk {
                 Event::LongMessage { .. } => Kind::Message,
                 Event::CastRefused { .. } => Kind::Block,
                 Event::Attacked { .. }
+                | Event::Fired { .. }
+                | Event::Shot { .. }
+                | Event::Dodged { .. }
+                | Event::MissileHit { .. }
+                | Event::MissileStopped { .. }
                 | Event::Blow { .. }
                 | Event::Broke { .. }
                 | Event::CreatureTurned { .. }
@@ -341,7 +414,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], buy:T, sell:T, leave, add[:NAME])");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], fire[:X:Y[:T]], retire[:save|destroy], buy:T, sell:T, leave, add[:NAME])");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
@@ -389,6 +462,28 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     thing: num(parts.next())?,
                 },
                 "leave" => Command::LeaveStore,
+                "fire" => {
+                    let target = match parts.next() {
+                        None => None,
+                        Some(x) => {
+                            let x = num(Some(x))?;
+                            let y = num(parts.next())?;
+                            Some((
+                                u8::try_from(x).map_err(|_| bad())?,
+                                u8::try_from(y).map_err(|_| bad())?,
+                            ))
+                        }
+                    };
+                    let weapon = parts.next().map(|w| num(Some(w))).transpose()?;
+                    Command::Fire { target, weapon }
+                }
+                "retire" => Command::Retire {
+                    save: match parts.next() {
+                        None | Some("save") => true,
+                        Some("destroy") => false,
+                        Some(_) => return Err(bad()),
+                    },
+                },
                 "add" => Command::CreatePlayer {
                     name: parts.next().unwrap_or("someone").to_ascii_uppercase(),
                 },
@@ -475,12 +570,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     {
         let walk = doc.walk.as_mut().unwrap();
-        if walk.pending_drop.is_some()
+        if (walk.pending_drop.is_some() || walk.pending_fire.is_some())
             && ui
                 .ctx()
                 .input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
         {
             walk.pending_drop = None;
+            walk.pending_fire = None;
         }
         if let Some(cmd) = key_command(ui.ctx()) {
             walk.key(cmd);
@@ -501,6 +597,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         }
     }
     let mut click: Option<Command> = None;
+    let mut fire: Option<(Option<u16>, bool)> = None;
     let mut restart: Option<Rules> = None;
     let mut resume = false;
     let mut save_game = false;
@@ -524,7 +621,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             ui.label(place_name(g, p.at));
             if g.is_over() || !p.alive {
                 ui.label(
-                    RichText::new("Dead. Resume from the last save (the last region change), or add someone.")
+                    RichText::new("Nobody in play. Resume from the last save, or add someone.")
                         .color(Color32::from_rgb(255, 110, 110)),
                 );
             }
@@ -550,6 +647,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
             party_panel(ui, g, &mut walk.new_name, &mut click);
+            actions_panel(ui, g, &walk.retired, walk.pending_fire.is_some(), &mut fire, &mut click);
             ui.separator();
             stats_panel(ui, g);
             inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
@@ -625,12 +723,18 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         let at = g.current_player().at;
         match at {
             Location::World { x, y } => draw_map(&doc.tiles, ui, g, x, y),
-            Location::Room { region, room, .. } => draw_room(&doc.tiles, ui, g, region, room),
+            Location::Room { region, room, .. } => {
+                let cursor = walk.pending_fire.map(|(_, xy)| xy);
+                draw_room(&doc.tiles, ui, g, region, room, cursor)
+            }
         }
     });
 
     if let Some(cmd) = click {
         walk.apply(cmd);
+    }
+    if let Some((weapon, aim)) = fire {
+        walk.start_fire(weapon, aim);
     }
     if resume {
         walk.resume();
@@ -782,6 +886,84 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
             new_name.clear();
         }
     });
+}
+
+/// The menu's FIRE and RETIRE (combat 8.8, characters 7), and the
+/// characters retired with Save. FIRE holding a missile weapon brings the
+/// cursor; holding none, the menu of NONE and the missile weapons owned
+/// (the engine takes FIRE's move, and the readying's, when it is sent).
+fn actions_panel(
+    ui: &mut egui::Ui,
+    g: &Game,
+    retired: &[Player],
+    aiming: bool,
+    fire: &mut Option<(Option<u16>, bool)>,
+    click: &mut Option<Command>,
+) {
+    let a = g.adventure();
+    let p = g.current_player();
+    let missile = |t: u16| {
+        matches!(
+            a.things.get(t as usize - 1).map(|t| &t.kind),
+            Some(ThingKind::MissileWeapon { .. })
+        )
+    };
+    let name = |t: u16| {
+        a.things
+            .get(t as usize - 1)
+            .map(|t| t.name.trim().to_string())
+            .unwrap_or_else(|| format!("thing {t}"))
+    };
+    if aiming {
+        ui.label(
+            RichText::new("Fire: move the cursor, Space = fire, Esc = cancel")
+                .color(Color32::from_rgb(255, 215, 0)),
+        );
+    }
+    ui.horizontal(|ui| {
+        let in_room = matches!(p.at, Location::Room { .. });
+        if p.weapon.is_some_and(missile) || !in_room {
+            if ui.button("Fire").clicked() {
+                *fire = Some((None, true));
+            }
+        } else {
+            ui.menu_button("Fire", |ui| {
+                ui.label(RichText::new("Select a missile weapon").weak());
+                if ui.button("NONE").clicked() {
+                    *fire = Some((None, false));
+                    ui.close();
+                }
+                let mut owned: Vec<u16> = p.possessions.iter().copied().filter(|&t| missile(t)).collect();
+                owned.sort_unstable();
+                owned.dedup();
+                for t in owned {
+                    if ui.button(name(t)).clicked() {
+                        *fire = Some((Some(t), true));
+                        ui.close();
+                    }
+                }
+            });
+        }
+        ui.menu_button("Retire", |ui| {
+            ui.label(RichText::new("At the end of the round:").weak());
+            if ui.button("Save for later adventures").clicked() {
+                *click = Some(Command::Retire { save: true });
+                ui.close();
+            }
+            if ui
+                .button("Destroy (never seen again)")
+                .on_hover_text("In a room everything carried is left on the square.")
+                .clicked()
+            {
+                *click = Some(Command::Retire { save: false });
+                ui.close();
+            }
+        });
+    });
+    if !retired.is_empty() {
+        let names: Vec<&str> = retired.iter().map(|p| p.name.trim()).collect();
+        ui.label(RichText::new(format!("Retired, saved: {}", names.join(", "))).weak());
+    }
 }
 
 /// Life Force, Power and the other ratings spells change (magic 3, 5).
@@ -1172,7 +1354,14 @@ fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py
     });
 }
 
-fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u8, room: u8) {
+fn draw_room(
+    tiles: &crate::tiles::Tiles,
+    ui: &mut egui::Ui,
+    g: &Game,
+    region: u8,
+    room: u8,
+    cursor: Option<(u8, u8)>,
+) {
     let a = g.adventure();
     let Some(reg) = g.region(region) else {
         return;
@@ -1210,6 +1399,22 @@ fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u
         } if (rg, rm) == (region, room) => Some(grid.cell_rect(x as u32, y as u32)),
         _ => None,
     });
+    // FIRE's target cursor (combat 8.8.3).
+    if let Some((x, y)) = cursor {
+        let cell = grid.cell_rect(x as u32, y as u32).shrink(1.0);
+        painter.rect_stroke(
+            cell,
+            0.0,
+            Stroke::new(3.0, Color32::BLACK),
+            egui::StrokeKind::Inside,
+        );
+        painter.rect_stroke(
+            cell.shrink(1.0),
+            0.0,
+            Stroke::new(1.5, Color32::from_rgb(255, 80, 60)),
+            egui::StrokeKind::Inside,
+        );
+    }
 }
 
 #[cfg(test)]
