@@ -299,6 +299,35 @@ fn players_take_turns() {
     assert_eq!(g.current(), 0);
 }
 
+/// Movement 1.4, 1.5: four living characters at most; names cut to 15.
+#[test]
+fn at_most_four_players() {
+    let mut g = game(Platform::Pc);
+    let add = |name: &str| Command::AddPlayer {
+        setup: PlayerSetup {
+            name: name.into(),
+            ..Default::default()
+        },
+    };
+    for n in ["TWO", "THREE", "A NAME FAR TOO LONG"] {
+        let ev = g.apply(add(n));
+        assert!(matches!(ev[0], Event::PlayerAdded { .. }));
+    }
+    assert_eq!(g.players().len(), 4);
+    assert_eq!(g.players()[3].name, "A NAME FAR TOO ");
+    let start = g.players()[3].at;
+    assert_eq!(g.players()[1].at, start);
+    assert_eq!(g.apply(add("FIVE")), vec![Event::AddRefused]);
+    assert_eq!(g.players().len(), 4);
+    // Every one of the four gets a turn, in joining order.
+    let mut seen = Vec::new();
+    for _ in 0..8 {
+        seen.push(g.current());
+        g.apply(Command::Wait);
+    }
+    assert_eq!(seen, [0, 0, 1, 2, 3, 0, 1, 2]);
+}
+
 /// The synthetic tests were written with diagonal steps allowed and keep
 /// them on explicitly; the default follows the C64 capture (movement 3.2).
 #[test]

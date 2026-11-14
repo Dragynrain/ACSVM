@@ -23,6 +23,10 @@ pub const DEFAULT_SKILL: u8 = 30;
 /// A joining player's Power: its Wisdom, but at most this (magic 5.1,
 /// captured on the C64).
 pub const JOIN_POWER_MAX: u8 = 27;
+/// Living characters that can play at once (movement 1.4).
+pub const MAX_PLAYERS: usize = 4;
+/// Longest character name (movement 1.5).
+pub const NAME_MAX: usize = 15;
 /// Missile skill of a default character: the middle of 10-20.
 pub const DEFAULT_MISSILE: u8 = 15;
 
@@ -532,7 +536,17 @@ impl Game {
         }
     }
 
+    /// "Add Someone" (movement 1.2, 1.4, 1.5): the new character starts at
+    /// the adventure's start and joins the next round (creatures 2.2).
     fn add_player(&mut self, setup: PlayerSetup, ev: &mut Vec<Event>) {
+        if self.players.iter().filter(|p| p.alive).count() >= MAX_PLAYERS {
+            ev.push(Event::AddRefused);
+            return;
+        }
+        let mut setup = setup;
+        if let Some((cut, _)) = setup.name.char_indices().nth(NAME_MAX) {
+            setup.name.truncate(cut);
+        }
         let s = self.adv.world.start;
         let at = Location::World { x: s.x, y: s.y };
         let mut possessions = setup.possessions;

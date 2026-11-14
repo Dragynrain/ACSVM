@@ -28,7 +28,7 @@ pub mod stores;
 
 pub use combat::BlowOutcome;
 pub use describe::describe;
-pub use game::{Game, Player, PlayerSetup};
+pub use game::{Game, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};
 pub use rng::Rng;
 
 use acs_core::model::ThingId;
@@ -774,6 +774,8 @@ pub enum Event {
     },
     /// No player is left alive; the game takes no more commands.
     AllPlayersDead,
+    /// "Add Someone" while `MAX_PLAYERS` already live (movement 1.4).
+    AddRefused,
 }
 
 /// An individual: a player or a creature in a region slot.

@@ -49,6 +49,8 @@ pub struct Walk {
     /// The last autosave: the game as it stood after the last region change
     /// (or the start), what the original resumes from after a death.
     save: Game,
+    /// The name typed for the next "Add Someone".
+    new_name: String,
 }
 
 impl Walk {
@@ -61,11 +63,12 @@ impl Walk {
             pending_drop: None,
             gold_amount: 1,
             hindered: false,
+            new_name: String::new(),
         };
         w.note(format!(
             "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
              To drop, click Drop, then a direction (Space = here, Esc = cancel). \
-             Cast and Use ask for a target."
+             Cast and Use ask for a target. Add Someone brings in up to 4 characters, who take turns."
         ));
         w.record(&ev);
         w
@@ -141,7 +144,9 @@ impl Walk {
                 | Event::BumpedCreature { .. }
                 | Event::BumpedPlayer { .. }
                 | Event::DropRefused { .. }
-                | Event::ReadyRefused { .. } => Kind::Block,
+                | Event::ReadyRefused { .. }
+                | Event::AddRefused => Kind::Block,
+                Event::PlayerAdded { .. } => Kind::Door,
                 Event::PickedUp { .. }
                 | Event::GoldPickedUp { .. }
                 | Event::Dropped { .. }
@@ -225,7 +230,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], buy:T, sell:T, leave)");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], buy:T, sell:T, leave, add[:NAME])");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
@@ -272,6 +277,12 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                     thing: num(parts.next())?,
                 },
                 "leave" => Command::LeaveStore,
+                "add" => Command::AddPlayer {
+                    setup: PlayerSetup {
+                        name: parts.next().unwrap_or("someone").to_ascii_uppercase(),
+                        ..Default::default()
+                    },
+                },
                 d => Command::Move {
                     dir: parse_dir(d).ok_or_else(bad)?,
                 },
@@ -379,7 +390,12 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         .show_collapsible(ui, &mut show_info, |ui| {
             let g = &walk.game;
             let p = g.current_player();
-            ui.heading(&p.name);
+            let heading = if g.players().len() > 1 {
+                format!("{}'s turn", p.name)
+            } else {
+                p.name.clone()
+            };
+            ui.heading(RichText::new(heading).color(player_colour(g.current())));
             ui.label(place_name(g, p.at));
             if g.is_over() || !p.alive {
                 ui.label(
@@ -403,6 +419,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 egui::ProgressBar::new(p.moves_left as f32 / p.turn_moves.max(1) as f32)
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
+            party_panel(ui, g, &mut walk.new_name, &mut click);
+            ui.separator();
             stats_panel(ui, g);
             inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
             creatures_panel(ui, g);
@@ -455,7 +473,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         let at = g.current_player().at;
         match at {
             Location::World { x, y } => draw_map(&doc.tiles, ui, g, x, y),
-            Location::Room { region, room, x, y } => draw_room(&doc.tiles, ui, g, region, room, x, y),
+            Location::Room { region, room, .. } => draw_room(&doc.tiles, ui, g, region, room),
         }
     });
 
@@ -539,6 +557,75 @@ fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
                 *click = Some(Command::LeaveStore);
             }
         });
+}
+
+/// Marker colour of each of the four players (movement 1.4).
+fn player_colour(player: usize) -> Color32 {
+    const COLOURS: [Color32; 4] = [
+        Color32::from_rgb(255, 215, 0),
+        Color32::from_rgb(80, 200, 255),
+        Color32::from_rgb(255, 120, 220),
+        Color32::from_rgb(140, 240, 110),
+    ];
+    COLOURS[player % COLOURS.len()]
+}
+
+/// Everyone playing, whose turn it is, and "Add Someone" (movement 1.4):
+/// the new character joins at the start point on the next round.
+fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut Option<Command>) {
+    let players = g.players();
+    if players.len() > 1 {
+        for (i, p) in players.iter().enumerate() {
+            ui.horizontal(|ui| {
+                let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                ui.painter().circle_filled(rect.center(), 5.0, player_colour(i));
+                let mut name = RichText::new(&p.name);
+                if i == g.current() {
+                    name = name.strong();
+                }
+                if !p.alive {
+                    name = name.strikethrough().weak();
+                }
+                ui.label(name);
+                let state = if p.alive {
+                    format!("LF {} · {}", p.life_force, place_name(g, p.at))
+                } else {
+                    "dead".into()
+                };
+                ui.label(RichText::new(state).weak());
+            });
+        }
+    }
+    let living = players.iter().filter(|p| p.alive).count();
+    ui.horizontal(|ui| {
+        ui.add(
+            egui::TextEdit::singleline(new_name)
+                .char_limit(acs_engine::NAME_MAX)
+                .hint_text(format!("PLAYER {}", players.len() + 1))
+                .desired_width(130.0),
+        );
+        let can = living < acs_engine::MAX_PLAYERS && !g.is_over();
+        if ui
+            .add_enabled(can, egui::Button::new("Add Someone"))
+            .on_hover_text("Up to 4 characters play at once; a new one joins at the start point next round.")
+            .on_disabled_hover_text("4 characters already play.")
+            .clicked()
+        {
+            let typed = new_name.trim().to_uppercase();
+            let name = if typed.is_empty() {
+                format!("PLAYER {}", players.len() + 1)
+            } else {
+                typed
+            };
+            *click = Some(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name,
+                    ..Default::default()
+                },
+            });
+            new_name.clear();
+        }
+    });
 }
 
 /// Life Force, Power and the other ratings spells change (magic 3, 5).
@@ -827,16 +914,38 @@ fn place_name(g: &Game, at: Location) -> String {
     }
 }
 
-/// The player marker: a ring that stays visible on any picture.
-fn marker(painter: &egui::Painter, rect: Rect) {
-    let r = rect.width().min(rect.height()) * 0.36;
+/// A player marker: a ring in the player's colour that stays visible on any
+/// picture. With more than one player, the one whose turn it is gets a
+/// white outer ring. `nest` shrinks the ring for players sharing a square
+/// (0 the outermost).
+fn marker(painter: &egui::Painter, rect: Rect, player: usize, current: bool, nest: usize) {
+    let r = rect.width().min(rect.height()) * (0.36 - 0.09 * nest.min(3) as f32);
     let c = rect.center();
+    if current {
+        let outer = r + (r * 0.4).max(2.0);
+        painter.circle_stroke(c, outer, Stroke::new((r * 0.35).max(2.0), Color32::BLACK));
+        painter.circle_stroke(c, outer, Stroke::new((r * 0.15).max(1.0), Color32::WHITE));
+    }
     painter.circle_stroke(c, r, Stroke::new((r * 0.45).max(2.0), Color32::BLACK));
-    painter.circle_stroke(
-        c,
-        r,
-        Stroke::new((r * 0.25).max(1.0), Color32::from_rgb(255, 215, 0)),
-    );
+    painter.circle_stroke(c, r, Stroke::new((r * 0.25).max(1.0), player_colour(player)));
+}
+
+/// Draws every living player for which `cell` gives a square in view.
+/// Players on one square (all of them at the start, movement 1.2) nest:
+/// the current player outermost, the others inside in joining order.
+fn markers(painter: &egui::Painter, g: &Game, cell: impl Fn(Location) -> Option<Rect>) {
+    let many = g.players().len() > 1;
+    let mut order = vec![g.current()];
+    order.extend((0..g.players().len()).filter(|&i| i != g.current()));
+    let mut drawn: Vec<Location> = Vec::new();
+    for i in order {
+        let p = &g.players()[i];
+        if let Some(rect) = cell(p.at).filter(|_| p.alive) {
+            let nest = drawn.iter().filter(|&&at| at == p.at).count();
+            drawn.push(p.at);
+            marker(painter, rect, i, many && i == g.current(), nest);
+        }
+    }
 }
 
 fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py: u8) {
@@ -860,16 +969,17 @@ fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py
             tiles.paint(&painter, pic, grid.cell_rect(i as u32, j as u32));
         }
     }
-    let (mi, mj) = (
-        (px as i16 - ox).rem_euclid(n.max(1)),
-        (py as i16 - oy).rem_euclid(n.max(1)),
-    );
-    if mi < cols && mj < rows {
-        marker(&painter, grid.cell_rect(mi as u32, mj as u32));
-    }
+    markers(&painter, g, |at| {
+        let Location::World { x, y } = at else { return None };
+        let (mi, mj) = (
+            (x as i16 - ox).rem_euclid(n.max(1)),
+            (y as i16 - oy).rem_euclid(n.max(1)),
+        );
+        (mi < cols && mj < rows).then(|| grid.cell_rect(mi as u32, mj as u32))
+    });
 }
 
-fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u8, room: u8, px: u8, py: u8) {
+fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u8, room: u8) {
     let a = g.adventure();
     let Some(reg) = a.regions.iter().find(|r| r.number == region) else {
         return;
@@ -893,7 +1003,13 @@ fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u
         painter.circle_filled(at, rad + 1.0, Color32::BLACK);
         painter.circle_filled(at, rad, alignment_colour(c.strategy.alignment));
     }
-    if g.current_player().alive {
-        marker(&painter, grid.cell_rect(px as u32, py as u32));
-    }
+    markers(&painter, g, |at| match at {
+        Location::Room {
+            region: rg,
+            room: rm,
+            x,
+            y,
+        } if (rg, rm) == (region, room) => Some(grid.cell_rect(x as u32, y as u32)),
+        _ => None,
+    });
 }

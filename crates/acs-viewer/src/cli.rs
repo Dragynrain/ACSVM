@@ -26,7 +26,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.";
+[--size WxH] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -164,6 +164,15 @@ mod tests {
         assert_eq!(w.walk.map(|c| c.len()), Some(4));
         assert!(p(&["--place", "0:1:2:3"]).is_err());
         assert!(p(&["--walk", "cast:33:x9"]).is_err());
+        let w = p(&["--walk", "add:two,add"]).unwrap().walk.unwrap();
+        let names: Vec<_> = w
+            .iter()
+            .map(|c| match c {
+                acs_engine::Command::AddPlayer { setup } => setup.name.as_str(),
+                _ => "",
+            })
+            .collect();
+        assert_eq!(names, ["TWO", "SOMEONE"]);
     }
 
     #[test]
