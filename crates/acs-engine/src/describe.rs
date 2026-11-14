@@ -340,6 +340,60 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             };
             format!("{}{back} {what} ({chance}%).", name(by))
         }
+        Event::Fired {
+            by,
+            target,
+            weapon,
+            shots,
+        } => {
+            let n = if *shots == 1 { "shot" } else { "shots" };
+            format!(
+                "{} fires {} at {} ({shots} {n}).",
+                name(by),
+                thing(*weapon),
+                name(target)
+            )
+        }
+        Event::Shot {
+            by,
+            spread,
+            deviation,
+            side,
+        } => {
+            let way = if *side { "right" } else { "left" };
+            format!(
+                "{}'s shot goes {deviation} of {spread} off to the {way}.",
+                name(by)
+            )
+        }
+        Event::Dodged { by, who: w, chance } => {
+            format!("{} dodges {}'s missile ({chance}%).", name(w), name(by))
+        }
+        Event::MissileHit {
+            by,
+            target,
+            dodge,
+            outcome,
+        } => {
+            let what = match outcome {
+                BlowOutcome::Hit { damage: 0, .. } => format!("hits {} but does no harm", name(target)),
+                BlowOutcome::Hit { damage, heavy } => {
+                    let h = if *heavy { " heavily" } else { "" };
+                    format!("hits {}{h} for {damage}", name(target))
+                }
+                _ => format!("can't harm {}", name(target)),
+            };
+            format!("{}'s missile {what} (dodge {dodge}%).", name(by))
+        }
+        Event::MissileStopped { by, x, y } => {
+            format!("{}'s missile stops at ({x},{y}).", name(by))
+        }
+        Event::CannotFire { player } => {
+            format!(
+                "{} can't fire: only creatures shoot missiles.",
+                name(&Who::Player { player: *player })
+            )
+        }
         Event::Broke {
             who: w,
             thing: t,

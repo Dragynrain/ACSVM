@@ -147,6 +147,9 @@ pub enum Command {
         #[serde(default)]
         target: Option<Who>,
     },
+    /// Firing a missile weapon: players can't (combat 8.1); a message, no
+    /// shot, no move used.
+    Fire,
 }
 
 /// Choices the original leaves open or that are still unmeasured
@@ -559,6 +562,53 @@ pub enum Event {
         chance: u8,
         #[serde(flatten)]
         outcome: BlowOutcome,
+    },
+    /// A creature fires `weapon` at `target` (combat 8.1): `shots` shots
+    /// (8.2) follow as `Shot`s; it ends the shooter's turn.
+    Fired {
+        by: Who,
+        target: Who,
+        weapon: ThingId,
+        shots: u8,
+    },
+    /// One shot leaves (combat 8.3): its `spread` (8.4), the `deviation`
+    /// rolled below it (hundredths of the distance to the target) and the
+    /// side it goes to. What it reaches follows as `Dodged` and
+    /// `MissileHit`, or `MissileStopped`.
+    Shot {
+        by: Who,
+        spread: u8,
+        deviation: u8,
+        side: bool,
+    },
+    /// An individual the missile reached dodged it (8.6), rolled below
+    /// `chance`; the missile flies on.
+    Dodged {
+        by: Who,
+        who: Who,
+        chance: u8,
+    },
+    /// A missile hit (8.6): `outcome` is `Hit` (its damage after armor and
+    /// magic defense, 0 when they took it all) or `Stopped` (magic
+    /// defense); `dodge` the dodge chance it beat. Lost Life Force and
+    /// Power follow as `StatChanged`. The missile stops.
+    MissileHit {
+        by: Who,
+        target: Who,
+        dodge: u8,
+        #[serde(flatten)]
+        outcome: BlowOutcome,
+    },
+    /// A wall or obstacle on (`x`, `y`) stopped a missile (8.5).
+    MissileStopped {
+        by: Who,
+        x: u8,
+        y: u8,
+    },
+    /// A player tried to fire (combat 8.1): players can't; nothing else
+    /// happens.
+    CannotFire {
+        player: usize,
     },
     /// A weapon or armor broke (combat 6.3), or was used up (`used_up`,
     /// 6.4), and is gone from its owner.

@@ -301,6 +301,7 @@ impl Game {
             Command::Ready { thing } => self.ready(thing, &mut ev),
             Command::Cast { thing, target } => self.cast_command(thing, target, &mut ev),
             Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
+            Command::Fire => ev.push(Event::CannotFire { player: self.current }),
         }
         // Magic 7.5: a player who died during their own turn ends it.
         if !self.over && !self.players[self.current].alive {
