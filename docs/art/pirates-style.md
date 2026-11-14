@@ -475,7 +475,32 @@ Test (v3's 6 subjects, seeds 401 and 402, FP8 Turbo, short trigger prompt):
 - **Still drawn in**: a tricorn on anyone called a pirate, and faces that
   need the section 9 pass.
 
-Use v4-final for new kit pictures.
+**v5 (November 2026), trained after the fourth face pass.** v4's 35 tiles
+taken fresh from `final/` (16 of them people with new faces) plus the 20
+people v4 never had (the kit 2 crew, the named characters, the undead), 55
+images in all (`_scripts/dataset5.py`, research folder). Captions describe
+the finished tile, not the old prompt: the smuggler carries rope, not a
+sack; the surgeon has no spectacles left; the drowned captain's skin is
+green. Same settings as v4, 50 epochs, 2750 steps, 37 minutes. OneTrainer
+needs the preset under the config: `scripts/train.py --preset-path
+"training_presets/Z-Image/#z-image DeTurbo LoRA 16GB.json" --config-path
+lora/v5/train.json` (the config alone fails in a migration step). Installed
+as `acspirates/acspirates-v5-final` and `-s2200`.
+
+Test (v3's 6 subjects, seeds 401 and 402, FP8 Turbo, one LoRA per run):
+
+- **Faces come out on the skin ramp.** With v4 both people carry
+  rust-orange patches on cheek and mouth at 64 px (the habit section 9
+  fixed by hand); with v5 s2200 both faces are clean skin with dark eyes and
+  mouth. v5-final is close, but one officer still has an orange cheek.
+- **Objects are unchanged:** boat, palm, turtle and pistols match v4 in
+  style and background.
+- SwarmUI's ComfyUI backend sees a new LoRA file only after
+  `RestartBackends`; until then a request fails with "the backend does not
+  have that LoRA". Pass one LoRA per `loratest.ps1` call: a comma list
+  through `powershell -File` arrives as one string, stacking them.
+
+Use v5-s2200 for new kit pictures.
 
 ## 11. Terrain squares
 
@@ -638,6 +663,10 @@ eyes. The ghost had no eyes at all; it got two dark pixels that read by day
 and glow white at night. Glowing eyes are why an emissive pixel can have a
 colour of its own.
 
+The drowned captain's entry first lit his white cravat (`sand0` in a box
+below the face), not his eyes; it now names the two eye pixels, as the
+ghost's does.
+
 ## 15. Normal maps
 
 **First version (November 2026).** `scripts/normals.py` makes a normal map
@@ -760,19 +789,44 @@ every frame with frame 0 (the black hat drifted by 56, steady takes by 2
 or 3). Then pick the take by eye at 64 px; the take with the most motion
 broke its coat into fragments.
 
-Three heroes have loops: the kraken head breathes and curls its tentacles
-while its water swells (400 to 900 pixels change per frame); the drowned
-captain breathes and his coat flares open and closes (130 to 240, seed 804;
-the first loop was 20 to 140); the mermaid's hair and tail
-tip stir (10 to 50), a quiet idle that suits her seated pose. Everything that
-doesn't move matches pixel for pixel from frame to frame. The
-shared box must hold the widest frame, so a hero comes out a little smaller
-than its still tile; frame 0 is not the still.
+**True loops, not boomerang.** Boomerang plays the clip forward and back,
+which reads as mechanical. `hero.ps1 -Loop` gives Wan the start image as
+the end frame too (SwarmUI's `videoendimage`, Wan first-last-frame), so the
+motion goes out and comes home without reversing. Use 25 frames and
+`frames64.py --drop-last`: the last frame returns close to the first but
+not exactly. A looped clip takes about 30 minutes at 320 px on a 16 GB
+card, so `hero.ps1` waits up to an hour; a request that times out still
+finishes, in SwarmUI's `Output/local/raw/<date>/`.
+
+Big motion breaks things, so check each take at 64 px:
+
+- **Name what must not change,** colours and size ("stays the same size,
+  its colours never change"), and ask for no splashes: a kraken asked to
+  "swell and splash" shot a column of water through its own body.
+- **The shared box shrinks the hero** when any frame reaches wide (the
+  kraken's tentacles to the image edge): pick takes whose motion stays
+  inside the still's footprint.
+- **Count the eyes.** One kraken take kept only one eye at 64 px; the
+  chosen one lost an eye in one frame, put back by hand.
+
+Three heroes have true loops (November 2026): the drowned captain breathes
+and swings his arms and coat wide (230 to 670 pixels change per frame, seed
+811; boomerang loops were 130 to 240); the mermaid tosses her head, her hair
+swings out and her tail sweeps (150 to 890, seed 811; was 10 to 50); the
+kraken curls its tentacles in a steady breath (200 to 420, seed 811). The
+kraken's boomerang loop moved more (400 to 900), but the bigger looped
+takes broke it. The old loops are kept as `hero/_*-boomerang`. The shared
+box must hold the widest frame, so a hero comes out a little smaller than
+its still tile; frame 0 is not the still.
 
 **Faces in the loops.** Wan starts from the raw pick, so a loop's frames
 never get the still's hand-placed face: the mermaid's loop had no eyes at
 all. `_scripts/facepaste.py` (research folder) finds the head in each frame
-by the offset that best matches the finished still's silhouette, then
+by the offset that best matches the finished still's skin pixels (skin and
+moss ramps, after the remap, so swinging hair doesn't pull the match), then
 copies the still's face box into it, outline pixels excepted unless named
-as eyes, and can repeat a ramp remap above a given row. Run it after
-`frames64.py` whenever a hero's still face changes.
+as eyes. It can repeat a ramp remap above a given row. A frame that matches
+badly (the head turned or tipped back) keeps its own face, and its eyes and
+mouth are placed by hand in `hero/_loopfaces-<hero><seed>.json`.
+`_scripts/loopcut.sh HERO SEED` runs the cut, the paste and the hand edits
+in one go; run it whenever a hero's still face changes.

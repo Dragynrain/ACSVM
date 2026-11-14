@@ -5,7 +5,7 @@
  "kit2/crystalskull-601": {"codes": ["s0"], "strength": 0.5},
  "kit2/jellyfish-601": {"codes": ["s1"], "strength": 0.7},
  "kit2/ghost-604": {"px": [[30, 8, "t0"], [33, 8, "t0"]]},
- "kit2/drownedcapt-603": {"codes": ["n0"], "box": [30, 14, 36, 19]},
+ "kit2/drownedcapt-603": {"px": [[32, 9, "t0"], [35, 9, "t0"]]},
  "kit2/compass-601": {"codes": ["j1"], "box": [31, 37, 38, 48]},
  "kit2/krakenhead-601": {"codes": ["g1"]},
  "kit2/skelcapt-601": {"codes": ["g0", "g1", "g2", "r0"], "box": [43, 43, 48, 49]},

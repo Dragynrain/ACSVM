@@ -1,6 +1,6 @@
 """Animation frames (a video or a frame folder) to 64 px tiles that don't jitter.
 
-Usage: python frames64.py PALETTE.json IN OUTDIR [--keep 6] [--fig 60] [--name N]
+Usage: python frames64.py PALETTE.json IN OUTDIR [--keep 6] [--fig 60] [--name N] [--drop-last]
 
 IN is an animated WebP/GIF or a folder of frames on flat magenta. Each frame
 is cut out as in sprite64.py; then all frames are cropped by one shared box
@@ -8,7 +8,8 @@ is cut out as in sprite64.py; then all frames are cropped by one shared box
 creature keeps its place and size from frame to frame, then snapped to the
 kit ramps and tidied like the still tiles. --keep picks that many frames,
 evenly spaced, from the loop (the last frame of a boomerang equals the first,
-so it is dropped). Writes OUTDIR/N-<t>.png and a strip N-strip.png.
+so it is dropped; --drop-last drops it anyway, for a first-last-frame loop whose
+end only comes close to its start). Writes OUTDIR/N-<t>.png and a strip N-strip.png.
 """
 import argparse
 from pathlib import Path
@@ -42,10 +43,11 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("palette"); ap.add_argument("src"); ap.add_argument("out")
     ap.add_argument("--keep", type=int, default=6); ap.add_argument("--fig", type=int, default=60)
     ap.add_argument("--name"); ap.add_argument("--tile", type=int, default=64)
+    ap.add_argument("--drop-last", action="store_true", help="the clip ends on its start image (a first-last-frame loop)")
     a = ap.parse_args(); out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     name = a.name or Path(a.src).stem
     fr = load_frames(a.src)
-    if len(fr) > 2 and np.abs(np.asarray(fr[0], float) - np.asarray(fr[-1], float)).mean() < 2:
+    if len(fr) > 2 and (a.drop_last or np.abs(np.asarray(fr[0], float) - np.asarray(fr[-1], float)).mean() < 2):
         fr = fr[:-1]
     idx = np.linspace(0, len(fr), a.keep, endpoint=False).astype(int) if a.keep < len(fr) else range(len(fr))
     cut = [cut_out(fr[i]) for i in idx]
