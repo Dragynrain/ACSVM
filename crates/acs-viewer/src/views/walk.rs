@@ -14,7 +14,7 @@ use acs_core::scene::{self, RoomScene};
 use acs_engine::characters::{mark, Mark, Rating};
 use acs_engine::creatures as cr;
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{describe, Command, Dir, Event, Game, Location, Newcomer, Rules, Stat, Who};
+use acs_engine::{describe, Command, Dir, Event, Game, Location, Newcomer, Rules, SaveFile, Stat, Who};
 use egui::{Key, Modifiers, RichText};
 
 /// The world map window the original shows: 15 wide, 10 high.
@@ -61,15 +61,7 @@ impl Walk {
             create: "PLAYER 1".into(),
         };
         let (game, ev) = Game::new(adv.clone(), seed, rules, first);
-        let mut w = Walk {
-            save: game.clone(),
-            game,
-            log: Vec::new(),
-            pending_drop: None,
-            gold_amount: 1,
-            hindered: false,
-            new_name: String::new(),
-        };
+        let mut w = Walk::with(game.clone(), game);
         w.note(format!(
             "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
              To drop, click Drop, then a direction (Space = here, Esc = cancel). \
@@ -77,6 +69,71 @@ impl Walk {
         ));
         w.record(&ev);
         w
+    }
+
+    fn with(game: Game, save: Game) -> Self {
+        Walk {
+            game,
+            save,
+            log: Vec::new(),
+            pending_drop: None,
+            gold_amount: 1,
+            hindered: false,
+            new_name: String::new(),
+        }
+    }
+
+    /// A walk from a save file's text (docs/saves.md), replayed over `adv`.
+    pub fn from_save(adv: &Adventure, text: &str) -> Result<Self, String> {
+        let save = SaveFile::from_json(text).map_err(|e| e.to_string())?;
+        let r = save.restore(adv).map_err(|e| e.to_string())?;
+        let mut w = Walk::with(r.game, r.autosave);
+        w.note(format!(
+            "Loaded a save: seed {}, {} commands replayed, the autosave after {}.",
+            save.seed,
+            save.commands.len(),
+            save.autosave
+        ));
+        if r.adventure_changed {
+            w.log.push((
+                Kind::Foe,
+                "Warning: this adventure's data differs from the one the save was made with \
+                 (another copy, or a decoder change)."
+                    .into(),
+            ));
+        }
+        if r.diverged {
+            w.log.push((
+                Kind::Foe,
+                "Warning: the replay came out differently from the saved game \
+                 (the rules have changed since it was saved)."
+                    .into(),
+            ));
+        }
+        let p = w.game.current_player();
+        let line = format!("{}'s turn, {}.", p.name, place_name(&w.game, p.at));
+        w.note(line);
+        Ok(w)
+    }
+
+    /// The save file of this walk: a file name for it and its text.
+    pub fn save_file(&self, original: &Adventure) -> (String, String) {
+        let text = SaveFile::new(&self.game, original, &self.save).to_json();
+        let stem: String = original
+            .name
+            .trim()
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let stem = stem.trim_matches('-');
+        let stem = if stem.is_empty() { "game" } else { stem };
+        (format!("{stem}.acsave.json"), text)
     }
 
     /// A `Cast`/`Use` target written as creature slot `S` of region 0 (the
@@ -382,6 +439,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     let mut click: Option<Command> = None;
     let mut restart: Option<Rules> = None;
     let mut resume = false;
+    let mut save_game = false;
+    let mut load_game = false;
     let walk = doc.walk.as_mut().unwrap();
 
     let mut show_info = doc.show_info;
@@ -441,6 +500,25 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     restart = Some(g.rules());
                 }
             });
+            ui.horizontal(|ui| {
+                if ui
+                    .button("Save game")
+                    .on_hover_text(
+                        "Writes the seed and the commands played (docs/saves.md); \
+                         load it over the same adventure.",
+                    )
+                    .clicked()
+                {
+                    save_game = true;
+                }
+                if ui
+                    .button("Load game…")
+                    .on_hover_text("Opens a save file; dropping one on the window works too.")
+                    .clicked()
+                {
+                    load_game = true;
+                }
+            });
             ui.label(RichText::new(format!("seed {} · {} commands", g.seed(), g.log().len())).weak());
             ui.separator();
             ui.label(RichText::new("Log").strong());
@@ -484,6 +562,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     if resume {
         walk.resume();
+    }
+    if save_game {
+        let (name, text) = walk.save_file(&doc.decoded.adventure);
+        crate::savefile::offer(name, text);
+    }
+    if load_game {
+        doc.pick = true;
     }
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));

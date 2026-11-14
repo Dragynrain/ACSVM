@@ -9,7 +9,7 @@
 use acs_core::model::{Access, Adventure, ThingKind};
 use acs_core::{decode, Image, Platform};
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rng, Rules};
+use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rng, Rules, SaveFile};
 use std::path::{Path, PathBuf};
 
 fn find(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -258,6 +258,11 @@ fn random_walks_stay_on_real_squares_and_replay() {
         }
         let r = Game::replay(a.clone(), 99, Rules::default(), setup, g.log());
         assert_eq!(r, g, "{file}: replay differs");
+        // The save file (docs/saves.md) brings back the same game.
+        let text = SaveFile::new(&g, a, &g).to_json();
+        let back = SaveFile::from_json(&text).unwrap().restore(a).unwrap();
+        assert_eq!(back.game, g, "{file}: save differs");
+        assert!(!back.diverged && !back.adventure_changed, "{file}: save warnings");
         let pl = g.current_player();
         println!(
             "{file}: random walk visited {} rooms, carries {} things and {} gold, load {}/{}",

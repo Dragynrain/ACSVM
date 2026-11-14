@@ -227,6 +227,9 @@ pub struct Game {
     /// The store visit in progress (stores 3).
     #[serde(default)]
     pub(crate) store: Option<crate::stores::StoreVisit>,
+    /// Tool placements made so far, for the save (saves 1.3).
+    #[serde(default)]
+    placed: Vec<crate::save::Placement>,
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -293,6 +296,7 @@ impl Game {
             sched: Schedule::default(),
             reversals: Vec::new(),
             store: None,
+            placed: Vec::new(),
         };
         let mut ev = Vec::new();
         match first {
@@ -385,12 +389,23 @@ impl Game {
     }
 
     /// Test and tool hook: puts a player somewhere without a move. Not a
-    /// command, so it is not replayed. The schedule starts afresh from the
-    /// current player's region, the current turn going on, as if a round
+    /// command, so [`Game::replay`] doesn't redo it, but it is kept for the
+    /// save, whose replay does (saves 1.3). The schedule starts afresh from
+    /// the current player's region, the current turn going on, as if a round
     /// had just begun with everyone where they now stand.
     pub fn place(&mut self, player: usize, at: Location) {
+        self.placed.push(crate::save::Placement {
+            after: self.log.len(),
+            player,
+            at,
+        });
         self.players[player].at = at;
         self.reschedule();
+    }
+
+    /// The tool placements made so far (saves 1.3).
+    pub fn placements(&self) -> &[crate::save::Placement] {
+        &self.placed
     }
 
     /// See `place`.

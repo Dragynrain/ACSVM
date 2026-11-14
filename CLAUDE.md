@@ -46,7 +46,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
-cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--screenshot out.png]
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--screenshot out.png]
 scripts/web.sh serve                                    # trunk dev server, :8080
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
@@ -91,7 +91,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   whom is the step choice in `ai.rs`, firing `creature_fires` there, and
   `player_attack` in `step.rs`), `characters.rs` rolling a new character
   (`CreatePlayer`, `Newcomer::Create`), names and the profile's marks;
-  `describe` turns
+  `save.rs` save files, a replay of the command log
+  (`docs/saves.md`); `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives

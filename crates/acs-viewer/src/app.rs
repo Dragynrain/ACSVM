@@ -60,6 +60,8 @@ pub struct Doc {
     pub show_info: bool,
     /// The walk-mode game, started on first use.
     pub walk: Option<views::walk::Walk>,
+    /// A view asked for the file picker (Load game).
+    pub pick: bool,
 }
 
 impl Doc {
@@ -85,6 +87,7 @@ impl Doc {
             note: None,
             show_info: true,
             walk: None,
+            pick: false,
         }
     }
 
@@ -162,6 +165,10 @@ pub struct Startup {
     pub walk: Option<(u64, Vec<acs_engine::Command>)>,
     /// Walk mode: put the player here before the commands (a tool shortcut).
     pub place: Option<acs_engine::Location>,
+    /// Walk mode from this save file (docs/saves.md), after the commands.
+    pub load: Option<std::path::PathBuf>,
+    /// Write the walk's save file here once started (desktop only).
+    pub save: Option<std::path::PathBuf>,
 }
 
 pub struct Viewer {
@@ -212,6 +219,28 @@ impl Viewer {
             doc.walk = Some(walk);
             doc.view = View::Walk;
         }
+        if let Some(p) = start.load {
+            let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
+            v.open(
+                &cc.egui_ctx,
+                Incoming {
+                    name: load::display_name(&p),
+                    bytes,
+                },
+            );
+        }
+        if let (Some(p), Some(doc)) = (start.save, &v.doc) {
+            if let Some(walk) = &doc.walk {
+                let (_, text) = walk.save_file(&doc.decoded.adventure);
+                match std::fs::write(&p, text) {
+                    Ok(()) => eprintln!("wrote {}", p.display()),
+                    Err(e) => eprintln!("cannot write {}: {e}", p.display()),
+                }
+            }
+        }
+        if let Some(e) = &v.error {
+            log::error!("{e}");
+        }
         v
     }
 
@@ -241,6 +270,21 @@ impl Viewer {
     }
 
     fn open(&mut self, ctx: &egui::Context, file: Incoming) {
+        // A save file goes to the open adventure's walk (docs/saves.md 4.1).
+        if let Some(text) = file.bytes.as_deref().ok().and_then(load::save_text) {
+            self.error = match &mut self.doc {
+                None => Some(format!("{}: open the adventure first, then its save", file.name)),
+                Some(doc) => match views::walk::Walk::from_save(&doc.decoded.adventure, text) {
+                    Ok(walk) => {
+                        doc.walk = Some(walk);
+                        doc.go(View::Walk);
+                        None
+                    }
+                    Err(e) => Some(format!("{}: {e}", file.name)),
+                },
+            };
+            return;
+        }
         match file.bytes.and_then(|b| load::load(&file.name, b)) {
             Ok(decoded) => {
                 for d in &decoded.diagnostics {
@@ -283,11 +327,12 @@ impl Viewer {
         let ctx = ctx.clone();
         let task = async move {
             let file = rfd::AsyncFileDialog::new()
-                .set_title("Open an adventure")
+                .set_title("Open an adventure or a save")
                 .add_filter(
                     "Adventures (.d64, .fpy, .hrd)",
                     &["d64", "D64", "fpy", "FPY", "hrd", "HRD"],
                 )
+                .add_filter("Saves (.json)", &["json", "JSON"])
                 .add_filter("All files", &["*"])
                 .pick_file()
                 .await;
@@ -492,6 +537,9 @@ impl eframe::App for Viewer {
                     .show(ui, |ui| Self::nav(doc, ui));
             }
             views::show(doc, ui);
+            if std::mem::take(&mut doc.pick) {
+                self.pick_file(&ctx);
+            }
         } else {
             egui::CentralPanel::default_margins().show(ui, |ui| self.empty_state(ui));
         }

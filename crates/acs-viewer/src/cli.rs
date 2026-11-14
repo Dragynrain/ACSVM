@@ -23,10 +23,14 @@ pub struct Args {
     /// Walk mode starting in a room square (`--place R:N:X:Y`), a tool
     /// shortcut that is not part of the replayable command log.
     pub place: Option<acs_engine::Location>,
+    /// A save file to load into walk mode (`--load`), and where to write
+    /// the walk's save once its steps are played (`--save`).
+    pub load: Option<PathBuf>,
+    pub save: Option<PathBuf>,
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.";
+[--size WxH] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -48,6 +52,8 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
             }
             "--walk" => out.walk = Some(crate::views::walk::parse_commands(&value("--walk")?)?),
             "--place" => out.place = Some(parse_place(&value("--place")?)?),
+            "--load" => out.load = Some(PathBuf::from(value("--load")?)),
+            "--save" => out.save = Some(PathBuf::from(value("--save")?)),
             "-h" | "--help" => return Err(USAGE.into()),
             f if f.starts_with("--") => return Err(format!("unknown option {f}\n{USAGE}")),
             _ if out.file.is_none() => out.file = Some(PathBuf::from(a)),

@@ -10,6 +10,7 @@ mod app;
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
 mod load;
+mod savefile;
 mod tiles;
 mod views;
 
@@ -24,16 +25,19 @@ fn main() -> eframe::Result {
         }
     };
     let title = format!("{} viewer", app::project_name());
+    let walking = args.seed.is_some()
+        || args.walk.is_some()
+        || args.place.is_some()
+        || args.save.is_some()
+        || args.view == Some(app::View::Walk);
     let start = app::Startup {
         path: args.file,
         view: args.view,
         screenshot: args.screenshot,
         place: args.place,
-        walk: (args.seed.is_some()
-            || args.walk.is_some()
-            || args.place.is_some()
-            || args.view == Some(app::View::Walk))
-        .then(|| {
+        load: args.load,
+        save: args.save,
+        walk: walking.then(|| {
             (
                 args.seed.unwrap_or_else(views::walk::fresh_seed),
                 args.walk.unwrap_or_default(),

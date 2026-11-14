@@ -76,6 +76,10 @@ Power against Wisdom, spells and readied weapon; a coloured dot on each
 one's square shows its alignment (red enemy, green friend, yellow neutral,
 purple thief). The viewer keeps the autosave the original makes on entering
 or leaving a region; after a death, Resume from last save goes back to it.
+Save game writes a small save file (the seed and the moves played,
+[docs/saves.md](docs/saves.md)); Load game, or dropping the file on the
+window, replays it over the same adventure. The adventure is not in the
+save, so a save can go with a bug report.
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
@@ -85,7 +89,8 @@ steps can also be `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`
 and `use:T[:target]` (T is a thing number; a target is `me`, `pN` for player
 N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
 starts the walk on a room square instead of the start (a tool shortcut that
-is not part of the replayable command log).
+is not part of the replayable command log). `--save OUT.json` writes the
+walk's save file after the steps, and `--load SAVE.json` opens one.
 Keep such
 screenshots outside the repository: they show the adventure's art.
 

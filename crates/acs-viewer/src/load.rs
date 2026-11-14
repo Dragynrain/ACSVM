@@ -31,6 +31,13 @@ pub fn load(name: &str, bytes: Vec<u8>) -> Result<Decoded, String> {
     decode(&image).map_err(|e| e.to_string())
 }
 
+/// The text of a save file (docs/saves.md 2), or `None` for anything else:
+/// it is JSON naming the save format, which no adventure file is.
+pub fn save_text(bytes: &[u8]) -> Option<&str> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    (text.trim_start().starts_with('{') && text.contains(acs_engine::save::SAVE_FORMAT)).then_some(text)
+}
+
 /// The file name part of a path or browser file name.
 pub fn display_name(path: &Path) -> String {
     path.file_name()
@@ -56,6 +63,14 @@ mod tests {
     fn bad_files_give_messages_not_panics() {
         assert!(load("x.d64", vec![0; 100]).unwrap_err().contains("bytes"));
         assert!(load("x.fpy", Vec::new()).is_err());
+    }
+
+    #[test]
+    fn saves_are_told_from_adventures() {
+        assert!(save_text(br#" {"format": "acsvm-save", "version": 1}"#).is_some());
+        assert!(save_text(br#"{"format": "other"}"#).is_none());
+        assert!(save_text(&[0x7b, 0xff, 0x00]).is_none());
+        assert!(save_text(&[0; 64]).is_none());
     }
 
     #[test]

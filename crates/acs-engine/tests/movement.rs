@@ -8,7 +8,10 @@ mod common;
 
 use acs_core::layout::{adventure as adv, region as rg, world_map as wm};
 use acs_core::{decode, Adventure, Platform};
-use acs_engine::{BlockReason, Command, Dir, Event, Game, Location, PlayerSetup, Rules, SpellSource};
+use acs_engine::{
+    BlockReason, Command, Dir, Event, Game, Location, Newcomer, PlayerSetup, Rules, SaveError, SaveFile,
+    SpellSource,
+};
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
 // Master things used below (1-based numbers).
@@ -849,4 +852,85 @@ fn replay_from_seed_and_log_is_exact() {
     let back: Vec<Command> = serde_json::from_str(&json).unwrap();
     assert_eq!(back, g.log());
     assert!(!events.is_empty());
+}
+
+/// A walk through the map door into HALL and about, with a rolled first
+/// character; returns the game, the autosave (taken at the region change,
+/// as walk mode does) and the adventure.
+fn saved_walk() -> (Game, Game, Adventure) {
+    let a = adventure(Platform::C64);
+    let first = Newcomer::Create {
+        create: "SAVER".into(),
+    };
+    let (mut g, _) = Game::new(a.clone(), 77, Rules { diagonals: true }, first);
+    g.place(0, Location::World { x: 20, y: 20 });
+    let mut autosave = g.clone();
+    for d in [Dir::E, Dir::W, Dir::N, Dir::S, Dir::E, Dir::E] {
+        let ev = mv(&mut g, d);
+        if ev
+            .iter()
+            .any(|e| matches!(e, Event::EnteredRegion { .. } | Event::LeftRegion { .. }))
+        {
+            autosave = g.clone();
+        }
+    }
+    g.apply(Command::Wait);
+    mv(&mut g, Dir::W);
+    (g, autosave, a)
+}
+
+#[test]
+fn saves_replay_to_the_same_game_and_autosave() {
+    let (g, autosave, a) = saved_walk();
+    assert!(!autosave.log().is_empty() && autosave.log().len() < g.log().len());
+    let save = SaveFile::new(&g, &a, &autosave);
+    assert_eq!(save.placements.len(), 1);
+    let back = SaveFile::from_json(&save.to_json()).unwrap();
+    assert_eq!(back, save);
+    let r = back.restore(&a).unwrap();
+    assert_eq!(r.game, g);
+    assert_eq!(r.autosave, autosave);
+    assert!(!r.adventure_changed && !r.diverged);
+    // A save made after resuming from the autosave holds the shorter line.
+    let resumed = SaveFile::new(&autosave, &a, &autosave);
+    assert_eq!(resumed.restore(&a).unwrap().game, autosave);
+}
+
+#[test]
+fn saves_check_the_adventure_and_the_state() {
+    let (g, autosave, a) = saved_walk();
+    let save = SaveFile::new(&g, &a, &autosave);
+    // Another adventure: refused.
+    let mut other = a.clone();
+    other.name = "ELSEWHERE".into();
+    assert!(matches!(
+        save.restore(&other),
+        Err(SaveError::WrongAdventure { .. })
+    ));
+    // Same name, different data: loaded with a warning.
+    let mut changed = a.clone();
+    changed.byline = "A NEW BYLINE".into();
+    let r = save.restore(&changed).unwrap();
+    assert!(r.adventure_changed);
+    // A different command line: the replay diverges, with a warning.
+    let mut edited = save.clone();
+    edited.commands.pop();
+    let r = edited.restore(&a).unwrap();
+    assert!(r.diverged && !r.adventure_changed);
+    // Damaged and foreign files.
+    let mut damaged = save.clone();
+    damaged.autosave = save.commands.len() + 1;
+    assert!(matches!(damaged.restore(&a), Err(SaveError::Damaged(_))));
+    let mut nobody = save.clone();
+    nobody.placements[0].player = 3;
+    assert!(matches!(nobody.restore(&a), Err(SaveError::Damaged(_))));
+    assert!(matches!(SaveFile::from_json("{}"), Err(SaveError::NotASave(_))));
+    assert!(matches!(
+        SaveFile::from_json(r#"{"format":"acsvm-save","version":99}"#),
+        Err(SaveError::Version(99))
+    ));
+    assert!(matches!(
+        SaveFile::from_json(r#"{"format":"other","version":1}"#),
+        Err(SaveError::NotASave(_))
+    ));
 }

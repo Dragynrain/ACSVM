@@ -403,7 +403,7 @@ Nineteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 9 | Renderer | World map and room views; resizing, fullscreen, zoom and high-DPI from one tile-size calculation; smooth movement | M |
 | 10 | Modern UI | Message log instead of press-to-acknowledge, inventory and stat panels, tooltips, mouse targeting, collapsible panels on narrow screens, touch | M |
 | 11 | Input and hot-seat | Keyboard, mouse, touch and up to 4 gamepads; 1 to 4 players with per-player bindings | S |
-| 12 | Saves and replay | Save anywhere; a deterministic command log for replays, bug reports and online sync | S |
+| 12 | Saves and replay | Save anywhere; a deterministic command log for replays, bug reports and online sync (`docs/saves.md`, done November 2026) | S |
 | 13 | Behavior capture harness | Scripted VICE and DOSBox-X runs that log original outcomes for comparison | L |
 | 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
 | 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |

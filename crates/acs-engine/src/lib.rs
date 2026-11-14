@@ -15,6 +15,7 @@
 //! (`docs/rules/inventory.md`), creatures (`docs/rules/creatures.md`), magic
 //! (`docs/rules/magic.md`), combat (`docs/rules/combat.md`), stores
 //! (`docs/rules/stores.md`) and characters (`docs/rules/characters.md`).
+//! Saves are replays of the command log (`docs/saves.md`, [`SaveFile`]).
 
 mod ai;
 pub mod characters;
@@ -25,6 +26,7 @@ mod game;
 pub mod inventory;
 pub mod magic;
 pub mod rng;
+pub mod save;
 mod step;
 pub mod stores;
 
@@ -32,6 +34,7 @@ pub use combat::BlowOutcome;
 pub use describe::describe;
 pub use game::{Game, Newcomer, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};
 pub use rng::Rng;
+pub use save::{Restored, SaveError, SaveFile};
 
 use acs_core::model::ThingId;
 use acs_core::model::{Alignment, SpellAction};

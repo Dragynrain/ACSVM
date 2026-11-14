@@ -246,7 +246,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    **Engine:** treated like a deleted room, with a diagnostic event.
 6. Entering or leaving a region saves the game automatically; after a death
    play resumes from the last save. [manual] **Engine:** emits
-   `EnteredRegion` / `LeftRegion` so the front end can snapshot the state.
+   `EnteredRegion` / `LeftRegion` so the front end can snapshot the state;
+   a save file keeps that point too (`docs/saves.md` 1.4).
 
 ## 7. Random encounters
 
@@ -310,7 +311,8 @@ These need the AI and are listed so the movement code leaves room for them.
   creature door rules, random creature placement on an empty square and
   periodic removal, the 16-creature region limit.
 - **Stores:** specced in [stores.md](stores.md) (bumping opens a store room).
-- **Saves:** snapshots at `EnteredRegion` / `LeftRegion`, resume after death.
+- **Saves:** snapshots at `EnteredRegion` / `LeftRegion`, resume after death;
+  save files in [saves.md](../saves.md).
 
 ## Captures needed
 
