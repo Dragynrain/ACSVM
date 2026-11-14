@@ -696,26 +696,35 @@ back through Qwen-Image-Edit sources to the first generation. Terrain and
 room picks were made by scripts that kept no log; those point to their
 pick and the generating script. Door squares point to their door and wall.
 
-## 19. Hero idle loops (not done)
+## 19. Hero idle loops
 
-**Tried November 2026, not shipped.** Design (sprite tricks) plans 2 to 4
-real frames for a few hero creatures. Two attempts on the kraken head:
+**Made November 2026 with Wan 2.2.** Design (sprite tricks) plans a few real
+frames for hero creatures. `_scripts/hero.ps1` (research folder) runs Wan
+2.2 I2V A14B (the official fp8 high- and low-noise pair) through SwarmUI.
+The start image is the hero's raw pick, unchanged; boomerang makes the clip
+loop. `scripts/frames64.py` then cuts every frame by one shared box and one
+shrink factor, so the creature keeps its place and size, and snaps and
+tidies each frame like the stills. 8 frames are kept from the loop.
 
-- **Wan 2.2 I2V A14B** (fp8, high and low noise, lightx2v 4-step LoRAs,
-  `_scripts/hero.ps1` in the research folder) ran out of GPU memory at
-  640 px with 17 frames and again at 480 px with 13. SwarmUI keeps the
-  Z-Image base pass loaded beside the two 14B video models, and the card is
-  shared. Try again with the card to itself, or with a workflow that skips
-  the base pass.
-- **Qwen-Image-Edit keyframes** ("change only the tentacles ... keep
-  everything else exactly the same") curled the tentacles, but each edit
-  also moved the shading (one frame's tentacles went brown) or broke shapes
-  (holes in the lower tentacles), and all edits shrank the head against the
-  original. A loop of them flickers. Edit keyframes suit one-off variants,
-  not frames that must match pixel for pixel.
+What it took on a 16 GB card:
 
-`scripts/frames64.py` is ready for whichever source works: it cuts every
-frame by one shared box and one shrink factor, so the creature keeps its
-place and size, then snaps and tidies each frame like the stills. Until
-then, heroes get the code effects the design lists (breathing, bob) and the
-emissive glow.
+- **Small video, full steps, no step LoRAs.** With the lightx2v 4-step
+  LoRAs it ran out of memory at every size, even 320 px with 9 frames.
+  The traceback showed why: ComfyUI bakes a LoRA into fp8 weights on the
+  GPU before sampling. Without them (20 steps, CFG 3.5) it runs.
+  320 px is plenty when the frames end at 60 px.
+- **Not the GGUF builds for now.** Wan 2.1 I2V 480p as GGUF fits, but the
+  auto-updated ComfyUI's fused linear path skips GGUF dequantization (a
+  Q5-packed 8640 against the real 13824 in the feed-forward layer). Fixing
+  that means patching the backend.
+- **Not Qwen-Image-Edit keyframes.** Each edit moved shading or broke
+  shapes, and all of them shrank the head, so a loop of them flickers. Wan
+  keeps colour and outline steady from frame to frame.
+
+Three heroes have loops: the kraken head breathes and curls its tentacles
+while its water swells (400 to 900 pixels change per frame); the drowned
+captain sways and his coat drifts (20 to 140); the mermaid's hair and tail
+tip stir (10 to 50), a quiet idle that suits her seated pose. Everything that
+doesn't move matches pixel for pixel from frame to frame. The
+shared box must hold the widest frame, so a hero comes out a little smaller
+than its still tile; frame 0 is not the still.
