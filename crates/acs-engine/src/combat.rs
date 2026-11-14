@@ -90,41 +90,81 @@ pub fn dodge_chance(dodge: u8, armor_term: i32, power: u8, wound: i32, size: u8)
     clamp(dodge as i32 + 2 * armor_term + half(power as i32) - wound + 3 * (10 - size as i32))
 }
 
-/// Eighths of a square, the unit of a missile's flight (8.5).
-const EIGHTHS: i64 = 8;
+/// Sixteenths of a square, the unit of a missile's flight (8.5): the
+/// screen's pixels.
+const SIXTEENTHS: i32 = 16;
 
-/// 8.5: the squares a missile crosses, relative to the shooter, for a
-/// target `(dx, dy)` away (not both 0), a shot of `deviation` (hundredths
-/// of the distance to the target) to `side`, flying `range` squares along
-/// the longer axis. The distance is the larger of the steps across and
-/// down. **Engine:** the sideways offset at the target in eighths of a
-/// square, rounded down, at right angles to the line (each part truncated
-/// toward the line off the axes); the missile's point on each square of
-/// the way in eighths too, rounded down; a square is reached while the
-/// point is less than half a square from its middle.
-pub fn flight(dx: i32, dy: i32, deviation: u32, side: bool, range: u8) -> Vec<(i32, i32)> {
-    let n = dx.abs().max(dy.abs()) as i64;
-    if n == 0 {
+/// Where on its square a point of a missile's path lies (8.5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathPoint {
+    /// Off the edge sixteenth on both axes: it reaches individuals there,
+    /// and a wall or obstacle there stops it.
+    Inner,
+    /// On the edge on one axis: a wall or obstacle stops it, nobody is
+    /// reached.
+    Edge,
+    /// On the edge on both axes: neither.
+    Corner,
+}
+
+/// 8.5: the 64 points of a missile's path, as the square each lies on
+/// (relative to the shooter) and where on it, for a target `(dx, dy)`
+/// away (not both 0), a shot of `deviation` to the side the side roll
+/// picked (`side` is a roll of 1), flying `range` squares along the longer
+/// axis. Empty for a target on the shooter's own square.
+pub fn flight(dx: i32, dy: i32, deviation: u32, side: bool, range: u8) -> Vec<(i32, i32, PathPoint)> {
+    if dx == 0 && dy == 0 {
         return Vec::new();
     }
-    let offset = (deviation as i64 * n * EIGHTHS / 100) as f64;
-    let len = ((dx * dx + dy * dy) as f64).sqrt();
-    let sign = if side { 1.0 } else { -1.0 };
-    let ox = (sign * -(dy as f64) * offset / len) as i64;
-    let oy = (sign * dx as f64 * offset / len) as i64;
-    let (ax, ay) = (EIGHTHS * dx as i64 + ox, EIGHTHS * dy as i64 + oy);
-    let m = ax.abs().max(ay.abs());
-    // A point `v` eighths from the shooter's middle lies on the square
-    // `v` rounds to, half a square going outward.
-    let square = |v: i64| {
-        let q = (v.abs() + EIGHTHS / 2) / EIGHTHS;
-        (if v < 0 { -q } else { q }) as i32
+    let d = if side {
+        -(deviation as i32)
+    } else {
+        deviation as i32
     };
-    (1..=range as i64)
-        .map(|k| {
-            let at = |a: i64| square(a.signum() * (a.abs() * EIGHTHS * k / m));
-            (at(ax), at(ay))
+    // Turned by the angle whose tangent is d / 100, each part truncated.
+    let (ax, ay) = (SIXTEENTHS * dx, SIXTEENTHS * dy);
+    let (nx, ny) = (ax + ay * d / 100, ay - ax * d / 100);
+    // Scaled to the range along the longer axis, truncated.
+    let m = nx.abs().max(ny.abs());
+    if m == 0 {
+        return Vec::new();
+    }
+    let len = range as i32 * SIXTEENTHS;
+    let start = (SIXTEENTHS / 2, SIXTEENTHS / 2);
+    let mut p = [(0i32, 0i32); 65];
+    p[0] = start;
+    p[64] = (start.0 + nx * len / m, start.1 + ny * len / m);
+    // The points between by halving, each the average rounded down.
+    fn fill(p: &mut [(i32, i32); 65], i: usize, j: usize) {
+        if j - i < 2 {
+            return;
+        }
+        let k = (i + j) / 2;
+        p[k] = ((p[i].0 + p[j].0).div_euclid(2), (p[i].1 + p[j].1).div_euclid(2));
+        fill(p, i, k);
+        fill(p, k, j);
+    }
+    fill(&mut p, 0, 64);
+    let edge = |v: i32| matches!(v.rem_euclid(SIXTEENTHS), 0 | 15);
+    p[1..]
+        .iter()
+        .map(|&(x, y)| {
+            let kind = match (edge(x), edge(y)) {
+                (false, false) => PathPoint::Inner,
+                (true, true) => PathPoint::Corner,
+                _ => PathPoint::Edge,
+            };
+            (x.div_euclid(SIXTEENTHS), y.div_euclid(SIXTEENTHS), kind)
         })
+        .collect()
+}
+
+/// 8.1: the squares (relative to the shooter) of the 19 points checked
+/// for a clear line of fire to a target `(dx, dy)` away: 1/20 to 19/20 of
+/// the way between the squares' middles, in twentieths of a square.
+pub fn line_of_fire(dx: i32, dy: i32) -> Vec<(i32, i32)> {
+    (1..20)
+        .map(|j| ((10 + j * dx).div_euclid(20), (10 + j * dy).div_euclid(20)))
         .collect()
 }
 
@@ -482,10 +522,12 @@ impl Game {
                 dmg -= aw.power as i32;
                 let reached = dmg >= 0;
                 dmg = dmg.max(0);
-                if armor_goes {
-                    armor_lost = Some((armor, true));
-                } else if reached && self.rng.below(100) < aw.break_chance as u32 {
+                // The break roll whenever the blow reaches the armor, also
+                // for armor that then disappears.
+                if reached && self.rng.below(100) < aw.break_chance as u32 {
                     armor_lost = Some((armor, false));
+                } else if armor_goes {
+                    armor_lost = Some((armor, true));
                 }
             }
         }
@@ -584,22 +626,36 @@ impl Game {
         &mut self,
         by: Who,
         from: (u8, u8, u8, u8),
-        path: &[(i32, i32)],
+        path: &[(i32, i32, PathPoint)],
         ws: WeaponStats,
         ev: &mut Vec<Event>,
     ) {
         let (region, room, x0, y0) = from;
         let player_shot = matches!(by, Who::Player { .. });
-        for &(dx, dy) in path {
+        let Some((w, h)) = self.room(region, room).map(|r| (r.width as i32, r.height as i32)) else {
+            return;
+        };
+        let mut reached = vec![(0, 0)];
+        for &(dx, dy, kind) in path {
             let (x, y) = (x0 as i32 + dx, y0 as i32 + dy);
-            if !(0..=255).contains(&x) || !(0..=255).contains(&y) {
+            // It ends where it leaves the room.
+            if !(0..w).contains(&x) || !(0..h).contains(&y) {
                 return;
             }
             let (x, y) = (x as u8, y as u8);
             if !self.missile_passes(region, room, x, y) {
+                if kind == PathPoint::Corner {
+                    continue;
+                }
                 ev.push(Event::MissileStopped { by, x, y });
                 return;
             }
+            // Each square counts once, on an inner point, never the
+            // shooter's own.
+            if kind != PathPoint::Inner || reached.contains(&(dx, dy)) {
+                continue;
+            }
+            reached.push((dx, dy));
             let here: Vec<Who> = self
                 .others_in_room(region, room, Some(by))
                 .into_iter()
@@ -819,24 +875,54 @@ mod tests {
         assert_eq!(dodge_chance(30, 0, 13, 0, 9), 39);
     }
 
+    /// The deviations (minus for a side roll of 1) at which a shot aimed
+    /// `(dx, dy)` away reaches the square `at`, walls aside.
+    fn reach_range(dx: i32, dy: i32, at: (i32, i32)) -> (i32, i32) {
+        let ok: Vec<i32> = (0..100)
+            .flat_map(|d| [(d, false), (d, true)])
+            .filter(|&(d, side)| {
+                flight(dx, dy, d as u32, side, 7)
+                    .iter()
+                    .any(|&(x, y, k)| (x, y) == at && k == PathPoint::Inner)
+            })
+            .map(|(d, side)| if side { -d } else { d })
+            .collect();
+        (*ok.iter().min().unwrap(), *ok.iter().max().unwrap())
+    }
+
     #[test]
     fn the_flight() {
-        // 8.5: the player 5 squares west was reached at deviations up to 8
-        // and missed from 11.
-        let reaches = |dev, side| flight(-5, 0, dev, side, 7).contains(&(-5, 0));
-        for side in [false, true] {
-            assert!((0..=8).all(|d| reaches(d, side)));
-            assert!((11..60).all(|d| !reaches(d, side)));
-        }
-        // A friend 3 squares out was reached at 17.
-        assert!(flight(-5, 0, 17, true, 7).contains(&(-3, 0)));
-        // Straight: the line itself, out to the range.
-        assert_eq!(flight(0, 3, 0, false, 4), [(0, 1), (0, 2), (0, 3), (0, 4)]);
-        assert_eq!(flight(2, 2, 0, true, 3), [(1, 1), (2, 2), (3, 3)]);
-        // Off to one side and the other, at right angles to the line.
-        assert_eq!(flight(4, 0, 50, true, 4).last(), Some(&(4, 2)));
-        assert_eq!(flight(4, 0, 50, false, 4).last(), Some(&(4, -2)));
+        // 8.5, the researcher's table (pass 3), checked on every shot of
+        // our pass 2 and 3 runs: 5 squares west; a friend 3 squares out on
+        // that shot; diagonal (9,7 to 4,4); the diagonal neighbour.
+        assert_eq!(reach_range(-5, 0, (-5, 0)), (-9, 11));
+        assert_eq!(reach_range(-5, 0, (-3, 0)), (-17, 18));
+        assert_eq!(reach_range(-5, -3, (-5, -3)), (-10, 9));
+        assert_eq!(reach_range(-1, 1, (-1, 1)), (-43, 49));
+        // A plus deviation turns the aim anticlockwise: west strays south.
+        let last = flight(-5, 0, 40, false, 7).last().copied().unwrap();
+        assert_eq!((last.0, last.1), (-7, 3));
+        // 64 points, out to the range along the longer axis.
+        let p = flight(0, 3, 0, false, 4);
+        assert_eq!(p.len(), 64);
+        assert_eq!((p[63].0, p[63].1), (0, 4));
         assert!(flight(0, 0, 10, true, 5).is_empty());
+        // The square's edge sixteenth: inner, edge and corner points.
+        assert!(p.iter().all(|&(x, _, k)| x == 0 && k != PathPoint::Corner));
+        assert!(p.iter().any(|&(.., k)| k == PathPoint::Edge));
+        assert!(flight(4, 4, 0, false, 4)
+            .iter()
+            .any(|&(.., k)| k == PathPoint::Corner));
+    }
+
+    #[test]
+    fn the_line_of_fire() {
+        // 8.1: from 9,4 to 4,4 the line runs through 5,4 (the obstacle of
+        // `bow-wall`); from 5,5 it doesn't.
+        assert!(line_of_fire(-5, 0).contains(&(-4, 0)));
+        assert!(!line_of_fire(-1, -1).contains(&(0, -1)));
+        assert_eq!(line_of_fire(-1, -1).len(), 19);
+        assert_eq!(*line_of_fire(3, 0).last().unwrap(), (3, 0));
     }
 
     #[test]

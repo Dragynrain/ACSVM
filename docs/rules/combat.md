@@ -9,15 +9,15 @@ to attack or fire in `ai.rs` and the player's attack in `step.rs`).
 
 Tags as in [movement](movement.md): **[manual]**, **[data]**,
 **[designer]**, **[unknown]** with the engine's choice as **Engine:**,
-plus **[research]** for the clean-room researcher's first and second
-combat passes (2026-11-13, `docs/research/combat.md`) and **[capture]**
-where our own captured runs confirm it. The researcher marked each
-finding as run in the original (its experiments) or only read in the
-program ("traced"); "[research, unconfirmed]" means no capture of ours has
-checked it yet. The second pass's cases (capture.md 10.15) were checked
-roll by roll with `scripts/combatcheck.py --case NAME` (capture.md
-10.14.10): 128 creature attacks, 24 player attacks and 32 firing runs,
-every one right.
+plus **[research]** for the clean-room researcher's three combat passes
+(2026-11-13, `docs/research/combat.md`) and **[capture]** where our own
+captured runs confirm it. The researcher marked each finding as run in the
+original (its experiments) or only read in the program ("traced");
+"[research, unconfirmed]" means no capture of ours has checked it yet. The
+second and third passes' cases (capture.md 10.15, 10.16) were checked roll
+by roll with `scripts/combatcheck.py --case NAME` (capture.md 10.14.10,
+10.16): 240 melee runs, 24 player attacks and 128 firing runs, every one
+right.
 
 ## 1. Terms
 
@@ -34,7 +34,13 @@ every one right.
 5. **The armor term** of an individual: 0 without armor. With armor of
    attack adjustment A (-65..10): the smaller of A + Armor skill and the
    larger of A and 0. So skill makes up a negative adjustment up to 0, and
-   a positive one never grows. [research]
+   a positive one never grows. [research] Mail of -30: -30 at Armor skill
+   0, -10 at 20, in the wearer's parry and counter-blow hit chances.
+   [capture: mail-parry, mail-skill, 32 runs, capture.md 10.16]
+7. **Beside** means on one of the 4 squares sharing a side with it
+   (north, south, east, west), never diagonally: for firing (8.1),
+   readying (6.2) and the halving of a turn's moves ([creatures](creatures.md)
+   2.6) alike. [research: third pass, run and traced; capture]
 6. **Class** of an individual: a player, or a creature's alignment with
    Aggressive or Peaceful. A creature is a **fighter** or a **slinker** as
    in [creatures](creatures.md) 4.2.
@@ -103,10 +109,11 @@ every one right.
 
 1. **Blows**: 4 x the moves left / the full moves (rounded down), plus
    Dexterity / 8 (rounded down), minus 1; at least 1. The full moves are
-   the turn's bar after any slowdown (and halving, creatures 2.6); if they
+   the turn's bar after any halving and slowdown (creatures 2.6); if they
    are 0 the first term counts as 1. Counted once, as the attack starts,
    after any readying. [research] A fighter with Dexterity 13 and a bar of
-   3 struck 4 blows with 3 moves left, 2 with 2. [capture: armed]
+   3 struck 4 blows with 3 moves left, 2 with 2; with Dexterity 31, up to
+   6. [capture: armed, break-many]
 2. **Using them up.** Each blow uses one; **a blow that does damage uses
    two**. The attack ends when none are left, the defender dies, a weapon
    breaks (6.3) or magic defense calls it off (5.4). There is no separate
@@ -149,9 +156,12 @@ every one right.
    Otherwise, clamped: its Parry skill + half its weapon's attack
    adjustment + half of minus its wound penalty + its armor term + half
    its Power + 15 - its Size. [research] Parry 26, Power 13, Size 9,
-   unhurt and unarmored: 38. [capture: parry, break] The armor term here
-   (and in the hit chance) has not been run: no case had a wearer that
-   strikes or parries. [research, unconfirmed]
+   unhurt and unarmored: 38. [capture: parry, break] With mail of -30 it
+   fell to 8, clamped to 14, at Armor skill 0 and to 28 at 20; the
+   wearer's counter-blows fell to 14 and to 24, 19, 14; the attacker's
+   chances against the wearer stayed 34, 29, 24, 19 (armor never enters
+   the other side's rolls). [research: third pass; capture: mail-parry,
+   mail-skill, 128 to-hit and 103 counter-blow rolls, 17 Armor checks]
 
 ## 4. Damage
 
@@ -175,9 +185,11 @@ every one right.
 3. So Life Force above Constitution plays no part in a blow, nor does
    Strength. A wounded individual fights worse through the wound penalty
    (3.4, 3.5); Power counts in to-hit, parry and the share. [research]
-4. **Engine:** a blow whose damage comes to 0 after armor and magic
-   defense is a hit that does no damage: it uses one blow, as a miss, and
-   is not a "damaging blow" (6.4, 7). [unknown]
+4. A blow whose damage the armor takes entirely is a hit that does no
+   damage: it uses one blow, as a miss, and is not a "damaging blow" (6.4,
+   7). [research: third pass; capture: mail-heavy, mail of Power 12
+   against blows of 10, 16 runs] **Engine:** so too when magic defense
+   brings it to 0. [unknown] The message for such a blow is not known.
 
 ## 5. Armor, magic defense and learning
 
@@ -198,10 +210,17 @@ every one right.
    did 6 (halved, rounding up, then 2 off). A break roll after every one
    of the 41 damaging blows; the plain mail (break chance 15) broke once,
    left its wearer, and the next blow did the full 10. [capture: mail,
-   mail-magic, 32 runs, capture.md 10.14.10] Not run: a magic weapon
-   against either, a blow weaker than the armor (no break roll expected).
-2. **Armor that disappears after use** goes after any blow it meets (the
-   rows that take its Power off). [research, unconfirmed]
+   mail-magic, 32 runs, capture.md 10.14.10] A blow weaker than the armor
+   (10 against Power 12) draws no break roll; a heavy 15 got through for 3
+   and drew it. [capture: mail-heavy, 16 runs, capture.md 10.16] Not run:
+   a magic weapon against either.
+2. **Armor that disappears after use** goes after the first blow that
+   reaches it, and the attack goes on: the next blow hit the unarmored
+   wearer for the full 10. [research: third pass] Its break roll is drawn
+   first, as for any armor (at break chance 0 here): without that roll
+   one of our 16 runs goes wrong. [capture: mail-once, 16 runs, the mail
+   gone in 13] **Engine:** a blow it stops entirely (none reaches it) also
+   uses it up, as the rows above say "taking its Power off". [unknown]
 3. **Armor in the hit chance**: the attacker's armor term (1.5), so heavy
    armor makes its wearer miss until its Armor skill grows. [research]
 4. **Magic defense** (levels 0..3, [magic](magic.md) 3.3), only when the
@@ -212,10 +231,12 @@ every one right.
    our plain blade: 10 did 5, 15 did 8 (13 blows); level 2: every hit
    (15) did nothing and no blow followed it, with blows still due; level
    3 with the blade made magic: halved (15 blows). [capture: md1, md2,
-   md3-magic, 48 runs, capture.md 10.14.10] Not run: level 3 against a
-   plain weapon, armor and magic defense together (the order above is
-   traced). **Engine:** the call-off ends the whole attack, also when it
-   stops a counter-blow.
+   md3-magic, 48 runs, capture.md 10.14.10] Level 3 against the plain
+   blade stops it and calls the attack off, as level 2 (15 of 15 hits).
+   **Armor comes first, then magic defense**: plain mail of Power 2 and
+   level 1 made 10 into 4 and 15 into 7 (21 hits). [research: third pass;
+   capture: md3-plain, mail-md1, 32 runs, capture.md 10.16] **Engine:**
+   the call-off ends the whole attack, also when it stops a counter-blow.
 5. **Learning**: a skill goes up by 1 (at most 127) when a roll of 0 to 99
    is above it: Melee after each hit, Parry after each parry. So the
    higher the skill, the rarer the gain, and from 99 never. The Armor
@@ -223,7 +244,11 @@ every one right.
    Armor skill, clamped (so still 14 in 100 when high), and only while the
    armor term is below 0. [research; capture: armed, 25 Melee checks;
    all second-pass melee cases, 154 Melee and 18 Parry checks] The Armor
-   check has not been run. [research, unconfirmed]
+   check comes after each of the wearer's hits (its Melee check first) and
+   after each of its parries whose 30-in-100 roll is below 30: at Armor
+   skill 0 the bar is 65, then 64 after a gain; at 20 it is 45. [research:
+   third pass; capture: mail-parry, mail-skill, 17 Armor checks, T's
+   Armor skill read after each]
 
 ## 6. Readying and breaking
 
@@ -238,9 +263,12 @@ every one right.
    weapon it doesn't hold; with none beside it, an owned missile weapon.
    Otherwise it keeps what it holds. One move each change. [research:
    traced; the melee case run by the researcher, 4 runs, a snapshot changed
-   by hand: one move, then a step into the player and 2 blows]
-   **Engine:** beside means the 4 squares (as 2.1); the lowest-numbered of
-   the kind ([manual]). The engine readies after the smartness check for
+   by hand: one move, then a step into the player and 2 blows] Owning the
+   bow but holding none, with the player far: it readied the bow at one
+   move (3 to 2) and fired at once, in the same turn, 2 shots. [research:
+   third pass; capture: bow-ready, 16 runs, the held-weapon byte showing
+   the bow from the first turn] **Engine:** beside as 1.7; the
+   lowest-numbered of the kind ([manual]). The engine readies after the smartness check for
    casting (creatures 6.6), so a creature that casts doesn't ready; on a
    turn with an overburdened drop (creatures 8.1) it readies before
    idling. [unknown] where readying falls on such a turn.
@@ -248,27 +276,30 @@ every one right.
    (0..15): a melee weapon when its blow is parried (the striking weapon,
    not the parrying one); armor on a blow that reaches it (5.1). The thing
    is taken from its owner (not dropped) and leaves the hand or body. A
-   weapon breaking ends the attack. [research] With the blade's break
-   chance 15 and both holding it, 9 parries brought 9 break rolls; one
-   broke the player's blade on its parried counter-blow, its held weapon
-   went to none, and it made no counter-blow after. [capture: break, 16
-   runs] That the break ends the attack was not seen (it came on the last
-   blow), nor the message. [research: traced] **Engine:** a counter-blow's
-   weapon breaking takes it from the defender and the attack goes on.
+   weapon breaking ends **its owner's** attack at once, blows still due or
+   not (a message that its blade is destroyed, then the button); a
+   counter-striker's weapon breaking doesn't end the attacker's attack,
+   which goes on against a defender that can now neither parry nor strike
+   back.
+   [research: third pass, 3 runs with one break roll forced] With the
+   blade's break chance 15 and both holding it, 9 parries brought 9 break
+   rolls; one broke the player's blade on its parried counter-blow, its
+   held weapon went to none, and it made no counter-blow after. [capture:
+   break, 16 runs] Our `break-many` runs (up to 6 blows) had 8 parries,
+   none breaking. [capture: 16 runs, capture.md 10.16]
 4. **Disappearing after use**: a melee weapon after its first damaging
    blow, and **the attack ends there**, also with blows still due; armor
    as 5.2; taken from the owner as on breaking. [research] The blade set
    to disappear went at the enemy's first damaging blow in 11 of 16 runs
    (one more on the runs' last roll) and no blow followed it. [capture:
    once, 16 runs]
-5. **After a weapon has disappeared**, the creature that held it (owning
-   no melee weapon now, so the player's square is closed, 2.3) had one
-   move fewer on each later turn that began beside the player: Speed 3,
-   two steps round the player, then its turn ended. Every such turn of
-   ours (10) began beside the player, so whether being beside matters is
-   not known; it looks like readying (6.2) charging its move with nothing
-   to ready. [capture: once, 16 runs; 5 of them need it] [unknown]
-   **Engine:** not modelled: such a creature keeps all its moves.
+5. **The lost move** our `once` runs showed (a creature whose weapon had
+   disappeared had 2 of its 3 moves on turns that began beside the
+   player) is not the weapon: it is the halving of a turn's moves with a
+   foe beside ([creatures](creatures.md) 2.6), which applies to everyone,
+   armed or not. Before the weapon went it never showed, because an attack
+   sets the moves to 0. [research: third pass, every turn start of its
+   replays, about 1,500 turns; capture: every pass 2 and 3 melee case]
 
 ## 7. After a player's damaging blow
 
@@ -301,31 +332,44 @@ The engine implements this in `combat.rs` (`fire`, `flight`) with the
 decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
 `Dodged`, `MissileHit` and `MissileStopped`.
 
-1. **When a creature fires**: after its smartness checks, instead of
-   stepping, when all of these hold: it holds a missile weapon; its goal
-   is an individual; the goal is within the weapon's range (2..9),
-   counted as the larger of the steps across and down; no aggressive
-   individual or player not on its side stands beside it; and a straight
-   line to the goal crosses no wall or obstacle. [research: traced] An
-   enemy holding our bow (range 7) with the player 5 squares west fired
-   on every turn and never stepped. [capture: bow, bow-line, 32 runs,
-   capture.md 10.14.10] Behind an obstacle on the line it never fired and
-   walked instead (16 runs). But beside the player, holding only the bow,
-   it hurt the player in 13 of 16 runs without moving, against "no foe
-   beside". [capture: bow-wall, bow-beside, capture.md 10.16; asked in
-   the combat brief's pass 3] [unknown] A player can't fire: the program
-   gives a message. [research: traced] **Engine:** "beside" is the 4 squares (as 6.2); "not
-   on its side" is a foe ([creatures](creatures.md) 7.4); the straight line
-   is the flight of a shot without deviation (8.5), the squares before the
-   goal's. [unknown] whether the goal must be a foe; the engine fires only
-   at one, so a slinker friend whose goal is the player doesn't shoot it.
-   The player's `Fire` command gives `CannotFire` (our own text), no shot,
-   no move used.
+1. **When a creature fires**: after its smartness checks and readying,
+   **before each step** it would take, it fires instead when all of these
+   hold: it holds a missile weapon; its goal is an individual; the goal is
+   within the weapon's range (2..9), counted as the larger of the steps
+   across and down; no aggressive individual or player not on its side
+   stands beside it (1.7); and the **line of fire** is clear. Otherwise it
+   steps as any creature does toward its goal (the goal's square closed to
+   it unless it owns a melee weapon, 2.3) and asks again before the next
+   step. Firing ends the turn. No message is given when it can't fire.
+   [research: traced; third pass, run]
+   - **The line of fire**: 19 points, 1/20 to 19/20 of the way from the
+     middle of the shooter's square to the middle of the goal's, worked
+     out in twentieths of a square; it is blocked when any of them falls
+     on a wall or obstacle square. [research: third pass]
+   - Holding our bow (range 7) with the player 5 squares west, or 5
+     across and 3 down: fired on every turn, never stepped. Behind an
+     obstacle on the line: walked every move of its first turn, and fired
+     in a later one once a step had cleared the line. Diagonally next to
+     the player (which is not beside): fired every turn without moving.
+     [capture: bow, bow-line, bow-diag, bow-wall, bow-beside, 80 runs,
+     every step and shot, capture.md 10.14.10, 10.16] With the player
+     truly beside it, it stepped away, then fired with the move left
+     (1 shot). [research: third pass, 12 runs, a snapshot changed by hand]
+   - [unknown] whether the goal must be a foe. **Engine:** "not on its
+     side" is a foe ([creatures](creatures.md) 7.4), and it fires only at
+     a goal that is its foe, so a slinker friend whose goal is the player
+     doesn't shoot it; with no move left (before a step) it doesn't fire,
+     so a creature of Speed 0 never does. [unknown]
+   - A player can't fire: the program gives a message. [research: traced]
+     **Engine:** the player's `Fire` command gives `CannotFire` (our own
+     text), no shot, no move used.
 2. **Shots**: Dexterity / 8 (at least 1) + half the moves left. The first
    shot ends the turn (moves left go to 0). [research] Dexterity 13 and 3
    of 3 moves: 2 shots. [capture: bow, bow-line, every turn]
 3. **Each shot, in order**: the weapon's **break roll** (a roll of 0 to
-   99, drawn even at break chance 0; a break ends the firing, 6.3); the
+   99, drawn even at break chance 0; a break ends the firing at once, a
+   shot still due or not, and the shooter holds nothing: 7 of our 16
+   `bow-break` runs, break chance 15); the
    **deviation**, a roll of 0 to spread - 1 (rolls of any size work like
    the percentile: the raw number divided by 256 / size, rounded down,
    drawn again when too big); the **side**, a roll of 0 or 1. Then the
@@ -341,27 +385,44 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
    after this one - 20); so the first of 2 shots gets + 15, the last + 20.
    [research: second pass, a correction to the first] Missile 22, Power 13,
    unhurt: spreads 60 then 55, and 54 or 53 as Missile grew. [capture]
-5. **The flight**: the aim is moved sideways, at right angles to the line
-   from the shooter to its target, by deviation hundredths of the distance
-   to the target, to the side the side roll picks. The missile flies
-   straight from the middle of the shooter's square along that line until
-   it has gone the weapon's range in squares along the longer axis, or is
-   stopped. It reaches every individual whose square its path crosses, in
-   order, friend or foe, never the shooter. Walls and obstacles stop it.
-   [research: traced] At 5 squares the player was reached at deviations up
-   to 8, missed from 11; a friend 3 squares out was reached at 17, so the
-   offset is not compared exactly with half a square (17 hundredths of 5
-   squares is 0.51 square at 3 squares out). [capture: bow, bow-line, 64
-   shots] [unknown] the exact arithmetic. **Engine:** the offset at the
-   target in eighths of a square, rounded down, scaled to each square on
-   the way; a square is reached while that is below half a square (fits
-   all 64 shots, as do quarters and sixteenths). The distance is the
-   larger of the steps across and down; off the axes the offset is split
-   across and down at right angles to the line, each part truncated toward
-   it; a missile whose point passes half a square from the line lies on
-   the next square over, and reaches whoever stands there. Walls are the
-   room's edge squares, obstacles an obstacle or custom obstacle on top of
-   a square; a stopped missile gives `MissileStopped`.
+5. **The flight**, worked out in **sixteenths of a square** (the screen's
+   pixels): [research: third pass]
+   1. **Aim**: from the middle of the shooter's square (8 sixteenths in on
+      each axis) at the middle of the target's: across and down are the
+      differences in sixteenths.
+   2. **Turning**: d is the deviation, negative when the side roll is 1.
+      New across = across + down x d / 100; new down = down - across x d
+      / 100; each division drops the fraction (toward 0). So the aim turns
+      by the angle whose tangent is d / 100, on the axes and diagonals
+      alike; a plus deviation turns it anticlockwise on the screen (a
+      shot west strays south).
+   3. **Length**: both parts times range x 16, divided by the larger of
+      the two, the fraction dropped: the range in squares along the
+      longer axis.
+   4. **The path** is 64 points, 1/64 to 64/64 of that line, made by
+      halving: the point between two known ones is their average, rounded
+      down. A point's square is its position divided by 16, rounded down.
+      The path ends where a point leaves the room.
+   5. **Which points count.** The outermost sixteenth of a square (the
+      first or last across, the first or last down) is its edge. Only
+      points off the edge on both axes (the inner 14 by 14) reach an
+      individual, each square once, never the shooter's own. A point on a
+      wall or obstacle square stops the missile unless it is on the edge
+      on both axes (a corner).
+
+   It reaches the individuals on those squares in order, friend or foe,
+   until one is hit (8.6). So at 5 squares west the target is reached at
+   deviations -9 to +11, a friend 3 squares out on that shot at -17 to
+   +18, 5 across and 3 down at -10 to +9, a diagonal neighbour at -43 to
+   +49; two arrows from 5,5 strayed into the obstacle on 5,4 and stopped.
+   [research: 284 shots of its replays] Every shot of our runs: the
+   individuals reached, the dodge rolls and Missile checks drawn, arrows
+   ending at the walls. Halving toward the
+   shooter instead of rounding down gets 2 `bow-beside` runs wrong.
+   [capture: bow, bow-line, bow-diag, bow-beside, bow-break, bow-ready,
+   bow-once, 112 runs, 204 shots, capture.md 10.16] **Engine:** walls
+   are the room's edge squares, obstacles an obstacle or custom obstacle
+   on top of a square; a stopped missile gives `MissileStopped`.
 6. **Reaching an individual**: the shooter's Missile check (5.5), then the
    **dodge**: a roll of 0 to 99 below the dodge chance, clamped: its Dodge
    skill + 2 x its armor term + half its Power - its wound penalty + 3 x
@@ -377,11 +438,11 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
    **Engine:** two on one square are reached in the engine's order of
    individuals (players, then creatures by slot).
 7. **Disappearing**: a missile weapon set to disappear after use goes after
-   each shot. [research: traced]
+   its first shot, and the firing ends: the second shot due never came.
+   [research: traced; capture: bow-once, 16 of 16 runs]
 
-Not run: a wall or obstacle in the line, a diagonal shot, a foe beside the
-shooter, a bow breaking, the player's attempt to fire, a creature readying
-a missile weapon (6.2).
+Not run: the player's attempt to fire (`player-bow`), a creature of Speed
+0 holding a missile weapon.
 
 ## 9. Left for later
 
@@ -399,13 +460,17 @@ a missile weapon (6.2).
    fighter enemy.
 2. Parry, counter-blows, Parry learning, armor against damage and its
    break roll, magic defense 1 to 3, a breaking weapon, a weapon that
-   disappears: captured (capture.md 10.14.10). Still open: the armor term
-   in its wearer's own to-hit and parry and the Armor check, a blow weaker
-   than the armor, armor that disappears, magic defense 3 against a plain
-   weapon, armor with magic defense, a weapon breaking with blows still
-   due, and why a creature whose weapon disappeared loses a move (6.5).
+   disappears: captured (capture.md 10.14.10). The armor term on its
+   wearer's side and the Armor check, a blow weaker than the armor, armor
+   that disappears, magic defense 3 against a plain weapon, armor with
+   magic defense: captured (capture.md 10.16). Still open: a weapon
+   breaking with blows still due (the researcher's forced rolls only; our
+   `break-many` runs never broke one), a magic weapon against armor.
 3. The player's attack, its blows and the alignment changes (7):
    captured. Still open: the menu when the player owns but doesn't hold a
    weapon (2.8), and whether a push with no weapon uses a move.
-4. Readying before stepping (6.2): the researcher's experiment only.
-5. Firing (section 8): the rest of its "Not run" list.
+4. Readying before stepping (6.2): a missile weapon captured
+   (`bow-ready`); a melee weapon the researcher's experiment only.
+5. Firing (section 8): captured but for its "Not run" list; a foe truly
+   beside the shooter (the researcher's changed snapshot only: ours had
+   the player diagonal).

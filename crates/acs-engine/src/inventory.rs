@@ -69,6 +69,17 @@ pub fn slowed_speed(speed: u8, load: i32, capacity: i32) -> u8 {
     }
 }
 
+/// Creatures 2.6: Speed halved, rounding up, with an aggressive
+/// individual or a player not on one's side beside one. The weight
+/// slowdown comes after it.
+pub fn hindered_speed(speed: u8, hindered: bool) -> u8 {
+    if hindered {
+        speed.div_ceil(2)
+    } else {
+        speed
+    }
+}
+
 impl Player {
     /// Total weight carried, gold included (3.1).
     pub fn load(&self, adv: &Adventure) -> i32 {
@@ -84,7 +95,17 @@ impl Player {
 
     /// Speed after the weight slowdown: where the bar starts (3.3).
     pub fn effective_speed(&self, adv: &Adventure) -> u8 {
-        slowed_speed(self.speed, self.load(adv), self.capacity())
+        self.turn_speed(adv, false)
+    }
+
+    /// A turn's full moves: Speed, halved when hindered (creatures 2.6),
+    /// then the weight slowdown.
+    pub fn turn_speed(&self, adv: &Adventure, hindered: bool) -> u8 {
+        slowed_speed(
+            hindered_speed(self.speed, hindered),
+            self.load(adv),
+            self.capacity(),
+        )
     }
 }
 

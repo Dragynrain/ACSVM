@@ -88,9 +88,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 4. **Random creatures fall away.** Random creatures in rooms no player
    occupies are removed now and then. [manual] On the C64, after each round
    in a room region one roll of 0 to 15 picks a slot; if it holds a
-   creature, one percentile roll follows, and under 20 every random
-   creature of the region (resident ones never) in a room with no player
-   in it goes. So a left-behind random creature goes with chance (slots in
+   creature, each random creature of the region (resident ones never)
+   takes a percentile roll, and under 20 it goes if no player is in its
+   room (as settled below). So a left-behind random creature goes with chance (slots in
    use / 16) x 20% a round. [research: random-rolls third pass,
    2026-11-12, `docs/research/random-rolls.md`] The researcher read the
    percentile as one per random creature whose room was not on the
@@ -109,14 +109,28 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    (the player and one or two residents in one room, no random creature)
    each round end drew the slot roll and then exactly one percentile: when
    the slot was in use, this one only, never the further roll `fall`
-   showed; when it was free, one percentile too, which the engine doesn't
-   draw. [capture: the second combat pass's 160 melee runs, capture.md
-   10.14.10] What that percentile is, and why `fall` drew one more, is not
-   settled. [unknown] **Engine:** the rule
-   above, at the end of each round of a room region's visit, the removed
-   creature taking what it carries (`CreatureRemoved`, reason
-   `left_behind`); what becomes of its things in the original is not
-   known.
+   showed; when it was free, one percentile too. [capture: the second
+   combat pass's 160 melee runs, capture.md 10.14.10]
+   **Settled by the combat researcher's third pass** (2026-11-13): when
+   the slot is in use, the program goes through all 16 slots and draws a
+   percentile for each one **marked as a random creature** (the top bit of
+   its Dodge byte); a creature without the mark draws nothing. Below 20
+   the creature is removed if it is alive and not in a room with a player.
+   The one percentile of the combat cases (in-use slot or free) is the
+   next round's random-creature check for the player's room (3.1), drawn
+   as its list is built; `fall`'s further one is the random creature's.
+   [research: run, 16 replays of `fall`; traced] A removed creature's slot
+   keeps the mark (its Constitution goes to 0, the mark byte stays set in
+   all 114 of our removals), which is why the roll goes on after it has
+   gone. [capture: fall, 256 runs] Not captured: two random creatures at
+   once (one roll each, by this). **Engine:** at the end of each round of
+   a room region's visit, the slot roll, then a percentile for each random
+   creature still there (a removed one draws none: the engine keeps no
+   mark), each removed below 20 when no living player stands in its room;
+   it takes what it carries (`CreatureRemoved`, reason `left_behind`);
+   what becomes of its things in the original is not known. The engine
+   takes the room's random-creature roll on entering (3.1), not each
+   round.
 5. **The movement bar.** A creature's turn has a bar like a player's: its
    Speed after the weight slowdown ([inventory](inventory.md) 3.3), using
    the creature's own Strength, Constitution, Life Force and load. On the
@@ -135,13 +149,20 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    0) on the square east of it, and 96 with the same enemy diagonally next
    to it or two squares east, with an aggressive friend or a peaceful
    enemy east of it. [capture: turns, the adj- cases, 2 runs each,
-   capture.md 10.10.2] **Engine:** at the start of a player's turn, if any
-   creature on the 4 squares beside the player is Aggressive and not a
-   Friend, the bar is halved (after the weight slowdown, rounding down,
-   at least 1; Speed 0 stays 0). The `TurnStarted` event says so
-   (`hindered`). Applied at turn start only; whether walking up to such a
-   creature mid-turn shortens the rest of the bar is not captured, nor
-   how odd Speeds round ([unknown]).
+   capture.md 10.10.2] **Creatures too**: at the top of any individual's
+   turn, as the bar is refilled, its moves are **halved, rounding up**,
+   if an aggressive individual or a player not on its side stands beside
+   it (Speed 3 gives 2, 6 gives 3); the weight slowdown comes after the
+   halving. [research: combat third pass, every turn start of about 1,500
+   in its replays; the slowdown's order traced] An enemy of Speed 3 had 2
+   moves on every turn it began beside the player, 3 otherwise, and the
+   player 3 of 6 beside it. [capture: every pass 2 and 3 combat run,
+   capture.md 10.16] **Engine:** so, for players (a creature on the 4
+   squares beside that is Aggressive and not a Friend) and creatures (a
+   foe as combat 8.1); Speed 0 stays 0. The `TurnStarted` event says so
+   for a player (`hindered`); a creature's `CreatureTurn` gives the moves.
+   Applied at turn start only; whether walking up to such an individual
+   mid-turn shortens the rest of the bar is not captured.
 
 ## 3. Random room creatures
 
@@ -418,14 +439,16 @@ the healing and reversal rules of magic 5 (November 2026), the
 creatures' own goals and steps of section 6 and the falling-away roll as
 captured (2.4, November 2026), and the take from beside and the
 overburdened drop as captured (7.5, 8.1), gold piles' sizes (inventory
-2.5), arrivals on a held destination (5.4) and melee
-([combat](combat.md), 2026-11-13), creatures take 6,365 turns, make
-10,731 steps, go through 122 doors, ready 1,503 weapons, pick up gold 16
-times and treasure 10 times, and make 43 drops (overburdened, and
-friends' gifts); 2,819 attacks strike 9,863 blows (2,159 doing damage,
-2,013 counter-blows) and break 63 weapons or armor. Fewer turns than
-before combat because the touring player (Life Force 11) now dies in 572
-of the 996 rooms. No
+2.5), arrivals on a held destination (5.4), melee and firing
+([combat](combat.md), 2026-11-13, with the third combat pass's halving
+of moves beside a foe, 2.6), creatures take 5,646 turns, make 7,116
+steps, go through 115 doors, ready 591 weapons, pick up gold 18 times
+and treasure 9 times, and make 40 drops (overburdened, and friends'
+gifts); 1,697 attacks strike 6,013 blows (1,390 doing damage, 1,213
+counter-blows), 1,054 firings loose 3,384 missiles (1,317 hits, 1,089
+dodges, 1,473 stopped by a wall or obstacle), and 225 weapons or armor
+break. Fewer turns than before combat because the touring player (Life
+Force 11) now dies in 589 of the 996 rooms. No
 creature leaves its region, stands on a wall after moving or breaks a
 carry limit; none shares a square with another individual except on
 arriving through a door (5.4). The random walks with
@@ -433,8 +456,7 @@ creatures replay exactly.
 
 ## 10. Left for later
 
-- **Combat:** melee is in [combat](combat.md); missile fire is not yet
-  (combat 8).
+- **Combat:** melee and missile fire are in [combat](combat.md).
 - **World map:** encounter areas and the creatures in them.
 - **Mimics** copy the opponent they meet: combat.
 

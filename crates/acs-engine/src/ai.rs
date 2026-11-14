@@ -106,8 +106,10 @@ impl Game {
     /// unless it cast or used an item (or died).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
         let dropped = self.overburdened_drop(region, slot, ev);
-        let c = self.creature(region, slot)?; // its drop spell may have killed it
-        let moves = creatures::effective_speed(&self.adv, c);
+        let c = self.creature(region, slot)?.clone(); // its drop spell may have killed it
+                                                      // Creatures 2.6: halved, rounding up, with a foe beside it.
+        let hindered = self.threatened(&c, Who::Creature { region, slot });
+        let moves = creatures::turn_speed(&self.adv, &c, hindered);
         ev.push(Event::CreatureTurn { region, slot, moves });
         self.turn_top(Who::Creature { region, slot }, ev);
         self.creature(region, slot)?;
@@ -133,20 +135,20 @@ impl Game {
         let goal = self
             .squares(region, slot)
             .and_then(|(grid, w, h)| self.choose_goal(region, slot, &grid, w, h));
-        // Combat 8.1: firing instead of stepping ends the turn.
-        if self.creature_fires(region, slot, goal) {
-            if let Some(Goal {
-                individual: Some(o), ..
-            }) = goal
-            {
-                self.fire(Who::Creature { region, slot }, o.who, left, ev);
-            }
-            self.creature(region, slot)?;
-            return Some((0, moves));
-        }
         let start = self.creature(region, slot).map(|c| (c.x, c.y))?;
         let mut stood = vec![start];
         while left > 0 {
+            // Combat 8.1: firing instead of a step ends the turn.
+            if self.creature_fires(region, slot, goal) {
+                if let Some(Goal {
+                    individual: Some(o), ..
+                }) = goal
+                {
+                    self.fire(Who::Creature { region, slot }, o.who, left, ev);
+                }
+                self.creature(region, slot)?;
+                return Some((0, moves));
+            }
             if !self.creature_step(region, slot, goal, start, &mut stood, &mut left, moves, ev) {
                 break;
             }
@@ -732,14 +734,14 @@ impl Game {
         true
     }
 
-    /// Combat 8.1: whether the creature fires this turn instead of
-    /// stepping: it holds a missile weapon, its goal is an individual
-    /// within the weapon's range (the larger of the steps across and down),
-    /// no aggressive individual or player that is its foe stands on one of
-    /// the 4 squares beside it, and the straight line to the goal (the
-    /// flight of a shot without deviation, combat 8.5) crosses no wall or
-    /// obstacle. **Engine:** and the goal is its foe (creatures 7.4), so a
-    /// slinker friend whose goal is the player doesn't shoot it.
+    /// Combat 8.1: whether the creature fires now instead of stepping
+    /// (asked before every step): it holds a missile weapon, its goal is an
+    /// individual within the weapon's range (the larger of the steps across
+    /// and down), no aggressive individual or player that is its foe stands
+    /// on one of the 4 squares beside it, and none of the line of fire's 19
+    /// points (`combat::line_of_fire`) falls on a wall or obstacle.
+    /// **Engine:** and the goal is its foe (creatures 7.4), so a slinker
+    /// friend whose goal is the player doesn't shoot it.
     fn creature_fires(&self, region: u8, slot: usize, goal: Option<Goal>) -> bool {
         let Some(Goal {
             individual: Some(o), ..
@@ -756,11 +758,12 @@ impl Game {
         if n == 0 || n > ws.range.unwrap_or(0) as i32 || !is_foe(c, &o) || self.threatened(c, me) {
             return false;
         }
-        combat::flight(dx, dy, 0, false, n as u8)[..n as usize - 1]
-            .iter()
-            .all(|&(sx, sy)| {
-                self.missile_passes(region, c.room, (c.x as i32 + sx) as u8, (c.y as i32 + sy) as u8)
-            })
+        combat::line_of_fire(dx, dy).iter().all(|&(sx, sy)| {
+            let (x, y) = (c.x as i32 + sx, c.y as i32 + sy);
+            (0..=255).contains(&x)
+                && (0..=255).contains(&y)
+                && self.missile_passes(region, c.room, x as u8, y as u8)
+        })
     }
 
     /// Combat 6.2, 8.1: an aggressive individual or a player that is the

@@ -599,17 +599,14 @@ impl Game {
         self.next_turn(ev);
     }
 
-    /// Fills the current player's bar from Speed after any slowdown
-    /// (inventory 3.3, 3.4), halved next to an aggressive unfriendly
-    /// creature (creatures 2.6).
+    /// Fills the current player's bar from Speed, halved (rounding up) next
+    /// to an aggressive unfriendly creature (creatures 2.6), then the
+    /// weight slowdown (inventory 3.3, 3.4).
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
         // Magic 3.2: summonses are answered on the following turn.
         self.answer_summons(ev);
-        let mut moves = self.players[self.current].effective_speed(&self.adv);
-        let hindered = moves > 0 && self.hindered(self.current);
-        if hindered {
-            moves = (moves / 2).max(1);
-        }
+        let hindered = self.players[self.current].speed > 0 && self.hindered(self.current);
+        let moves = self.players[self.current].turn_speed(&self.adv, hindered);
         if let Some(r) = self.players[self.current].at.room() {
             if !self.turn_rooms.contains(&r) {
                 self.turn_rooms.push(r);

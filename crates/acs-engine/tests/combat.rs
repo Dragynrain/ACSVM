@@ -818,29 +818,65 @@ fn a_friend_in_the_line_is_reached_first_and_a_dodge_lets_the_arrow_fly_on() {
     });
 }
 
+/// The archer's turn began with a step; if it fired, after that step.
+fn steps_before_firing(ev: &[Event], seed: u64) {
+    let turn = ev
+        .iter()
+        .position(|e| matches!(e, Event::CreatureTurn { slot: 1, .. }))
+        .expect("its turn");
+    let after = &ev[turn..];
+    let moved = after
+        .iter()
+        .position(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }));
+    let shot = after
+        .iter()
+        .position(|e| matches!(e, Event::Fired { by: C1, .. }));
+    assert!(moved.is_some(), "seed {seed}");
+    assert!(shot.is_none_or(|s| moved < Some(s)), "seed {seed}");
+}
+
 #[test]
 fn no_firing_with_a_foe_beside_a_wall_in_the_line_or_out_of_range() {
     both(|p| {
         for seed in 0..10 {
             // The player beside it, west: holding only the bow it can't
-            // strike, and it doesn't fire either.
+            // strike, and it doesn't fire from there. Its moves are halved
+            // (3 to 2); it steps off to a square not beside the player and
+            // fires with the move left: 1 shot (combat 8.1, pass 3).
             let mut a = archer(p, true, 3);
             a.regions[0].residents[1].x = 3;
             let (_, ev) = shoot(a, seed);
-            assert_eq!(fired(&ev), None, "seed {seed}");
+            assert!(ev.contains(&Event::CreatureTurn {
+                region: 1,
+                slot: 1,
+                moves: 2
+            }));
+            let moved = ev
+                .iter()
+                .position(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }));
+            let shot = ev.iter().position(|e| matches!(e, Event::Fired { by: C1, .. }));
+            assert!(moved.is_some() && moved < shot, "seed {seed}");
+            assert_eq!(fired(&ev), Some(1), "seed {seed}");
             assert!(!ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
-            // A pillar in the line.
+            // With a single move (Speed 1, halved rounding up to 1) it steps
+            // and has none left to fire with.
+            let mut a = archer(p, true, 1);
+            a.regions[0].residents[1].x = 3;
+            let (_, ev) = shoot(a, seed);
+            assert_eq!(fired(&ev), None, "seed {seed}");
+            // A pillar in the line, or 5 squares on a bow of range 4: no
+            // shot from where it stands, no message; it walks, asking again
+            // before every step (bow-wall, pass 3).
             let mut a = archer(p, true, 3);
             item(&mut a, 0, 5, 3, PILLAR, 0);
             let (_, ev) = shoot(a, seed);
-            assert_eq!(fired(&ev), None, "seed {seed}");
-            // 5 squares on a bow of range 4.
+            steps_before_firing(&ev, seed);
             let mut a = archer(p, true, 3);
             if let ThingKind::MissileWeapon { stats, .. } = &mut a.things[BOW as usize - 1].kind {
                 stats.range = Some(4);
             }
             let (_, ev) = shoot(a, seed);
-            assert_eq!(fired(&ev), None, "seed {seed}");
+            steps_before_firing(&ev, seed);
         }
     });
 }

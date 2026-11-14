@@ -1,31 +1,39 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Checks the combat rules (docs/rules/combat.md, from the clean-room
-researcher's first and second combat passes) against `acs-capture run mem
---draws` runs, roll by roll.
+researcher's three combat passes) against `acs-capture run mem --draws`
+runs, roll by roll.
 
-Cases (capture.md 10.14.7 and 10.15): `armed` (rr6), and the second pass's
-`parry`, `break`, `once`, `mail`, `mail-magic`, `md1`, `md2`, `md3-magic`,
-`bow` and `bow-line` (rr8). The room: T (player, Speed 6, Constitution and
-Life Force 40, the move-basic player's stats) on 4,4; EE (slot 0: an
-aggressive, brave enemy, Speed 3, Constitution and Life Force 20) on 6,4
-holding our blade, or on 9,4 holding our bow; FF (bow-line, slot 1: a
-friend of Speed 0) on 6,4.
+Cases (capture.md 10.14.7, 10.15 and 10.16): `armed` (rr6), the second
+pass's `parry`, `break`, `once`, `mail`, `mail-magic`, `md1`, `md2`,
+`md3-magic`, `bow` and `bow-line` (rr8), and the third pass's
+`mail-parry`, `mail-skill`, `mail-heavy`, `mail-once`, `break-many`,
+`md3-plain`, `mail-md1`, `bow-diag`, `bow-wall`, `bow-beside`, `bow-break`,
+`bow-ready` and `bow-once` (rr9). The room: T (player, Speed 6,
+Constitution and Life Force 40, the move-basic player's stats) on 4,4 (4,5
+in `bow-beside`); EE (slot 0: an aggressive, brave enemy, Speed 3,
+Constitution and Life Force 20) on 6,4 holding our blade, or holding (or
+owning) our bow on 9,4, 9,7 or 5,4; FF (bow-line, slot 1: a friend of
+Speed 0) on 6,4; an obstacle on 5,4 in `bow-wall`.
 
 From the turn-end snapshot: T's last idle move, then rounds of EE's turn
-(Power drift, the top-of-turn die, the two smartness checks of 0..9, then
-its steps by creaturecheck.py's rule with T's square open at cost 1 while
-EE owns a melee weapon, closed otherwise, until the chosen square is T's:
-the attack; or, holding the bow, its shots), the round's end (the slot roll,
-a percentile when it is EE's slot, the room's random-creature percentile)
+(Power drift, the top-of-turn die, the two smartness checks of 0..9, its
+moves halved rounding up with T beside it, readying, then before each step
+the firing check (combat 8.1: a held bow, T in range, T not beside, the
+line of fire clear) and otherwise a step by creaturecheck.py's rule with
+T's square open at cost 1 while EE owns a melee weapon, closed otherwise,
+until the chosen square is T's: the attack), the round's end (the slot
+roll, then the room's random-creature percentile; no random creature here)
 and T's turn (drift, the die, then its bar waited out: 6 moves, 3 with EE
 beside it), until the draws run out.
 
-    python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]
+    python scripts/combatcheck.py RUNS.jsonl [--case NAME] [--reach trunc] [-v]
 
-Compares the predicted values of every watched fighting byte (T's Life
-Force, Power, Parry, weapon and armor; EE's Life Force, Power and weapon)
-with the run's, glitch reads dropped.
+Compares the predicted values of every watched byte (T's Life Force, Power,
+Parry, Armor skill, weapon and armor; EE's Life Force, Power, weapon and
+square) with the run's, glitch reads dropped and nothing after a death (the
+game resets the records). `--reach trunc` halves the arrow's path toward
+the shooter instead of rounding down, to show the runs tell them apart.
 """
 import argparse
 import json
@@ -62,23 +70,118 @@ def blade(**kw):
 MAILS = {
     "mail": {"thing": MAIL, "power": 2, "adj": -30, "brk": 15, "magic": False, "once": False},
     "mail-magic": {"thing": MAIL, "power": 2, "adj": -30, "brk": 0, "magic": True, "once": False},
+    "mail-nb": {"thing": MAIL, "power": 2, "adj": -30, "brk": 0, "magic": False, "once": False},
+    "mail-heavy": {"thing": MAIL, "power": 12, "adj": -30, "brk": 15, "magic": False, "once": False},
+    "mail-once": {"thing": MAIL, "power": 2, "adj": -30, "brk": 0, "magic": False, "once": True},
 }
-BOWW = {"thing": BOW, "power": 10, "adj": 0, "brk": 0, "magic": False, "once": False, "range": 7}
 
-# (T's weapon, T's armor, T's magic defense, EE's weapon, EE's square, FF)
+
+def bow(**kw):
+    w = {"thing": BOW, "power": 10, "adj": 0, "brk": 0, "magic": False, "once": False, "range": 7}
+    w.update(kw)
+    return w
+
+
+def case(t_weapon=None, t_armor=None, md=0, ee_weapon=None, ee_at=(6, 4), ff=False, **kw):
+    c = {"tw": t_weapon, "ta": t_armor, "md": md, "ew": ee_weapon, "eat": ee_at, "ff": ff,
+         "t_at": T_START, "t_last": 6, "armor_skill": 0, "ee_dex": 13, "ee_owns": None, "obstacles": set()}
+    c.update(kw)
+    return c
+
+
+# Pass 2 (capture.md 10.15, rr8) and pass 3 (10.16, rr9).
 CASES = {
-    "armed": (None, None, 0, blade(), (6, 4), False),
-    "parry": (blade(), None, 0, blade(), (6, 4), False),
-    "break": (blade(brk=15), None, 0, blade(brk=15), (6, 4), False),
-    "once": (None, None, 0, blade(once=True), (6, 4), False),
-    "mail": (None, MAILS["mail"], 0, blade(), (6, 4), False),
-    "mail-magic": (None, MAILS["mail-magic"], 0, blade(), (6, 4), False),
-    "md1": (None, None, 1, blade(), (6, 4), False),
-    "md2": (None, None, 2, blade(), (6, 4), False),
-    "md3-magic": (None, None, 3, blade(magic=True), (6, 4), False),
-    "bow": (None, None, 0, BOWW, (9, 4), False),
-    "bow-line": (None, None, 0, BOWW, (9, 4), True),
+    "armed": case(None, None, 0, blade()),
+    "parry": case(blade(), None, 0, blade()),
+    "break": case(blade(brk=15), None, 0, blade(brk=15)),
+    "once": case(None, None, 0, blade(once=True)),
+    "mail": case(None, MAILS["mail"], 0, blade()),
+    "mail-magic": case(None, MAILS["mail-magic"], 0, blade()),
+    "md1": case(None, None, 1, blade()),
+    "md2": case(None, None, 2, blade()),
+    "md3-magic": case(None, None, 3, blade(magic=True)),
+    "bow": case(None, None, 0, bow(), (9, 4)),
+    "bow-line": case(None, None, 0, bow(), (9, 4), True),
+    "mail-parry": case(blade(), MAILS["mail"], 0, blade()),
+    "mail-skill": case(blade(), MAILS["mail-nb"], 0, blade(), armor_skill=20),
+    "mail-heavy": case(None, MAILS["mail-heavy"], 0, blade()),
+    "mail-once": case(None, MAILS["mail-once"], 0, blade()),
+    "break-many": case(blade(brk=15), None, 0, blade(brk=15), ee_dex=31),
+    "md3-plain": case(None, None, 3, blade()),
+    "mail-md1": case(None, MAILS["mail-nb"], 1, blade()),
+    "bow-diag": case(None, None, 0, bow(), (9, 7)),
+    "bow-wall": case(None, None, 0, bow(), (9, 4), obstacles={(5, 4)}),
+    # T on 4,5 with 1 of 3 moves left (the researcher's pass 3 P3.5).
+    "bow-beside": case(None, None, 0, bow(), (5, 4), t_at=(4, 5), t_last=3),
+    "bow-break": case(None, None, 0, bow(brk=15), (9, 4)),
+    "bow-ready": case(None, None, 0, None, (9, 4), ee_owns=bow()),
+    "bow-once": case(None, None, 0, bow(once=True), (9, 4)),
 }
+
+
+def inside(sq):
+    return INSIDE[0] <= sq[0] <= INSIDE[1] and INSIDE[2] <= sq[1] <= INSIDE[3]
+
+
+def beside(a, b):
+    return dist(a, b) == 1
+
+
+def tdiv(a, b):
+    """Division dropping the fraction (toward 0)."""
+    q = abs(a) // abs(b)
+    return q if (a >= 0) == (b > 0) else -q
+
+
+def line_clear(src, dst, obstacles):
+    """Combat 8.1: 19 points, j/20 of the way between the squares' middles,
+    in twentieths of a square; none on a wall or obstacle square."""
+    for j in range(1, 20):
+        sq = ((20 * src[0] + 10 + j * (dst[0] - src[0])) // 20, (20 * src[1] + 10 + j * (dst[1] - src[1])) // 20)
+        if not inside(sq) or sq in obstacles:
+            return False
+    return True
+
+
+def arrow(src, dst, dev, side, rng, obstacles, mid="floor"):
+    """Combat 8.5: the squares the arrow reaches, in order, and whether a
+    wall or obstacle stopped it. Sixteenths of a square throughout."""
+    d = -dev if side == 1 else dev
+    ax, ay = 16 * (dst[0] - src[0]), 16 * (dst[1] - src[1])
+    nx, ny = ax + tdiv(ay * d, 100), ay - tdiv(ax * d, 100)
+    m = max(abs(nx), abs(ny))
+    ex, ey = tdiv(nx * rng * 16, m), tdiv(ny * rng * 16, m)
+    p = {0: (16 * src[0] + 8, 16 * src[1] + 8)}
+    p[64] = (p[0][0] + ex, p[0][1] + ey)
+
+    def fill(i, j):
+        if j - i < 2:
+            return
+        k = (i + j) // 2
+        if mid == "floor":
+            p[k] = ((p[i][0] + p[j][0]) // 2, (p[i][1] + p[j][1]) // 2)
+        else:
+            o = p[0]
+            p[k] = tuple(o[n] + tdiv(p[i][n] + p[j][n] - 2 * o[n], 2) for n in (0, 1))
+        fill(i, k)
+        fill(k, j)
+
+    fill(0, 64)
+    out, seen = [], {tuple(src)}
+    for k in range(1, 65):
+        x, y = p[k]
+        sq = (x // 16, y // 16)
+        if not (0 <= sq[0] <= INSIDE[1] + 1 and 0 <= sq[1] <= INSIDE[3] + 1):
+            return out, False
+        ex_, ey_ = x % 16 in (0, 15), y % 16 in (0, 15)
+        if not inside(sq) or sq in obstacles:
+            if not (ex_ and ey_):
+                return out, True
+            continue
+        if not ex_ and not ey_ and sq not in seen:
+            seen.add(sq)
+            out.append(sq)
+    return out, False
 
 
 def fighter(name, at, weapon, armor, md, life, con):
@@ -108,23 +211,30 @@ def melee_weapon(f):
 
 class Sim:
     def __init__(self, d, case, start, watch, reach):
-        tw, ta, tmd, ew, eat, ff = CASES[case]
+        c = CASES[case]
+        self.c = c
         self.d = d
         self.reach = reach
+        self.obstacles = c["obstacles"]
         sv = dict(zip(watch, start))
-        self.t = fighter("T", T_START, tw, ta, tmd, sv.get("F5A2", 40), 40)
+        self.t = fighter("T", c["t_at"], c["tw"], c["ta"], c["md"], sv.get("F5A2", 40), 40)
         self.t["power"] = sv.get("F5A4", 13)
         self.t["parry"] = sv.get("F5A6", 26)
-        self.ee = fighter("EE", eat, ew, None, 0, sv.get("E1A6", 20), 20)
+        self.t["armor_skill"] = sv.get("F5A7", c["armor_skill"])
+        self.ee = fighter("EE", c["eat"], c["ew"], None, 0, sv.get("E1A6", 20), 20)
         self.ee["power"] = sv.get("E1A8", 13)
-        self.ff = fighter("FF", (6, 4), None, None, 0, 40, 40) if ff else None
-        self.ee_had_blade = bool(melee_weapon(self.ee))
+        self.ee["dex"] = c["ee_dex"]
+        # What EE owns: the weapon it holds, or one it owns but doesn't hold.
+        self.ee["owns"] = [w for w in (self.ee["weapon"], c["ee_owns"] and dict(c["ee_owns"])) if w]
+        self.ff = fighter("FF", (6, 4), None, None, 0, 40, 40) if c["ff"] else None
         self.shot_starts = []  # the draw index at which each shot begins
         self.vals = {}  # address -> predicted values in order
         self.notes = []
+        self.dead = False
         self.counts = {"to-hit": 0, "counter to-hit": 0, "parry roll": 0, "parries": 0, "damaging": 0,
                        "melee checks": 0, "armor breaks": 0, "weapon breaks": 0, "gone": 0, "stopped": 0,
-                       "shots": 0, "dodge rolls": 0, "dodges": 0, "arrow hits": 0}
+                       "shots": 0, "dodge rolls": 0, "dodges": 0, "arrow hits": 0,
+                       "armor checks": 0, "readied": 0, "steps": 0, "halved turns": 0, "stopped arrows": 0}
         self.record()
 
     def take(self, n):
@@ -136,11 +246,12 @@ class Sim:
     def record(self):
         t, ee = self.t, self.ee
         now = {
-            "F5A2": t["life"], "F5A4": t["power"], "F5A6": t["parry"],
+            "F5A2": t["life"], "F5A4": t["power"], "F5A6": t["parry"], "F5A7": t["armor_skill"],
             "F5B3": t["weapon"]["thing"] if t["weapon"] else 0,
             "F5B4": t["armor"]["thing"] if t["armor"] else 0,
             "E1A6": ee["life"], "E1A8": ee["power"],
             "E1B7": ee["weapon"]["thing"] if ee["weapon"] else 0,
+            "E1B0": ee["at"][0], "E1B1": ee["at"][1],
         }
         if self.ff:
             now["E1CB"] = self.ff["life"]
@@ -169,9 +280,9 @@ class Sim:
             dmg -= ar["power"]
             reached = dmg >= 0
             dmg = max(0, dmg)
-            if ar["once"]:
+            if reached and self.take(100) < ar["brk"]:
                 lost_armor = True
-            elif reached and self.take(100) < ar["brk"]:
+            if ar["once"]:
                 lost_armor = True
         if lost_armor:
             d["armor"] = None
@@ -204,8 +315,16 @@ class Sim:
             self.record()
 
     def learn_armor(self, f):
+        self.counts["armor checks"] += 1
         if self.take(100) < clamp(65 - f["armor_skill"]):
             f["armor_skill"] += 1
+            self.record()
+
+    def lose(self, f):
+        w = f["weapon"]
+        f["weapon"] = None
+        if "owns" in f:
+            f["owns"] = [o for o in f["owns"] if o is not w]
 
     # 3.3: one blow with `n` blows left; returns (outcome, damage, stop).
     def blow(self, a, d, n, counter):
@@ -229,7 +348,7 @@ class Sim:
             if self.take(100) < 30 and term(d) < 0:
                 self.learn_armor(d)
             if self.take(100) < w["brk"]:
-                a["weapon"] = None
+                self.lose(a)
                 self.counts["weapon breaks"] += 1
                 self.note(f"{a['name']}'s weapon breaks")
                 self.record()
@@ -239,7 +358,7 @@ class Sim:
         if out == "stopped":
             return "stopped", 0, True
         if dmg > 0 and w["once"]:
-            a["weapon"] = None
+            self.lose(a)
             self.counts["gone"] += 1
             self.note(f"{a['name']}'s weapon goes")
             self.record()
@@ -274,6 +393,7 @@ class Sim:
     def check_dead(self):
         if self.t["life"] <= 0 or self.ee["life"] <= 0:
             self.note("death")
+            self.dead = True
             raise Out
 
     def heal(self, f):
@@ -299,18 +419,20 @@ class Sim:
             self.counts["shots"] += 1
             self.shot_starts.append(self.d.i)
             if self.take(100) < w["brk"]:
-                a["weapon"] = None
+                self.lose(a)
+                self.counts["weapon breaks"] += 1
+                self.note("the bow breaks")
                 self.record()
                 return
             dev = self.take(spread)
-            self.take(2)  # the side
-            path = [f for f in (self.ff, self.t) if f]
-            path.sort(key=lambda f: abs(f["at"][0] - a["at"][0]))
+            side = self.take(2)
+            squares, stopped = self.reach(a["at"], self.t["at"], dev, side, w["range"], self.obstacles)
+            by_sq = {}
+            for f in (self.t, self.ff):
+                if f:
+                    by_sq.setdefault(f["at"], []).append(f)
             hit_any = None
-            for f in path:
-                k = abs(f["at"][0] - a["at"][0])
-                if k > w["range"] or not self.reach(dev, k, abs(T_START[0] - a["at"][0])):
-                    continue
+            for f in [f for sq in squares for f in by_sq.get(sq, [])]:
                 self.learn(a, "missile")
                 dc = clamp(f["dodge"] + 2 * term(f) + half(f["power"]) - wound(f) + 3 * (10 - f["size"]))
                 self.counts["dodge rolls"] += 1
@@ -324,13 +446,22 @@ class Sim:
                 self.damage(a, w, f)
                 hit_any = f["name"]
                 break
-            self.note(f"shot dev {dev} of {spread}: {hit_any or '-'}")
+            if stopped and not hit_any:
+                self.counts["stopped arrows"] += 1
+            sign = "-" if side else "+"
+            self.note(f"shot from {a['at']} dev {sign}{dev} of {spread}: {hit_any or ('stopped' if stopped else '-')}")
             self.check_dead()
+            if w["once"]:
+                self.lose(a)
+                self.counts["gone"] += 1
+                self.note("the bow goes")
+                self.record()
+                return
 
     def run(self):
         t, ee = self.t, self.ee
         try:
-            if self.take(6) == 0:  # T's last idle move
+            if self.take(self.c["t_last"]) == 0:  # T's last idle move
                 self.heal(t)
             while True:
                 self.ee_turn()
@@ -345,7 +476,8 @@ class Sim:
                 self.drift(t)
                 if self.take(6) == 1:
                     self.heal(t)
-                full = 3 if dist(ee["at"], T_START) == 1 else 6
+                # Creatures 2.6: halved, rounding up, with a foe beside.
+                full = 3 if beside(ee["at"], t["at"]) else 6
                 for _ in range(full):
                     if self.take(full) == 0:
                         self.heal(t)
@@ -368,6 +500,15 @@ class Sim:
         if self.take(1) == 0:
             self.heal(ff)
 
+    def can_fire(self, ee):
+        """Combat 8.1: holding a missile weapon, the goal in range, no foe
+        beside, the line clear."""
+        w, t = ee["weapon"], self.t
+        if not (w and "range" in w):
+            return False
+        r = max(abs(t["at"][0] - ee["at"][0]), abs(t["at"][1] - ee["at"][1]))
+        return r <= w["range"] and not beside(ee["at"], t["at"]) and line_clear(ee["at"], t["at"], self.obstacles)
+
     def ee_turn(self):
         ee, t = self.ee, self.t
         self.drift(ee)
@@ -375,42 +516,55 @@ class Sim:
             self.heal(ee)
         self.take(10)
         self.take(10)
-        moves = 3
-        if ee["weapon"] is None and self.ee_had_blade:
+        # Creatures 2.6: the turn's moves halved, rounding up, with a foe beside.
+        full = 3
+        if beside(ee["at"], t["at"]):
+            full = (full + 1) // 2
+            self.counts["halved turns"] += 1
+        moves = full
+        # Combat 6.2: readying, one move a change.
+        kind_missile = not beside(ee["at"], t["at"])
+        want = next((w for w in ee["owns"] if ("range" in w) == kind_missile), None)
+        if want and ee["weapon"] is not want:
+            ee["weapon"] = want
             moves -= 1
-        if ee["weapon"] and "range" in ee["weapon"]:
-            self.fire(ee, moves)
-            return
+            self.counts["readied"] += 1
+            self.record()
         me, stood = ee["at"], {ee["at"]}
         attack = False
         others = {self.ff["at"]} if self.ff else set()
         while moves > 0:
+            if self.can_fire(ee):
+                self.fire(ee, moves)
+                return
             best = None
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 sq = (me[0] + dx, me[1] + dy)
-                if not (INSIDE[0] <= sq[0] <= INSIDE[1] and INSIDE[2] <= sq[1] <= INSIDE[3]) or sq in others:
+                if not inside(sq) or sq in others or sq in self.obstacles:
                     continue
-                if sq == T_START and not melee_weapon(ee):
+                if sq == t["at"] and not melee_weapon(ee):
                     continue  # closed (combat 2.3)
                 r = self.take(3)
-                cost = 1 if sq == T_START else (4 if sq in stood else 2)
-                score = 3 * dist(sq, T_START) + 5 * cost + 4 * r
+                cost = 1 if sq == t["at"] else (4 if sq in stood else 2)
+                score = 3 * dist(sq, t["at"]) + 5 * cost + 4 * r
                 if best is None or score < best[0]:
                     best = (score, sq)
             if best is None:
                 break
-            if best[1] == T_START:
+            if best[1] == t["at"]:
                 attack = True
                 break
             me = best[1]
             stood.add(me)
             moves -= 1
-        ee["at"] = me
+            self.counts["steps"] += 1
+            ee["at"] = me
+            self.record()
         if attack:
-            self.attack(ee, t, moves, 3)
+            self.attack(ee, t, moves, full)
         else:
             for _ in range(moves):
-                if self.take(3) == 0:
+                if self.take(full) == 0:
                     self.heal(ee)
 
 
@@ -451,14 +605,11 @@ def observed(v):
 
 
 REACH = {
-    # The arrow's sideways offset at the target, in eighths of a square,
-    # rounded down; a square at k of the dist squares is reached when the
-    # offset there is below half a square.
-    "eighths": lambda dev, k, n: (dev * n * 8 // 100) * k / n < 4,
-    "exact": lambda dev, k, n: dev * k / 100 < 0.5,
-    "exact-le": lambda dev, k, n: dev * k / 100 <= 0.5,
-    "sixteenths": lambda dev, k, n: (dev * n * 16 // 100) * k / n < 8,
-    "quarters": lambda dev, k, n: (dev * n * 4 // 100) * k / n < 2,
+    # Combat 8.5 (the researcher's pass 3): sixteenths, 64 halving points
+    # rounded down. "trunc" rounds the halving toward the shooter instead,
+    # to see whether the runs tell the two apart.
+    "sixteenths": arrow,
+    "trunc": lambda *a: arrow(*a, mid="trunc"),
 }
 
 
@@ -489,7 +640,7 @@ def player_check(v, case):
     sim = Sim.__new__(Sim)
     sim.d, sim.vals, sim.notes = d, {}, []
     sim.counts = {k_: 0 for k_ in ("to-hit", "counter to-hit", "parry roll", "parries", "damaging", "melee checks",
-                                   "armor breaks", "weapon breaks", "gone", "stopped")}
+                                   "armor breaks", "weapon breaks", "gone", "stopped", "armor checks")}
     sim.t, sim.ee, sim.ff = t, ff, None
     sim.record = lambda: None
 
@@ -528,7 +679,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs")
     ap.add_argument("--case", default="armed", choices=sorted(CASES) + sorted(PLAYER_CASES))
-    ap.add_argument("--reach", default="eighths", choices=sorted(REACH))
+    ap.add_argument("--reach", default="sixteenths", choices=sorted(REACH))
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
     right = wrong = 0
@@ -571,7 +722,8 @@ def main():
             got = seen[addr]
             n = min(len(got), len(pred))
             # The run may end a write or two before the draws do.
-            if got[:n] != pred[:n] or len(got) > len(pred) or len(pred) - len(got) > 2:
+            # After a death the game resets the records (its death screen).
+            if got[:n] != pred[:n] or (len(got) > len(pred) and not sim.dead) or len(pred) - len(got) > 2:
                 bad.append(f"{addr} predicted {pred} seen {got}")
         ok = not bad
         right += ok

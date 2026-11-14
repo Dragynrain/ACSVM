@@ -378,3 +378,40 @@ weapon and with armor, the rest of firing, the `player-neutral` snapshot
 remade, the dropped treasure's square, map encounters; and ours: the move
 a creature loses after its weapon disappears, and the round's-end
 percentile (creatures 2.4).
+
+Third pass (2026-11-13). The researcher replayed our 16 runs of each pass 3
+case with the draws forced to ours; we checked the rules on the same runs
+with `scripts/combatcheck.py` (capture.md 10.16), and every pass 2 case
+again with them: 400 runs with `armed`.
+
+- **Armor on its wearer's side**: its term goes into the wearer's parry
+  and counter-blow hit chances, never the other side's; the Armor check
+  follows each of its hits and each parry whose 30-in-100 roll is below
+  30. **Confirmed** (32 runs, 17 Armor checks). A blow the armor stops
+  draws no break roll and uses one blow; armor that disappears goes after
+  the first blow that reaches it, the attack going on; armor comes before
+  magic defense; level 3 stops a plain weapon. **Confirmed** (64 runs).
+  Our runs add: disappearing armor still draws its break roll first.
+- **A weapon breaking** ends its owner's attack, blows still due or not; a
+  counter-striker's doesn't end the attacker's. The researcher's forced
+  rolls only: none of our 8 `break-many` parries broke the blade.
+- **"Beside"** shares a side; our `bow-beside` had the player diagonal, so
+  the archer fired. **Firing** is asked before every step: a foe beside or
+  a blocked line of fire (19 points in twentieths of a square) means a
+  step instead, no message. **The arrow** is worked out in sixteenths, 64
+  halving points rounded down, an edge sixteenth not counting for hits.
+  **Confirmed** (112 runs, 204 shots; rounding the halving toward the
+  shooter instead gets 2 runs wrong). Readying a bow costs a move, then
+  it fires in the same turn; a breaking or disappearing bow ends the
+  firing. **Confirmed**.
+- **The lost move** is the halving of anyone's moves, rounding up, with a
+  foe beside at the turn's start. **Confirmed** (every melee case).
+- **The round's end**: an in-use slot gives each random creature (a mark
+  in its record) a percentile, removing it below 20; the next percentile
+  is the next round's random-creature check for the player's room.
+  Consistent with `fall` once the mark is seen to stay on the emptied slot
+  (114 of 114 removals).
+
+Next pass: `player-bow`, a Speed 0 friend's turn (pass 3 item 6.3), the
+dropped treasure's square, map encounters, a foe truly beside an archer
+(the `bow-beside` snapshot remade with T on 4,4).

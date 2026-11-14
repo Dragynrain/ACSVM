@@ -319,10 +319,11 @@ fn fighter_enemy_walks_up_to_the_player_and_squares_up() {
             )),
             "{ev:?}"
         );
-        // 2.6: beside an aggressive enemy, the bar is halved.
+        // 2.6: beside an aggressive enemy, the bar is halved, rounding up
+        // (15 to 8).
         assert!(ev.contains(&Event::TurnStarted {
             player: 0,
-            moves: 7,
+            moves: 8,
             hindered: true
         }));
         for e in &ev {
@@ -812,7 +813,7 @@ fn only_the_four_squares_beside_the_player_hinder() {
             );
             let mut g = start(a, 0, 2, 2);
             let ev = wait(&mut g);
-            let moves = if hindered { 7 } else { 15 };
+            let moves = if hindered { 8 } else { 15 };
             assert!(
                 ev.contains(&Event::TurnStarted {
                     player: 0,

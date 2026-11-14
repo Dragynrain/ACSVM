@@ -3,7 +3,7 @@
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
 Plan: `docs/design.md`. Current phase: 4, formulas through research and
-capture; melee and firing are in (`docs/rules/combat.md`, two combat
+capture; melee and firing are in (`docs/rules/combat.md`, three combat
 passes). Phases 2 (rules engine from the manual) and 3 (the capture harness,
 `docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
@@ -51,7 +51,7 @@ scripts/web.sh build                                    # static site in target/
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
-python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10)
+python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10, 10.16)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds

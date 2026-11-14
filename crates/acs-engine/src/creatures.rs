@@ -6,7 +6,7 @@
 //! `ai.rs`.
 
 use crate::game::Game;
-use crate::inventory::{self, slowed_speed, GOLD};
+use crate::inventory::{self, hindered_speed, slowed_speed, GOLD};
 use crate::{Dir, Event, Location, RemovalReason, Who};
 use acs_core::model::ThingId;
 use acs_core::model::{Adventure, Alignment, Creature, ThingKind};
@@ -81,7 +81,13 @@ pub fn capacity(c: &Creature) -> i32 {
 
 /// Where a creature's bar starts (2.5).
 pub fn effective_speed(adv: &Adventure, c: &Creature) -> u8 {
-    slowed_speed(c.speed, load(adv, c), capacity(c))
+    turn_speed(adv, c, false)
+}
+
+/// A turn's full moves: Speed, halved with a foe beside it (2.6), then
+/// the weight slowdown.
+pub fn turn_speed(adv: &Adventure, c: &Creature, hindered: bool) -> u8 {
+    slowed_speed(hindered_speed(c.speed, hindered), load(adv, c), capacity(c))
 }
 
 /// Whether a creature picks up `kind` (5.2), ignoring limits and load.
@@ -163,9 +169,9 @@ impl Game {
     }
 
     /// 2.4: after a round in a room region, a roll of 0..15 picks a slot;
-    /// if it holds a creature, one percentile roll, and under 20 every
-    /// random creature of the region in a room with no living player in it
-    /// now goes.
+    /// if it holds a creature, each random creature of the region takes a
+    /// percentile roll, and under 20 it goes if no living player stands in
+    /// its room now.
     pub(crate) fn left_behind(&mut self, ev: &mut Vec<Event>) {
         let region = self.sched.region;
         if region == 0 {
@@ -176,11 +182,11 @@ impl Game {
         if pick >= slots || self.creature(region, pick).is_none() {
             return;
         }
-        if !self.rng.percent(LEFT_BEHIND) {
-            return;
-        }
         for (rg, slot) in self.random.clone() {
-            if rg != region {
+            if rg != region || self.creature(region, slot).is_none() {
+                continue;
+            }
+            if !self.rng.percent(LEFT_BEHIND) {
                 continue;
             }
             let Some(c) = self.creature(region, slot) else {

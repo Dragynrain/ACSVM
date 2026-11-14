@@ -1292,3 +1292,30 @@ In this order (planned November 2026):
    once; the breakable bow went in 7 runs, the disappearing one in all
    16. Copied with `fall` (10.14.3) and `burden` (10.14.5) to
    `research/combat/inputs/pass3/` for the combat brief's pass 3.
+   *Confirming the third combat pass* (`docs/rules/combat.md`,
+   2026-11-13). `scripts/combatcheck.py --case NAME` plays the 13 cases
+   above (all but `player-bow`) with the researcher's rules, and now also
+   watches T's Armor skill (`$F5A7`) and EE's square (`$E1B0`, `$E1B1`).
+   New in it: every individual's moves halved, rounding up, at its turn's
+   start with a foe beside (creatures 2.6), which replaces the "lost move"
+   fitted on `once`; readying at the turn's start (one move); before each
+   of EE's steps, the firing check (combat 8.1: range, nobody beside, the
+   line of fire's 19 points); the step choice with the obstacle and with
+   T's square closed to a creature owning no melee weapon; the arrow in
+   sixteenths (combat 8.5); the bow breaking or disappearing ending the
+   firing; nothing compared after a death (the program resets the
+   records). Result: **all 208 runs right**, with every pass 2 case and
+   `armed` still right (400 in all): 525 to-hit and 178 counter-blow
+   rolls, 159 parry rolls (17 parries), 17 Armor checks with T's Armor
+   skill after each, 140 shots, 45 dodge rolls, EE's every step (54 in
+   `bow-wall`, none of them a shot by 16 million instructions). One rule
+   had to be learned from the runs: armor that disappears after use
+   still draws its break roll before it goes (1 `mail-once` run needs
+   it). `--reach trunc` (halving the arrow's path toward the shooter)
+   gets 2 `bow-beside` runs wrong. EE's held-weapon byte did show the
+   readied bow in `bow-ready` (41 from 1.4 or 1.7 million instructions
+   on, as the researcher pointed out): what we read as "never" were
+   one-sample banked reads. In `fall` the random creature's mark
+   (`$E2AC`, 158) stays set after it is removed, in all 114 removals,
+   which is why the round's end still draws its percentile (creatures
+   2.4).
