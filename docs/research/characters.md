@@ -112,3 +112,12 @@ Asked next: Retire (item 7); a player from another adventure's disk and a
 fifth player, run for real (5, 6); name entry's accepted keys (4); and the
 first pass's side note that creatures catch up on Power and Life Force
 after rounds their room was not visited, by experiment.
+
+Our own runs since (capture.md 10.18) leave two questions for that pass:
+how name entry reads keys, since keys fed to the keyboard buffer are
+sometimes lost (which state shows a key was taken or refused, so the
+harness can feed until it is); and what makes a player slot count as
+living, since slots poked with Constitution, Life Force, Speed and a
+square still died at once, and when the "retire one of your adventurers"
+refusal shows (our request with 4 slots filled was answered "I will add a
+player as soon as possible").

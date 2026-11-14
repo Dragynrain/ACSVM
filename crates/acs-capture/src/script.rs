@@ -267,6 +267,32 @@ impl Session {
                 self.vice.mon.keyboard_feed(&petscii(arg)).map_err(e)?;
                 Ok(format!("fed {arg}"))
             }
+            "type" => {
+                // type TEXT: one key at a time, each fed again (up to 6
+                // times) until the screen changes, since a fed key is
+                // sometimes dropped; a key that never shows is reported.
+                let mut notes = Vec::new();
+                for code in petscii(arg) {
+                    let before = self.frame().map_err(e)?.hash();
+                    let mut shown = None;
+                    'tries: for attempt in 1..=6 {
+                        self.vice.mon.keyboard_feed(&[code]).map_err(e)?;
+                        for _ in 0..20 {
+                            self.run(100_000).map_err(e)?;
+                            if self.frame().map_err(e)?.hash() != before {
+                                shown = Some(attempt);
+                                break 'tries;
+                            }
+                        }
+                    }
+                    self.settle(10_000_000, 200_000).map_err(e)?;
+                    notes.push(match shown {
+                        Some(n) => format!("{code}:{n}"),
+                        None => format!("{code}:none"),
+                    });
+                }
+                Ok(format!("typed {}", notes.join(" ")))
+            }
             "dump" => {
                 // dump FILE [nodisk]: nodisk leaves the disk images out, so a
                 // restore keeps whatever disk VICE was started with.

@@ -119,13 +119,22 @@ checked it yet. The confirming runs are `ACSVM-research/capture/runs/rr13/`
 
 1. A name is up to 15 characters. [manual] All 15 are kept, in play and
    when retired: the record packs three characters into each pair of its
-   10 bytes. [research, unconfirmed]
-2. The packing has 40 symbols: space, A to Z, the digits 1 to 9, and the
-   period, comma, hyphen and apostrophe. A digit 0 is kept as the letter
-   O; ! and ? become a period; + / : ; = a hyphen; the double quote an
-   apostrophe. [research, unconfirmed] Whether name entry refuses other
-   keys outright is open. **Engine:** names are folded this way
-   (lowercase to uppercase); any other character is dropped.
+   10 bytes. [research, unconfirmed for 15]
+2. The packing has 40 symbols: space 0, A to Z 1 to 26, the digits 1 to 9
+   27 to 35, then period 36, comma 37, hyphen 38 and apostrophe 39. Each
+   pair of bytes, low byte first, holds 3 symbols as first x 1,600 +
+   second x 40 + third; a short name ends in spaces (zero bytes).
+   [research; capture: rr13 `names`, the name bytes of 4 typed names
+   decoded to the letters, digits and marks shown on screen]
+3. A digit 0 is kept as the letter O; ! becomes a period; + / ; = a
+   hyphen. [research; capture: rr13 `names`] Also seen: * becomes X, and
+   [ and ] spaces. [capture: rr13 `names`] The findings also give ? as a
+   period, : as a hyphen and the double quote as an apostrophe; in our
+   runs those keys (and @) left nothing, but fed keys are sometimes lost
+   (letters too), so whether entry refuses them is open. [research,
+   unconfirmed] **Engine:** names are folded this way (lowercase to
+   uppercase, the findings' folds for ? : and the double quote); any
+   other character is dropped.
 
 ## 6. Adding someone, and how many
 
@@ -133,6 +142,11 @@ checked it yet. The confirming runs are `ACSVM-research/capture/runs/rr13/`
    dead don't count toward the 4. With 4 alive the program refuses ("retire
    one of your adventurers first") and adds no one, before any roll.
    [research, unconfirmed] **Engine:** the same (`AddRefused`, no draw).
+   Asking with three more slots filled by hand (Constitution, Life Force,
+   Speed and square poked) still drew "I will add a player as soon as
+   possible", so the refusal, if it comes, comes later; but those poked
+   characters died at once, so they may not have counted as living.
+   [capture: rr13 `ad-full`, `ad-three`]
 
 ## 7. Left for later
 
@@ -148,6 +162,7 @@ checked it yet. The confirming runs are `ACSVM-research/capture/runs/rr13/`
 ## Captures needed
 
 1. A character joining from another adventure's disk (3.2).
-2. Name entry with digits, punctuation and 15 letters, then retired (5).
+2. Name entry with 15 letters, retired; the keys that left nothing
+   (? : @ and the double quote), fed until they show (5).
 3. A fifth player asked for with 4 alive, and with one of them dead (6).
 4. A creature's ratings with marks, if the editor shows them (4.2).

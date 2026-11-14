@@ -62,8 +62,8 @@ impl PlayerSetup {
 
 /// A name as the C64 keeps it (characters 5): uppercase, at most 15
 /// characters of space, A to Z, 1 to 9 and `. , - '`; 0 becomes O, `! ?` a
-/// period, `+ / : ; =` a hyphen, `"` an apostrophe; anything else is
-/// dropped.
+/// period, `+ / : ; =` a hyphen, `"` an apostrophe, `*` X and `[ ]` a
+/// space; anything else is dropped.
 pub fn fold_name(name: &str) -> String {
     name.chars()
         .filter_map(|c| match c.to_ascii_uppercase() {
@@ -72,6 +72,8 @@ pub fn fold_name(name: &str) -> String {
             '!' | '?' => Some('.'),
             '+' | '/' | ':' | ';' | '=' => Some('-'),
             '"' => Some('\''),
+            '*' => Some('X'),
+            '[' | ']' => Some(' '),
             _ => None,
         })
         .take(NAME_MAX)
@@ -184,7 +186,9 @@ mod tests {
     #[test]
     fn names_fold_to_the_c64_alphabet() {
         assert_eq!(fold_name("Sir Bob 2nd!"), "SIR BOB 2ND.");
-        assert_eq!(fold_name("x0/y\"z*"), "XO-Y'Z");
+        assert_eq!(fold_name("x0/y\"z@"), "XO-Y'Z");
+        // As captured: A*B@C[D]E"F kept (keys lost aside) as AXB C  EF.
+        assert_eq!(fold_name("a*b[c]d"), "AXB C D");
         assert_eq!(fold_name("abcdefghijklmnopq"), "ABCDEFGHIJKLMNO");
     }
 

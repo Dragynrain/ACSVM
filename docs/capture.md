@@ -131,7 +131,7 @@ lists at the end of each `docs/rules/` spec.
 | `screen.rs` | The rendered frame (8-bit indexed) to PNG; frame hashes. |
 | `observe.rs` | Connected regions of one colour, as boxes: the pixel-level observer. |
 | `scenario.rs` | Scenario adventures, built with the test fixture builder over the template. |
-| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`). |
+| `script.rs` | A line script for driving a session by hand (`run`, `joy`, `key`, `type`, `shot`, `watch`, `track`, `dump`, `undump`, `attach`, `detach`, `reset`). |
 | `experiment.rs` | Experiments, their JSON lines, the summary and our engine's prediction for the same scenario. |
 | `acts.rs` | The `acts` experiment: named tables of cases played act by act, each against a control (10.2, 10.8). |
 | `power.rs` | Experiments that read the profile: its cost, a use, drift (10.6). |
@@ -1498,3 +1498,26 @@ In this order (planned November 2026):
      shows the **down mark** on Wisdom 4 and Power 4, the up mark on
      Constitution and Life Force 17, none on the other 10, as the bounds
      say (characters 4.1).
+   - `names.sh` (`names.py` writes each script): "create new player"
+     (`poke 7161 1`; `poke 3D5A 137 87`, the disk's identity, decimal
+     bytes), the joystick, the first picture, then a name typed, the
+     button, and the name bytes (`$F633`, 10) read at the first turn.
+     Keys fed to the keyboard buffer are sometimes lost, the same ones in
+     every repeat (the emulation is deterministic), at any pause between
+     them (1M to 6M cycles tried). New script command `type TEXT` feeds a
+     key and waits up to 2M cycles for the screen to change, feeding it
+     again up to 6 times; every key changed the screen at once, yet some
+     still never showed in the name, so a lost key changes the screen too.
+     What did land decodes exactly: 3 symbols to a pair of bytes, low
+     byte first (first x 1,600 + second x 40 + third), A to Z 1 to 26, 1 to
+     9 27 to 35, `.` 36, `,` 37, `-` 38, `'` 39, space 0; 0 kept as O; `!`
+     a period; `+ / ; =` hyphens; `*` an X; `[ ]` spaces (characters 5).
+     `? : @ "` left nothing, refused or lost. A name of 17 letters ended
+     with garbled glyphs in the strip and no name at `$F633`: not settled.
+   - `ad-full`, `ad-three`: from `move-basic-start.vsf`, slots 2 to 4 (or
+     2 and 3) poked with Constitution 10, Life Force 10, Speed 6 and the
+     square 12,12 (the record offsets above), then ADD SOMEONE as
+     `add-second.txt`: both said "I will add a player as soon as
+     possible"; at the turn's end the program offered to restore the last
+     saved game and resurrect a dead character: the poked characters had
+     died. A real fifth player needs four real ones (characters 6).
