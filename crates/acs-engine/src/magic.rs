@@ -1036,5 +1036,9 @@ impl Game {
         }
         self.forget_vitals(who);
         ev.push(Event::Died { who, at, left });
+        // Encounters 7.4: a player's death may leave its area empty.
+        if let (Who::Player { .. }, Location::Room { region: 0, room, .. }) = (who, at) {
+            self.close_if_empty(room, ev);
+        }
     }
 }

@@ -230,6 +230,13 @@ pub struct Game {
     /// Tool placements made so far, for the save (saves 1.3).
     #[serde(default)]
     placed: Vec<crate::save::Placement>,
+    /// The world map's own region: its encounter areas and their
+    /// creatures (encounters 3.1). Not in the adventure's region list.
+    #[serde(default = "crate::encounters::map_region")]
+    pub(crate) map: Region,
+    /// Each encounter area's entrance square while it is open (7.1).
+    #[serde(default)]
+    pub(crate) entrances: [Option<(u8, u8)>; crate::encounters::AREAS as usize],
 }
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
@@ -297,6 +304,8 @@ impl Game {
             reversals: Vec::new(),
             store: None,
             placed: Vec::new(),
+            map: crate::encounters::map_region(),
+            entrances: Default::default(),
         };
         let mut ev = Vec::new();
         match first {
@@ -460,9 +469,25 @@ impl Game {
         let region = self.sched.region;
         let mut list = Vec::new();
         if region == 0 {
+            // Encounters 6.1: the open map's players, then each area in
+            // use with its players and then its creatures.
             for (i, p) in self.players.iter().enumerate() {
-                if p.alive && p.at.region() == 0 {
+                if p.alive && matches!(p.at, Location::World { .. }) {
                     list.push(Who::Player { player: i });
+                }
+            }
+            for area in 1..=crate::encounters::AREAS {
+                let here: Vec<usize> = (0..self.players.len())
+                    .filter(|&i| self.players[i].alive && self.players[i].at.room() == Some((0, area)))
+                    .collect();
+                if here.is_empty() {
+                    continue;
+                }
+                list.extend(here.into_iter().map(|player| Who::Player { player }));
+                for (slot, c) in self.map.residents.iter().enumerate() {
+                    if c.in_use && c.room == area {
+                        list.push(Who::Creature { region: 0, slot });
+                    }
                 }
             }
         } else {
@@ -748,11 +773,19 @@ impl Game {
 
     // ---- lookups ---------------------------------------------------------
 
-    pub(crate) fn region(&self, number: u8) -> Option<&Region> {
+    /// A region by number; 0 is the world map's own region, which holds
+    /// the encounter areas (encounters 3.1).
+    pub fn region(&self, number: u8) -> Option<&Region> {
+        if number == 0 {
+            return Some(&self.map);
+        }
         self.adv.regions.iter().find(|r| r.number == number)
     }
 
     pub(crate) fn region_mut(&mut self, number: u8) -> Option<&mut Region> {
+        if number == 0 {
+            return Some(&mut self.map);
+        }
         self.adv.regions.iter_mut().find(|r| r.number == number)
     }
 

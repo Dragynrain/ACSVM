@@ -4,7 +4,8 @@ Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
 Plan: `docs/design.md`. Current phase: 4, formulas through research and
 capture; melee and firing are in (`docs/rules/combat.md`, three combat
-passes), stores and new characters (`docs/rules/characters.md`). Phases 2
+passes), stores, new characters (`docs/rules/characters.md`) and map
+encounters (`docs/rules/encounters.md`). Phases 2
 (rules engine from the manual) and 3 (the capture harness,
 `docs/capture.md`) are done.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
@@ -89,7 +90,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   (`run_spell` is the one place a spell takes effect), `combat.rs` melee
   and firing (`attack` and its blows, `fire` and its shots; who strikes
   whom is the step choice in `ai.rs`, firing `creature_fires` there, and
-  `player_attack` in `step.rs`), `characters.rs` rolling a new character
+  `player_attack` in `step.rs`), `encounters.rs` world map encounters
+  (the roll after a map step; the four areas are rooms 1..4 of a map
+  region 0 the game keeps, `Game::region(0)`), `characters.rs` rolling a new character
   (`CreatePlayer`, `Newcomer::Create`), names and the profile's marks;
   `save.rs` save files, a replay of the command log
   (`docs/saves.md`); `describe` turns

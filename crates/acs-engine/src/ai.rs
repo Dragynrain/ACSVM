@@ -8,6 +8,7 @@
 
 use crate::combat::{self, strike_cost};
 use crate::creatures::{self, is_fighter, is_foe, Other};
+use crate::encounters;
 use crate::game::Game;
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
 use crate::magic::{self, add_possession, take_possession, Spell};
@@ -75,6 +76,9 @@ enum Sq {
     Take(usize),
     /// A door it may take (room item index).
     Door(usize),
+    /// An encounter area's door: taking it removes the creature
+    /// (encounters 6.4).
+    AreaDoor,
     /// An individual a fighter would strike, at this step cost (combat
     /// 2.2).
     Strike(Who, u16),
@@ -287,6 +291,10 @@ impl Game {
                     }
                     continue;
                 }
+                if region == 0 && (x, y) == encounters::AREA_DOOR {
+                    grid[k] = Sq::AreaDoor;
+                    continue;
+                }
                 let top = r.items.iter().position(|it| it.x == x && it.y == y);
                 let Some(i) = top else {
                     if !edge {
@@ -376,6 +384,18 @@ impl Game {
             }
         }
         let (exit, gold, treasure) = rank_things(c);
+        // Encounters 3.5, 6.4: the area's door is an exit like any other,
+        // the first thing of its room.
+        let (dx, dy) = encounters::AREA_DOOR;
+        if exit != NONE && grid.get(dy as usize * w as usize + dx as usize) == Some(&Sq::AreaDoor) {
+            offer(
+                exit.saturating_add(steps(here, (dx, dy))),
+                Goal {
+                    at: (dx, dy),
+                    individual: None,
+                },
+            );
+        }
         for (i, it) in r.items.iter().enumerate() {
             let k = it.y as usize * w as usize + it.x as usize;
             let rank = match grid.get(k) {
@@ -458,7 +478,7 @@ impl Game {
             } else {
                 match sq {
                     Sq::Strike(_, cost) => cost,
-                    Sq::Door(_) => exit_cost,
+                    Sq::Door(_) | Sq::AreaDoor => exit_cost,
                     Sq::Take(i) => {
                         let gold = r.as_ref().is_some_and(|r| r.items[i].thing == GOLD);
                         (if gold { gold_rank } else { treasure_rank }) / 32
@@ -512,6 +532,10 @@ impl Game {
         match sq {
             Sq::Door(i) => {
                 self.creature_take_door(region, slot, to, i, ev);
+                false
+            }
+            Sq::AreaDoor => {
+                self.remove_creature(region, slot, RemovalReason::LeftArea, ev);
                 false
             }
             Sq::Take(i) => {

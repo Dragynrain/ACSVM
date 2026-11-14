@@ -273,7 +273,10 @@ impl Walk {
                 | Event::EnteredRegion { .. }
                 | Event::LeftRegion { .. }
                 | Event::EnteredWorldMap { .. }
-                | Event::SentToStart { .. } => Kind::Door,
+                | Event::SentToStart { .. }
+                | Event::EnteredArea { .. }
+                | Event::LeftArea { .. }
+                | Event::AreaClosed { .. } => Kind::Door,
                 Event::SpellTriggered { .. }
                 | Event::SpellCast { .. }
                 | Event::ItemUsed { .. }
@@ -1089,8 +1092,11 @@ fn place_name(g: &Game, at: Location) -> String {
     let a = g.adventure();
     match at {
         Location::World { x, y } => format!("{} · {x},{y}", a.world.name.trim()),
+        Location::Room { region: 0, x, y, .. } => {
+            format!("{} · encounter · {x},{y}", a.world.name.trim())
+        }
         Location::Room { region, room, x, y } => {
-            let reg = a.regions.iter().find(|r| r.number == region);
+            let reg = g.region(region);
             let rname = reg.map(|r| r.name.trim()).unwrap_or("?");
             let room_name = reg
                 .and_then(|r| r.rooms.get(room as usize))
@@ -1168,18 +1174,23 @@ fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py
 
 fn draw_room(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, region: u8, room: u8) {
     let a = g.adventure();
-    let Some(reg) = a.regions.iter().find(|r| r.number == region) else {
+    let Some(reg) = g.region(region) else {
         return;
     };
     let Some(r) = reg.rooms.get(room as usize) else {
         return;
     };
     let scene = RoomScene::new(reg, r);
+    // An encounter area's door is an opening in its wall (encounters 3.5).
+    let door = (region == 0).then_some(acs_engine::encounters::AREA_DOOR);
     let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles.size);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for (k, sq) in scene.squares.iter().enumerate() {
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);
-        let (_, pic) = scene::shown(a, reg, r, sq);
+        let (_, mut pic) = scene::shown(a, reg, r, sq);
+        if door == Some((x as u8, y as u8)) && sq.items.is_empty() {
+            pic = scene::floor_picture(a);
+        }
         tiles.paint(&painter, pic, grid.cell_rect(x, y));
     }
     // A dot in the corner of each creature's square shows its alignment.

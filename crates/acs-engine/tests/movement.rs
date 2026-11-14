@@ -9,8 +9,8 @@ mod common;
 use acs_core::layout::{adventure as adv, region as rg, world_map as wm};
 use acs_core::{decode, Adventure, Platform};
 use acs_engine::{
-    BlockReason, Command, Dir, Event, Game, Location, Newcomer, PlayerSetup, Rules, SaveError, SaveFile,
-    SpellSource,
+    encounters, BlockReason, Command, Dir, Event, Game, Location, Newcomer, PlayerSetup, Rules, SaveError,
+    SaveFile, SpellSource,
 };
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
@@ -742,35 +742,268 @@ fn non_owner_space_obstacles_store_and_residents() {
     });
 }
 
-#[test]
-fn map_encounters_roll_for_the_terrain_stood_on() {
+// ---- world map encounters (docs/rules/encounters.md) -----------------------
+
+/// The patch square SW of the start: terrain 4, open, picture 6.
+const PATCH: (u8, u8) = (19, 21);
+
+fn area(room: u8, x: u8, y: u8) -> Location {
+    Location::Room {
+        region: 0,
+        room,
+        x,
+        y,
+    }
+}
+
+/// The walking fixture with a patch of terrain 4 on `PATCH` and map
+/// records `(terrain, chance code, speed)` in slots 0, 1, ..; the rest
+/// stay empty (terrain 0, code 0).
+fn encounter_adventure(records: &[(u8, u8, u8)]) -> Adventure {
     let mut f = fixture(Platform::Pc);
+    terrain(&mut f, 4, 6, 1, 0);
+    set_tile(&mut f, PATCH.0 as usize, PATCH.1 as usize, 4);
     let w = f.l.world_map;
-    f.put(w + wm::CREATURES, &creature_record(8, 0x50, 70));
-    f.packed(w + wm::CREATURE_NAMES, "WOLF");
-    f.put(w + wm::CREATURE_CHANCES, &[15]); // grass, (15-3)*5 = 60%
-    let a = build(&mut f);
+    for (i, &(t, code, speed)) in records.iter().enumerate() {
+        // Speed is the low four bits of the strategy byte.
+        f.put(w + wm::CREATURES + i * 37, &creature_record(8, 0x50 | speed, 70));
+        f.packed(
+            w + wm::CREATURE_NAMES + i * 10,
+            if i == 0 { "WOLF" } else { "HARE" },
+        );
+        f.put(w + wm::CREATURE_CHANCES + i, &[t << 4 | code]);
+    }
+    build(&mut f)
+}
+
+fn encounters(ev: &[Event]) -> Vec<(usize, Option<usize>)> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::Encounter { creature, slot, .. } => Some((*creature, *slot)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// A game whose first step SW onto the patch brought an encounter.
+fn pulled_in(a: &Adventure) -> (Game, Vec<Event>) {
+    for seed in 0..200 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        let ev = mv(&mut g, Dir::SW);
+        if !encounters(&ev).is_empty() {
+            return (g, ev);
+        }
+    }
+    panic!("no encounter in 200 seeds");
+}
+
+#[test]
+fn map_encounters_roll_after_the_step_for_the_terrain_entered() {
+    // WOLF on the start's grass (terrain 0), none on the patch: the step
+    // onto the patch never rolls for it (encounters 2.1).
+    let a = encounter_adventure(&[(0, 15, 4)]);
     assert_eq!(a.world.random_creatures[0].chance, 60);
+    for seed in 0..100 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        assert!(encounters(&mv(&mut g, Dir::SW)).is_empty());
+        assert_eq!(g.current_player().at, Location::World { x: 19, y: 21 });
+    }
+    // WOLF on the patch at 60%: about 60% of first steps onto it.
+    let a = encounter_adventure(&[(4, 15, 4)]);
     let mut hits = 0;
     for seed in 0..500 {
         let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        if !encounters(&mv(&mut g, Dir::SW)).is_empty() {
+            hits += 1;
+        }
+    }
+    assert!((250..350).contains(&hits), "{hits}");
+}
+
+#[test]
+fn refused_moves_and_map_doors_take_no_roll() {
+    // Records on the mountain (1) and the door terrain (12) at 60%.
+    let a = encounter_adventure(&[(1, 15, 4), (12, 15, 4)]);
+    for seed in 0..100 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        assert!(encounters(&mv(&mut g, Dir::E)).is_empty()); // the mountain refuses
+        let ev = mv(&mut g, Dir::N); // the map door into HALL
+        assert!(encounters(&ev).is_empty());
+        assert_eq!(g.current_player().at, hall(2, 2));
+    }
+}
+
+#[test]
+fn every_hit_appears_in_record_order() {
+    let a = encounter_adventure(&[(4, 15, 4), (4, 15, 3)]);
+    let (mut both, mut one) = (0, 0);
+    for seed in 0..400 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        let hits = encounters(&mv(&mut g, Dir::SW));
+        match hits.as_slice() {
+            [(0, Some(8)), (1, Some(9))] => {
+                both += 1;
+                assert_eq!(g.creature(0, 8).map(|c| (c.x, c.y)), Some((2, 3)));
+                assert_eq!(g.creature(0, 9).map(|c| (c.x, c.y)), Some((3, 3)));
+            }
+            [(r, Some(8))] => {
+                one += 1;
+                // Record r's own square, whatever slot it takes (3.6).
+                let sq = encounters::creature_square(*r);
+                assert_eq!(g.creature(0, 8).map(|c| (c.x, c.y)), Some(sq));
+            }
+            [] => {}
+            other => panic!("{other:?}"),
+        }
+    }
+    // 36% both, 48% one.
+    assert!((110..180).contains(&both), "{both}");
+    assert!((150..235).contains(&one), "{one}");
+}
+
+#[test]
+fn the_area_is_a_room_of_the_map_region() {
+    let a = encounter_adventure(&[(4, 15, 4)]);
+    let (g, ev) = pulled_in(&a);
+    // 5.1: the player is on 12,4 of area 1 and its turn has ended.
+    assert_eq!(g.players()[0].at, area(1, 12, 4));
+    assert!(ev.iter().any(|e| matches!(e, Event::EnteredArea { area: 1, .. })));
+    assert!(ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 })));
+    assert_eq!(g.area_entrance(1), Some(PATCH));
+    // 3.2-3.4: 15 x 10, walled with the patch's picture, empty.
+    let room = &g.region(0).unwrap().rooms[1];
+    assert!(!room.deleted);
+    assert_eq!((room.width, room.height), (15, 10));
+    assert_eq!(room.wall_picture, a.world.terrain[4].picture);
+    assert!(room.items.is_empty());
+    // 4.2: the copy is the record as stored, marked random.
+    let wolf = g.creature(0, 8).expect("a copy in slot 8");
+    let rec = &a.world.random_creatures[0].creature;
+    assert_eq!(
+        (wolf.name.as_str(), wolf.life_force, wolf.speed),
+        (rec.name.as_str(), rec.life_force, rec.speed)
+    );
+    assert_eq!((wolf.room, wolf.x, wolf.y), (1, 2, 3));
+    assert!(g.is_random(0, 8));
+    assert!(g.adventure().world.random_creatures[0] == a.world.random_creatures[0]);
+}
+
+#[test]
+fn walking_out_returns_to_the_entrance_and_closes_the_area() {
+    let a = encounter_adventure(&[(4, 15, 0)]); // a WOLF that stands still
+    let (mut g, _) = pulled_in(&a);
+    g.place(0, area(1, 1, 5));
+    let before = g.current_player().moves_left;
+    assert!(before > 0);
+    let ev = mv(&mut g, Dir::W);
+    // 7.1: back on the entrance, one move used, no roll.
+    assert_eq!(
+        g.players()[0].at,
+        Location::World {
+            x: PATCH.0,
+            y: PATCH.1
+        }
+    );
+    assert_eq!(g.current_player().moves_left, before - 1);
+    assert!(encounters(&ev).is_empty());
+    // 7.2: closed, the copy gone.
+    assert!(ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })));
+    assert!(g.creature(0, 8).is_none());
+    assert!(g.region(0).unwrap().rooms[1].deleted);
+    assert_eq!(g.area_entrance(1), None);
+}
+
+#[test]
+fn a_second_player_joins_through_the_entrance() {
+    let a = encounter_adventure(&[(4, 15, 0)]);
+    for seed in 0..200 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "U".into(),
+                ..Default::default()
+            },
+        });
+        if encounters(&mv(&mut g, Dir::SW)).is_empty() {
+            continue;
+        }
+        // 6.1: the next round lists U (open map) first, then T and WOLF.
+        assert_eq!(g.current(), 1);
         let ev = mv(&mut g, Dir::SW);
+        assert!(encounters(&ev).is_empty());
+        assert_eq!(g.players()[1].at, area(1, 12, 4));
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::EnteredArea {
+                player: 1,
+                area: 1,
+                ..
+            }
+        )));
+        // T walks out: the area stays open for U (7.2).
+        assert_eq!(g.current(), 0);
+        g.place(0, area(1, 1, 5));
+        let ev = mv(&mut g, Dir::W);
+        assert!(!ev.iter().any(|e| matches!(e, Event::AreaClosed { .. })));
+        assert!(g.creature(0, 8).is_some());
+        return;
+    }
+    panic!("no encounter");
+}
+
+#[test]
+fn a_creature_through_the_door_is_removed() {
+    let a = encounter_adventure(&[(4, 15, 3)]);
+    let (mut g, _) = pulled_in(&a);
+    // A peaceful, cautious friend beside the door: the door is its goal
+    // (creatures 6.4) and taking it removes it (encounters 6.4).
+    let c = g.creature_mut(0, 8).unwrap();
+    c.strategy.alignment = acs_core::model::Alignment::Friend;
+    c.strategy.aggressive = false;
+    c.strategy.brave = false;
+    c.wisdom = 20;
+    c.x = 1;
+    c.y = 5;
+    let mut removed = false;
+    for _ in 0..4 {
+        let ev = g.apply(Command::Wait);
         if ev.iter().any(|e| {
             matches!(
                 e,
-                Event::Encounter {
-                    creature: 0,
-                    terrain: 0,
-                    ..
+                Event::CreatureRemoved {
+                    region: 0,
+                    slot: 8,
+                    reason: acs_engine::RemovalReason::LeftArea
                 }
             )
         }) {
-            hits += 1;
+            removed = true;
+            break;
         }
-        // The move goes ahead either way (roll only for now).
-        assert_eq!(g.current_player().at, Location::World { x: 19, y: 21 });
     }
-    assert!((250..350).contains(&hits), "{hits}");
+    assert!(removed);
+    // The area stays open while T is in it (7.3).
+    assert!(!g.region(0).unwrap().rooms[1].deleted);
+}
+
+#[test]
+fn play_in_an_area_replays_exactly() {
+    let a = encounter_adventure(&[(4, 15, 4)]);
+    let (mut g, _) = pulled_in(&a);
+    for _ in 0..30 {
+        if g.is_over() {
+            break;
+        }
+        g.apply(Command::Wait);
+    }
+    let r = Game::replay(
+        a,
+        g.seed(),
+        Rules { diagonals: true },
+        PlayerSetup::default(),
+        g.log(),
+    );
+    assert_eq!(r, g);
 }
 
 #[test]

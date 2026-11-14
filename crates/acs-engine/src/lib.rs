@@ -14,7 +14,8 @@
 //! Implemented so far: movement (`docs/rules/movement.md`), inventory
 //! (`docs/rules/inventory.md`), creatures (`docs/rules/creatures.md`), magic
 //! (`docs/rules/magic.md`), combat (`docs/rules/combat.md`), stores
-//! (`docs/rules/stores.md`) and characters (`docs/rules/characters.md`).
+//! (`docs/rules/stores.md`), characters (`docs/rules/characters.md`) and
+//! world map encounters (`docs/rules/encounters.md`).
 //! Saves are replays of the command log (`docs/saves.md`, [`SaveFile`]).
 
 mod ai;
@@ -22,6 +23,7 @@ pub mod characters;
 pub mod combat;
 pub mod creatures;
 mod describe;
+pub mod encounters;
 mod game;
 pub mod inventory;
 pub mod magic;
@@ -510,13 +512,37 @@ pub enum Event {
     SentToStart {
         player: usize,
     },
-    /// A world map random creature appeared (roll only for now: no
-    /// encounter area, the move goes ahead).
+    /// A world map random creature's roll hit after a map step
+    /// (encounters 2.5, 2.6): its copy stands in `area` in `slot` of the
+    /// map region (0), or `slot` is `None` when every slot 8..15 is taken.
     Encounter {
         player: usize,
         /// Index into the world map's random creature list.
         creature: usize,
         terrain: u8,
+        /// The encounter area, 1..=4.
+        area: u8,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        slot: Option<usize>,
+    },
+    /// Pulled into (or joining) encounter area `area`; the turn ends
+    /// (encounters 5).
+    EnteredArea {
+        player: usize,
+        area: u8,
+        from: Location,
+        to: Location,
+    },
+    /// Walked out of an encounter area onto its entrance (encounters 7.1).
+    LeftArea {
+        player: usize,
+        area: u8,
+        from: Location,
+        to: Location,
+    },
+    /// The area has no player left and is cleared (encounters 7.2).
+    AreaClosed {
+        area: u8,
     },
     /// A room's random creature appeared on entry (creatures 3). `slot` and
     /// `at` are `None` when the roll hit but no square was free.
@@ -812,4 +838,8 @@ pub enum RemovalReason {
     /// Sent through a door into a deleted room (creatures 5.5), or by a
     /// Banish spell (magic 3.2).
     Banished,
+    /// Walked out through an encounter area's door (encounters 6.4).
+    LeftArea,
+    /// Its encounter area closed (encounters 7.2).
+    AreaClosed,
 }

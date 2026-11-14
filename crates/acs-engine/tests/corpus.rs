@@ -250,8 +250,14 @@ fn random_walks_stay_on_real_squares_and_replay() {
             match at {
                 Location::World { x, y } => assert!(x < 40 && y < 40, "{file}: {at:?}"),
                 Location::Room { region, room, x, y } => {
-                    let r = &g.adventure().regions[region as usize - 1].rooms[room as usize];
-                    assert!(!r.deleted && x < r.width && y < r.height, "{file}: {at:?}");
+                    // Region 0: an encounter area (encounters 3.1).
+                    let r = &g.region(region).unwrap().rooms[room as usize];
+                    // A player who died in an area may leave it closed (7.4).
+                    let alive = g.current_player().alive;
+                    assert!(
+                        !alive || (!r.deleted && x < r.width && y < r.height),
+                        "{file}: {at:?}"
+                    );
                     rooms.insert((region, room));
                 }
             }

@@ -83,7 +83,7 @@ impl Game {
 
     // ---- world map (section 4) -------------------------------------------
 
-    fn tile(&self, x: u8, y: u8) -> u8 {
+    pub(crate) fn tile(&self, x: u8, y: u8) -> u8 {
         self.adv
             .world
             .tiles
@@ -123,9 +123,6 @@ impl Game {
 
     fn step_on_map(&mut self, p: usize, x: u8, y: u8, dir: Dir, ev: &mut Vec<Event>) {
         let from = Location::World { x, y };
-        // 7.1: one roll before every map move, for the terrain stood on.
-        self.roll_map_encounter(p, self.tile(x, y), ev);
-
         let Some((nx, ny)) = self.map_target(x, y, dir) else {
             ev.push(Event::Blocked {
                 player: p,
@@ -154,7 +151,7 @@ impl Game {
         }
 
         let Some(terrain) = self.adv.world.terrain.get(t as usize).cloned() else {
-            self.move_to(p, from, to, ev);
+            self.map_move(p, from, to, ev);
             return;
         };
         match terrain.passability {
@@ -164,10 +161,10 @@ impl Game {
                 reason: BlockReason::Terrain { terrain: t },
                 message: None,
             }),
-            Passability::Open => self.move_to(p, from, to, ev),
+            Passability::Open => self.map_move(p, from, to, ev),
             Passability::OwnersOf => {
                 if self.players[p].owns(terrain.parameter) {
-                    self.move_to(p, from, to, ev);
+                    self.map_move(p, from, to, ev);
                 } else {
                     ev.push(Event::Blocked {
                         player: p,
@@ -202,8 +199,30 @@ impl Game {
                         return;
                     }
                 }
-                self.spend(ev);
+                self.map_step_done(p, to, ev);
             }
+        }
+    }
+
+    /// A completed step onto an open map square.
+    fn map_move(&mut self, p: usize, from: Location, to: Location, ev: &mut Vec<Event>) {
+        self.players[p].at = to;
+        ev.push(Event::Moved { player: p, from, to });
+        self.map_step_done(p, to, ev);
+    }
+
+    /// Encounters 2.1: the move is used, then (if the player still stands
+    /// on the square it stepped onto) the encounter check; entering an
+    /// area ends the turn (5.1).
+    fn map_step_done(&mut self, p: usize, to: Location, ev: &mut Vec<Event>) {
+        let pl = &mut self.players[p];
+        pl.moves_left = pl.moves_left.saturating_sub(1);
+        let entered = match to {
+            Location::World { x, y } if self.players[p].at == to => self.after_map_step(p, x, y, ev),
+            _ => false,
+        };
+        if entered || self.players[p].moves_left == 0 {
+            self.end_turn(ev);
         }
     }
 
@@ -215,28 +234,6 @@ impl Game {
             _ => return None,
         };
         Some((action, self.message(&t.spell_message)))
-    }
-
-    fn roll_map_encounter(&mut self, p: usize, terrain: u8, ev: &mut Vec<Event>) {
-        let candidates: Vec<(usize, u8)> = self
-            .adv
-            .world
-            .random_creatures
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c.creature.in_use && c.terrain == terrain && c.chance > 0)
-            .map(|(i, c)| (i, c.chance))
-            .collect();
-        for (i, chance) in candidates {
-            if self.rng.percent(chance) {
-                ev.push(Event::Encounter {
-                    player: p,
-                    creature: i,
-                    terrain,
-                });
-                return;
-            }
-        }
     }
 
     /// Combat 2.7: player `p` moves into `target`. Holding a melee weapon
@@ -309,6 +306,12 @@ impl Game {
             y: ny,
         };
         let edge = nx == 0 || ny == 0 || nx as i16 == w - 1 || ny as i16 == h - 1;
+        // Encounters 7.1: an area's door leads back to its entrance.
+        if crate::encounters::is_area_door(to) {
+            self.leave_area(p, room, ev);
+            self.spend(ev);
+            return;
+        }
 
         // 5.4: residents stand above everything.
         let resident = self.region(region).and_then(|reg| {

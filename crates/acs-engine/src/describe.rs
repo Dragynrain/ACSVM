@@ -224,7 +224,10 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             format!("The door leads nowhere: {} is back at the start.", who(player))
         }
         Event::Encounter {
-            creature, terrain, ..
+            creature,
+            terrain,
+            slot,
+            ..
         } => {
             let w = &game.adventure().world;
             let name = w
@@ -237,8 +240,22 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 .get(*terrain as usize)
                 .map(|t| t.name.clone())
                 .unwrap_or_default();
-            format!("Encounter: {name} appears in the {tname} (encounters come later).")
+            match slot {
+                Some(_) => format!("Encounter: {name} appears in the {tname}."),
+                None => format!("{name} would appear in the {tname}, but there is no room."),
+            }
         }
+        Event::EnteredArea { player, .. } => {
+            format!("{} is drawn into an encounter.", who(player))
+        }
+        Event::LeftArea { player, to, .. } => {
+            format!(
+                "{} leaves the encounter, back at {}.",
+                who(player),
+                place(game, to)
+            )
+        }
+        Event::AreaClosed { .. } => "The encounter is over.".to_string(),
         Event::RoomEncounter {
             region, creature, at, ..
         } => {
@@ -480,6 +497,8 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             let why = match reason {
                 RemovalReason::LeftBehind => "wanders off",
                 RemovalReason::Banished => "is banished",
+                RemovalReason::LeftArea => "leaves the encounter",
+                RemovalReason::AreaClosed => "is gone",
             };
             format!("{} {why}.", creature(game, *region, *slot))
         }
@@ -702,6 +721,7 @@ fn room_name(game: &Game, region: u8, room: u8) -> String {
 fn place(game: &Game, at: &Location) -> String {
     match *at {
         Location::World { x, y } => format!("{} {x},{y}", map_name(game)),
+        Location::Room { region: 0, x, y, .. } => format!("the encounter {x},{y}"),
         Location::Room { region, room, x, y } => {
             format!("{} {x},{y}", room_name(game, region, room))
         }
