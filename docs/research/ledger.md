@@ -27,6 +27,7 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14 digest: combat p4 committed (48655f5) and checked; its close waits for tomorrow (daily cap of 3 reached). Nothing running. Escalations waiting: turn-order restore point; area items in the model (MODEL_VERSION); characters Retire (replay log) and catch-up (MODEL_VERSION); combat player's Fire (save command log). Encounters p1 engine step held for the World map session.
 - 2026-11-14: combat, 4, checker, all PASS; rr20 fully checked (player fire sweeps strict, a 0..9 roll after each damaging arrow); commit waits for the spec-writer's last edits.
 - 2026-11-14: combat, 4, engine-implementer, creature firing with no moves, the Speed 0 turn, the drop square, 5 tests; three readings sent to the spec as [unknown]; checker started.
 - 2026-11-14: combat, 4, spec-writer, combat.md 2.7, 2.8, 8.1, 8.2, new 8.8; creatures.md 2.5, 2.7, 8.1.1-8.1.2; magic 5.3.1; the player's fire escalated (save command log); engine-implementer started on the rest.
