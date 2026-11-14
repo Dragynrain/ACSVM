@@ -359,7 +359,8 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
   when hurt, death in battle by section 7).
 - **Rest:** healing 6 times faster than section 5.3.
 - **Stores** (specced in [stores.md](stores.md)) and the world map
-  encounter areas.
+  encounter areas ([encounters](encounters.md)): what a summons does
+  there is not known. **Engine:** as in any room of a region.
 
 ## Captures needed
 

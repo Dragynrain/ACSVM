@@ -640,6 +640,11 @@ screen offers next to "create new player".
 | `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
 | `$7161` | The add-player menu's cursor: 0 another adventure, 1 create new player, 2 don't add, 3 on the listed retired players; set to 1 by `rr13/create.sh` (10.18) | Researcher, characters first pass, 2026-11-14 (`docs/research/characters.md`) |
 | `$F59F` + 1 | The first player's Strength (low 5 bits); the top 2 bits the joystick port (bit 6 the second port: the "unknown" bit of 8.3). `$F5A4` (+5) its Power. Player slot k's record is at `$F59F` + 37 x (k - 1), its name (10 bytes) at `$F633` + 10 x (k - 1) | Researcher, characters first pass, 2026-11-14 |
+| `$F5AF` | The first player's place (record +16): 1 to 4 while it is in encounter area n, 0 on the open map | Researcher, encounters first pass, 2026-11-14 (`docs/research/encounters.md`) |
+| `$E7F2` + 5 x (n - 1) | Encounter area n's room record (n 1..4): +0 the wall picture, +1 the size (233 while open, 0 when free) | Researcher, encounters first pass, 2026-11-14 |
+| `$E0A2` + 2 x (n - 1) | Encounter area n's entrance square, column then row (41, 41 when free) | Researcher, encounters first pass, 2026-11-14 |
+| `$E532` + 37 x (s - 8) | The map region's creature slot s (8..15), where encounter copies go: +0 nonzero while alive, +13, +14 the square, +16 the area | Researcher, encounters first pass, 2026-11-14 |
+| `$E40A` + 37 x r, `$E65A` + r | The map's random creature record r (0..7), and its byte of terrain (high four bits) and chance code (low four); setting the chance byte before a step forces or forbids an encounter | Researcher, encounters first pass, 2026-11-14 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the

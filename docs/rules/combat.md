@@ -449,7 +449,8 @@ Not run: the player's attempt to fire (`player-bow`), a creature of Speed
 - Firing's open points (section 8, "Not run"), and the engine's choices
   there.
 - **Mimics** copying their opponent.
-- Map encounters fought on the world map.
+- Fights in encounter areas ([encounters](encounters.md)): the bit cleared
+  with a copy's Power, what a dead copy drops and its gold.
 - The square a dropped treasure lands on (creatures 8.1).
 
 ## Captures needed

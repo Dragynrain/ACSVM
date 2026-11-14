@@ -267,20 +267,13 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 1. **World map.** Before every move on the map there is a chance (0..60% per
    creature) that one of the map's random creatures appears, if the
    character is in that creature's terrain. The character is then pulled into
-   a special encounter area whose border is that terrain. [manual]
-   - Whether the roll happens before a refused move too: [unknown]
-     **Engine:** every move command on the map rolls, refused or not.
-   - Which terrain counts, the one left or the one entered: [unknown]
-     **Engine:** the cell the character stands on before the move. A
-     capture contradicts it: a step from the field onto grass, only the
-     grass having a creature (60%), brought the encounter at once
-     [capture: capture.md 10.19, one run]; settled by the encounters
-     research pass (`docs/research/encounters.md`).
-   - Several creatures for the same terrain: [unknown] **Engine:** rolled in
-     list order; the first hit wins.
-   - The encounter area itself (size, layout) is [unknown]. **Engine:** for
-     now only the roll: an `Encounter` event, after which the move goes ahead
-     as if nothing appeared, until encounter areas exist.
+   a special encounter area whose border is that terrain. [manual] On the
+   C64 the roll follows each completed step on the open map, by the terrain
+   entered, one roll for each of the map's records on it, every hit
+   appearing; refused moves and map doors take none. The area is one of
+   four 15 x 10 rooms of the map's region with one door out. All of it,
+   with the engine's choices: [encounters](encounters.md). [research;
+   capture: capture.md 10.19]
 2. **Rooms.** On entering a room there is one roll against the room's chance
    (0..75%) for its random creature. It is placed only on a square with no
    thing on it. [manual]
@@ -336,8 +329,8 @@ In priority order, for the behaviour-capture harness:
    locked door cost nothing; taking a door, map or room, costs one step).
    Still open: a space that bars passage.
 3. Arriving on a space, obstacle or door: does it trigger?
-4. Map encounter roll: before refused moves? Which terrain? Order among
-   creatures? Shape of the encounter area.
+4. Map encounter roll and area: researched ([encounters](encounters.md));
+   our own capture of the draws, the squares and the walk-out still to do.
 5. Room random creature: square choice.
 6. Real-time drain rate of the bar (captured: about 354 frames per point of
    Speed); extra turns for players in other regions.

@@ -2,7 +2,7 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: briefed 2026-11-14, with its inputs
-(`inputs/`); not started.
+(`inputs/`); first pass done 2026-11-14; in the spec and the engine.
 
 ## Why
 
@@ -105,4 +105,30 @@ creature slot is empty. WOLF is an enemy, Speed 4, holding our blade
 
 ## Findings
 
-None yet.
+First pass, 2026-11-14 (`ACSVM-research/research/encounters/findings.md`),
+items 1, 2 and 4, with parts of 3 and 5; about 15 runs in VICE from the
+snapshots above, several with the random draw forced. Written into
+`docs/rules/encounters.md` (movement 7.1 points there); the state to read
+is in capture.md 9.
+
+- **The roll** follows each completed step on the open map (none on a
+  refused move, a map door, in an area or a region), by the terrain
+  entered: records 0..7 in order, one percentile each for those on that
+  terrain, empty records on terrain 0 included, every hit appearing. No
+  cool-down; no rolls at all while the 4 areas are in use. The decoder's
+  chance table is right. (Run.)
+- **The area** is one of 4 spare rooms of the map's region: 15 x 10, walls
+  of the entered terrain's picture, one door at 0,5; the player on 12,4,
+  record r's copy on 2 + r mod 2, 3 + r div 2. Copies are the records
+  unchanged, in the map's slots 8..15. Entering ends the turn; nothing is
+  drawn to set it up. (Run, the squares of records 2..7 traced.)
+- **Play** runs in the map region's visit, the area's individuals after
+  the open map's players; no round-end rolls. (Run for one player.)
+- **Leaving** through the door puts the player on the entrance square
+  (the one stepped onto) with the moves it had; with no player left the
+  area closes, its copies removed and its items deleted. Death closes it
+  too (traced). A creature through the door is removed (traced).
+
+Next pass (findings section 7): two players, a death in an area, save and
+retire inside, all areas and slots in use, fighting there, the door's
+table entry. Each needs a "Pass 2" section here with its inputs.

@@ -115,7 +115,7 @@ Carried weights add up, and negative weights (a magic bag, a horse) raise effect
 **World map, encounters and stores**
 
 - The map is 40 x 40 with a 10 x 15 view and optional wraparound. Terrain types 13-16 are always one-way doors: up to 32 doors plus 32 extra exit points.
-- Before every world-map move there's a 0-60% chance of a random encounter for that terrain. The player is pulled into an encounter area bordered by the terrain they were crossing. Rooms roll once on entry (0-75%) and place the creature only on an empty square.
+- After every world-map step there's a 0-60% chance per random creature on the terrain entered. The player is pulled into an encounter area bordered by that terrain (`docs/rules/encounters.md`). Rooms roll once on entry (0-75%) and place the creature only on an empty square.
 - A region holds at most 16 creatures at once. Past that, random creatures and summons don't appear. Random creatures in empty rooms are removed periodically.
 - One store per region. It sells at item value, buys back at a reduced rate, and Wisdom improves the rate. Gold always has value 1, up to 25,000 pieces.
 - Up to 4 characters. A character brought in from another adventure keeps traits and skills but loses all possessions.

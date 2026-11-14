@@ -26,8 +26,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    cap (`limits.creatures_per_room`); Classic is unchanged.
 2. A creature stays in its region: it takes only doors that lead somewhere in
    the same region (section 5). [manual]
-3. Creatures on the world map exist only as random encounters, which still
-   wait for encounter areas (movement 7.1). [unknown]
+3. Creatures on the world map exist only as random encounters, copies of
+   the map's records in the map region's slots 8..15, standing in its
+   encounter areas ([encounters](encounters.md)). [research]
 
 ## 2. Turns
 
@@ -457,7 +458,6 @@ creatures replay exactly.
 ## 10. Left for later
 
 - **Combat:** melee and missile fire are in [combat](combat.md).
-- **World map:** encounter areas and the creatures in them.
 - **Mimics** copy the opponent they meet: combat.
 
 ## Captures needed
