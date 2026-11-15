@@ -18,10 +18,10 @@ daily cap: 3 passes closed per day
 | stores | 1 | closed | next: map stores, saving the stock, the hang with a store and a disappearing bow |
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
 | encounters | 1 | checked | engine already matched 59aa038's spec; 5 tests pin it; close waits for tomorrow (daily cap) |
-| turn-order | 2 | closed | next: no research pass; captures of ours can settle the restore point, declining to add a player, room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
-| combat | 4 | checked | engine for creature firing, the Speed 0 turn and the drop square only; ESCALATED: the player's fire (combat 8.8) changes Command::Fire and so the save command log; fire draw sweeps fire-e3/e0/ready-e5 still running in rr20 |
-| stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; reading area items is a MODEL_VERSION question for the maintainer |
-| characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. ESCALATED: Retire in the engine (replay log) and the catch-up (unknown_0c, MODEL_VERSION) |
+| turn-order | 2 | closed | next: no research pass; the restore point and declining are captured and in the engine (capture.md 10.25, 10.28); captures of ours can settle room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
+| combat | 4 | checked | all in the engine (the player's fire since e0d267e); rr20 fully checked; close waits for tomorrow (daily cap) |
+| stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; area items now in the model (0fabf93) |
+| characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. Retire and the catch-up now in the engine (e0d267e, 0fabf93) |
 
 ## Log
 
