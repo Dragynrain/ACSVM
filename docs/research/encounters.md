@@ -2,7 +2,8 @@
 
 A request to the project's clean-room researcher (docs/research/README.md).
 Licensed CC BY 4.0. Status: briefed 2026-11-14, with its inputs
-(`inputs/`); first pass done 2026-11-14; in the spec and the engine.
+(`inputs/`); first pass done 2026-11-14; in the spec and the engine;
+closed 2026-11-15, no second pass (the rest is left to capture).
 
 ## Why
 
@@ -135,6 +136,27 @@ by `scripts/encountercheck.py`), the squares entering east and north,
 the copies in slots 8 and 9, and the walk-out to the entrance with the
 area freed.
 
-Next pass (findings section 7): two players, a death in an area, save and
-retire inside, all areas and slots in use, fighting there, the door's
-table entry. Each needs a "Pass 2" section here with its inputs.
+The engine already matched the confirmed findings, and its tests pin
+them. Two captures of ours went further, with no research pass:
+capture.md 10.26 (`rr22`) found the areas' item lists in the world map
+block's tail (each area starts with one door item on 0,5; the model now
+keeps them), and 10.34 (`rr30`) settled the area door table, doors moved
+or doubled, a door to another open area, reopening an area after it
+closed (its starting treasure gone, its doors kept) and a store inside
+an area. Left [research, unconfirmed] in the spec: a second player
+joining an open area, a death inside closing it, a creature through the
+door being removed.
+
+**Closed 2026-11-15, no second pass.** What the first pass left open
+(`docs/rules/encounters.md` 8) is deterministic and visible, so capture settles it
+more cheaply than research (README section 2): a second player joining
+an area for real and what two players on 12,4 do, the turn order with
+players in several areas (the name strip, capture.md 10.10), a death
+inside, save and retire inside (as capture.md 10.28 did for rooms), all
+four areas or all eight slots in use (the area state of capture.md 9
+can be poked), a creature through the door, and what a copy killed
+there drops and its gold; with spec 8's list of door and item cases.
+The one thing capture can't reach, the high bit kept with Power that a
+copy has cleared, has no effect on play seen so far: research it only if
+a capture shows a copy behaving differently from the record it came
+from.

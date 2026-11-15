@@ -17,9 +17,9 @@ daily cap: 3 passes closed per day
 | combat | 1-3 | closed | next: the player's attempt to fire, a Speed 0 friend's turn, the dropped treasure's square |
 | stores | 1 | closed | next: map stores, saving the stock, the hang with a store and a disappearing bow |
 | characters | 1 | closed | next: Retire, another adventure's player, name entry, creatures catching up |
-| encounters | 1 | checked | engine already matched 59aa038's spec; 5 tests pin it; close waits for tomorrow (daily cap) |
+| encounters | 1 | closed | next: no research pass; capture work listed in the brief (a real second player joining, players in several areas, a death, save and retire inside, all slots in use, a creature walking out, a killed copy's drop) |
 | turn-order | 2 | closed | next: no research pass; the restore point and declining are captured and in the engine (capture.md 10.25, 10.28); captures of ours can settle room-to-room moves, doors ending the turn, and the two carried-moves [unknown]s (brief, second pass) |
-| combat | 4 | checked | all in the engine (the player's fire since e0d267e); rr20 fully checked; close waits for tomorrow (daily cap) |
+| combat | 4 | closed | next: no research pass; capture work listed in the brief (what the 0..9 roll decides, a late-arriving player, a weapon breaking mid-attack, a foe beside an archer, drop edge cases, gifts) |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; area items now in the model (0fabf93) |
 | characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. Retire and the catch-up now in the engine (e0d267e, 0fabf93) |
 
@@ -27,6 +27,10 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-15: combat, 4, brief-writer, closed; no pass 5, the rest is capture work.
+- 2026-11-15 digest: closed today 2 (encounters p1, combat p4); every topic's passes are closed; nothing queued or running; all that's left is capture work, listed in each brief and rule file.
+- 2026-11-15: encounters, 1, brief-writer, closed; no pass 2, the rest is capture work.
+- 2026-11-15: new day; brief-writers started to close combat p4 and encounters p1.
 - 2026-11-14: the capture work is done (capture.md 10.29-10.34) and in the specs and engine: the area door table and area store, readying with the last move ends the turn, one add a round; checker all PASS; committed with today's harness options and scripts.
 - 2026-11-14: creatures/magic captures (10.33, rr29): readying with the last move ends the turn above Speed 0 and two adds in one round add one, both against the engine; drop-turn moves and ordinary squares hold; the extra Life Force point is the top-of-turn die; spec-writer started. All planned capture work has now run.
 - 2026-11-14: encounters captures (10.34, rr30): +0x806 is the areas' door table (parameter 4 reads +0x80E) and a store in an area offers every carriable thing, both against the engine; the rest holds; spec-writer started.

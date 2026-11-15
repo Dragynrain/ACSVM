@@ -536,3 +536,59 @@ again with them: 400 runs with `armed`.
 Next pass: `player-bow`, a Speed 0 friend's turn (pass 3 item 6.3), the
 dropped treasure's square, map encounters, a foe truly beside an archer
 (the `bow-beside` snapshot remade with T on 4,4).
+
+Fourth pass (2026-11-14). The researcher replayed our 16 runs of each pass 4
+case with the draws forced to ours and ran experiments from the room
+snapshots; we confirmed it with sweeps of our own (capture.md 10.24, `rr20`,
+every run strict) and settled its open points with a capture of ours
+(capture.md 10.32, `rr28`). The rules are in `docs/rules/combat.md` 8.8 and
+`docs/rules/creatures.md` 2.7 and 8.1.
+
+- **The player's fire**: FIRE is the third row's first entry of the button's
+  menu; a cursor follows, moved a square a push, and the button fires. The
+  shots and their draws are a creature's, counted from the moves left (3
+  shots from 5), and the turn ends. **Confirmed** (`fire-e5`, `fire-e3`,
+  `fire-e0`, 192 runs, 576 shots). With a foe beside, a message and no move;
+  holding no missile weapon, one move and a weapon menu; pushing into a
+  creature never fires and never swings the bow (nothing, or the ready menu
+  when a melee weapon is owned); on the world map FIRE does nothing.
+  **Confirmed**. One point **disagreed**: choosing the bow from FIRE's menu
+  costs a second move. Our follow-up showed it is the readying's own move
+  (combat 6.1), the same as NEW WEAPON's, taken at the moment the bow is
+  chosen.
+- **What our follow-up settled** (capture.md 10.32): the foe-beside test
+  comes before the weapon test, whether a missile weapon is held, owned or
+  neither; beside means an aggressive thief, neutral or enemy, never a
+  friend (aggressive or not) and never another player. A roll of 0 to 9
+  follows every damaging arrow, the killing one included, and on a player
+  too; a kill ends the firing with shots still due.
+- **A Speed 0 creature's turn**: one action a turn. The die, its smartness
+  checks (two for a fighter), a step roll of 0 to 2 for each open square
+  beside, the step onto an ordinary square cancelled, and the idle move
+  healing 1 with no draw while below Constitution. An archer fires one
+  shot a turn after its checks, and a fighter with its goal beside attacks
+  once a turn. **Confirmed** (`still-hurt`, `still-enemy` 256 runs each,
+  `still-whole`, `still-bow`, `still-melee`).
+- **The dropped thing's square**: pairs of rolls, an offset of -1, 0 or +1
+  and then the axis; an offset of 0 lands on the dropper's own square at
+  once. The room's wall ring and obstacles (the custom obstacle too) refuse
+  a try; individuals, other things, portals and spaces don't. Gold uses the
+  same choice. **Confirmed** (`drop-wall`, `drop-corner`, `drop-beside`,
+  `drop-thing`, `drop-kinds`, `burden`, 256 runs each but `drop-beside`).
+  Our follow-up added when a creature drops: once its load passes half its
+  capacity, as its turn's first action, using one move, then stepping on;
+  a Speed 0 creature never drops.
+
+Open, all left to capture (combat.md and creatures.md "Captures needed"):
+what the roll of 0 to 9 after a damaging arrow decides (the target's class
+byte watched; for a player, its record watched whole); what else misses a
+player that came in after the firer; a weapon breaking with blows still
+due; a magic weapon against armor; the menu with no weapon held and
+choosing from it; readying a melee weapon before stepping; a foe truly
+beside an archer; a Speed 0 fighter beside an exit or a thing it takes;
+the overburdened drop with a foe beside, at 0 moves, and onto a store; a
+friend's gift around the giver; magic items and gold's weight.
+
+No fifth pass planned: every open point is visible to the harness (a
+byte, a draw or a square), so capture settles it more cheaply than
+research (README section 2).
