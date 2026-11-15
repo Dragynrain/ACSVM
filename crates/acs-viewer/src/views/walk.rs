@@ -1464,8 +1464,7 @@ fn draw_room(
 mod tests {
     use super::*;
 
-    #[path = "../../../../../acs-core/tests/common/mod.rs"]
-    mod common;
+    use crate::test_fixture as common;
 
     fn adventure() -> Adventure {
         let mut f = common::Fixture::new(acs_core::Platform::C64);

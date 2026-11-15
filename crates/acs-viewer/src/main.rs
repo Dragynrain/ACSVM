@@ -14,6 +14,13 @@ mod savefile;
 mod tiles;
 mod views;
 
+// acs-core's fixture builder for unit tests. It sits here, not inside a test
+// module, so its `#[path]` goes through `src/` only: a path through a
+// directory that doesn't exist (`src/views/walk/tests/..`) fails on Linux.
+#[cfg(test)]
+#[path = "../../acs-core/tests/common/mod.rs"]
+mod test_fixture;
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     env_logger::init();
