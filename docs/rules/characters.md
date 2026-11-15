@@ -17,7 +17,9 @@ unless marked; the second, also 2026-11-14, marked "pass 2") and
 **[capture]** where our own runs confirm it; "[research, unconfirmed]"
 means no capture of ours has checked it yet. The confirming runs are
 `ACSVM-research/capture/runs/rr13/` ([capture.md](../capture.md) 10.18)
-for the first pass and `rr19/` (capture.md 10.23) for the second.
+for the first pass and `rr19/` (capture.md 10.23) for the second;
+`rr26/` (capture.md 10.30, 2026-11-14) are captures of ours with no
+research pass behind them (3.5, 7.3, 7.5).
 
 Words used: a **round** is one pass through a region visit's turn list
 ([creatures](creatures.md) 2.2.3). The **roster** is the list of retired
@@ -126,21 +128,35 @@ holds Constitution with magic defense in the top two bits.
    stay. [research, pass 2; capture: the other disk differed from its copy
    in exactly those 2 bytes in all 3 runs] The back side of the ACS disk
    is never changed. [research, unconfirmed]
-5. **Telling the disks apart** is [unknown]. The researcher read that the
-   disk must carry the adventure-disk mark and an identity word different
-   from the current adventure's, and that a never-played scenario disk
-   keeps its template's identity until first played. Capture saw the
-   identities (our never-played disks alike, our played ones another
-   value) and saw the adventure's own disk, given as the "other", list its
-   player in another column with the cursor put on "create new player";
-   but setting the adventure's identity in memory to the other disk's
-   changed nothing (that disk still listed and joined), so the address
-   read is not what decides. What the program says when it refuses a disk
-   is not known either. [research, pass 2; capture: rr19 `ota-ownid`,
-   `ota-same`, `otb-same`]
+5. **No disk is refused.** Whatever disk is given as the other one, the
+   program shows the same steps (3.2), lists that disk's roster and joins
+   the chosen player as another adventure's player by 3.3 and 3.4, with no
+   refusal and no message of its own. That holds with the other disk's
+   identity word unlike the adventure's, equal to it, or equal in one
+   byte only, and with a copy of the adventure's own disk: its player
+   (saved there from this adventure, its square a room's) joined with
+   its gold raised from 0 to 1,000, its things gone and its square the
+   map's start cell, and that disk lost the name as in 3.4. [capture: ours,
+   2026-11-14, rr26 `d2-*` (5 identity words and the own disk, listed
+   alike) and `d2b-id-same`, `d2b-own` (taken through to play),
+   capture.md 10.30] The researcher's reading, that the disk must carry an
+   identity word different from the adventure's and that the same
+   adventure's disk is refused, did not show in any of these [research,
+   pass 2: disagreed by capture]; nor did setting the identity in memory
+   change anything (rr19 `ota-ownid`, `ota-same`, `otb-same`). So a player
+   of this adventure brought in this way is treated as a stranger: its
+   possessions and place are lost, unlike choosing it from the add-player
+   screen's own list (3.1).
+   **The list keeps each roster entry's place**: an empty first entry
+   leaves a gap, so a disk whose first entry is empty and second holds U
+   shows U in the second column with the cursor moved one place. That is
+   what rr19 read as the own disk being handled differently. [capture:
+   rr26 `d2-ownu`, rr19 `ota-ownid`] Which record is then taken when U is
+   chosen is [unknown]: the one run took a record that was not U's.
    **Engine:** a front end that offers players from another adventure
-   applies 3.3 when it builds the setup; the engine has no rosters or
-   disks yet, so 3.2, 3.4 and 3.5 are the front end's when they come.
+   applies 3.3 when it builds the setup, for any disk, the adventure's own
+   included, and checks no identity; the engine has no rosters or disks
+   yet, so 3.2, 3.4 and 3.5 are the front end's when they come.
 
 ## 4. The profile's marks
 
@@ -311,9 +327,19 @@ holds Constitution with magic defense in the top two bits.
    button still saves and a second F1 destroys. [research, pass 2;
    capture: rr19 `ret-dest`, `last-dest`, `room-dest2`]
 3. **Save.** The program takes the first roster entry with an empty name
-   (of 34); with none, it says the disk is full and the character plays on
-   [research, pass 2, unconfirmed for a full disk]. Life Force below
-   Constitution is raised to Constitution; nothing else changes, Power
+   (of 34). [research, pass 2; capture: rr26 `d3-free34`, all but entry 34
+   named, T saved into entry 34, its name at creatures + 0x1850 and its
+   record at + 0x1E6F, where format-notes' 25 names and 6 records a page
+   put them, capture.md 10.30] **With all 34 named** it says "Sorry. The
+   disk is full. <name> will keep playing." and waits for the button;
+   the character stays in play and takes its turns from the next round,
+   nothing is written (the disk unchanged byte for byte, so the game is
+   not saved either: no save point) and the request is used up.
+   [research, pass 2; capture: rr26 `d3-full34`, 1 run, T's turns in
+   rounds 27 and 28] Its Life Force, 5 under Constitution 11 at the offer,
+   read 11 two rounds on: raised as for a save, or healed over those
+   turns; the run did not separate them, [unknown]. On a save, Life Force
+   below Constitution is raised to Constitution; nothing else changes, Power
    included. The name and the whole record go into the entry: ratings,
    magic defense, gold, weapon held, armor worn, every possession, the
    picture, the joystick and the place (a room's region, room and square
@@ -334,7 +360,10 @@ holds Constitution with magic defense in the top two bits.
    under Wisdom 13 kept, gold 777, the blade held, the mail worn and four
    possessions in the roster's first entry, a room square kept]
    **Engine:** the same when rosters come; until then the front end keeps
-   the saved character. A Retire with Save is also one of the engine's
+   the saved character. When rosters come, a save to a full roster leaves
+   the character in play with its Life Force as it was (not raised: the
+   raise goes with a save, and none is made), writes nothing and takes no
+   restore point. A Retire with Save is also one of the engine's
    save points (creatures 2.2.7): taken at the round's end, it moves the
    restore point there (a `Saved` event after `Retired`); a Destroy does
    not. Pending reversals are dropped, as the finding
@@ -346,24 +375,48 @@ holds Constitution with magic defense in the top two bits.
    roster and the game is not saved then. [research, pass 2; capture:
    rr19 `ret-dest`, memory and the disk otherwise unchanged]
    **Engine:** the same.
-5. **Destroy in a room** is [unknown]. The findings said gold, blade and
-   bow are put down and the mail and treasures lost; capture matched
-   neither case. With the other player in the room, T's **whole kit** lay
-   on its square (blade, bow, mail, both treasures and the 300 gold, in
-   that order as U picked them up) in 5 of 5 runs, whatever the random
-   state. With T the last player, a new player walked in later and found
-   only the bow, the mail and the 300 gold (1 run); whether the newcomer's
-   save and the room's reload lost the rest is not known. [capture: rr19
-   `room-dest2`, `rd-0`, `rd-64`, `rd-128`, `rd-none`, `newc`, capture.md
-   10.23] **Engine:** the 5-of-5 case: every possession, the held weapon
-   and the worn armor land on the character's square, top of the stack,
-   with the gold as one pile (inventory 2.5), nothing lost; then as 7.4.
-   The order is the engine's own, as the original's is [unknown] (capture
-   saw only the order the things were picked up): the gold pile goes down
-   first, then each possession in the order carried, each on top of the
-   last. Reversals due later for the character (magic 5.2) are dropped,
-   as on Save (7.3); whether the original drops them on Destroy is
-   [unknown].
+5. **Destroy in a room.** The character's things go down on its square,
+   all at that moment (nothing changes after), whatever the random state.
+   Which go down depends on whether another player is still in play, not
+   on a thing's kind, nor on its being held or worn:
+   1. **Never put down**: spells, and the creatures' own weapons of weight
+      0 that nobody may use (horn, hand, claw, touches). They are lost.
+   2. **With another player present** every other thing goes down: each
+      weapon, missile weapon, armor, treasure and magic item, held, worn or
+      only carried, and the gold as one pile.
+   3. **As the last player** the things whose "ACS may add" count is 0
+      (the thing block's + 0x800, high nibble; `Thing::acs_may_add`) are
+      lost as well; the gold and every thing with a count of 1 or more go
+      down. Seen lost: BLADE (count 0), held or not, and the treasures GOODA
+      (0, one or two of it) and GOODB (0, in the kit); seen kept: dagger, magic sword, bow, dart,
+      mail, helmet, a key, a jewel, a scroll and a food container (counts
+      1 to 15).
+   4. **The order**: the gold first, then the possessions in thing-number
+      order, the held weapon and worn armor among them, each on top of the
+      last (the last one down is the top of the stack).
+   [capture: ours, 2026-11-14, rr26 `d1-*`, capture.md 10.30: 26 cases of
+   one thing (or the gold, or rr19's whole kit) alone, with U in the room
+   and with T the last player, 46 runs, the room's list read in memory at
+   the destroy; the kit as last player alike for 3 random states, and as
+   rr19 `newc` found after a newcomer, so the newcomer changed nothing]
+   The cases are settled; **the count as the cause is [unknown]**: it
+   separates the 3 things lost from the 10 kept, but no run changed a
+   count to test it (the creatures' weapons of count 15 are lost either
+   way, so case 1 is not the count). The researcher's reading (gold,
+   blade and bow put down, mail and treasures lost) matched none of the
+   runs [research, pass 2: disagreed by capture]. The rr19 runs this
+   replaces: `room-dest2`, `rd-*`, `newc` (capture.md 10.23).
+   **Engine:** as above: spells and weapons of weight 0 that nobody may
+   use are lost; with another living player in play everything else lands
+   on the square, top of the stack, the gold as one pile (inventory 2.5);
+   with none (the last player) things whose "ACS may add" count is 0 are
+   lost too. The order is 4's. Whether "present" means in the same room
+   or anywhere in play is [unknown] (U was in the room in every run);
+   the engine counts any other living player. Whether weight 0 or "nobody
+   may use" is what loses the creatures' weapons is [unknown] (every one
+   tried had both); the engine asks for both. Then as 7.4. Reversals due
+   later for the character (magic 5.2) are dropped, as on Save (7.3);
+   whether the original drops them on Destroy is [unknown].
 6. **Afterwards.** The character is out of play: only the first byte of
    its slot is set to zero, so the slot is free for a newcomer at once
    (6.1); the rest stays until a newcomer clears it. The others play on
@@ -389,32 +442,39 @@ holds Constitution with magic defense in the top two bits.
 
 ## 8. Left for later
 
-- Destroy in a room (7.5): which things stay, with one thing of each kind,
-  with and without another player present, and the floor read before any
-  newcomer's save; the order things go down and whether waiting reversals
-  are dropped (the engine's choices in 7.5).
+- Destroy in a room (7.5): whether the "ACS may add" count is the cause,
+  whether another player elsewhere than the room counts as present, which
+  mark loses the creatures' weapons, and whether waiting reversals are
+  dropped (the engine's choices in 7.5).
 - Rejoining a retired character from the roster (3.1, 7.3): not built in
   the engine.
-- Telling disks apart (3.5), the message for a refused disk, and a full
-  roster (7.3).
+- Which record is taken from a roster whose first entry is empty (3.5),
+  and whether a full roster's character has its Life Force raised (7.3).
 - Editing keys in name entry (5.5).
 - Two "Add Someone" requests in one round (6.2), and a newcomer put in a
   dead slot below a living one (6.1).
 
 ## Captures needed
 
-1. Destroy in a room as the last player, the room read in memory at once
-   (7.5); with gold and two or more possessions, read the square's stack
-   order, and with a reversal waiting (a temporary rating change, magic
-   5.2), read whether it still comes due.
-2. "Another adventure" with the adventure's own disk, and the byte that
-   decides (3.5).
-3. A roster of 34, then a save (7.3).
+1. Destroy in a room: the cases and the order captured (7.5, capture.md
+   10.30). Still open: the blade's "ACS may add" count set to 1 and the
+   dagger's to 0, T the last player, to test the count as the cause; U
+   alive on the map while T is destroyed alone in a room; a reversal
+   waiting (a temporary rating change, magic 5.2), read whether it still
+   comes due.
+2. Another adventure's disk with the adventure's own identity, and the
+   adventure's own disk: captured, no refusal (3.5, capture.md 10.30).
+   Still open: choosing U from a roster with an empty first entry, which
+   record joins.
+3. A roster of 34, then a save: captured (7.3, capture.md 10.30). Still
+   open: the full roster's message with T at Life Force 5 read at once
+   after the button, to tell the raise from healing.
 4. A creature's ratings with marks, if the editor shows them (4.2).
 5. From `move-basic-start.vsf` with slots 1 and 2 living: slot 1's first
    byte zeroed (F1 at the offer), then "Add Someone" by two players in one
    round; read which slots the newcomers' records land in and the turn
-   order after (6.1, 6.2).
+   order after (6.1, 6.2). Tried in rr26 (`d5-add2`, capture.md 10.30)
+   and not reached: it needs a script that waits on each screen.
 6. A Retire with Save as a save point: captured (7.3, creatures 2.2.7,
-   capture.md 10.28). Still open: a Destroy in a room (7.5) and whether
-   it writes the game.
+   capture.md 10.28). Still open: whether a Destroy in a room (7.5)
+   writes the game.

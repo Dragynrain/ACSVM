@@ -121,6 +121,20 @@ impl Game {
         }
     }
 
+    /// A door into another room (movement 2.3, creatures 2.2.4): the
+    /// door's step is taken, the turn ends, and the moves left (if any)
+    /// start the player's next turn, not halved, however long it waits for
+    /// its region's visit.
+    fn carry_through_door(&mut self, p: usize, ev: &mut Vec<Event>) {
+        let left = self.players[p].moves_left.saturating_sub(1);
+        self.players[p].moves_left = 0;
+        self.carried.retain(|&(q, _)| q != p);
+        if left > 0 {
+            self.carried.push((p, left));
+        }
+        self.end_turn(ev);
+    }
+
     fn step_on_map(&mut self, p: usize, x: u8, y: u8, dir: Dir, ev: &mut Vec<Event>) {
         let from = Location::World { x, y };
         let Some((nx, ny)) = self.map_target(x, y, dir) else {
@@ -151,13 +165,7 @@ impl Game {
                 // 2.3, creatures 2.2.4: a map door into a room ends the
                 // turn; the moves left go to the next turn's start.
                 if self.players[p].at.room().is_some_and(|(rg, _)| rg != 0) {
-                    let left = self.players[p].moves_left.saturating_sub(1);
-                    self.players[p].moves_left = 0;
-                    self.carried.retain(|&(q, _)| q != p);
-                    if left > 0 {
-                        self.carried.push((p, left));
-                    }
-                    self.end_turn(ev);
+                    self.carry_through_door(p, ev);
                 } else {
                     self.spend(ev);
                 }
@@ -470,12 +478,15 @@ impl Game {
                     // Creatures 6.4: creatures left behind chase through it.
                     self.turn_exits.push((region, room, nx, ny));
                     self.travel(p, from, item.destination, Some(item.thing), ev);
-                    // 2.3: a room door into another room ends the turn.
+                    // 2.3, creatures 2.2.4: a room door into another room
+                    // (of this region or another) ends the turn; the moves
+                    // left go to the next turn's start.
                     let at = self.players[p].at;
                     if at.room().is_some() && at.room() != from.room() {
-                        self.players[p].moves_left = 1;
+                        self.carry_through_door(p, ev);
+                    } else {
+                        self.spend(ev);
                     }
-                    self.spend(ev);
                 }
             },
             ThingKind::Space { access, .. } => match self.check_access(p, &access, false) {

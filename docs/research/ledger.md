@@ -27,6 +27,10 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: Destroy in a room (characters 7.5) and room doors carrying moves (creatures 2.2.4) in the engine; checks PASS but fmt, whose only flag is the stores confirmer's scenario.rs in progress; engine and rules committed, harness and capture.md wait for the captures to finish.
+- 2026-11-14: turn-order captures (10.29, rr25): room doors carry the moves left like map doors (against the engine), carried moves not halved, the healing range is the last real turn start's bar; spec-writer started. Combat captures (10.32) started.
+- 2026-11-14: characters captures (10.30, rr26): destroy in a room disagrees (other player present: all stays; last player: count-0 things lost), disk identity never refuses, full roster message, absence catch-up holds; spec-writer started. Stores capture (10.31) started.
+- 2026-11-14: the maintainer approved all the remaining capture work, two at a time: turn-order (10.29) and characters (10.30) started; then stores, the combat, creatures/magic, encounters and characters-slot unknowns.
 - 2026-11-14: SAVE GAME ends no turn, Retire with Save is a save point (creatures 2.2.7.3, capture.md 10.28) in the engine; save version 3 changed in place (never pushed); harness run mem --end-dump; checker all PASS; committed. Open: the all-dead save when the last player dies on the map and the newcomer starts there.
 - 2026-11-14: capture rr24 (capture.md 10.28): SAVE GAME in the last death's round restores the save before (engine holds); Retire with Save is a third save point and SAVE GAME does not end the turn (both against the engine); spec-writer started.
 - 2026-11-14: escalations, the restore point and SAVE GAME in the engine and walk mode (creatures 2.2.7), save version 3; engine choices recorded ([unknown]: a SAVE GAME in the round the last player dies, high-priority capture); checker all PASS; committed. All five escalations done.

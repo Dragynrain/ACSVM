@@ -267,8 +267,9 @@ pub struct Game {
     /// Each encounter area's entrance square while it is open (7.1).
     #[serde(default)]
     pub(crate) entrances: [Option<(u8, u8)>; crate::encounters::AREAS as usize],
-    /// Moves a player had left at a map door into a room, for the start of
-    /// its next turn (creatures 2.2.4, movement 2.3).
+    /// Moves a player had left at a door into another room (a map door
+    /// into a room or a room door), for the start of its next turn
+    /// (creatures 2.2.4, movement 2.3).
     #[serde(default)]
     pub(crate) carried: Vec<(usize, u8)>,
     /// "Add Someone" requests waiting for the round's end, in the order
@@ -954,7 +955,7 @@ impl Game {
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
         // Magic 3.2: summonses are answered on the following turn.
         self.answer_summons(ev);
-        // Creatures 2.2.4: the first turn after a map door into a room
+        // Creatures 2.2.4: the first turn after a door into another room
         // starts with the moves left at the door. The bar is not refilled,
         // so it keeps its full size from the door turn.
         let me = self.current;

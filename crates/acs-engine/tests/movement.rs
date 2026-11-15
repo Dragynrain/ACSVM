@@ -30,11 +30,13 @@ const CHEST: u16 = 12; // obstacle, bump spell, vanishes
 const ALTAR: u16 = 13; // custom obstacle
 const SHOP: u16 = 14; // store
 const CURSE: u16 = 15; // space, non-owners of KEY
+const ONE_WAY: u16 = 16; // portal, anyone, one-way
 
 /// Builds an adventure with one region of three rooms (one deleted):
 ///
 /// - room 0 "HALL" 8x6 at grid (0,0); room 1 "CELL" 5x6 at grid (7,0), sharing
-///   HALL's east wall; room 2 deleted.
+///   HALL's east wall; room 2 deleted. One-way doors on HALL (2,0) -> CELL
+///   (2,2) and (0,1) -> region 2's YARD (2,2).
 /// - World map: all open grass, a mountain at (21,20), a river (owners of
 ///   SWIM) at (19,20), a spell field at (20,21), a map door at (20,19) into
 ///   HALL (2,2). Start (20,20).
@@ -69,6 +71,7 @@ fn fixture(platform: Platform) -> Fixture {
     f.thing(ALTAR as usize, "ALTAR", [0x0B, 8, 10, 0]); // long message, per placement
     f.thing(SHOP as usize, "SHOP", [0x0C, 9, 0, 0]);
     f.thing(CURSE as usize, "CURSE", [0x08, 6 | 3 << 6, 0, (KEY as u8)]);
+    f.thing(ONE_WAY as usize, "ONE WAY", [0x07, 5, 0, 0]);
     f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
     f.thing(128, "ROOM BORDER", [0x00, 9, 0, 0]);
 
@@ -103,6 +106,8 @@ fn fixture(platform: Platform) -> Fixture {
                     (2, 4, (CURSE as u8), 0),
                     (2, 3, (WALL as u8), 0), // a pillar on top of a key: the pillar decides
                     (2, 3, (KEY as u8), 0),
+                    (2, 0, (ONE_WAY as u8), 6), // north wall -> CELL (2,2)
+                    (0, 1, (ONE_WAY as u8), 7), // west wall -> region 2 YARD (2,2)
                 ],
                 ..Default::default()
             },
@@ -132,8 +137,22 @@ fn fixture(platform: Platform) -> Fixture {
             [0x00, 0x23], // region 0: world map point 35 (exit point 3)
             [0x12, 0x22],
             [0x10, 0x62],
+            [0x11, 0x22],
+            [0x20, 0x22],
         ],
         residents: vec![(0, "GUARD", guard)],
+        ..Default::default()
+    });
+    f.region(RegionSpec {
+        name: "FARM",
+        rooms: vec![RoomSpec {
+            name: "YARD",
+            w: 6,
+            h: 6,
+            wall: 9,
+            ..Default::default()
+        }],
+        portals: vec![[0, 0]],
         ..Default::default()
     });
     world(&mut f);
@@ -641,6 +660,95 @@ fn room_doors_lead_through_shared_walls_and_back() {
         assert_eq!(g.current_player().at, cell);
         mv(&mut g, Dir::W);
         assert_eq!(g.current_player().at, hall(6, 2));
+    });
+}
+
+fn moves_at_start(ev: &[Event], player: usize) -> Option<u8> {
+    ev.iter().find_map(|e| match *e {
+        Event::TurnStarted { player: q, moves, .. } if q == player => Some(moves),
+        _ => None,
+    })
+}
+
+/// 2.3, creatures 2.2.4: a door into another room ends the turn, the
+/// counter goes up, and the next turn starts with the moves left after the
+/// door's step; through it on the last move, the next turn is a full one.
+#[test]
+fn a_room_door_into_another_room_carries_the_moves_left() {
+    both(|p| {
+        for (from, dir, door) in [((6, 2), Dir::E, (1, 2)), ((1, 1), Dir::NE, (2, 2))] {
+            // Two-way DOOR into CELL (1,2), one-way into CELL (2,2).
+            let cell = Location::Room {
+                region: 1,
+                room: 1,
+                x: door.0,
+                y: door.1,
+            };
+            let mut g = game(p);
+            g.place(0, hall(from.0, from.1 + 1));
+            mv(&mut g, Dir::N);
+            let round = g.round();
+            let ev = mv(&mut g, dir);
+            assert!(ev.contains(&Event::TurnEnded { player: 0 }), "{ev:?}");
+            assert_eq!(g.current_player().at, cell);
+            assert_eq!(moves_at_start(&ev, 0), Some(13), "{ev:?}");
+            assert!(g.round() > round);
+            assert_eq!(g.current_player().moves_left, 13);
+            let ev = g.apply(Command::Wait);
+            assert_eq!(moves_at_start(&ev, 0), Some(15));
+            // On the last move: a full next turn.
+            let mut g = game(p);
+            g.place(0, hall(from.0, from.1));
+            for _ in 0..14 {
+                g.apply(Command::Idle);
+            }
+            assert_eq!(g.current_player().moves_left, 1);
+            let ev = mv(&mut g, dir);
+            assert_eq!(g.current_player().at, cell);
+            assert_eq!(moves_at_start(&ev, 0), Some(15), "{ev:?}");
+        }
+    });
+}
+
+/// 2.6, creatures 2.2.4: a door into a room of another region carries the
+/// moves left, kept while the player waits for that region's visit.
+#[test]
+fn a_door_into_another_region_keeps_the_moves_until_its_visit() {
+    both(|p| {
+        let mut g = game(p);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        g.apply(Command::Wait);
+        g.place(0, hall(1, 3));
+        g.place(1, hall(5, 3));
+        assert_eq!(g.current(), 0);
+        mv(&mut g, Dir::N);
+        mv(&mut g, Dir::N);
+        let ev = mv(&mut g, Dir::W);
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }), "{ev:?}");
+        let yard = Location::Room {
+            region: 2,
+            room: 0,
+            x: 2,
+            y: 2,
+        };
+        assert_eq!(g.players()[0].at, yard);
+        // The second player plays out region 1's visit meanwhile.
+        let mut seen = moves_at_start(&ev, 0);
+        let mut others = usize::from(moves_at_start(&ev, 1).is_some());
+        while seen.is_none() {
+            assert!(others < 40, "the first player never came back");
+            let ev = g.apply(Command::Wait);
+            others += usize::from(moves_at_start(&ev, 1).is_some());
+            seen = moves_at_start(&ev, 0);
+        }
+        assert!(others > 1, "{others}");
+        assert_eq!(seen, Some(12));
+        assert_eq!(g.current_player().at, yard);
     });
 }
 

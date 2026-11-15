@@ -58,19 +58,26 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       one turn a round, after the players of its room, and a room counts
       only if a player stands in it when the round begins; a creature
       already on the list takes its turn even if the player has left.
-   4. **A player who goes through a map door into a room ends its turn
-      there**, whatever moves it has left. It is on the list of the first
-      round of its new region's next visit, by its player number like any
-      other player there; no round is missed, whichever round of the map
-      visit it came in and whichever player came in first. If it was the
-      last living player on the map, that visit ends at the round's end
-      and, when the room's region is the next marked one, its first round
-      begins with this player, so the two turns run back to back. Its
-      first turn in the room starts with the moves it had left at the
-      door, or its full Speed if it had none left. Two things about such a
-      turn are [unknown]: the full moves the idle healing roll uses
-      ([magic](magic.md) 5.3) and whether the carried moves are halved
-      beside an enemy (2.6); the engine's choices are given there.
+   4. **A player who goes through a door into another room ends its turn
+      there**, whatever moves it has left: a map door into a room, a room
+      door (one-way or two-way) into another room of the same region, or
+      a room door into a room of another region. The door's step is spent
+      and the round counter goes up as usual at the round's end. Its next
+      turn starts in the new room with the moves it had left after the
+      door's step, or its full Speed if it had none left; those carried
+      moves are not halved beside an enemy (2.6). In a new region it is
+      on the list of the first round of that region's next visit, by its
+      player number like any other player there; no round is missed,
+      whichever round of the visit it came in and whichever player came
+      in first. If it was the last living player in the old region, that
+      visit ends at the round's end and, when the new region is the next
+      marked one, its first round begins with this player, so the two
+      turns run back to back. If the new region is not visited again in
+      the running cycle (2.2.1), the player waits for the next cycle and
+      keeps its carried moves meanwhile. In the same region it simply
+      takes its next turn in its new room's place on the next round's
+      list (2.2.3). The idle healing roll of a carried turn is given in
+      [magic](magic.md) 5.3.1.
    5. **After each round**, in this order: the round counter goes up by
       one and anything queued for that round is handled; in a room region,
       the end-of-round random creature rolls (2.4); if the number of
@@ -197,9 +204,22 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    room turn began with 8, 8 and 1 moves (what it had left), U's with 4
    (its full Speed, having used all 4). [capture: mem, cases held,
    tfirst, ulater, capture.md 10.22] This also accounts for movement 2.3
-   (a lone player seems to go on with the rest of its turn). Going from
-   one room region to another the same way is [research, unconfirmed]
-   (traced only). **Room lists never hold 5 to 15** [research,
+   (a lone player seems to go on with the rest of its turn).
+   **Room doors and region to region (2.2.4)** [capture: mem, rr25,
+   capture.md 10.29; ours, no research pass, 2026-11-14; the case the
+   turn-order second pass traced only]. A Speed 12 player with 8 moves on
+   its first room turn walked 3 squares east, the third onto a portal
+   into a second room, with 5 left: its moves and the current individual
+   went to 0, the counter went from 8 to 9, and its next turn began in
+   the second room with 5 moves (the turn after, 12); onto the portal
+   with its last move, the next turn began with 12. A one-way and a
+   two-way portal did the same, nearly to the instruction. A one-way
+   portal into a room of a second region did the same again, the region
+   going from 1 to 2 and the first turn there in round 9, with 5 moves or
+   12. With a second player U in region 1 since round 13, T went through
+   such a portal with 5 moves left at once: U alone in region 1 for
+   rounds 13 to 32, T in region 2 for rounds 33 to 42 (its first turn
+   there with the 5 moves), U again from 43. **Room lists never hold 5 to 15** [research,
    unconfirmed]: none of ours could show it either way (in 10 runs no
    room list held one, but nothing of ours is numbered so; capture.md
    10.22). On the map, an encounter area's creature does take turns
@@ -353,11 +373,18 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    for a player (`hindered`); a creature's `CreatureTurn` gives the moves.
    Applied at turn start only; whether walking up to such an individual
    mid-turn shortens the rest of the bar is not captured.
-   **A turn that starts with carried moves** (after a map door, 2.2.4):
-   whether the moves carried over are halved when such an individual
-   stands beside the player is [unknown]; no capture had one there.
-   **Engine:** they are not halved, and `TurnStarted` reports `hindered`
-   false for that turn.
+   **A turn that starts with carried moves** (after a door into another
+   room, 2.2.4) is not halved, whoever stands beside the player; a turn
+   after such a door with no moves carried starts at the full bar halved,
+   like any other hindered turn. A Speed 12 player came through the map
+   door with 8 moves left (7 after one idle move on the map) onto an
+   entry square with an aggressive enemy of Speed 0 east of it, and with
+   8 with the enemy diagonally next to it: its first room turn began with
+   8, 7 and 8. Through the door with none left, the turn began with 6;
+   every later turn beside the enemy began with 6. [capture: mem, rr25,
+   cases adj, diag, capture.md 10.29; ours, no research pass,
+   2026-11-14] **Engine:** so; `TurnStarted` reports `hindered` false
+   for a turn that starts with carried moves.
 7. **A creature's turn is a loop**: it takes one action (after the top of
    the turn: catch-up, drift and the healing die, [magic](magic.md) 5), then
    another while it has moves left. The test comes after the action, so a
@@ -750,7 +777,9 @@ creatures replay exactly.
    places and two players in different rooms of one region included.
    Deaths, the restore point and declining to add a player captured
    (2.2.5 to 2.2.7), and SAVE GAME's turn, a Retire with Save as a save
-   point and the saves of a death round (capture.md 10.28). Still open
+   point and the saves of a death round (capture.md 10.28), and room doors
+   and region to region ending the turn and carrying the moves left
+   (2.2.4, capture.md 10.29). Still open
    (2.2.7): the last player killed on the world map after a SAVE GAME,
    F1, a newcomer starting on the map, then the newcomer killed and the
    button: whether the all-dead save comes back with no region change
@@ -758,8 +787,8 @@ creatures replay exactly.
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
-   and not a friend). Still open: mid-turn, odd Speeds, and a turn that
-   starts with moves carried through a map door (2.2.4) beside an enemy.
+   and not a friend), and a turn that starts with carried moves beside an
+   enemy (not halved, capture.md 10.29). Still open: mid-turn, odd Speeds.
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5), and for a fighter enemy going for the player

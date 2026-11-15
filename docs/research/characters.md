@@ -186,6 +186,18 @@ already settled (capture.md 10.23). Research again only if the destroy
 cases do not fit a rule by kind or by place after that round, with the
 snapshot at the second F1 as its input.
 
+**That capture round is done** (capture.md 10.30, `rr26`, ours). Destroy
+in a room fits a rule by place, with a guess for the cause: with another
+player present every carriable thing goes down but spells and the
+creatures' weight-0 weapons; as the last player the things whose "ACS may
+add" count is 0 are lost too (3 things, the count not yet changed to test
+it); gold first, then thing-number order. No disk is refused, the
+adventure's own included (the finding's refusal did not show); rr19's
+second column was an empty first roster entry. A full roster gives the
+disk-full message and the character plays on. The catch-up holds across
+a real absence, the region unloaded and reloaded. Spec: characters 3.5,
+7.3, 7.5 and magic 5.5. Two add requests in one round not reached.
+
 ## Pass 2
 
 Briefed 2026-11-14. The first pass's rolling, starting values, joining and

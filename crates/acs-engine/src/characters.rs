@@ -7,7 +7,7 @@ use crate::game::{Game, PlayerSetup, NAME_MAX};
 use crate::inventory::GOLD;
 use crate::rng::Rng;
 use crate::{Event, Location, Who};
-use acs_core::model::MagicDefense;
+use acs_core::model::{MagicDefense, ThingId, ThingKind};
 use serde::{Deserialize, Serialize};
 
 /// Wisdom from which a new character has magic defense level 1
@@ -186,9 +186,9 @@ impl Game {
     /// dead by now is offered nothing. Saved (7.3): the whole record, Life
     /// Force raised to Constitution, goes to the front end (the engine has
     /// no roster yet). Destroyed: on the map nothing is put down (7.4); in a
-    /// room every possession (held weapon and worn armor among them) and
-    /// the gold as one pile land on its square, top of the stack (7.5's
-    /// engine choice). Either way only the slot is freed (7.6), and the
+    /// room the gold as one pile, then the possessions that go down (held
+    /// weapon and worn armor among them, `goes_down_on_destroy`) in thing
+    /// number order, each on top of the last (7.5). Either way only the slot is freed (7.6), and the
     /// reversals due for it are dropped (7.3).
     /// True when a Save was taken: the round's end then saves the game
     /// (7.3, creatures 2.2.7.3).
@@ -211,8 +211,13 @@ impl Game {
             record.life_force = record.life_force.max(record.constitution);
             saved = Some(Box::new(record));
         } else if let Location::Room { region, room, x, y } = at {
+            let last = !self
+                .players
+                .iter()
+                .enumerate()
+                .any(|(q, p)| q != player && p.alive);
             let p = &mut self.players[player];
-            let things = std::mem::take(&mut p.possessions);
+            let mut things = std::mem::take(&mut p.possessions);
             let gold = std::mem::take(&mut p.gold);
             p.weapon = None;
             p.armor = None;
@@ -220,6 +225,8 @@ impl Game {
                 self.put_gold(region, room, x, y, gold);
                 left.push((GOLD, gold));
             }
+            things.retain(|&t| self.goes_down_on_destroy(t, last));
+            things.sort_unstable();
             for t in things {
                 self.put_on_top(region, room, x, y, t, 1);
                 left.push((t, 1));
@@ -235,6 +242,24 @@ impl Game {
             self.close_if_empty(room, ev);
         }
         save
+    }
+
+    /// Whether a possession goes down on a Destroy in a room (7.5): never
+    /// a spell, nor a weapon of weight 0 that nobody may use (1); for the
+    /// last player (`last`) not a thing whose "ACS may add" count is 0
+    /// either (3).
+    fn goes_down_on_destroy(&self, thing: ThingId, last: bool) -> bool {
+        let Some(t) = self.thing(thing) else {
+            return true;
+        };
+        let kept = match &t.kind {
+            ThingKind::MagicSpell { .. } => false,
+            ThingKind::MeleeWeapon { carry, stats, .. } | ThingKind::MissileWeapon { carry, stats, .. } => {
+                carry.weight != 0 || stats.usable_by_anyone
+            }
+            _ => true,
+        };
+        kept && !(last && t.acs_may_add == 0)
     }
 }
 

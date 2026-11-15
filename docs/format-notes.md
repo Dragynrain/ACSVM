@@ -321,6 +321,11 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   in the corpus) is still unknown. Until November 2026 this was read as
   "the parameter is most likely the pile's size" and the size records as
   things of their own on square 15,14.
+- **"ACS may add" count** (things block + 0x800, high nibble; 15 means
+  many; `Thing::acs_may_add`): play may read it too. The things a last
+  player destroyed in a room loses are exactly the ones with a count of 0
+  among 13 tried (rules/characters 7.5, docs/capture.md 10.30); no count
+  was changed to test it.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
 - **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
   action code 15 (outside 0-14) and power 0. It is never placed; three
@@ -365,8 +370,12 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   creatures + 0x170A and a record at + 0x1925, written by us next to a
   first player, were offered (listed right of the first, under "don't add
   a player") and played with every stat as written (docs/capture.md
-  10.8.6). Slots past the second, and the page break the decoder assumes
-  after 25 names and 6 records, are unchecked. Every stat byte reads as the
+  10.8.6). The last slot follows it too, past the page breaks the decoder
+  assumes after 25 names and 6 records: with entries 1 to 33 named, a save
+  wrote entry 34's name at creatures + 0x1850 and its record at + 0x1E6F
+  (docs/capture.md 10.30), settling AcsLib's 26 names and 7 records a
+  page (which overruns the page) for the decoder's 25 and 6. Every stat
+  byte reads as the
   decoder says (a record with a different value in each, checked on the
   profile screen). (An earlier reading that a joining player gets Power =
   Wisdom was drift seen late; byte 5 is kept: rules/characters 3.1.) Saving
@@ -450,9 +459,6 @@ Seen by diffing scenario disks (C64):
   older name of that region, so possibly an editor buffer.
 - Creature byte 0x0B: needs a saved game or an emulator capture (0x0C
   settled, see Creatures).
-- Retired players: AcsLib reads 26 names and 7 records per 256-byte page, which
-  overruns the page; the decoder reads 25 and 6. No corpus adventure has any;
-  the first two slots are confirmed (see Creatures).
 - PC: only one real file so far, made by EA and possibly with an earlier
   editor (it also contains a room named "I DONT KNOW YET"). Adventures saved
   by the shipped PC editor may differ, e.g. in door numbering.

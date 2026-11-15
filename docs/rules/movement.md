@@ -76,17 +76,23 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    into a second room of the region had 5 steps left; the room's creatures
    moved next, and the player was next seen in the new room at the top of
    its following turn. [capture: turns, case follow, 3 runs, capture.md
-   10.10.3] A **map door into a room** also ends the turn, as far as the
-   scheduler goes: the region visit changes, and the player's first turn
-   in the room starts with the moves it had left at the door (its full
-   Speed if none), so a lone player seems to go on with the same turn, as
-   `refuse` saw ([creatures](creatures.md) 2.2.4). [research: turn-order
-   second pass, 2026-11-14; capture: mem, capture.md 10.22] **Engine:**
-   one step; the character then stands on the destination square and
-   keeps its remaining moves, except through a room door into a different
-   room, which ends the turn, and through a map door into a room, which
-   ends the turn and carries the moves left into the next turn's start
-   (creatures 2.2.4).
+   10.10.3] Its next turn there starts with the moves it had left after
+   the door's step (5 in that case), or its full Speed if none, exactly
+   as after a map door; the round counter goes up between. One-way and
+   two-way portals into another room of the region, and a one-way portal
+   into a room of another region, all behave so. [capture: mem, rr25,
+   capture.md 10.29; ours, no research pass, 2026-11-14] A **map door
+   into a room** also ends the turn, as far as the scheduler goes: the
+   region visit changes, and the player's first turn in the room starts
+   with the moves it had left at the door (its full Speed if none), so a
+   lone player seems to go on with the same turn, as `refuse` saw
+   ([creatures](creatures.md) 2.2.4). [research: turn-order second pass,
+   2026-11-14; capture: mem, capture.md 10.22] **Engine:** one step; the
+   character then stands on the destination square and keeps its
+   remaining moves, except through a door into another room (a room door
+   to another room of the region or of another region, or a map door
+   into a room), which ends the turn and carries the moves left into the
+   next turn's start (creatures 2.2.4).
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
@@ -124,14 +130,18 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    creatures get no turns until the AI exists.
 6. Players exploring different regions get several turns in a row. [manual]
    How many is not given. On the C64 each region gets visits of up to 10
-   rounds in turn ([creatures](creatures.md) 2.2). [research, capture]
-   **Engine:** so.
+   rounds in turn ([creatures](creatures.md) 2.2). [research, capture] A
+   player that walks into another region waits for the next cycle if
+   that region's visit has already gone by in the running one, and keeps
+   the moves it carried through the door meanwhile (creatures 2.2.4).
+   [capture: mem, rr25, case reg2, capture.md 10.29] **Engine:** so.
 7. Effective Speed is lowered by carrying too much and by standing next to an
    aggressive, unfriendly individual. [manual] By how much is not given.
    [unknown] **Engine:** the bar starts at Speed after the weight slowdown
    ([inventory](inventory.md) 3.3); adjacency halves the moves as in
-   [creatures](creatures.md) 2.6, except moves carried through a map door
-   (2.3, creatures 2.2.4), which the engine does not halve [unknown].
+   [creatures](creatures.md) 2.6, except moves carried through a door
+   into another room (2.3, creatures 2.2.4), which are not halved, as on
+   the C64. [capture: mem, rr25, capture.md 10.29]
 8. Speed 0: the manual only says such a creature does not show its name on its
    turn. A character with Speed 0 cannot move. [unknown] **Engine:** its
    moves are refused (`NoMovesLeft`) and only `Wait` ends its turn.
@@ -355,6 +365,8 @@ In priority order, for the behaviour-capture harness:
 6. Real-time drain rate of the bar (captured: about 354 frames per point of
    Speed); extra turns for players in other regions.
 7. Stores: bump or step on.
-8. Moves carried through a map door (2.3): halved beside an enemy or not
-   ([creatures](creatures.md) 2.6), and the idle healing roll's range on
-   that turn ([magic](magic.md) 5.3).
+8. Moves carried through a door into another room (2.3): captured (not
+   halved beside an enemy, [creatures](creatures.md) 2.6; the idle healing
+   roll keeps the door turn's range, [magic](magic.md) 5.3.1; room doors
+   and region to region carry them too, creatures 2.2.4; capture.md
+   10.29).

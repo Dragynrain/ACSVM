@@ -1341,7 +1341,8 @@ fn retire_waits_for_the_round_end_and_saving_keeps_the_whole_record() {
 #[test]
 fn destroyed_in_a_room_everything_lands_on_the_square_and_on_the_map_nothing() {
     both(|p| {
-        // 7.5's engine choice: every possession and the gold as one pile.
+        // 7.5: with TWO in play every possession goes down, the gold as
+        // one pile first, then in thing-number order.
         let mut g = retirees(p);
         g.apply(Command::Retire { save: false });
         let ev = to_round_end(&mut g);
@@ -1356,8 +1357,8 @@ fn destroyed_in_a_room_everything_lands_on_the_square_and_on_the_map_nothing() {
                 _ => None,
             })
             .expect("retired");
-        assert_eq!(left, [(GOLD, 300), (SWORD, 1), (BOW, 1), (GEM, 1)]);
-        assert_eq!(top(&g, 0, 2, 3), Some(GEM));
+        assert_eq!(left, [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1)]);
+        assert_eq!(top(&g, 0, 2, 3), Some(BOW));
         let p0 = &g.players()[0];
         assert!(!p0.alive && p0.possessions.is_empty() && p0.gold == 0 && p0.weapon.is_none());
         // 7.4: on the world map nothing is put down.
@@ -1371,6 +1372,126 @@ fn destroyed_in_a_room_everything_lands_on_the_square_and_on_the_map_nothing() {
             left: vec![]
         }));
         assert!(!g.players()[0].alive);
+    });
+}
+
+const CLAW: u16 = 5; // melee weapon, weight 0, not usable by anyone
+const MAIL: u16 = 6; // armor
+const CHANT: u16 = 7; // spell
+const STING: u16 = 8; // missile weapon, weight 0, not usable by anyone
+
+/// The DEN fixture with CLAW, MAIL, CHANT and STING, and the "ACS may add"
+/// counts given (thing, count).
+fn destroy_adventure(p: Platform, counts: &[(u16, u8)]) -> Adventure {
+    let mut f = fixture(p);
+    f.thing(CLAW as usize, "CLAW", [0x04, 0, 0, 2]);
+    f.extended(None, 2, [4, 0, 20]);
+    f.thing(MAIL as usize, "MAIL", [0x05, 8, 30, 3]);
+    f.extended(None, 3, [2, 0, 22 | 0x40]);
+    f.thing(CHANT as usize, "CHANT", [0x06, 5, 0, 0]);
+    f.thing(STING as usize, "STING", [0x03, 0, 0, 2]);
+    let adds = f.l.things + acs_core::layout::things::ACS_ADDS;
+    for &(t, n) in counts {
+        f.put(adds + t as usize - 1, &[n << 4]);
+    }
+    let mut a = decode(&f.build()).expect("decodes").adventure;
+    a.regions[0].residents[0].in_use = false;
+    a
+}
+
+/// ONE on WEST (2,3) with the sword held, the mail worn, the claw, sting,
+/// spell, gem and bow (given out of number order) and 300 gold; TWO, when
+/// `two`, in EAST. Returns at ONE's turn with the destroy requested.
+fn destroyer(p: Platform, counts: &[(u16, u8)], two: bool) -> Game {
+    let (mut g, _) = Game::new(
+        destroy_adventure(p, counts),
+        5,
+        Rules { diagonals: true },
+        PlayerSetup {
+            name: "ONE".into(),
+            possessions: vec![MAIL, CHANT, BOW, STING, GEM, CLAW, SWORD],
+            gold: 300,
+            ..Default::default()
+        },
+    );
+    if two {
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "TWO".into(),
+                ..Default::default()
+            },
+        });
+        g.apply(Command::Wait);
+        g.place(1, at(1, 5, 5));
+    }
+    g.place(0, at(0, 2, 3));
+    assert_eq!(g.current(), 0);
+    g.apply(Command::Ready { thing: SWORD });
+    g.apply(Command::Ready { thing: MAIL });
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    assert_eq!(g.players()[0].weapon, Some(SWORD));
+    assert_eq!(g.players()[0].armor, Some(MAIL));
+    g.apply(Command::Retire { save: false });
+    g
+}
+
+/// The Destroy's `left` list, and the square's stack top first.
+fn destroyed(g: &mut Game) -> (Vec<(u16, u16)>, Vec<u16>) {
+    let ev = to_round_end(g);
+    let left = ev
+        .iter()
+        .find_map(|e| match e {
+            Event::Retired {
+                player: 0,
+                saved: None,
+                left,
+            } => Some(left.clone()),
+            _ => None,
+        })
+        .expect("retired");
+    let stack = g.adventure().regions[0].rooms[0]
+        .items
+        .iter()
+        .filter(|it| (it.x, it.y) == (2, 3))
+        .map(|it| it.thing)
+        .collect();
+    let p0 = &g.players()[0];
+    assert!(!p0.alive && p0.possessions.is_empty() && p0.gold == 0);
+    assert!(p0.weapon.is_none() && p0.armor.is_none());
+    (left, stack)
+}
+
+#[test]
+fn destroyed_with_another_player_anywhere_all_but_spells_and_claws_go_down_in_number_order() {
+    both(|p| {
+        // 7.5.1-2, 4: every count 0, TWO alive in another room: nothing
+        // lost but the spell and the weight-0 weapons nobody may use; the
+        // held sword and worn mail like any other; gold first, then by
+        // thing number, each on top of the last.
+        let mut g = destroyer(p, &[], true);
+        let (left, stack) = destroyed(&mut g);
+        assert_eq!(left, [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1), (MAIL, 1)]);
+        assert_eq!(stack, [MAIL, BOW, SWORD, GEM, GOLD]);
+        assert!(g.players()[1].alive);
+    });
+}
+
+#[test]
+fn destroyed_as_the_last_player_count_0_things_are_lost_too() {
+    both(|p| {
+        // 7.5.3: GEM and BOW count 0, lost; SWORD 1 and MAIL 15 kept; the
+        // claw and sting (counts 15) and the spell still never go down.
+        let counts = [(SWORD, 1), (MAIL, 15), (CLAW, 15), (STING, 15), (CHANT, 15)];
+        let mut g = destroyer(p, &counts, false);
+        let (left, stack) = destroyed(&mut g);
+        assert_eq!(left, [(GOLD, 300), (SWORD, 1), (MAIL, 1)]);
+        assert_eq!(stack, [MAIL, SWORD, GOLD]);
+        // The same counts with TWO in play: nothing but 7.5.1's is lost.
+        let mut g = destroyer(p, &counts, true);
+        let (left, _) = destroyed(&mut g);
+        assert_eq!(left, [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1), (MAIL, 1)]);
     });
 }
 

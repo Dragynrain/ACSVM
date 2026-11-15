@@ -252,9 +252,18 @@ magic item after it is used. [unknown]
    is below Constitution, never above it; the rolls are drawn either way:
    1. each **idle move**, a move of the bar used up by waiting, takes a
       roll of 0 to (the turn's full moves - 1) and heals on a 0: 1 in the
-      turn's full moves. The roll is drawn at full Life Force too, healing
-      nothing. [capture: mem `--draws`, rr24 `c1-button`, capture.md
-      10.28: 4 idle moves at Life Force 40 of 40, one draw each; ours, no
+      turn's full moves. The **turn's full moves** are the moves the bar
+      was last refilled with at a turn's start: Speed, halved when the
+      individual was hindered then ([creatures](creatures.md) 2.6), then
+      the weight slowdown ([inventory](inventory.md) 3.3). The roll is drawn at full Life
+      Force too, healing nothing. [capture: mem `--draws`, rr24
+      `c1-button`, capture.md 10.28: 4 idle moves at Life Force 40 of 40,
+      one draw each (one roll; `--draws` logs each roll as two stores,
+      capture.md 10.29); ours, no research pass, 2026-11-14] A player's
+      turn beside an enemy, its bar halved from 12 to 6, rolls 0 to 5:
+      that range alone fit all 384 idle moves of 64 runs, and all 192 of
+      32 runs on a turn that began with no moves carried. [capture: mem
+      `--draws`, rr25, cases adj s8, adj s0, capture.md 10.29; ours, no
       research pass, 2026-11-14] Walking, using an item or casting takes no such
       roll. So a turn waited out in full heals 1 on average whatever the
       Speed (a Speed 1 turn always 1). With full moves 0 (a creature of
@@ -262,11 +271,17 @@ magic item after it is used. [unknown]
       roll is not drawn and counts as 0: 1 point every such turn while
       below Constitution. [research: combat fourth pass, 2026-11-14,
       `docs/research/combat.md`; capture: still-hurt, still-enemy,
-      still-whole, 576 runs, capture.md 10.24] On a turn that starts with the
-      moves carried through a map door ([creatures](creatures.md)
-      2.2.4), which full moves the roll uses (the door turn's full bar or
-      the moves carried) is [unknown]. **Engine:** the door turn's full
-      bar, as it does not reset the turn's full moves there;
+      still-whole, 576 runs, capture.md 10.24] A turn that starts with
+      moves carried through a door ([creatures](creatures.md) 2.2.4) is
+      no refill, so its roll keeps the door turn's full moves, never the
+      number carried: 12 for a Speed 12 player whose door turn was
+      unhindered (it fit all 512 idle moves of 64 runs with 8 carried,
+      where 8 fit 486), 6 when the door turn was itself beside an enemy
+      (all 192 of 64 runs with 3 carried, where 3 fit 161). [capture: mem
+      `--draws`, rr25, cases adj s8, adjside s3, capture.md 10.29; ours,
+      no research pass, 2026-11-14] **Engine:** the full moves are set
+      at each refilled turn start (halved when hindered) and left as they
+      are on a turn that starts with carried moves;
    2. the **top of each turn**, just after drift, rolls a die and heals on
       a 2: 1 in 6, needed or not.
    [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
@@ -323,9 +338,17 @@ magic item after it is used. [unknown]
    its Life Force and Power afterwards as the rule gives in all 7, and the
    byte the current round after each; players never catching up:
    research, unconfirmed] The byte travels with the record, so a region
-   left and visited again, or unloaded and loaded from disk, catches up
-   the same way: [research, unconfirmed] (no capture took players out of a
-   region and back).
+   left and visited again catches up the same way. [research; capture:
+   ours, 2026-11-14, rr26 `ab-4`, `ab-10`, `ab-30`, capture.md 10.30: a
+   Speed 0 creature (Life Force 8 of 20, Power 5 under Wisdom 20, the byte
+   17) left while T went out to the map for 4, 10 and 30 rounds; at its
+   first turn back, 6, 12 and 32 rounds after its last, Power as the rule
+   gives in 3 of 3 and Life Force in 2 of 3 (the third one point more, the
+   Speed 0 extra point below), the caps at 32, and the byte the current
+   round after each turn] On the C64 the room's region is unloaded while
+   no player is in it (the creature's slot in memory read all zeros while
+   T was on the map) and loaded back from the disk with the byte kept, so
+   the catch-up is what carries the creature's time across that reload.
    [unknown] In these captures a Speed 0 creature sometimes heals 1 point
    more on the turn than 5.3 gives for its idle move; whether it does
    depends on the random state (a later roll of the turn), not on the
@@ -335,9 +358,11 @@ magic item after it is used. [unknown]
    that roll is not known.
    **Engine:** every creature keeps its last turn's round (the record's
    byte 0x0C, 0 as decoded) and catches up by this rule at the top of its
-   turn, before drift, gaining nothing at N = 0; regions stay in memory,
-   so leaving and coming back needs nothing more. The byte does not touch
-   the turn's other rolls.
+   turn, before drift, gaining nothing at N = 0. The engine keeps every
+   region in memory rather than unloading it and loading it back from the
+   disk: a different mechanism with the same outcome, as the record, its
+   byte included, is the same either way, so leaving and coming back
+   needs nothing more. The byte does not touch the turn's other rolls.
 
 ## 6. Creatures and magic
 
@@ -448,13 +473,13 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
 1. Cast success, a failed cast's cost and a magic item's cost: captured
    (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing: captured, researched and
-   confirmed (5.1-5.3); creatures catching up by the record's byte (5.5).
-   Still open: catching up across a real absence from the region (5.5),
-   why the byte of 5.5 changes which random states give a Speed 0
+   confirmed (5.1-5.3); creatures catching up by the record's byte, also
+   across a real absence from the region (5.5, capture.md 10.30).
+   Still open: why the byte of 5.5 changes which random states give a Speed 0
    creature's extra point of healing (5.5), creatures' healing, a temporary fall,
-   an individual out of play when its reversal is due, and the idle
-   roll's range on a turn that starts with moves carried through a map
-   door (5.3, creatures 2.2.4).
+   an individual out of play when its reversal is due. The idle roll's
+   range on a turn that starts with carried moves: captured (5.3.1,
+   capture.md 10.29).
 3. Kill All: room or everyone; is the caster spared.
 4. Summons: when and where it arrives, and as what.
 5. Add to Room: where the thing lands.
