@@ -232,7 +232,7 @@ Open, and why none of it is a pass 3:
 - Whether any corpus adventure has a thing in an encounter area's item
   list is a data question for our own tools, not the researcher's. Our
   model reads no items for an area; reading them is a model change
-  (`MODEL_VERSION`), the maintainer's call (stores.md, Captures needed 2).
+  (`MODEL_VERSION`), the maintainer's call (stores.md, Captures needed 1).
 - What the map's data at the stock's place holds in a real adventure
   matters only for such a store, and is in the adventure file: a decoder
   question once area items are read.

@@ -55,8 +55,11 @@ Counts cover all 15 corpus adventures (222 regions).
    way] A missile weapon set to disappear joins it the same way: the bow
    left its creature and joined the stock in the same moment or the next
    in every run. [research, pass 2, 2026-11-14; capture: rr17 `rounds`,
-   32 of 32 runs, capture.md 10.21] A magic item used up was not tried.
-   **Engine:** as stated (`Restocked`).
+   32 of 32 runs, capture.md 10.21] A magic item set to disappear after
+   use, used once in a room with a store, leaves its owner and does not
+   join the stock: neither its stock count nor the shelves changed.
+   [capture: rr27 `item`, capture.md 10.31] **Engine:** as stated
+   (`Restocked`).
 
    Harness note, not a rule: a region with a store and a disappearing bow
    once seemed never to finish loading ("the action moves to" stayed up).
@@ -100,9 +103,21 @@ Counts cover all 15 corpus adventures (222 regions).
    doesn't model the map data the original reads. So every shelf place
    says it is out of stock (4.1), and selling pays as usual but stocks
    nothing, since in region 0 buying and selling never change the stock.
-8. Whether the stock is saved with the game is not known. [unknown]
-   **Engine:** it is part of the region's state, kept across visits and
-   saved with the game.
+8. **The stock is part of the region's saved state**, like its residents
+   ([saves](../saves.md)):
+   - Leaving the region writes the stock to the disk with the rest of the
+     region, and coming back reads it: after a sale and a purchase, out to
+     the map and in again, every stock count and every shelf was exactly
+     as left.
+   - A death with no SAVE GAME since the visit began restores the stock
+     the visit started with, as it restores everything else (a thing
+     bought back on its shelf, a thing sold gone from it).
+   - A SAVE GAME after buying and selling saves the stock as it then
+     stands, and the restore after a later death brings back that stock.
+
+   [capture: rr27 `out`, `back`, `nosave`, `save`, capture.md 10.31]
+   **Engine:** as stated: the stock is kept with the region across
+   visits, saved with the game and restored with it.
 
 ## 3. The store screen
 
@@ -231,8 +246,15 @@ Counts cover all 15 corpus adventures (222 regions).
    anything else owned, and selling the last one empties the hand or the
    body. [research; capture: rr12 `sell-held`, the held blade offered for
    4, sold, the hand empty, the blade in stock] A thing owned 2 or 3 times
-   is offered once per copy. [research, unconfirmed] **Engine:** as
-   stated. Gold can't be sold. The button sells
+   is offered once per copy, each offer at the full rule (5.1). While
+   more than one is owned the offer names the count with the plural and
+   sells "one" ("T has 2 GOODAS", "sell one for 59"); with one left it
+   reads as for a single thing ("T has 1 GOODA", "sell it for 59"). Each
+   sale pays at once and adds one to the stock. [research; capture: rr27
+   `twice`, two copies sold for 59 each, gold 500 to 559 to 618, the
+   stock count 0 to 2, capture.md 10.31] **Engine:** as stated; the
+   offer's wording, plural and "one" included, is the front end's.
+   Gold can't be sold. The button sells
    only at the store's first prompt; once the player has moved it only
    answers offers and messages. [research]
 3. **A sold thing joins the store's stock** and shows on its shelf place
@@ -257,14 +279,16 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. Restocking from a used-up magic item (2.5; the research says it never
-   restocks).
-2. A store in an encounter area (2.7): which things the two shelf
+1. A store in an encounter area (2.7): which things the two shelf
    pictures drawn with the stock bytes all 255 were, and why not all;
    buying and selling there; the moves left on leaving it. (Settled: such
    a store can come from a file and opens, capture.md 10.26; the format
    is in the format notes, so the model gap is now decoder work.)
-3. Whether the stock is saved and restored with the game (2.8).
-4. A magic item set to act when picked up, bought (4.4); a thing owned 2
-   or 3 times offered once per copy (5.2).
-5. A store in a room of another size (the layout is fixed either way).
+2. A magic item set to act when picked up, bought (4.4; not reached in
+   capture.md 10.31).
+3. A store in a room of another size (the layout is fixed either way;
+   not reached in capture.md 10.31).
+
+Settled: restocking from a used-up magic item (2.5), the stock across
+visits, saves and restores (2.8) and a thing owned twice (5.2), all
+capture.md 10.31.
