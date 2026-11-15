@@ -48,6 +48,7 @@ in `.claude/settings.json`) blocks research notes and the program disks;
 ```bash
 cargo test                                              # no corpus needed
 ACSVM_CORPUS='D:\projects\ACSVM-research\corpus' cargo test --test corpus -- --nocapture
+cargo test -p acs-engine --test golden                  # golden tests: the engine vs capture.md's counts; ACSVM_BLESS=1 rewrites traces/
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
