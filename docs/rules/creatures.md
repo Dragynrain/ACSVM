@@ -414,8 +414,12 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    step rolls read with other sizes; it fails most of the 10.24 runs.)
    The step is not cancelled onto the goal's own square (cost 1), an exit,
    or a thing it takes, so a Speed 0 fighter owning a melee weapon attacks
-   a goal beside it once a turn: [research, unconfirmed: traced, no capture
-   had one]. **Engine:** 2.7 as written, the smartness checks as 6.6's
+   a goal beside it once a turn. [research: traced] An aggressive brave
+   enemy of Speed 0 holding our blade, the player beside it: an attack (2
+   blows) on every one of 64 turns, its square never changing. [capture:
+   rr28 `still-melee-sw`, 16 runs, capture.md 10.32; ours, 2026-11-14]
+   Beside an exit or a thing it takes is not captured. **Engine:** 2.7 as
+   written, the smartness checks as 6.6's
    engine choice says. Two readings the research leaves open, both
    [unknown]:
    - **Every creature's first action is taken.** Whether 2.7's first
@@ -700,36 +704,56 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       own (correcting 10.14.5's reading, which had seen only the screen).
       [capture: drop-wall, drop-corner, burden, drop-thing 256 runs each,
       drop-beside 128, capture.md 10.24] The program refuses one more kind
-      of thing besides the obstacle, which the research did not name:
-      [unknown]. **Engine:** the thing lands on top of the square's stack;
-      the ring, an obstacle and a custom obstacle fail a try (the second
-      kind taken to be the custom obstacle: a guess); every other square
-      takes it. In a room whose inside is one square it goes there with no
+      of thing besides the obstacle, which the research did not name: it
+      is the **custom obstacle**. With a custom obstacle, a portal, a
+      custom space and a space on four squares around the dropper, every
+      run fitted only with the custom obstacle failing its tries (50 of
+      306); the portal, the custom space and the space took the thing.
+      [capture: rr28 `drop-kinds-sw`, 256 of 256 runs, capture.md 10.32;
+      ours, 2026-11-14] A store was not tried: [unknown]. **Engine:** the
+      thing lands on top of the square's stack; the ring, an obstacle and
+      a custom obstacle fail a try; every other square takes it, a store
+      included. In a room whose inside is one square it goes there with no
       draw [research, unconfirmed: traced]; the engine does so, taking
       that square without drawing. On the world map there is no
       square: the thing is lost (inventory 5.3) [research, unconfirmed:
       traced].
-   2. **When it drops.** Traced only: a creature drops when the weight
-      slowdown (inventory 3.3) has cut its full moves below its Speed, with
-      no foe beside it, and only as its turn's first action; the drop uses
-      one move and, with moves left, it then steps as usual; a Speed 0
-      creature never counts as overburdened. In all our drop cases the
-      slowdown left 0 moves, so the drop was the turn's only action.
-      [research, unconfirmed: combat fourth pass] **Engine:** for now, at
-      the start of its turn, a creature whose load is above its capacity
-      drops all its gold (one pile), else its lowest-numbered treasure or
-      magic item, onto 8.1.1's square; one drop a turn, after which its
-      moves are idled. This differs from the unconfirmed research (load
-      above half the capacity, the moves after it); it changes once a
-      capture with moves left after a drop settles it. A treasure that
-      disappears when dropped vanishes; things that can't be dropped
-      (owner-only) are never chosen. While over capacity it picks nothing
-      up. [unknown] Not settled: magic items' place in the order and how
-      gold counts toward the load. Which load sets the moves of a drop
-      turn, the one before the drop or after, is [unknown]. **Engine:**
-      the load before the drop: over capacity gives 0 moves, so the turn
-      ends after the drop and its draws are those of 8.1.1 (then nothing
-      more), as captured.
+   2. **When it drops.** A creature is **overburdened** when the weight
+      slowdown (inventory 3.3) has cut its full moves below its Speed: for
+      any Speed above 0, a load above half its capacity (exactly half is
+      not). It then drops as its turn's **first action**, using one move,
+      and with moves left it steps on as usual with the rest. The moves of
+      a drop turn come from the load before the drop; the next turn's from
+      the load after it. A creature of **Speed 0** never counts as
+      overburdened, however much it carries. [research: combat fourth
+      pass, 2026-11-14, traced] Four peaceful friends of Speed 6, each with
+      one treasure: loads of 150 and 101 of a capacity of 200 began their
+      turns with 3 and 5 moves, dropped the treasure with the first and
+      then took 2 and 4 steps; a load of exactly 100 of 200 began with 6,
+      walked 6 and dropped nothing; a Speed 0 creature carrying 400 of a
+      capacity of 100 never dropped. The droppers' next turns began with
+      6. [capture: rr28 `burden2-sw`, 8 runs, all alike, capture.md 10.32;
+      ours, 2026-11-14] In our earlier drop cases (8.1) the slowdown left
+      0 moves, so the drop was the turn's only action. That a foe beside
+      it prevents the drop is [research, unconfirmed]: no capture had
+      one. What counts as a **foe beside** here is not defined [unknown];
+      the engine uses 2.6's test, the one that halves a creature's moves:
+      an aggressive individual, or a player not on the creature's side,
+      on one of the 4 squares beside it. So a player beside any creature
+      that is not a friend stops that creature's drop. Whether a creature
+      whose drop leaves it 0 moves still readies (8.2) is [unknown]; the
+      engine has it ready all the same. **Engine:** so: at the top of its turn, after the healing die
+      and the smartness checks (6.6), a creature of Speed above 0 whose
+      load is above half its capacity, with no foe beside it, drops all
+      its gold (one pile), else its lowest-numbered treasure or magic
+      item, onto 8.1.1's square; one drop a turn, using one move; then its
+      readying (8.2) and its steps with the moves left, those having been
+      set from the load before the drop. (Superseded: the engine's earlier
+      choice of dropping only above the capacity, with the moves then
+      idled.) A treasure that disappears when dropped vanishes; things
+      that can't be dropped (owner-only) are never chosen. While over
+      capacity it picks nothing up. [unknown] Not settled: magic items'
+      place in the order and how gold counts toward the load.
 2. **Readying.** A creature readies an appropriate weapon: when not next to
    a foe, a missile weapon if it has one, otherwise a melee weapon if it has
    one; with several, the lowest item number. [manual] On the C64: a melee
@@ -803,13 +827,18 @@ creatures replay exactly.
    takes a roll (items 4 and 5; the random-rolls brief, item 12).
 7. The overburdened drop: captured (8.1: all the gold, then the
    lowest-numbered treasure, one a turn) and the square (8.1.1, capture.md
-   10.24). Still open: when a creature counts as overburdened and a drop
-   with moves left (8.1.2), the second kind of thing that refuses a drop,
-   a friend's gift placed around the giver (7.3), magic items, gold's
-   weight; which load sets a drop turn's moves (8.1.2, the engine takes
-   the load before the drop).
-8. A Speed 0 creature's turn (2.7): captured. Still open: a Speed 0
-   fighter with its goal beside it, beside an exit or a thing it takes;
+   10.24); when a creature counts as overburdened, a drop with moves
+   left, the load that sets a drop turn's moves (8.1.2) and the custom
+   obstacle refusing a drop (8.1.1): captured (capture.md 10.32). Still
+   open: a store refusing a drop, a foe beside an overburdened creature
+   (8.1.2: whether it stops the drop, and who counts as a foe there; the
+   engine uses 2.6's test, so a player beside a creature that is not a
+   friend stops it), whether a drop that leaves 0 moves still readies
+   (8.1.2, the engine says yes), a friend's gift placed around the giver (7.3), magic items,
+   gold's weight.
+8. A Speed 0 creature's turn (2.7) and a Speed 0 fighter with its goal
+   beside it (capture.md 10.32): captured. Still open: a Speed 0 fighter
+   beside an exit or a thing it takes;
    whether a creature of Speed above 0 whose readying spends its last
    move still takes its shot, step choice or idle move (2.7, the engine
    says yes); whether a non-goal square holding an individual it would

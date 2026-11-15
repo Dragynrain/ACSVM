@@ -511,7 +511,8 @@ fn friends_leave_gold_lying() {
 #[test]
 fn overburdened_creatures_drop_all_their_gold_then_a_treasure_one_a_turn() {
     // 8.1 (capture.md 10.14.5): all the gold first, then the
-    // lowest-numbered treasure; a turn with a drop takes no steps.
+    // lowest-numbered treasure; here the slowdown leaves 0 moves, so a
+    // turn with a drop takes no steps.
     both(|p| {
         let mut a = adventure(p);
         let mut s = spec(0, 5, 3, Alignment::Enemy, false);
@@ -682,16 +683,21 @@ fn a_dropped_thing_lands_on_its_own_square_or_one_beside_never_a_wall_or_obstacl
         assert_eq!(keys, [(1, 1), (2, 1)], "{seen:?}");
         // Own square 1/3 against east 1/6 a try: about two to one.
         assert!(seen[&(1, 1)] > seen[&(2, 1)], "{seen:?}");
-        // Beside the player: its square takes the thing too.
-        let mut on_player = false;
+        // Beside a fellow enemy (not a foe, so the drop goes ahead, 8.1.2):
+        // its square takes the thing too.
+        let mut on_it = false;
         for seed in 0..60 {
-            let mut g = start_seeded(dropper(p, 5, 3), seed, 0, 6, 3);
+            let mut a = dropper(p, 5, 3);
+            let mut s = spec(0, 6, 3, Alignment::Enemy, false);
+            s.speed = 0;
+            put(&mut a, 2, s);
+            let mut g = start_seeded(a, seed, 0, 1, 1);
             let ev = wait(&mut g);
             let at = dropped_at(&ev, 1, ROCK).expect("drops the rock");
             assert!(steps(at, (5, 3)) <= 1);
-            on_player |= at == (6, 3);
+            on_it |= at == (6, 3);
         }
-        assert!(on_player);
+        assert!(on_it);
     });
 }
 
@@ -1473,5 +1479,143 @@ fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
         assert_eq!(saved(&ev), [(round, Some(0))], "{ev:?}");
         assert_eq!(g.save_point(), g.log().len());
         assert_eq!(g.players()[0].name, "FRAIL");
+    });
+}
+
+/// Each of slot 1's turns in `ev`: its moves, then whether it dropped and
+/// the steps it took, in order (`None` a step, `Some(thing)` a drop).
+fn turns_of_1(ev: &[Event]) -> Vec<(u8, Vec<Option<u16>>)> {
+    let mut out: Vec<(u8, Vec<Option<u16>>)> = Vec::new();
+    let mut mine = false;
+    for e in ev {
+        match e {
+            Event::CreatureTurn { slot, moves, .. } => {
+                mine = *slot == 1;
+                if mine {
+                    out.push((*moves, Vec::new()));
+                }
+            }
+            Event::TurnStarted { .. } => mine = false,
+            Event::CreatureMoved { slot: 1, .. } if mine => out.last_mut().unwrap().1.push(None),
+            Event::CreatureDropped { slot: 1, thing, .. } if mine => {
+                out.last_mut().unwrap().1.push(Some(*thing))
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// A peaceful friend of Speed `speed` on WEST (8,5), Strength 2 (capacity
+/// 200), carrying `gold` gold pieces (weight 1 each); the player far off
+/// and the doors blocked.
+fn burdened(p: Platform, speed: u8, gold: u16) -> Game {
+    let mut a = adventure(p);
+    let mut s = spec(0, 8, 5, Alignment::Friend, false);
+    s.speed = speed;
+    put(&mut a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.strength = 2;
+    c.constitution = 20;
+    c.life_force = 20;
+    c.possessions.clear();
+    c.wealth = gold;
+    // Pillars in front of WEST's four doors keep it in the room.
+    for (x, y) in [(8, 3), (1, 3), (4, 1), (4, 5)] {
+        item(&mut a, 0, x, y, PILLAR, 0);
+    }
+    start(a, 0, 1, 1)
+}
+
+#[test]
+fn above_half_its_capacity_a_creature_drops_with_its_first_move_then_steps() {
+    // 8.1.2 (rr28 burden2-sw): loads of 150 and 101 of 200 begin with 3
+    // and 5 moves (the load before the drop), drop with the first, then
+    // step with the rest; the next turn's moves come from the load after.
+    both(|p| {
+        for (gold, moves) in [(150, 3), (101, 5)] {
+            let mut g = burdened(p, 6, gold);
+            let turns = turns_of_1(&wait(&mut g));
+            let (m, actions) = &turns[0];
+            assert_eq!(*m, moves, "load {gold}");
+            assert_eq!(actions[0], Some(GOLD), "load {gold}: {actions:?}");
+            assert_eq!(&actions[1..], vec![None; moves as usize - 1], "load {gold}");
+            assert_eq!(g.creature(1, 1).unwrap().wealth, 0);
+            let next = turns
+                .get(1)
+                .cloned()
+                .unwrap_or_else(|| turns_of_1(&wait(&mut g))[0].clone());
+            assert_eq!(next.0, 6, "load {gold}: the next turn");
+            assert!(!next.1.contains(&Some(GOLD)));
+        }
+    });
+}
+
+#[test]
+fn at_exactly_half_its_capacity_a_creature_walks_its_full_moves_and_keeps_its_load() {
+    // 8.1.2: exactly half is not overburdened.
+    both(|p| {
+        let mut g = burdened(p, 6, 100);
+        let turns = turns_of_1(&wait(&mut g));
+        assert_eq!(turns[0], (6, vec![None; 6]));
+        assert_eq!(g.creature(1, 1).unwrap().wealth, 100);
+    });
+}
+
+#[test]
+fn a_speed_0_creature_never_drops_however_much_it_carries() {
+    // 8.1.2: 400 of a capacity of 100, never a drop.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut s = spec(0, 8, 5, Alignment::Friend, false);
+        s.speed = 0;
+        put(&mut a, 1, s);
+        let c = &mut a.regions[0].residents[1];
+        c.strength = 1;
+        c.constitution = 20;
+        c.life_force = 20;
+        c.possessions = vec![Possession {
+            thing: ROCK,
+            count: 2,
+        }];
+        let mut g = start(a, 0, 1, 1);
+        for _ in 0..6 {
+            let ev = wait(&mut g);
+            assert!(!ev
+                .iter()
+                .any(|e| matches!(e, Event::CreatureDropped { slot: 1, .. })));
+        }
+        assert_eq!(creature_rocks(&g), 2);
+    });
+}
+
+fn creature_rocks(g: &Game) -> u8 {
+    g.creature(1, 1)
+        .unwrap()
+        .possessions
+        .iter()
+        .filter(|p| p.thing == ROCK)
+        .map(|p| p.count)
+        .sum()
+}
+
+#[test]
+fn a_foe_beside_it_keeps_an_overburdened_creature_from_dropping() {
+    // 8.1.2 (engine choice): no drop with a foe beside, the player here.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut s = spec(0, 5, 3, Alignment::Enemy, false);
+        s.speed = 6;
+        put(&mut a, 1, s);
+        let c = &mut a.regions[0].residents[1];
+        c.strength = 2;
+        c.constitution = 20;
+        c.life_force = 20;
+        c.possessions.clear();
+        c.wealth = 150;
+        let mut g = start(a, 0, 6, 3);
+        let ev = wait(&mut g);
+        assert!(turns_of_1(&ev)[0].1.iter().all(|a| *a != Some(GOLD)), "{ev:?}");
+        assert_eq!(g.creature(1, 1).unwrap().wealth, 150);
     });
 }

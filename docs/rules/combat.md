@@ -19,7 +19,9 @@ ours has checked it yet. The second and third passes' cases (capture.md
 NAME` (capture.md 10.14.10, 10.16): 240 melee runs, 24 player attacks and
 128 firing runs, every one right. The fourth pass's (capture.md 10.24, run
 rr20) were checked with the same script and `scripts/dropcheck.py`, and the
-player's FIRE by scripted runs.
+player's FIRE by scripted runs. Our own capture of FIRE's open points,
+with no research pass (capture.md 10.32, run rr28, 2026-11-14), was
+checked the same way.
 
 ## 1. Terms
 
@@ -266,9 +268,13 @@ player's FIRE by scripted runs.
 
 1. **Readying a weapon** costs one move when the weapon in hand changes;
    **readying armor** ends the turn when the armor worn changes (as
-   [inventory](inventory.md) 4.3). [research, unconfirmed] **Engine:** so,
-   for players' `Ready` and creatures alike; with no move left it still
-   readies.
+   [inventory](inventory.md) 4.3). [research] A player's weapon readied
+   from NEW WEAPON's menu or from FIRE's (8.8.4) took one move at the
+   moment it was chosen, whatever was held before, and with no move left
+   it was readied all the same. [capture: rr28 `nw-bow`, `nw-bow-blade`,
+   `rdy`, `rdy-m1`, `rdy-m2`, capture.md 10.32; ours, 2026-11-14] Armor's
+   turn end is [research, unconfirmed]. **Engine:** so, for players'
+   `Ready` and creatures alike; with no move left it still readies.
 2. **A creature's readying**, after its smartness checks and before its
    first step: with an aggressive individual or a player that is its
    foe ([creatures](creatures.md) 7.4) beside it, it readies an owned melee
@@ -282,8 +288,9 @@ player's FIRE by scripted runs.
    the bow from the first turn] **Engine:** beside as 1.7; the
    lowest-numbered of the kind ([manual]). The engine readies after the smartness check for
    casting (creatures 6.6), so a creature that casts doesn't ready; on a
-   turn with an overburdened drop (creatures 8.1) it readies before
-   idling. [unknown] where readying falls on such a turn.
+   turn with an overburdened drop (creatures 8.1.2) it readies after the
+   drop, before its first step. [unknown] where readying falls on such a
+   turn.
 3. **Breaking** is a roll of 0 to 99 below the thing's break chance
    (0..15): a melee weapon when its blow is parried (the striking weapon,
    not the parrying one); armor on a blow that reaches it (5.1). The thing
@@ -337,6 +344,10 @@ Read from the creature's class byte, every blow. [capture: player-friend,
 and player-friend with the creature made an aggressive neutral of Wisdom
 10, 12 runs each, capture.md 10.14.10] An enemy's arrow hitting its own
 friend changed nothing about it. [research: second pass, 4 runs]
+**A player's arrow** differs in its draws: the roll of 0 to 9 follows
+every arrow of a player's that does damage, whatever the target's class,
+another player and a target the arrow killed included (8.8.3). [capture:
+capture.md 10.24, 10.32]
 
 ## 8. Firing
 
@@ -480,12 +491,31 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       name), waits for the button, and ends there with **no move used**.
       A peaceful neutral beside does not stop it. [research] Nothing is
       drawn. [capture: rr20 `beside-draws`, 4 runs, capture.md 10.24: no
-      draw at FIRE, the run's one draw an idle move] [unknown] whether this test comes before or
-      after 8.8.4's. **Engine:** before it, so the refusal costs nothing.
-      [unknown] which individuals count beside a player: capture had an
-      aggressive enemy beside, never another player or an aggressive
-      friend. **Engine:** a creature beside the player that is aggressive
-      and not a friend of the player's side; other players never count.
+      draw at FIRE, the run's one draw an idle move]
+      - **This test comes first**, before 8.8.4's: with a foe beside, FIRE
+        refuses with no move used whether the player holds a missile
+        weapon, only owns one, or has none at all. With a peaceful
+        creature beside instead and no missile weapon held, FIRE goes on
+        to 8.8.4 (its move, then the menu). [capture: rr28 `bes`, the
+        cases `ord-c6`, `ord-c6-own0`, `ord-c2`, `ord-c2-own0`, one run
+        each, capture.md 10.32; ours, no research pass, 2026-11-14]
+        **Engine:** so.
+      - **Who counts beside a player**: a creature that is aggressive and
+        not a friend: an aggressive thief, neutral or enemy refuses FIRE.
+        The four peaceful classes (thief, neutral, enemy, friend) and an
+        aggressive friend do not: the cursor comes and the shots are
+        fired. Another player beside never refuses it. [capture: rr28
+        `cls-c0` to `cls-c7` and `bes2`, one run each, capture.md 10.32;
+        ours, 2026-11-14] **Engine:** so, as it already had it.
+      - **A player that came in after the firer.** When two players come
+        into a room through doors in the same round, the one that came in
+        later is not yet in the room during the other's turn: it is not
+        drawn and the firer's arrows never reach its square; it is there
+        from its own first turn in the room on. [capture: rr28 `bes2` and a
+        64-run sweep at it, capture.md 10.32] [unknown] what else misses it
+        meanwhile (creatures' goals, their arrows, the halving of 2.6 in
+        [creatures](creatures.md)). **Engine:** not yet so: the engine has
+        the player in the room from its door step.
    3. **Holding a missile weapon**, no foe beside: a target cursor appears
       on the player's own square; each push of the stick moves it one
       square, anywhere inside the room's walls; the button fires at the
@@ -515,12 +545,31 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       step. [capture: `fire-e5`, `fire-e3`, capture.md 10.24] The finding
       did not name it. What it changes was not watched (the target's
       class was not read), so the class change stays as section 7 says.
-      **Engine:** after each damaging player arrow, section 7's change by
-      the target's class, with the roll of 0 to 9 drawn every time.
-      [unknown] whether the roll comes after an arrow that kills, and after
-      one that damages another player (capture's targets were a creature
-      left alive). **Engine:** drawn after a killing arrow too; not drawn
-      when the arrow damages a player.
+      **The roll comes after an arrow that kills** as well: with the enemy
+      at Life Force 1, every run fitted with the roll drawn after the
+      killing arrow and 46 of 64 without it. [capture: rr28 sweep
+      `kill-e5`, 64 of 64 runs, 25 kills, capture.md 10.32; ours, no
+      research pass, 2026-11-14]
+      **And after an arrow that damages another player**: every one of 288
+      damaging arrows on a second player brought the roll (2 of 64 runs fit
+      without it). What it decides for a player is not seen; a player's
+      class never changes (section 7.4). [capture: rr28 sweep `fire-u`, 64
+      of 64 runs, 7 shots each, capture.md 10.32; ours, 2026-11-14]
+      (Superseded: the engine's earlier choice of no roll after an arrow
+      on a player.)
+      **A kill ends the firing**: when an arrow kills its target, the
+      shots still due are not fired; the turn is over (its moves already
+      0) and the round goes on as usual: in the runs, with nobody else left
+      on the list, straight to its end (the end-of-round rolls of
+      [creatures](creatures.md) 2.2.5), then the next turn. [capture:
+      `kill-e5`, every one of the 25 kills] **Engine:** after each damaging
+      player arrow, whatever the target (a creature or a player, killed or
+      not), the roll of 0 to 9 is drawn, then section 7's change by the
+      target's class (none for a player or a dead target); a kill by any
+      of the player's arrows ends the firing (8.3's early stop), whichever
+      square the cursor was on. (Superseded: the engine's earlier choice,
+      which stopped early only when the cursor was on a creature's
+      square.)
    4. **Holding no missile weapon**: FIRE uses **one move** at once, then
       the message "select a missile weapon" and a menu of NONE and the
       missile weapons owned. NONE ends it: no shot, and the turn goes on
@@ -530,9 +579,19 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       took them to 4 and the bow to 3, and the shots were counted from 3
       (2 shots). [capture: `ready5`, `ready5b`, capture.md 10.24] The
       researcher had traced the readying as paid by FIRE's own move (the
-      shots from 4); capture disagrees, and why the second move is taken
-      (6.1's readying cost on top of FIRE's, or something else) is
-      [unknown]. **Engine:** as captured: one move for FIRE, one for the
+      shots from 4); capture disagrees. **The second move is the readying
+      (6.1)**: it is taken at the moment the weapon is chosen, as the held
+      weapon becomes it, whatever was held before (a melee weapon or
+      nothing), and however long the message or the menu stays up (so it
+      is not the bar running meanwhile). Readying the bow through NEW
+      WEAPON costs the same one move at the choice, and FIRE with the bow
+      then held goes straight to the cursor. NONE takes no move at the
+      choice. With 1 move left FIRE takes it and the bow is readied at 0
+      all the same (one shot); with 2, FIRE leaves 1 and the bow 0.
+      [capture: rr28 `rdy`, `rdy-blade`, `rdy-none`, `rdy-slowmsg`,
+      `rdy-slowmenu`, `rdy-nonepick`, `nw-bow`, `nw-bow-blade`, `rdy-m1`,
+      `rdy-m2`, `rdy-m6`, one run each, capture.md 10.32; ours, no research
+      pass, 2026-11-14] **Engine:** so: one move for FIRE, one for the
       readying (6.1), then the shots from the moves left; with no move left
       for either it goes ahead with 0. The 2 shots from 3 moves held in the
       `ready-e5` sweep, 32 of 32 runs, every draw as 8.8.3. [capture:
@@ -555,19 +614,20 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       `NotAMissileWeapon`).
 
 Not run: what section 7 does after a player's damaging arrow (the roll
-is captured, 8.8.3; the class change it decides is not).
+is captured, 8.8.3, after a kill and on a player too; the class change it
+decides is not); what else misses a player that came into the room after
+the firer (8.8.2).
 
 ## 9. Left for later
 
-- Firing's open points (section 8, "Not run"; why 8.8.4 takes a second
-  move; the order of 8.8.2's and 8.8.4's tests; who counts beside a
-  player, 8.8.2; the roll of 0 to 9 after a killing arrow or one on a
-  player, 8.8.3), and the engine's choices there.
+- Firing's open points (section 8, "Not run"), and the engine's choices
+  there.
 - **Mimics** copying their opponent.
 - Fights in encounter areas ([encounters](encounters.md)): the bit cleared
   with a copy's Power, what a dead copy drops and its gold.
-- A Speed 0 fighter owning a melee weapon with its goal beside it
-  ([creatures](creatures.md) 2.7: traced, it attacks once a turn).
+- A Speed 0 fighter owning a melee weapon beside an exit or a thing it
+  takes ([creatures](creatures.md) 2.7; with its goal beside it, it
+  attacks once a turn, captured).
 
 ## Captures needed
 
@@ -596,10 +656,10 @@ is captured, 8.8.3; the class change it decides is not).
 6. The player's fire (8.8): the inputs, refusals and costs captured by
    script, and every draw by the sweeps of capture.md 10.24 (`fire-e5`,
    `fire-e3`, `fire-e0`, `ready-e5`, `beside-draws`, `none-draws`,
-   `map-draws`). Still open: why 8.8.4 takes a second move (capture
-   disagrees with the research), what the roll of 0 to 9 after a damaging
-   arrow decides (8.8.3; the target's class watched), and whether 8.8.2's
-   test comes before 8.8.4's. Also open (engine choices): whether the roll
-   of 0 to 9 is drawn after an arrow that kills its target, and after one
-   that damages another player (8.8.3); whether another player, or an
-   aggressive friend, beside the player stops FIRE (8.8.2).
+   `map-draws`). The order of 8.8.2's and 8.8.4's tests, who counts
+   beside, the second move of 8.8.4 (the readying, 6.1), the roll of 0 to
+   9 after a killing arrow and after one on a player, and a kill ending
+   the firing: captured (capture.md 10.32, rr28). Still open: what the
+   roll of 0 to 9 after a damaging arrow decides (8.8.3; the target's
+   class watched), and what else misses a player that came in after the
+   firer (8.8.2).

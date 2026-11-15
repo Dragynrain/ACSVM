@@ -1105,6 +1105,7 @@ fn creatures_set_off_door_and_drop_spells() {
             c.strategy.aggressive = false; // a slinker friend: it seeks the player
         });
         put_creature(&mut a, 2, 4, 4, |c| {
+            c.speed = 2; // creatures 8.1.2: a Speed 0 creature never drops
             c.strength = 0;
             c.constitution = 10;
             c.life_force = 10;

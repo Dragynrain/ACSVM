@@ -1125,6 +1125,118 @@ fn every_damaging_player_arrow_draws_section_7s_roll_whatever_the_class() {
     });
 }
 
+/// ONE (Speed 15, Dexterity 11, Missile 127, the plain bow held) on WEST
+/// (2,3) and TWO (Constitution and Life Force `life`, no armor) on (7,3),
+/// ONE to move with its full moves.
+fn archer_and_target(p: Platform, seed: u64, life: u8) -> Game {
+    let mut a = adventure(p);
+    plain_bow(&mut a);
+    let (mut g, _) = Game::new(
+        a,
+        seed,
+        Rules { diagonals: true },
+        PlayerSetup {
+            name: "ONE".into(),
+            speed: 15,
+            dexterity: 11,
+            possessions: vec![BOW],
+            missile: 127,
+            ..Default::default()
+        },
+    );
+    g.apply(Command::AddPlayer {
+        setup: PlayerSetup {
+            name: "TWO".into(),
+            constitution: life,
+            life_force: life,
+            ..Default::default()
+        },
+    });
+    g.apply(Command::Wait);
+    g.place(0, at(0, 2, 3));
+    g.place(1, at(0, 7, 3));
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    g.apply(Command::Ready { thing: BOW });
+    g.apply(Command::Wait);
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    g
+}
+
+#[test]
+fn a_damaging_arrow_on_another_player_draws_the_roll_of_0_to_9_too() {
+    // 8.8.3 (rr28 fire-u): after every damaging arrow on a second player
+    // the roll of 0 to 9 (no class change for a player); after a killing
+    // one too, and the kill ends the firing. The draws are followed shot
+    // by shot: each shot's break, deviation and side; a dodge's Missile
+    // check, dodge, Dodge check and Armor-skill roll; a hit's Missile
+    // check, dodge and heavy-blow roll, then the roll of 0 to 9 if it did
+    // damage.
+    const TWO: Who = Who::Player { player: 1 };
+    both(|p| {
+        let (mut rolled_then_shot, mut killed) = (false, false);
+        for seed in 0..24 {
+            let life = if seed % 2 == 0 { 120 } else { 6 };
+            let mut g = archer_and_target(p, seed, life);
+            let mut r = rng(&g);
+            let ev = g.apply(fire(Some((7, 3)), None));
+            assert!(player_shots(&ev).is_some(), "{ev:?}");
+            let end = ev
+                .iter()
+                .position(|e| *e == Event::TurnEnded { player: 0 })
+                .unwrap();
+            let mut after_damage = false;
+            let mut dead = false;
+            for e in &ev[..end] {
+                match e {
+                    Event::Shot {
+                        by: ME,
+                        spread,
+                        deviation,
+                        side,
+                    } => {
+                        assert!(!dead, "seed {seed}: a shot after the kill");
+                        rolled_then_shot |= after_damage;
+                        r.below(100);
+                        assert_eq!(r.below(*spread as u32) as u8, *deviation, "seed {seed}");
+                        assert_eq!(r.below(2) == 1, *side, "seed {seed}");
+                    }
+                    Event::Dodged { by: ME, who: TWO, .. } => {
+                        for _ in 0..4 {
+                            r.below(100);
+                        }
+                    }
+                    Event::MissileHit {
+                        by: ME,
+                        target: TWO,
+                        outcome,
+                        ..
+                    } => {
+                        for _ in 0..3 {
+                            r.below(100);
+                        }
+                        if damaging(outcome) {
+                            r.below(10);
+                            after_damage = true;
+                        }
+                    }
+                    Event::CreatureTurned { .. } => panic!("seed {seed}: {e:?}"),
+                    _ => {}
+                }
+                dead |= matches!(e, Event::Died { who: TWO, .. });
+            }
+            if !g.players()[1].alive {
+                killed = true;
+            }
+        }
+        assert!(rolled_then_shot, "a shot after a damaging arrow");
+        assert!(killed, "a killing arrow");
+    });
+}
+
 #[test]
 fn a_foe_beside_refuses_fire_with_no_move_and_no_draw() {
     both(|p| {

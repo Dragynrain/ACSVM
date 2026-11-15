@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! One creature's turn: the overburdened drop, readying, casting, choosing
+//! One creature's turn: casting, the overburdened drop, readying, choosing
 //! a goal, firing at it or walking towards it, and stepping into an
 //! individual to attack it. Spec: `docs/rules/creatures.md` sections 5-8,
 //! `docs/rules/magic.md` section 6 and `docs/rules/combat.md` sections 2,
@@ -132,19 +132,22 @@ impl Game {
         self.turn_top(me, ev);
         self.creature(region, slot)?;
         let mut left = moves;
-        // 8.1: the drop comes after the healing die (8.1.1's draws), and a
-        // turn with a drop takes no steps; its moves are idled (after
-        // readying, combat 6.2).
-        if self.overburdened_drop(region, slot, ev) {
-            self.creature(region, slot)?; // its drop spell may have killed it
-            if self.creature_ready(region, slot, ev) {
-                left = left.saturating_sub(1);
-            }
-            return Some((left, moves));
-        }
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
             return None;
+        }
+        // 8.1.2: the overburdened drop, after the healing die and the
+        // smartness checks, is the turn's first action and uses one move;
+        // the moves were set from the load before it. With moves left the
+        // turn goes on: readying, then the steps.
+        if !hindered && self.overburdened_drop(region, slot, ev) {
+            self.creature(region, slot)?; // its drop spell may have killed it
+            left = left.saturating_sub(1);
+            if left == 0 {
+                // 2.7: the test for moves left comes after the action.
+                self.creature_ready(region, slot, ev);
+                return Some((0, moves));
+            }
         }
         // Combat 6.2: readying after the smartness checks, before the
         // first step; a move for each change.
@@ -774,15 +777,16 @@ impl Game {
         }
     }
 
-    /// 8.1: one drop a turn while load is above capacity: all its gold,
-    /// else its lowest-numbered treasure or magic item, onto 8.1.1's
-    /// square. True if it dropped.
+    /// 8.1: one drop a turn while overburdened (8.1.2: Speed above 0 and
+    /// a load above half the capacity; the caller checks no foe is
+    /// beside): all its gold, else its lowest-numbered treasure or magic
+    /// item, onto 8.1.1's square. True if it dropped.
     fn overburdened_drop(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
         let Some(c) = self.creature(region, slot).cloned() else {
             return false;
         };
         let (load, cap) = (creatures::load(&self.adv, &c), creatures::capacity(&c));
-        if load <= cap {
+        if c.speed == 0 || load * 2 <= cap {
             return false;
         }
         let mut owned: Vec<ThingId> = c

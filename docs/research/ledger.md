@@ -27,6 +27,9 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: combat captures in the engine: the 0..9 roll after every damaging player arrow, the overburdened drop above half capacity (combat 7, 8.8.3; creatures 8.1.2); checker all PASS; engine and rules committed.
+- 2026-11-14: combat captures (10.32, rr28): 7 of 9 agree; the 0..9 roll after an arrow damaging a player and the overburdened threshold disagree with the engine; spec-writer started. Encounters captures (10.34) started.
+- 2026-11-14: stores captures (10.31, rr27): stock saved with the region (engine holds), a used-up magic item doesn't restock, a thing owned twice is offered per copy; spec-writer started. Creatures/magic captures (10.33) started.
 - 2026-11-14: Destroy in a room (characters 7.5) and room doors carrying moves (creatures 2.2.4) in the engine; checks PASS but fmt, whose only flag is the stores confirmer's scenario.rs in progress; engine and rules committed, harness and capture.md wait for the captures to finish.
 - 2026-11-14: turn-order captures (10.29, rr25): room doors carry the moves left like map doors (against the engine), carried moves not halved, the healing range is the last real turn start's bar; spec-writer started. Combat captures (10.32) started.
 - 2026-11-14: characters captures (10.30, rr26): destroy in a room disagrees (other player present: all stays; last player: count-0 things lost), disk identity never refuses, full roster message, absence catch-up holds; spec-writer started. Stores capture (10.31) started.

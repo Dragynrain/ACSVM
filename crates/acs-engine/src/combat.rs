@@ -635,7 +635,11 @@ impl Game {
                 side,
             });
             let path = flight(dx, dy, deviation, side, ws.range.unwrap_or(0));
-            self.missile_flies(by, from, &path, ws, ev);
+            // 8.8.3: a kill by a player's arrow ends the firing.
+            let killed = self.missile_flies(by, from, &path, ws, ev);
+            if killed && matches!(by, Who::Player { .. }) {
+                break;
+            }
             if goes {
                 self.lose(by, weapon, true, ev);
                 break;
@@ -743,18 +747,18 @@ impl Game {
         path: &[(i32, i32, PathPoint)],
         ws: WeaponStats,
         ev: &mut Vec<Event>,
-    ) {
+    ) -> bool {
         let (region, room, x0, y0) = from;
         let player_shot = matches!(by, Who::Player { .. });
         let Some((w, h)) = self.room(region, room).map(|r| (r.width as i32, r.height as i32)) else {
-            return;
+            return false;
         };
         let mut reached = vec![(0, 0)];
         for &(dx, dy, kind) in path {
             let (x, y) = (x0 as i32 + dx, y0 as i32 + dy);
             // It ends where it leaves the room.
             if !(0..w).contains(&x) || !(0..h).contains(&y) {
-                return;
+                return false;
             }
             let (x, y) = (x as u8, y as u8);
             if !self.missile_passes(region, room, x, y) {
@@ -762,7 +766,7 @@ impl Game {
                     continue;
                 }
                 ev.push(Event::MissileStopped { by, x, y });
-                return;
+                return false;
             }
             // Each square counts once, on an inner point, never the
             // shooter's own.
@@ -808,18 +812,21 @@ impl Game {
                 if let BlowOutcome::Hit { damage, .. } = outcome {
                     if damage > 0 {
                         self.take_damage(target, &d, damage, ev);
-                        // 8.8.3: after every damaging player arrow on a
-                        // creature, section 7's roll of 0 to 9, drawn every
-                        // time, then the change by its class.
-                        if player_shot && matches!(target, Who::Creature { .. }) {
+                        // 8.8.3: after every damaging player arrow, section
+                        // 7's roll of 0 to 9, whatever the target (another
+                        // player, one it killed), then the change by its
+                        // class (none for a player or a dead creature).
+                        if player_shot {
                             let roll = self.rng.below(10);
                             self.turn_hostile(target, d.wisdom, Some(roll), ev);
                         }
                     }
                 }
-                return; // it stops, also when the damage came to 0
+                // It stops, also when the damage came to 0.
+                return !self.alive(target);
             }
         }
+        false
     }
 
     /// 8.1, 8.5: whether a missile flies through a square: inside the
