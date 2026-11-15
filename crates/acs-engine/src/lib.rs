@@ -32,6 +32,13 @@ pub mod save;
 mod step;
 pub mod stores;
 
+// acs-core's fixture builder for unit tests. It sits here, not inside a test
+// module, so its `#[path]` goes through `src/` only: a path through a
+// directory that doesn't exist (`src/stores/tests/..`) fails on Linux.
+#[cfg(test)]
+#[path = "../../acs-core/tests/common/mod.rs"]
+mod test_fixture;
+
 pub use combat::BlowOutcome;
 pub use describe::describe;
 pub use game::{Game, Newcomer, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};

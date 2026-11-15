@@ -347,9 +347,7 @@ mod tests {
     // and nothing dropped can be thing 83), so the area and its stock are
     // set up by hand on the map region the game keeps.
 
-    #[path = "../../../../acs-core/tests/common/mod.rs"]
-    mod common;
-
+    use crate::test_fixture as common;
     use crate::{Command, Dir, Location, PlayerSetup, Rules};
     use acs_core::model::RoomItem;
     use acs_core::{decode, Platform};
