@@ -788,6 +788,61 @@ fn an_archer_readies_its_bow_first_and_shoots_from_the_moves_left() {
     });
 }
 
+/// Creatures 2.7, combat 8.1: above Speed 0, readying with the turn's last
+/// move ends the turn: no shot, no step, no idle move or its healing.
+#[test]
+fn readying_with_the_last_move_ends_the_turn_above_speed_0() {
+    both(|p| {
+        let mut healed_by_die_only = [false, false];
+        for seed in 0..40 {
+            let mut a = archer(p, false, 1);
+            a.regions[0].residents[1].life_force = 30;
+            let (mut g, ev) = shoot(a, seed);
+            assert!(ev.contains(&Event::CreatureReadied {
+                region: 1,
+                slot: 1,
+                thing: BOW
+            }));
+            assert_eq!(fired(&ev), None, "seed {seed}");
+            assert!(!ev
+                .iter()
+                .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })));
+            // Only the top-of-turn die may heal: 30 or 31, never the idle
+            // move's extra point.
+            let life = g.creature(1, 1).unwrap().life_force;
+            assert!((30..=31).contains(&life), "seed {seed}: {life}");
+            healed_by_die_only[(life - 30) as usize] = true;
+            // The next turn, holding the bow, it fires.
+            let ev = wait(&mut g);
+            assert_eq!(fired(&ev), Some(1), "seed {seed}");
+        }
+        assert_eq!(healed_by_die_only, [true, true]);
+        // Speed 2: readied with the first move, fired with the second
+        // (13 / 8 + 1 / 2 = 1 shot).
+        let (_, ev) = shoot(archer(p, false, 2), 1);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::CreatureReadied { slot: 1, .. })));
+        assert_eq!(fired(&ev), Some(1));
+        // Speed 1 already holding it: fires on its first turn.
+        let (_, ev) = shoot(archer(p, true, 1), 1);
+        assert_eq!(fired(&ev), Some(1));
+    });
+}
+
+/// Creatures 2.7: Speed 0 keeps its one action after readying (here the
+/// shot, combat 8.1: Dexterity / 8).
+#[test]
+fn speed_0_readies_and_still_takes_its_one_action() {
+    both(|p| {
+        let (_, ev) = shoot(archer(p, false, 0), 1);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::CreatureReadied { slot: 1, .. })));
+        assert_eq!(fired(&ev), Some(1));
+    });
+}
+
 #[test]
 fn a_friend_in_the_line_is_reached_first_and_a_dodge_lets_the_arrow_fly_on() {
     both(|p| {

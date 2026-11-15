@@ -272,8 +272,8 @@ pub struct Game {
     /// (creatures 2.2.4, movement 2.3).
     #[serde(default)]
     pub(crate) carried: Vec<(usize, u8)>,
-    /// "Add Someone" requests waiting for the round's end, in the order
-    /// asked (characters 6.2).
+    /// The "Add Someone" request waiting for the round's end: at most one
+    /// a round, the first asked (characters 6.2, 6.4).
     #[serde(default)]
     pub(crate) adds: Vec<Newcomer>,
     /// The RETIRE waiting for the round's end (characters 7.1).
@@ -353,7 +353,7 @@ impl Game {
     pub fn new(adv: Adventure, seed: u64, rules: Rules, first: impl Into<Newcomer>) -> (Self, Vec<Event>) {
         let first = first.into();
         // Encounters 3.4: the areas' items, once, from the world map.
-        let map = crate::encounters::seeded_map_region(&adv.world);
+        let map = crate::encounters::seeded_map_region(&adv);
         let mut g = Game {
             adv,
             rules,
@@ -810,20 +810,24 @@ impl Game {
         ok
     }
 
-    /// "Add Someone" in play (characters 6.2): taken at once, whoever
-    /// plays, with no move used and no draw; handled at the round's end.
+    /// "Add Someone" in play (characters 6.2, 6.4): taken at once, whoever
+    /// plays, with no move used and no draw; handled at the round's end. A
+    /// round holds at most one waiting add: a later request that round gets
+    /// the same answer and changes nothing.
     fn request_add(&mut self, n: Newcomer, ev: &mut Vec<Event>) {
         if self.name_ok(&n, ev) {
-            self.adds.push(n);
+            if self.adds.is_empty() {
+                self.adds.push(n);
+            }
             ev.push(Event::AddRequested);
         }
     }
 
-    /// The round's add requests, in the order asked (characters 6.2): each
-    /// refused, with no draw, while `MAX_PLAYERS` live (6.1); otherwise
-    /// rolled or set up then, and added.
+    /// The round's waiting add (characters 6.2, 6.4): refused once, with no
+    /// draw, while `MAX_PLAYERS` live (6.1); otherwise rolled or set up
+    /// then, and added in the lowest free slot.
     fn take_adds(&mut self, ev: &mut Vec<Event>) {
-        for n in std::mem::take(&mut self.adds) {
+        if let Some(n) = std::mem::take(&mut self.adds).into_iter().next() {
             if self.living() >= MAX_PLAYERS {
                 ev.push(Event::AddRefused);
             } else {

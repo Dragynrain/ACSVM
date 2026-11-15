@@ -18,7 +18,10 @@ swept, and a walk out); "[research]" alone is not yet captured by us.
 The areas' item lists (3.4, 3.5, 7.2) are our own format find, tagged
 **[data]** for the stored lists ([format notes](../format-notes.md), the
 world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
-2026-11-14: lists of ours written into a scenario disk).
+2026-11-14: lists of ours written into a scenario disk) and 10.34 (runs
+rr30, 2026-11-14: door items moved and doubled, the door table's bytes
+changed, an area reopened, the lists the decoder warns on, a store in an
+area).
 
 ## 1. The records
 
@@ -98,41 +101,120 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    ([stores](stores.md) 2.7). [capture] **Engine:** rooms 1..4 of the map
    region are seeded from the four lists once, when the game starts, and
    keep their items from then on like any room (closing deletes all but
-   the door, 7.2). Room 0's list (empty in the corpus) is kept for
-   round-tripping and not placed on the open map. How the original treats
-   a list it cannot read is [unknown]. **Engine:** a list the decoder
-   cannot read is a `BadRoomItems` error, and that list and every list
-   after it are left empty; the decoder warns (it does not refuse) on an
-   area with no door or several, a door parameter above 3, an item outside
-   15 x 10, a non-empty room 0 list, and bytes at world map + 0x806 or
-   + 0x80E other than the corpus's ([format notes](../format-notes.md),
-   the world map's tail).
-5. **The way out is the list's door item**: thing 82 on the left wall,
-   column 0, row 5, with a parameter n (0..3 for areas 1..4 in the
-   corpus). [data] It is an ordinary item, not a fixed square: moved to
-   0,3 the wall gap and the way out moved with it and 0,5 became wall;
-   with the list empty there was no way out at all, a push west from 1,5
-   refused with no move used. [capture: capture.md 10.26; the gap at row
-   5 and the door taken from 1,5 as stored, 10.20] [research, run: the
-   gap in `patch-step-1.png`] **Where it leads**: to the map entrance of
-   **area n + 1** (7.1), whichever area the door stands in; if that area
-   is free (its entrance 41,41) the player goes to the adventure's start
-   point on the map instead. [capture: a door with n = 1 in area 1 sent
-   the player to 12,12, the scenario's start, and to 15,11 once area 2's
-   entrance was set there] The table the parameter reads is most likely
-   the four entries before the lists (format notes); unconfirmed.
-   **Engine:** the exit is the list item: an item of thing 82 in an area
-   is a door whose parameter n names area n + 1's entrance (the start
-   point when that area is free, or n is above 3); stepping onto it is
-   walking out (7.1). Front ends draw its square as an opening, and an
-   area with no such item has no way out.
-   **Several doors on one square**: what the original does is [unknown].
-   **Engine:** any item of thing 82 there makes the square a door; the
-   first such item in the room's item list gives the parameter.
-   **A door leading to another open area's entrance**: whether the player
-   joins that area is [unknown]. **Engine:** it does not; the player is
-   put on that map square as on any door's destination, which is not a
-   step, so it neither joins the area (5.2) nor takes a roll (2.2).
+   the doors, 7.2; an area reopened later has only what closing left,
+   capture.md 10.34). Room 0's list (empty in the corpus) is kept for
+   round-tripping and not placed on the open map; how the original treats
+   items in it was not tried [unknown].
+
+   **Odd lists** (capture.md 10.34): the game read every one of these
+   without refusing the area or crashing. [capture]
+   - An item outside the area's 15 x 10 squares is not drawn and can't be
+     reached. At closing, one such item (on 7,12) was marked deleted like
+     any other, another (x 15, row 3) was left in place. [capture]
+   - A list whose stored length runs past its own items takes the bytes
+     after them (the following lists, then the zeros after the lists) as
+     more items of that area. Items so read that lie on wall squares show
+     there as gaps in the wall (three gaps in the run, one of them the
+     real door on 0,5, which worked as usual). At that area's closing no
+     entry was marked deleted. [capture] Whether the other gaps can be
+     walked through was not tried. [unknown]
+
+   **Engine:** the lists are read one after another by their stored
+   lengths, as the original reads them, so an over-long length gives that
+   area the items of the bytes that follow, as on the C64. Only a length
+   that is not 2 + 3k, or that runs past the end of the block, is a
+   `BadRoomItems` error; that list and every list after it are left
+   empty. An item outside 15 x 10 stays in its list but is never in play
+   (not drawn, not reached, not picked up); closing deletes it with the
+   other items, which can't be told apart in play from the original
+   keeping one. Only a thing-82 item makes a wall square a way through
+   (3.5); front ends may draw any item on a wall square as a gap. Closing
+   an area read from an over-long list deletes its non-door items as
+   usual, unlike the one run above (left open, 8). The decoder warns (it
+   does not refuse) on an area with no door or several, a door parameter
+   above 4 (3.5), an item outside 15 x 10, a non-empty room 0 list, and
+   bytes at world map + 0x806 or + 0x80E other than the corpus's ([format
+   notes](../format-notes.md), the world map's tail).
+5. **The way out is a door item**: thing 82 with a parameter n. As
+   stored it lies on the left wall, column 0, row 5, with n = 0..3 for
+   areas 1..4. [data] It is an ordinary item, not a fixed square:
+   [capture: capture.md 10.26, 10.34; the gap at row 5 and the door taken
+   from 1,5 as stored, 10.20] [research, run: the gap in
+   `patch-step-1.png`]
+   - **On a wall square** it makes a gap there, and stepping onto it walks
+     out (7.1). A wall square with no door item is wall: with doors on
+     0,3 and 0,7 both rows had gaps, each a way out, and 0,5 was wall (a
+     push west from 1,5 refused, no move used); with the list empty there
+     was no way out at all. [capture: 10.26, 10.34]
+   - **On an inside square** it is a way out too, and is drawn as plain
+     floor: with one on 7,5, stepping onto it from 8,5 took the player
+     out. [capture: 10.34]
+   - **Several doors on one square**: the first thing-82 item in the list
+     gives the parameter. Two on 0,5 listed with parameters 0 then 1 led
+     to area 1's entrance; listed the other way round, to area 2's.
+     [capture: 10.34]
+
+   **Where it leads.** The parameter n picks entry n of the **area door
+   table** at world map + 0x806 ([format notes](../format-notes.md), the
+   world map's tail), entries 0 to 3, two bytes each in the room door
+   format ([movement](movement.md) 6.1): byte 0 is region x 16 + room,
+   byte 1 is x x 16 + y. The entry is read as a room door's destination
+   is, with codes of its own for the areas: [capture: 10.34, each entry
+   changed on its own with area 1's door at parameter 0]
+   - **Region 0, point code 0x41..0x44** (`00 41`..`00 44`, the corpus's
+     four entries in order): the map entrance of area 1..4, whichever
+     area the door stands in. When that area is free (entrance 41,41) the
+     player goes to the adventure's start point on the map. [capture:
+     entry 0 set to `00 42` led to area 2's entrance; 10.26: a door with
+     n = 1 led to the start while area 2 was free, to its entrance once
+     set]
+   - **Region 0, a point 0..63**: that world map point. `00 00` put the
+     player on map point 0, the square of map door 0, standing there: it
+     was not sent through that door. [capture]
+   - **Region 1 or above**: that region, room and square, as a room door
+     to another region goes ("The action moves to" the region): `10 55`
+     took the player to region 1, room 0, square 5,5. [capture]
+   - **Parameter 4** reads the word at + 0x80E as a fifth entry: with
+     `00 42` there the player came out at area 2's entrance; with the
+     editor's `32 08` the game moved to region 3, room 2, square 0,8 (a
+     region the scenario doesn't use; the template disk still held data
+     for it). Changing + 0x80E made no visible difference to doors with
+     parameters 0..3. [capture] What parameters above 4 read is
+     [unknown] (by the pattern, the bytes after + 0x80E, where the lists
+     begin).
+
+   **Engine:** an item of thing 82 in an area is a door wherever it lies;
+   any number may share a square, the first in the room's item list
+   giving the parameter; stepping onto one is walking out (7.1). The
+   parameter picks the entry: n = 0..3 the bytes 2n and 2n + 1 of
+   `WorldMap::unknown_806`, n = 4 the word `WorldMap::unknown_80e` (its
+   low byte as byte 0, its high byte as byte 1). These are raw fields the
+   model already keeps, so `MODEL_VERSION` does not change. The entry is
+   resolved as above. The start point is used for an area code whose area
+   is free, a region 0 code that is neither 0..63 nor 0x41..0x44, an
+   unused map point (0xFF), a region or room the adventure doesn't have
+   (as a door into a deleted room, movement 6.4, 6.5), and a parameter
+   above 4. Arriving is not a step: there is no map roll (2.2), and a map
+   door or room door on the arrival square is not taken (movement 6.3).
+   Whether a door leading into a room of region 1 or above rolls that
+   room's random creature ([movement](movement.md) 7.2) was not looked at
+   [unknown]. **Engine:** it does, reading "as a room door to another
+   region goes" to include the room's roll on entering. A destination
+   whose region or room is missing sends the player to the start point
+   with `LeftArea` only; whether the original shows anything more there
+   is [unknown], and the engine emits no `SentToStart`. Front ends
+   (walk mode included) draw a door item with the floor picture, on a
+   wall square and an inside square alike, so a wall door shows as an
+   opening; whether the original's wall gap is the floor picture or a
+   picture of its own was not checked [unknown]. An area with no door item has no way out.
+
+   **A door leading to another open area's entrance**: the player comes
+   out on that map square, on the open map (place 0) with its moves left,
+   and does not join the area, which stays open. [capture: 10.34, area 2
+   held open by pokes (its room record and entrance) with no creature in
+   it; an area opened by a real encounter was not tried] **Engine:** so;
+   the arrival is not a step, so it neither joins the area (5.2) nor
+   takes a roll (2.2).
 6. **Squares**: the player on **12,4**, whichever way it came. [research,
    run: entering eastward and northward] Each creature by its record
    number r: **column 2 + (r mod 2), row 3 + (r div 2)**, so record 0 on
@@ -192,10 +274,12 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    0,5 as stored), which uses one move as usual; it comes back on the map
    **on the area's entrance square** (the square it stepped onto when the
    roll hit, not the one it came from), keeping the moves it has left.
-   This is the stored door, whose parameter names its own area; a door
-   naming another area leads to that one's entrance (3.5). The return takes
-   no roll; the next step does. [research, run; capture: from 1,5 west, T
-   on the entrance 13,12 with 5 of 6 moves] Event: `LeftArea`.
+   This is the stored door, whose parameter picks its own area's entry in
+   the area door table; another parameter or entry leads where that entry
+   says (3.5). The return takes no roll; the next step does. [research, run; capture: from 1,5 west, T
+   on the entrance 13,12 with 5 of 6 moves] Event: `LeftArea`. A door
+   whose region or room is missing sends the player to the start with
+   `LeftArea` alone, no `SentToStart` (engine's choice, 3.5 [unknown]).
 2. **Closing.** When no living player is left in the area it closes: it is
    marked free, its entrance forgotten, every creature copy in it removed
    for good (`CreatureRemoved`, reason `area_closed`), and every item
@@ -203,13 +287,18 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
    the entrance and the copy's removal; traced for the items] [capture:
    the size byte 0, the entrance 41,41, slot 8 free; capture.md 10.26: a
    treasure's entry in area 1's list marked deleted in place, the door's
-   entry kept] Items written into the file's lists go too, so a treasure
-   an area starts with is most likely there only until it first closes
-   (reopening the area after that was not captured). Which entries count
-   as "the door" with several door items or a door moved is [unknown].
-   **Engine:** every item of thing 82 stays, wherever it lies and however
-   many there are (as 3.5, any of them is a door), every other item is
-   deleted; `AreaClosed`.
+   entry kept] **Every door entry stays**, wherever it lies and however
+   many there are: two doors on 0,5, doors on 0,3 and 0,7, and one on the
+   floor at 7,5 were all kept, the treasure beside them marked deleted.
+   [capture: capture.md 10.34] Items written into the file's lists go
+   too: **a treasure an area starts with is there only until the area
+   first closes**. Opened again, the area had its doors and no treasure;
+   the deleted entry (square byte 255) stayed in the list unchanged, the
+   list not compacted. [capture: 10.34, three runs] (Items outside 15 x
+   10 and over-long lists: 3.4.) **Engine:** every item of thing 82 stays
+   (as 3.5, any of them is a door), every other item is deleted;
+   `AreaClosed`. The engine drops deleted items from the room rather than
+   keeping their entries; nothing in play can tell the difference.
 3. **The creatures dying or leaving does not end the area**; only its last
    player leaving or dying does. [research, traced]
 4. **A player dying in the area** closes it if no player is left, as 7.2,
@@ -229,19 +318,31 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
 The researcher's next pass (`docs/research/encounters.md`): two players
 in one area or in different areas, a death in an area run rather than
 traced, save and retire inside, all four areas in use and all eight slots
-taken, fighting there (the cleared bit, what a dead copy drops and its
-gold), and which door table entry the area door reads (capture.md 10.26
-showed the parameter picking area n + 1's entrance; the four entries at
-world map + 0x806 as its table are a guess). Not captured by us yet: a
-second player joining, a death in an area, a creature through the door,
-all areas or slots in use (capture.md 10.20); an area reopened after its
-listed items were deleted, several doors in one area, and changing the
-entries at + 0x806 (capture.md 10.26).
+taken, and fighting there (the cleared bit, what a dead copy drops and
+its gold). Not captured by us yet: a second player joining an area for
+real, a death in an area, a creature through the door, all areas or
+slots in use (capture.md 10.20, 10.34).
 
-**Captures needed** for the engine's choices above: several door items
-on one square (which parameter counts) and a door moved off 0,5 at
-closing (3.5, 7.2); a door whose parameter names another open area's
-entrance, and whether the player joins that area (3.5); how the game
-loads a damaged area list and lists with no door, several doors, a
-parameter above 3, an item outside 15 x 10 or items in room 0's list
-(3.4); and other bytes at + 0x806 / + 0x80E.
+**Captures needed** for the engine's choices above:
+- a door parameter above 4 (3.5: what it reads past + 0x80E);
+- a door to another area's entrance where that area was opened by a
+  real encounter, not by pokes (3.5);
+- items in room 0's list (3.4);
+- the extra wall gaps an over-long list makes: can they be walked
+  through (3.4); and why closing such an area marked no entry deleted,
+  where the engine deletes as usual (3.4, 7.2);
+- which off-room items closing keeps (one on 7,12 deleted, one at x 15
+  kept, 3.4): no effect on play;
+- a door entry leading into a room of region 1 or above that has a
+  random creature chance: does arriving roll it (3.5; the engine rolls,
+  movement 7.2);
+- a door entry naming a region or room the adventure doesn't have: what
+  the game shows on the way to the start (3.5, 7.1; the engine sends
+  `LeftArea` only, no `SentToStart`);
+- the picture of a door's gap on a wall square, at 0,5 and elsewhere
+  (3.5; the engine draws the floor picture on wall and inside squares).
+
+Settled by capture.md 10.34: several doors on one square, doors moved
+off 0,5 and on the floor, the area door table at + 0x806 and the fifth
+entry at + 0x80E, a door to an open area's entrance, reopening after
+closing, items outside 15 x 10 and over-long lists (3.4, 3.5, 7.2).

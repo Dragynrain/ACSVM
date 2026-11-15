@@ -397,8 +397,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       holding, one shot (combat 8.2: Dexterity / 8), which ends the turn;
    3. else the step choice (6.5), its roll of 0 to 2 for each open square
       beside it; the step is then **cancelled** when it has no moves left
-      and the square picked is an ordinary one (cost 2 in 6.5), so it never
-      walks;
+      and the square picked is an ordinary one (cost 2 in 6.5, and empty:
+      see below), so it never walks;
    4. with no step, one **idle move**: [magic](magic.md) 5.3.1's healing
       with the turn's full moves 0, which draws nothing and heals 1 while
       Life Force is below Constitution.
@@ -420,19 +420,42 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    rr28 `still-melee-sw`, 16 runs, capture.md 10.32; ours, 2026-11-14]
    Beside an exit or a thing it takes is not captured. **Engine:** 2.7 as
    written, the smartness checks as 6.6's
-   engine choice says. Two readings the research leaves open, both
-   [unknown]:
-   - **Every creature's first action is taken.** Whether 2.7's first
-     action, taken whatever the moves left, holds for creatures of Speed
-     above 0 too. **Engine:** it does: a creature whose readying (8.2)
-     spent its last move still gets its shot or its step choice, the step
-     cancelled as in 2.7.3, and with no step an idle move whose healing
-     roll ([magic](magic.md) 5.3.1) runs 0 to its full moves less 1.
-   - **What counts as ordinary** for the cancelled step (2.7.3).
-     **Engine:** only an empty square (nothing on it, no individual).
-     A square that is not the goal's but holds an individual the creature
-     would strike is not ordinary, even where 6.5's table gives it cost 2,
-     so that step is not cancelled.
+   engine choice says, with these two readings settled by capture:
+   - **Readying that spends the last move ends the turn**, above Speed 0.
+     The one action taken whatever the moves left is a Speed 0
+     creature's only. A creature of Speed above 0 that readies a weapon
+     (8.2) with its last move does nothing more that turn: no shot, no
+     step choice and its rolls, no idle move and its healing roll. With a
+     move left after readying it goes on as usual (a shot, say). An
+     aggressive brave enemy of Speed 1 owning a bow it was not holding,
+     the player 5 squares off, readied the bow with its one move and then
+     drew only the turn's closing rolls, in 32 of 32 runs, and again in 32
+     of 32 with the line of fire blocked and its Life Force below
+     Constitution (no step rolls, no step, no heal but the top-of-turn
+     die's); it fired or stepped on each later turn. Of Speed 2, it
+     readied with its first move and fired with its second; of Speed 1
+     already holding the bow, it fired on its first turn. [capture: mem
+     `--draws`, rr29 `sw-ready1`, `sw-ready1b`, `sw-ready1w`, `sw-ready2`,
+     `sw-held1`, 160 runs, capture.md 10.33; ours, no research pass,
+     2026-11-14] **Engine:** so: a creature of Speed above 0 left with 0
+     moves after readying ends its turn there. (Superseded: the engine's
+     earlier choice, that its shot or step choice, else an idle move,
+     still came.) A creature whose Speed is above 0 but whose load
+     ([movement](movement.md) 2.7) leaves it 0 moves for the turn was in neither capture: whether it
+     takes the Speed 0 creature's one action or stops after readying is
+     [unknown]. **Engine:** the stored Speed decides, so it counts as
+     Speed above 0 and readying ends its turn.
+   - **What counts as ordinary** for the cancelled step (2.7.3): only an
+     empty square, nothing on it and no individual. A square that is not
+     the goal's but holds an individual the creature would strike is not
+     ordinary, even where 6.5's table gives it cost 2, so that step is not
+     cancelled: the creature strikes there. An aggressive brave enemy of
+     Speed 0 holding our blade, a peaceful friend of Speed 0 beside it
+     and the player (its goal) 5 squares off, attacked the friend in 22 of
+     64 first turns and in 35 of 96 turns of 32 runs played on, did
+     nothing in the rest, and never stepped. [capture: mem `--draws`, rr29
+     `sw-ord`, `sw-ord2`, capture.md 10.33; ours, no research pass,
+     2026-11-14] **Engine:** so.
 
 ## 3. Random room creatures
 
@@ -734,7 +757,13 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       capacity of 100 never dropped. The droppers' next turns began with
       6. [capture: rr28 `burden2-sw`, 8 runs, all alike, capture.md 10.32;
       ours, 2026-11-14] In our earlier drop cases (8.1) the slowdown left
-      0 moves, so the drop was the turn's only action. That a foe beside
+      0 moves, so the drop was the turn's only action. A Speed 6 creature
+      carrying 400 of a capacity of 100 began its turn with 0 moves, drew
+      the die, its check and the drop's pairs, dropped the treasure and
+      drew no step roll and took no step; its next turn, with the load
+      gone, began with 6 moves and walked 6: the drop turn's moves are the
+      load before the drop's. [capture: mem `--draws`, rr29 `sw-drop6`, 32
+      of 32 runs, capture.md 10.33; ours, 2026-11-14] That a foe beside
       it prevents the drop is [research, unconfirmed]: no capture had
       one. What counts as a **foe beside** here is not defined [unknown];
       the engine uses 2.6's test, the one that halves a creature's moves:
@@ -828,8 +857,9 @@ creatures replay exactly.
 7. The overburdened drop: captured (8.1: all the gold, then the
    lowest-numbered treasure, one a turn) and the square (8.1.1, capture.md
    10.24); when a creature counts as overburdened, a drop with moves
-   left, the load that sets a drop turn's moves (8.1.2) and the custom
-   obstacle refusing a drop (8.1.1): captured (capture.md 10.32). Still
+   left, the load that sets a drop turn's moves (8.1.2, again in 10.33)
+   and the custom obstacle refusing a drop (8.1.1): captured (capture.md
+   10.32). Still
    open: a store refusing a drop, a foe beside an overburdened creature
    (8.1.2: whether it stops the drop, and who counts as a foe there; the
    engine uses 2.6's test, so a player beside a creature that is not a
@@ -837,10 +867,10 @@ creatures replay exactly.
    (8.1.2, the engine says yes), a friend's gift placed around the giver (7.3), magic items,
    gold's weight.
 8. A Speed 0 creature's turn (2.7) and a Speed 0 fighter with its goal
-   beside it (capture.md 10.32): captured. Still open: a Speed 0 fighter
-   beside an exit or a thing it takes;
-   whether a creature of Speed above 0 whose readying spends its last
-   move still takes its shot, step choice or idle move (2.7, the engine
-   says yes); whether a non-goal square holding an individual it would
-   strike counts as ordinary for the cancelled step (2.7, the engine says
-   no: only an empty square does).
+   beside it (capture.md 10.32): captured. A creature of Speed above 0
+   whose readying spends its last move (its turn ends there) and what
+   counts as ordinary for the cancelled step (only an empty square):
+   captured (2.7, capture.md 10.33). Still open: a Speed 0 fighter
+   beside an exit or a thing it takes; a creature of Speed above 0 slowed
+   to 0 moves by its load that readies a weapon (2.7: one action as at
+   Speed 0, or the readying stop; the engine applies the stop).

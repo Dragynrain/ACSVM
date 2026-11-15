@@ -27,6 +27,9 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-14: the capture work is done (capture.md 10.29-10.34) and in the specs and engine: the area door table and area store, readying with the last move ends the turn, one add a round; checker all PASS; committed with today's harness options and scripts.
+- 2026-11-14: creatures/magic captures (10.33, rr29): readying with the last move ends the turn above Speed 0 and two adds in one round add one, both against the engine; drop-turn moves and ordinary squares hold; the extra Life Force point is the top-of-turn die; spec-writer started. All planned capture work has now run.
+- 2026-11-14: encounters captures (10.34, rr30): +0x806 is the areas' door table (parameter 4 reads +0x80E) and a store in an area offers every carriable thing, both against the engine; the rest holds; spec-writer started.
 - 2026-11-14: combat captures in the engine: the 0..9 roll after every damaging player arrow, the overburdened drop above half capacity (combat 7, 8.8.3; creatures 8.1.2); checker all PASS; engine and rules committed.
 - 2026-11-14: combat captures (10.32, rr28): 7 of 9 agree; the 0..9 roll after an arrow damaging a player and the overburdened threshold disagree with the engine; spec-writer started. Encounters captures (10.34) started.
 - 2026-11-14: stores captures (10.31, rr27): stock saved with the region (engine holds), a used-up magic item doesn't restock, a thing owned twice is offered per copy; spec-writer started. Creatures/magic captures (10.33) started.

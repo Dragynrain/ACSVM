@@ -85,24 +85,48 @@ Counts cover all 15 corpus adventures (222 regions).
    area's list holds only its door), and nothing in play can make one:
    closing an area deletes everything but the door, and nothing dropped
    there can be a store (the store is thing 83, possessions only 1..80).
-   [data; research, pass 2] Leaving works as in a room (section 3), the
-   player back on the store's square. [research, pass 2, unconfirmed]
-   **The shelves**: the file holds no stock record for region 0 anywhere
-   [data], so the original reads its visited region's stock bytes, which
-   on the map hold the map's own data: all 14 read 255 while the map was
-   the visited region, which read as a stock would be every thing.
-   [research, pass 2; capture: rr17
-   `mapstock`, `mappeek`, 4 scenarios, inside an area and after walking
-   out, capture.md 10.21; rr22 `store`, the same 14 bytes all 255 with
-   the store screen open, though only two shelf things were drawn, not
-   identified, capture.md 10.26] Buying and selling there paid as usual
-   but never changed that stock, so a thing could be bought again and
-   again. [research, pass 2, unconfirmed] **Engine:** no store on the
-   open map. A store in an area opens as in a room, but its shelves are
-   always empty: the engine builds the map region with an empty stock and
-   doesn't model the map data the original reads. So every shelf place
-   says it is out of stock (4.1), and selling pays as usual but stocks
-   nothing, since in region 0 buying and selling never change the stock.
+   [data; research, pass 2] Leaving works as in a room (section 3): the
+   player is back on the store's square in the area with **exactly one
+   move** (3.7; five inside, one just after, a step then taken).
+   [research, pass 2; capture: rr30 `store`, capture.md 10.34]
+
+   **The shelves offer every thing a store can stock.** On the C64 every
+   shelf place of a stockable thing (2.1) with a value above 0 offered
+   it: 9 things of the template (things 1, 2, 4, 33, 35, 40, 59, 68 and
+   72), at their usual prices. Out of stock were one thing of value 0 (the
+   template's HAND) and the three spells. Every stocked thing is drawn on
+   its place; in the run only two showed, the others' pictures being
+   blank in our scenario. [capture: rr30 `store`, capture.md 10.34] Why
+   the value-0 thing was out (its value or its type) was not split.
+   **Where that stock comes from**: the file holds no stock record for
+   region 0 anywhere [data], and the 14 bytes where a visited region's
+   stock sits read 255 throughout, while the map was the visited region,
+   inside an area, with the store open and after buying and selling.
+   [research, pass 2; capture: rr17 `mapstock`, `mappeek`, capture.md
+   10.21; rr22, 10.26; rr30, 10.34] On the map those bytes are part of the
+   map's point table, unused points (0xFF) in our template ([format
+   notes](../format-notes.md), the world map's tail); read as a stock
+   bitmap they are everything in stock, which matches the shelves. So the
+   shelves most likely read those bytes, but no capture has changed them:
+   a map whose points there are in use might offer less.
+   **Buying and selling** there work as in a room, and **never change
+   that stock**: a horse bought for 2,000; the blade the player already
+   owned bought twice for 10 each, the gold 5,000 to 4,990 to 4,980, the
+   possession unchanged (its limit of 1 reached, 4.3) and the blade still
+   on its shelf; the blade sold at the opening prompt for its usual offer
+   (4) and taken from the player. [research, pass 2; capture: rr30, the
+   stock bytes unchanged throughout] So a thing can be bought again and
+   again. (A player made to carry 5,000 gold came out unable to move, the
+   gold's weight, inventory 3.)
+
+   **Engine:** no store on the open map. A store in an area opens as in a
+   room. Its shelves hold every thing 1..80 of a type a store can stock
+   (2.1: treasures, magic items, weapons and armor; never spells) whose
+   value is above 0, each as many as the stock limit allows (2.6): the
+   engine builds the map region's stock that way rather than modelling
+   the map bytes the original reads. Buying and selling pay and take as
+   in a room (4.3, 4.4, 5.1, 5.2), but in region 0 neither changes the
+   stock, so every shelf stays as it was.
 8. **The stock is part of the region's saved state**, like its residents
    ([saves](../saves.md)):
    - Leaving the region writes the stock to the disk with the rest of the
@@ -279,11 +303,9 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 ## Captures needed
 
-1. A store in an encounter area (2.7): which things the two shelf
-   pictures drawn with the stock bytes all 255 were, and why not all;
-   buying and selling there; the moves left on leaving it. (Settled: such
-   a store can come from a file and opens, capture.md 10.26; the format
-   is in the format notes, so the model gap is now decoder work.)
+1. A store in an encounter area on a map whose point table uses the
+   points at the stock bytes (2.7): do the shelves follow those bytes?
+   And whether a value-0 thing is out of stock for its value or its type.
 2. A magic item set to act when picked up, bought (4.4; not reached in
    capture.md 10.31).
 3. A store in a room of another size (the layout is fixed either way;
@@ -291,4 +313,5 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 Settled: restocking from a used-up magic item (2.5), the stock across
 visits, saves and restores (2.8) and a thing owned twice (5.2), all
-capture.md 10.31.
+capture.md 10.31; a store in an area, its shelves, buying, selling and
+leaving (2.7), capture.md 10.34.

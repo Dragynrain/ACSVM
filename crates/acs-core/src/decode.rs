@@ -755,12 +755,12 @@ impl Decoder<'_> {
                     .warn(K::Other, &loc, format!("{k} exit doors (thing 82)")),
             }
             for d in &doors {
-                if d.parameter > 3 {
+                if d.parameter > 4 {
                     self.diags.warn(
                         K::BadReference,
                         &loc,
                         format!(
-                            "exit door parameter {} names no area: it leads to the start",
+                            "exit door parameter {} is past the area door table (0..4): it leads to the start point",
                             d.parameter
                         ),
                     );

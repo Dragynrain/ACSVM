@@ -153,6 +153,12 @@ impl Game {
         // first step; a move for each change.
         if self.creature_ready(region, slot, ev) {
             left = left.saturating_sub(1);
+            // 2.7: above Speed 0, readying with the last move ends the
+            // turn there: no shot, no step choice or its rolls, no idle
+            // move or its healing roll. Speed 0 keeps its one action.
+            if left == 0 && c.speed > 0 {
+                return Some((0, moves));
+            }
         }
         // 6.2: one goal for the whole turn.
         let goal = self

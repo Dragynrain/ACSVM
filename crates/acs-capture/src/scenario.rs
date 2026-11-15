@@ -587,6 +587,8 @@ pub struct MoveBasic {
     /// (thing `SIDE`, door table entry 3) on this room 0 square leading to
     /// the second square, in room 1.
     pub side: Option<((u8, u8), (u8, u8))>,
+    /// What the side portal is (docs/capture.md 10.29).
+    pub side_door: SideDoor,
     /// The region's random creature 0 (picture 70, `RESIDENT_BOXES[5]`)
     /// and room 0's chance for it, 0..15 (5% each).
     pub random_creature: Option<Resident>,
@@ -617,6 +619,8 @@ pub struct MoveBasic {
     /// (1..4) and its items (x, y, thing, parameter), in place of the
     /// template's list at world map block + `AREA_LISTS`.
     pub area_lists: Vec<AreaList>,
+    /// Fixed things of other types on room 0 squares (`room_things`).
+    pub room_things: Vec<RoomThing>,
 }
 
 /// Where the world map block's five room item lists start (room 0 the
@@ -791,6 +795,67 @@ pub const ITEM: u8 = 70;
 /// Long message 2, for an item that displays a message.
 pub const ITEM_MESSAGE: &str = "THE ITEM WORKED";
 
+/// A fixed thing of ours on a room 0 square: its type code (8 space, 9
+/// custom space, 11 custom obstacle; `--store` places a store) and the
+/// square.
+pub type RoomThing = (u8, u8, u8);
+
+/// The master slots `room_things` takes, one per type code 8, 9, 11.
+pub const ROOM_THING: [(u8, u8, &str); 3] = [(8, 104, "SPACE"), (9, 105, "CSPACE"), (11, 106, "COBST")];
+
+/// Parses `KIND:X,Y` (`space`, `custom-space`, `custom-obstacle`).
+pub fn room_thing(spec: &str) -> Result<RoomThing, String> {
+    let (kind, at) = spec.split_once(':').ok_or(format!("{spec}: want KIND:X,Y"))?;
+    let code = match kind {
+        "space" => 8,
+        "custom-space" => 9,
+        "custom-obstacle" => 11,
+        _ => return Err(format!("{kind}: space, custom-space or custom-obstacle")),
+    };
+    let (x, y) = at.split_once(',').ok_or(format!("{spec}: want KIND:X,Y"))?;
+    let n = |v: &str| v.trim().parse::<u8>().map_err(|_| format!("{spec}: bad square"));
+    Ok((code, n(x)?, n(y)?))
+}
+
+/// Writes `room_things`' things (the door picture, open to anyone, no
+/// action worth naming: a custom space triggers when a thing is dropped
+/// on it, parameter 0) and places them, to see which squares refuse a
+/// creature's drop (docs/capture.md 10.32).
+fn room_things(f: &mut Fixture, things: &[RoomThing], items: &mut Vec<(u8, u8, u8, u8)>) {
+    for &(code, x, y) in things {
+        let &(_, slot, name) = ROOM_THING.iter().find(|t| t.0 == code).expect("type code");
+        f.thing(slot as usize, name, [code, PIC_DOOR as u8, 0, 0]);
+        no_messages(f, slot as usize);
+        items.push((x, y, slot, 0));
+    }
+}
+
+/// Sets our magic item's "disappears after use" bit (bit 4 of thing
+/// `ITEM`'s first property byte) on a written scenario disk, to watch a
+/// used-up item and a store's stock (docs/capture.md 10.31).
+pub fn item_once(img: &mut Image) {
+    let at = acs_core::layout::C64.things + acs_core::layout::things::PROPS + (ITEM as usize - 1) * 4;
+    img.data[at] |= 0x10;
+}
+
+/// Writes bytes into the world map block (docs/capture.md 10.34): `spec`
+/// is `OFF:HEX..`, the offset from the block's start and the bytes, both
+/// in hex (`806:0042` puts 00 42 at + 0x806).
+pub fn map_bytes(img: &mut Image, spec: &str) -> Result<(), String> {
+    let (off, hex) = spec.split_once(':').ok_or_else(|| format!("{spec}: OFF:HEX"))?;
+    let off = usize::from_str_radix(off.trim(), 16).map_err(|_| format!("{spec}: bad offset"))?;
+    let hex = hex.trim();
+    if hex.is_empty() || hex.len() % 2 != 0 || off + hex.len() / 2 > 0xC00 {
+        return Err(format!("{spec}: bytes must be whole hex pairs inside the block"));
+    }
+    let at = acs_core::layout::C64.world_map + off;
+    for (i, pair) in hex.as_bytes().chunks(2).enumerate() {
+        let pair = std::str::from_utf8(pair).map_err(|_| format!("{spec}: bad hex"))?;
+        img.data[at + i] = u8::from_str_radix(pair, 16).map_err(|_| format!("{spec}: bad hex"))?;
+    }
+    Ok(())
+}
+
 /// The first master thing slot of the weight row (carriable things must be
 /// 1-80: possessions are a bitmap over them).
 pub const FIRST_WEIGHT: u8 = 71;
@@ -865,6 +930,7 @@ impl Default for MoveBasic {
             lock: None,
             residents: Vec::new(),
             side: None,
+            side_door: SideDoor::OneWay,
             random_creature: None,
             room_chance: 0,
             side_chance: 0,
@@ -877,6 +943,7 @@ impl Default for MoveBasic {
             map_creatures: Vec::new(),
             patch: None,
             area_lists: Vec::new(),
+            room_things: Vec::new(),
         }
     }
 }
@@ -1151,9 +1218,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         portals.push(s.lock.map_or([0, 0], |k| [1 << 4, k.to.0 << 4 | k.to.1]));
     }
     if let Some((_, to)) = s.side {
-        portals.push([1 << 4 | 1, to.0 << 4 | to.1]);
-        f.thing(SIDE as usize, "SIDEDOOR", [0x07, PIC_DOOR as u8, 0, 0]);
-        no_messages(&mut f, SIDE as usize);
+        side_door(&mut f, s.side_door, to, &mut portals);
     }
     if let Some((_, cell)) = s.exit {
         f.put(w + wm::POINTS + 32 * 2, &[cell.0, cell.1]);
@@ -1326,6 +1391,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
     if let Some((at, _)) = s.side {
         items.push((at.0, at.1, SIDE, 3));
     }
+    room_things(&mut f, &s.room_things, &mut items);
     // Residents: pictures 65, 66, .. (the players' is 64).
     let residents = s
         .residents
@@ -1375,7 +1441,55 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         store: stock,
         ..RegionSpec::default()
     });
+    if s.side.is_some() && s.side_door == SideDoor::Region {
+        f.region(RegionSpec {
+            name: "FAR REGION",
+            rooms: vec![RoomSpec {
+                name: "FAR ROOM",
+                w: 10,
+                h: 8,
+                wall: PIC_WALL as u8,
+                ..RoomSpec::default()
+            }],
+            ..RegionSpec::default()
+        });
+    }
     f.build()
+}
+
+/// The side portal (thing `SIDE`, door table entry 3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SideDoor {
+    /// One-way, into the side room (region 1, room 1).
+    #[default]
+    OneWay,
+    /// The same with the two-way bit (property byte 0, bit 5) set.
+    TwoWay,
+    /// One-way, into room 0 (FAR ROOM, 10 x 8) of a second region.
+    Region,
+}
+
+impl SideDoor {
+    pub fn parse(t: &str) -> Result<Self, String> {
+        match t {
+            "one-way" => Ok(SideDoor::OneWay),
+            "two-way" => Ok(SideDoor::TwoWay),
+            "region" => Ok(SideDoor::Region),
+            _ => Err(format!("{t}: want one-way, two-way or region")),
+        }
+    }
+}
+
+/// Defines the side portal and its door table entry, leading to `to`.
+fn side_door(f: &mut Fixture, kind: SideDoor, to: (u8, u8), portals: &mut Vec<[u8; 2]>) {
+    let (dest, byte0) = match kind {
+        SideDoor::OneWay => (1 << 4 | 1, 0x07),
+        SideDoor::TwoWay => (1 << 4 | 1, 0x27),
+        SideDoor::Region => (2 << 4, 0x07),
+    };
+    portals.push([dest, to.0 << 4 | to.1]);
+    f.thing(SIDE as usize, "SIDEDOOR", [byte0, PIC_DOOR as u8, 0, 0]);
+    no_messages(f, SIDE as usize);
 }
 
 #[cfg(test)]
@@ -1772,6 +1886,40 @@ mod tests {
     }
 
     #[test]
+    fn side_door_kinds() {
+        use acs_core::model::ThingKind;
+        for (kind, two, dest, regions) in [
+            (SideDoor::TwoWay, true, [0x11, 0x24], 1),
+            (SideDoor::Region, false, [0x20, 0x24], 2),
+        ] {
+            let s = MoveBasic {
+                side: Some(((7, 4), (2, 4))),
+                side_door: kind,
+                ..MoveBasic::default()
+            };
+            let adv = acs_core::decode(&move_basic(&s, None))
+                .expect("decodes")
+                .adventure;
+            assert_eq!(adv.regions.len(), regions);
+            assert_eq!(adv.regions[0].portal_table[3], dest);
+            let ThingKind::Portal { two_way, .. } = adv.things[SIDE as usize - 1].kind else {
+                panic!("not a portal");
+            };
+            assert_eq!(two_way, two);
+        }
+        let s = MoveBasic {
+            side: Some(((7, 4), (2, 4))),
+            side_door: SideDoor::Region,
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let far = &adv.regions[1].rooms[0];
+        assert_eq!((far.name.as_str(), far.width, far.height), ("FAR ROOM", 10, 8));
+    }
+
+    #[test]
     fn loose_has_its_doors_things_and_two_players() {
         use acs_core::model::{Access, ThingKind};
         let mut s = MoveBasic::loose("", true, true).unwrap();
@@ -1846,6 +1994,69 @@ mod tests {
             assert_eq!(s.take_weights[(n - TAKE) as usize], raw);
         }
         assert!(take_weight("x20:250").is_err());
+    }
+
+    #[test]
+    fn room_things_decode() {
+        use acs_core::model::ThingKind;
+        let s = MoveBasic {
+            room_things: ["custom-obstacle:5,4", "space:6,5", "custom-space:6,3"]
+                .iter()
+                .map(|t| room_thing(t).unwrap())
+                .collect(),
+            ..MoveBasic::default()
+        };
+        let adv = acs_core::decode(&move_basic(&s, None))
+            .expect("decodes")
+            .adventure;
+        let room = &adv.regions[0].rooms[0];
+        let at = |x, y| {
+            room.items
+                .iter()
+                .find(|i| (i.x, i.y) == (x, y))
+                .expect("placed")
+                .thing as usize
+        };
+        assert!(matches!(
+            adv.things[at(5, 4) - 1].kind,
+            ThingKind::CustomObstacle { .. }
+        ));
+        assert!(matches!(adv.things[at(6, 5) - 1].kind, ThingKind::Space { .. }));
+        assert!(matches!(
+            adv.things[at(6, 3) - 1].kind,
+            ThingKind::CustomSpace { .. }
+        ));
+        assert!(room_thing("portal:1,1").is_err());
+    }
+
+    #[test]
+    fn map_bytes_write_into_the_map_block() {
+        let mut img = move_basic(&MoveBasic::default(), None);
+        map_bytes(&mut img, "806:0042").unwrap();
+        let w = acs_core::layout::C64.world_map;
+        assert_eq!(&img.data[w + 0x806..w + 0x808], &[0x00, 0x42]);
+        assert!(map_bytes(&mut img, "806:004").is_err());
+        assert!(map_bytes(&mut img, "BFF:0000").is_err());
+    }
+
+    #[test]
+    fn item_once_sets_disappears_after_use() {
+        let s = MoveBasic {
+            player: Some(Player::default()),
+            item: Some((LONG_MESSAGE, 2)),
+            ..MoveBasic::default()
+        };
+        let mut img = move_basic(&s, None);
+        item_once(&mut img);
+        let adv = acs_core::decode(&img).expect("decodes").adventure;
+        match &adv.things[ITEM as usize - 1].kind {
+            acs_core::model::ThingKind::MagicItem {
+                disappears_after_use,
+                on_use,
+                ..
+            } => assert!(*disappears_after_use && *on_use),
+            k => panic!("{k:?}"),
+        }
     }
 
     #[test]

@@ -20,7 +20,7 @@ the thing and a count, gold (thing 81) six bytes with the amount in its
 last two). The dropper's possession or wealth byte going to 0 dates the
 drop: it must fall after the last pair's draw and before the next draw.
 
-    python scripts/dropcheck.py RUNS.jsonl --case NAME [-v]
+    python scripts/dropcheck.py RUNS.jsonl --case NAME [--refuse X,Y/X,Y] [-v]
 """
 import argparse
 import json
@@ -45,6 +45,13 @@ CASES = {
     "drop-beside": {"droppers": [("WE", (5, 4), 1, 50, "E1C4")], "obstacles": set()},
     # rr20: WE on 6,4 with treasures of ours on 7,4, 6,5 and 6,3.
     "drop-thing": {"droppers": [("WE", (6, 4), 1, 50, "E1C4")], "obstacles": set()},
+    # rr28 (capture.md 10.32): WE on 6,4 with fixed things of ours beside
+    # it: a custom obstacle on 5,4, the side room's portal on 7,4, a custom
+    # space on 6,3 and a space on 6,5. Which of them refuse a drop is
+    # what the run tells: `--refuse` names the squares taken to refuse.
+    # The side room moves the room's list: its length byte at $E58B, the
+    # entries from $E58D.
+    "drop-kinds": {"droppers": [("WE", (6, 4), 1, 50, "E1C4")], "obstacles": set(), "list": 0xE58B},
     # rr5's burden (capture.md 10.14.5): WA 300 gold on 10,2, WB 2,000 on
     # 10,7, each dropping its gold on its first turn.
     "burden": {"droppers": [("WA", (10, 2), 1, ("gold", 300), "E1B5"), ("WB", (10, 7), 1, ("gold", 2000), "E1DA")],
@@ -68,10 +75,11 @@ def draw_times(stores):
     return out
 
 
-def things(vals):
-    """The room's list of things from the watched bytes (E583, E585 on)."""
-    n = vals["E583"] - 2
-    raw = [vals.get(f"{0xE585 + k:04X}") for k in range(n)]
+def things(vals, base=0xE583):
+    """The room's list of things from the watched bytes (E583, E585 on, or
+    the case's `list` base)."""
+    n = vals[f"{base:04X}"] - 2
+    raw = [vals.get(f"{base + 2 + k:04X}") for k in range(n)]
     out, k = [], 0
     while k + 2 < len(raw) and raw[k] is not None:
         sq, th = raw[k], raw[k + 1]
@@ -87,8 +95,9 @@ def things(vals):
     return out
 
 
-def check(v, case, verbose):
-    c = CASES[case]
+def check(v, case, verbose, refuse=frozenset()):
+    c = dict(CASES[case])
+    c["obstacles"] = c["obstacles"] | refuse
     d = Draws([x["raw"] for x in v["draws"]])
     times = draw_times(v["draws"])
     start = dict(zip(v["watch"], v["start"]))
@@ -98,8 +107,8 @@ def check(v, case, verbose):
         end[ch["addr"]] = ch["to"]
         if ch["to"] == 0 and ch["addr"] not in gone:
             gone[ch["addr"]] = ch["t"]
-    before = things(start)
-    after = things(end)
+    before = things(start, c.get("list", 0xE583))
+    after = things(end, c.get("list", 0xE583))
     bad, notes = [], []
     tries = most = 0
     fails = {"ring": 0, "obstacle": 0}
@@ -159,12 +168,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs")
     ap.add_argument("--case", required=True, choices=sorted(CASES))
+    ap.add_argument("--refuse", default="", help="more squares that refuse a drop, X,Y joined by /")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
+    refuse = frozenset(tuple(int(n) for n in sq.split(",")) for sq in a.refuse.split("/") if sq)
     right = wrong = tries = most = 0
     seen = {}
     for text in open(a.runs, encoding="utf-8"):
-        ok, n, m, fails = check(json.loads(text), a.case, a.v)
+        ok, n, m, fails = check(json.loads(text), a.case, a.v, refuse)
         right += ok
         wrong += not ok
         tries += n

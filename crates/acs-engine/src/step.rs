@@ -101,7 +101,7 @@ impl Game {
         (w as i16, tiles.len() as i16)
     }
 
-    fn on_map(&self, x: u8, y: u8) -> bool {
+    pub(crate) fn on_map(&self, x: u8, y: u8) -> bool {
         let (w, h) = self.map_size();
         (x as i16) < w && (y as i16) < h
     }
@@ -125,7 +125,7 @@ impl Game {
     /// door's step is taken, the turn ends, and the moves left (if any)
     /// start the player's next turn, not halved, however long it waits for
     /// its region's visit.
-    fn carry_through_door(&mut self, p: usize, ev: &mut Vec<Event>) {
+    pub(crate) fn carry_through_door(&mut self, p: usize, ev: &mut Vec<Event>) {
         let left = self.players[p].moves_left.saturating_sub(1);
         self.players[p].moves_left = 0;
         self.carried.retain(|&(q, _)| q != p);
@@ -329,10 +329,19 @@ impl Game {
             y: ny,
         };
         let edge = nx == 0 || ny == 0 || nx as i16 == w - 1 || ny as i16 == h - 1;
-        // Encounters 7.1: an area's door leads back to its entrance.
+        // Encounters 7.1, 3.5: an area's door leads where its entry in the
+        // area door table says; into a room of a region it ends the turn as
+        // a room door into another room does (2.3).
         if let Some(n) = self.area_door(to) {
             self.leave_area(p, room, n, ev);
-            self.spend(ev);
+            if !self.players[p].alive || self.over {
+                return;
+            }
+            if self.players[p].at.room().is_some() {
+                self.carry_through_door(p, ev);
+            } else {
+                self.spend(ev);
+            }
             return;
         }
 
@@ -721,7 +730,7 @@ impl Game {
     }
 
     /// Region and room changes after a jump, and the room's encounter roll.
-    fn arrive(&mut self, p: usize, from: Location, to: Location, ev: &mut Vec<Event>) {
+    pub(crate) fn arrive(&mut self, p: usize, from: Location, to: Location, ev: &mut Vec<Event>) {
         let (old, new) = (from.region(), to.region());
         if old != new {
             if old != 0 {

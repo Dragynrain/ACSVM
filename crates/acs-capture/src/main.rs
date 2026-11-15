@@ -134,6 +134,11 @@ enum Cmd {
         /// 2,4 on room square 7,4 (docs/capture.md 10.10.3).
         #[arg(long)]
         side_room: bool,
+        /// The side portal: one-way (default), two-way (the two-way bit
+        /// set) or region (one-way into a second region's room, FAR ROOM;
+        /// docs/capture.md 10.29).
+        #[arg(long, default_value = "one-way")]
+        side_door: String,
         /// The region's random creature 0 (the --creature keys) and room
         /// 0's chance for it, 0..15 (5% each) (docs/capture.md 10.14).
         #[arg(long)]
@@ -187,6 +192,19 @@ enum Cmd {
         /// the store (docs/capture.md 10.26).
         #[arg(long)]
         area_list: Vec<String>,
+        /// Our magic item disappears after use (docs/capture.md 10.31).
+        #[arg(long)]
+        item_once: bool,
+        /// A fixed thing of ours on a room 0 square (repeatable):
+        /// `KIND:X,Y`, KIND space, custom-space or custom-obstacle
+        /// (docs/capture.md 10.32).
+        #[arg(long)]
+        room_thing: Vec<String>,
+        /// Bytes written into the world map block (repeatable): `OFF:HEX..`,
+        /// the offset from the block's start and the bytes, both hex, e.g.
+        /// `806:0042` (docs/capture.md 10.34).
+        #[arg(long)]
+        map_bytes: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -410,6 +428,7 @@ fn main() {
             take_weights,
             creature,
             side_room,
+            side_door,
             random_creature,
             room_chance,
             side_chance,
@@ -423,6 +442,9 @@ fn main() {
             map_creature,
             patch,
             area_list,
+            item_once,
+            room_thing,
+            map_bytes,
         } => {
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
@@ -467,6 +489,10 @@ fn main() {
                 let v = nums(&t, 4..=4);
                 (v[0] as u8, v[1] as u8, v[2] as u8, v[3] as u8)
             });
+            let room_things: Vec<scenario::RoomThing> = room_thing
+                .iter()
+                .map(|t| scenario::room_thing(t).unwrap_or_else(|e| fail(&e)))
+                .collect();
             let area_lists: Vec<scenario::AreaList> = area_list
                 .iter()
                 .map(|t| {
@@ -491,6 +517,7 @@ fn main() {
             let random_creature =
                 random_creature.map(|c| scenario::Resident::parse(&c).unwrap_or_else(|e| fail(&e)));
             let side = side_room.then_some(((7, 4), (2, 4)));
+            let side_door = scenario::SideDoor::parse(&side_door).unwrap_or_else(|e| fail(&e));
             let residents: Vec<scenario::Resident> = creature
                 .iter()
                 .map(|c| scenario::Resident::parse(c).unwrap_or_else(|e| fail(&e)))
@@ -510,7 +537,7 @@ fn main() {
             if template.is_none() {
                 eprintln!("note: no template; the original program will refuse this disk");
             }
-            let img = match name.as_str() {
+            let mut img = match name.as_str() {
                 "move-basic" => {
                     let player =
                         player.map(|p| scenario::Player::default().with(&p).unwrap_or_else(|e| fail(&e)));
@@ -523,6 +550,7 @@ fn main() {
                         player2,
                         residents: residents.clone(),
                         side,
+                        side_door,
                         random_creature: random_creature.clone(),
                         room_chance,
                         side_chance,
@@ -544,6 +572,7 @@ fn main() {
                         map_creatures: map_creatures.clone(),
                         patch,
                         area_lists: area_lists.clone(),
+                        room_things: room_things.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -558,6 +587,8 @@ fn main() {
                     s.spells = spells.clone();
                     s.residents = residents.clone();
                     s.side = side;
+                    s.side_door = side_door;
+                    (s.store, s.stock) = (store, stock.clone());
                     (s.blade, s.bow, s.mail) = (blade, bow, mail);
                     if no_item {
                         s.item = None;
@@ -570,6 +601,12 @@ fn main() {
                 }
                 other => fail(&format!("unknown scenario {other}")),
             };
+            if item_once {
+                scenario::item_once(&mut img);
+            }
+            for m in &map_bytes {
+                scenario::map_bytes(&mut img, m).unwrap_or_else(|e| fail(&e));
+            }
             std::fs::write(&out, &img.data).unwrap_or_else(|e| fail(&e.to_string()));
             println!("wrote {} ({} bytes)", out.display(), img.data.len());
         }

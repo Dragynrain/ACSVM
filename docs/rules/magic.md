@@ -283,7 +283,9 @@ magic item after it is used. [unknown]
       at each refilled turn start (halved when hindered) and left as they
       are on a turn that starts with carried moves;
    2. the **top of each turn**, just after drift, rolls a die and heals on
-      a 2: 1 in 6, needed or not.
+      a 2: 1 in 6, needed or not. A Speed 0 creature's die is the same
+      one, and it is what gives such a creature its occasional second
+      point on a turn (5.5). [capture: rr29, 768 runs, capture.md 10.33]
    [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
    its 256 values one idle move before a Speed 15 turn's end (Life Force
    6, Constitution 20), the idle move's roll and the next turn's die
@@ -349,20 +351,29 @@ magic item after it is used. [unknown]
    no player is in it (the creature's slot in memory read all zeros while
    T was on the map) and loaded back from the disk with the byte kept, so
    the catch-up is what carries the creature's time across that reload.
-   [unknown] In these captures a Speed 0 creature sometimes heals 1 point
-   more on the turn than 5.3 gives for its idle move; whether it does
-   depends on the random state (a later roll of the turn), not on the
-   byte, so it is not an effect of a byte of 0 (capture.md 10.23 read it
-   so; 10.27 found it with N = 0, N = 1 and byte 0 alike). Yet the states
-   that give it differ from one byte to another, and why the byte moves
-   that roll is not known.
+   **The Speed 0 creature's extra point.** In these captures a Speed 0
+   creature sometimes healed 1 point more on its turn than its idle move
+   gives (5.3.1). That point is the top-of-turn die of 5.3.2, a 2 healing
+   1, as for any individual; it is not an effect of the byte (capture.md
+   10.23 had read it as one of a byte of 0). With the creature's byte set
+   to 40, 39 and 0 and the random state set to each of its 256 values,
+   the die drawn just before its turn predicted every extra point, 256 of
+   256 runs for each byte. The byte seemed to change which states gave
+   the point only because each roll mixes the raster line into the
+   random state (as with casting, 4.1; capture.md 10.29):
+   the catch-up's work shifts when the die is drawn by a raster line or
+   more, and so its face. [capture: mem `--draws`, rr29 `catch-40`,
+   `catch-39`, `catch-0`, 768 runs, capture.md 10.33; ours, no research
+   pass, 2026-11-14]
    **Engine:** every creature keeps its last turn's round (the record's
    byte 0x0C, 0 as decoded) and catches up by this rule at the top of its
    turn, before drift, gaining nothing at N = 0. The engine keeps every
    region in memory rather than unloading it and loading it back from the
    disk: a different mechanism with the same outcome, as the record, its
    byte included, is the same either way, so leaving and coming back
-   needs nothing more. The byte does not touch the turn's other rolls.
+   needs nothing more. The byte does not touch the turn's other rolls: the
+   engine's rolls have no timing in them, and the extra point is 5.3.2's
+   die, which it already rolls.
 
 ## 6. Creatures and magic
 
@@ -474,9 +485,9 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    (4.1, 4.2), and a use's cost in steps (two).
 2. Power drift, temporary decay and healing: captured, researched and
    confirmed (5.1-5.3); creatures catching up by the record's byte, also
-   across a real absence from the region (5.5, capture.md 10.30).
-   Still open: why the byte of 5.5 changes which random states give a Speed 0
-   creature's extra point of healing (5.5), creatures' healing, a temporary fall,
+   across a real absence from the region (5.5, capture.md 10.30); a Speed
+   0 creature's extra point of healing is the top-of-turn die (5.3.2,
+   5.5, capture.md 10.33). Still open: creatures' healing, a temporary fall,
    an individual out of play when its reversal is due. The idle roll's
    range on a turn that starts with carried moves: captured (5.3.1,
    capture.md 10.29).

@@ -1380,6 +1380,27 @@ fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py
     });
 }
 
+/// The picture a room square shows. An encounter area's door item on top
+/// of its square (`door`: the square is an area door) is drawn as an
+/// opening on a wall square and as plain floor on an inside one, never as
+/// its own picture (encounters 3.5); the opening shows the floor through
+/// the wall.
+fn square_picture(
+    a: &Adventure,
+    reg: &acs_core::model::Region,
+    r: &acs_core::model::Room,
+    sq: &scene::Square,
+    door: bool,
+) -> Option<acs_core::model::PictureId> {
+    let top_is_door = sq.items.first().and_then(|&i| r.items.get(i)).map(|it| it.thing)
+        == Some(acs_engine::encounters::AREA_DOOR_THING);
+    if !(door && top_is_door && sq.residents.is_empty()) {
+        return scene::shown(a, reg, r, sq).1;
+    }
+    // On a wall square the floor through the opening, inside plain floor.
+    scene::floor_picture(a)
+}
+
 fn draw_room(
     tiles: &crate::tiles::Tiles,
     ui: &mut egui::Ui,
@@ -1396,18 +1417,12 @@ fn draw_room(
         return;
     };
     let scene = RoomScene::new(reg, r);
-    // An encounter area's door item is drawn as an opening (encounters 3.5).
     let door = |x: u8, y: u8| g.area_door(Location::Room { region, room, x, y }).is_some();
     let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles.size);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for (k, sq) in scene.squares.iter().enumerate() {
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);
-        let (_, mut pic) = scene::shown(a, reg, r, sq);
-        let top_is_door = sq.items.first().and_then(|&i| r.items.get(i)).map(|it| it.thing)
-            == Some(acs_engine::encounters::AREA_DOOR_THING);
-        if top_is_door && door(x as u8, y as u8) {
-            pic = scene::floor_picture(a);
-        }
+        let pic = square_picture(a, reg, r, sq, door(x as u8, y as u8));
         tiles.paint(&painter, pic, grid.cell_rect(x, y));
     }
     // A dot in the corner of each creature's square shows its alignment.
@@ -1456,6 +1471,52 @@ mod tests {
         let mut f = common::Fixture::new(acs_core::Platform::C64);
         f.header("DRAINS", "", "");
         acs_core::decode(&f.build()).expect("decodes").adventure
+    }
+
+    /// Encounters 3.5: a thing-82 door is drawn as an opening (the floor
+    /// through it) on a wall square and as floor inside, never as its own
+    /// picture; other items and walls as usual.
+    #[test]
+    fn an_area_door_is_an_opening_on_a_wall_and_floor_inside() {
+        let mut f = common::Fixture::new(acs_core::Platform::C64);
+        f.header("DOORS", "", "");
+        f.thing(1, "GEM", [0x01, 3, 50, 5]);
+        f.thing(82, "EXIT", [0x01, 4, 0, 0]);
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        f.region(common::RegionSpec {
+            name: "R",
+            rooms: vec![common::RoomSpec {
+                name: "A",
+                w: 15,
+                h: 10,
+                wall: 9,
+                items: vec![
+                    (0, 5, 82, 0),
+                    (7, 5, 82, 0),
+                    (3, 3, 1, 0),
+                    (6, 6, 1, 0),
+                    (6, 6, 82, 0),
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let a = acs_core::decode(&f.build()).expect("decodes").adventure;
+        let reg = &a.regions[0];
+        let r = &reg.rooms[0];
+        let sc = RoomScene::new(reg, r);
+        let pic = |x, y, door| square_picture(&a, reg, r, sc.square(x, y).unwrap(), door);
+        let floor = scene::floor_picture(&a);
+        let exit = scene::thing_picture(&a, 82);
+        assert_ne!(floor, exit);
+        // Wall square: an opening; inside: floor.
+        assert_eq!(pic(0, 5, true), floor);
+        assert_eq!(pic(7, 5, true), floor);
+        // Not a door (outside an area): the item as usual.
+        assert_eq!(pic(7, 5, false), exit);
+        // A thing above the door shows; plain walls stay walls.
+        assert_eq!(pic(6, 6, true), scene::thing_picture(&a, 1));
+        assert_eq!(pic(0, 3, false), Some(r.wall_picture));
     }
 
     /// Feeds the clock `secs` seconds in frames of 1/50 s.

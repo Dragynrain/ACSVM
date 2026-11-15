@@ -328,8 +328,31 @@ fn players_take_turns() {
     assert_eq!(g.current(), 0);
 }
 
-/// Movement 1.4, 1.5, characters 5.4, 6.1, 6.2: four living characters at
-/// most, a fifth refused at the round's end; names wrap past 15.
+/// Waits until the round's end has handled the waiting add (characters
+/// 6.2): the events up to it.
+fn until_added(g: &mut Game) -> Vec<Event> {
+    let mut ev = Vec::new();
+    while !ev
+        .iter()
+        .any(|e| matches!(e, Event::PlayerAdded { .. } | Event::AddRefused))
+    {
+        ev.extend(g.apply(Command::Wait));
+    }
+    ev
+}
+
+fn added(ev: &[Event]) -> Vec<usize> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::PlayerAdded { player, .. } => Some(*player),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Movement 1.4, 1.5, characters 5.4, 6.1, 6.2, 6.4: four living characters
+/// at most, a fifth refused at the round's end; one add a round, the first
+/// asked; names wrap past 15.
 #[test]
 fn at_most_four_players() {
     let mut g = game(Platform::Pc);
@@ -339,40 +362,74 @@ fn at_most_four_players() {
             ..Default::default()
         },
     };
-    // Every request is taken, a fifth too: the count is checked at the
-    // round's end, in the order asked.
+    // Every request is answered alike; the round holds only the first.
     for n in ["TWO", "THREE", "A NAME FAR TOO LONG", "FIVE"] {
         assert_eq!(g.apply(add(n)), vec![Event::AddRequested]);
     }
     assert_eq!(g.players().len(), 1);
     let ev = g.apply(Command::Wait);
-    let added: Vec<usize> = ev
-        .iter()
-        .filter_map(|e| match e {
-            Event::PlayerAdded { player, .. } => Some(*player),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(added, [1, 2, 3]);
-    let refused = ev.iter().position(|e| *e == Event::AddRefused);
-    let last = ev
-        .iter()
-        .position(|e| matches!(e, Event::PlayerAdded { player: 3, .. }));
-    assert!(last < refused && refused.is_some(), "{ev:?}");
+    assert_eq!(added(&ev), [1]);
+    assert_eq!(g.players().len(), 2);
+    assert_eq!(g.players()[1].name, "TWO");
+    // Adds bring no round-end message: the count at the next round's
+    // start includes them.
+    assert!(!ev.iter().any(|e| matches!(e, Event::LivingChanged { .. })));
+    // Nothing more comes of the other three.
+    let mut later = Vec::new();
+    for _ in 0..4 {
+        later.extend(g.apply(Command::Wait));
+    }
+    assert!(added(&later).is_empty());
+    for (n, slot) in [("THREE", 2), ("A NAME FAR TOO LONG", 3)] {
+        g.apply(add(n));
+        assert_eq!(added(&until_added(&mut g)), [slot]);
+    }
     assert_eq!(g.players().len(), 4);
     assert_eq!(g.players()[3].name, "LONGME FAR TOO");
     let start = g.players()[3].at;
     assert_eq!(g.players()[1].at, start);
-    // Adds bring no round-end message: the count at the next round's
-    // start includes them.
-    assert!(!ev.iter().any(|e| matches!(e, Event::LivingChanged { .. })));
+    // Two requests with all four living: one refusal.
+    g.apply(add("FIVE"));
+    g.apply(add("SIX"));
+    let ev = until_added(&mut g);
+    assert_eq!(ev.iter().filter(|e| **e == Event::AddRefused).count(), 1);
+    assert!(added(&ev).is_empty());
+    assert_eq!(g.players().len(), 4);
     // Every one of the four gets a turn, in joining order.
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
     let mut seen = Vec::new();
     for _ in 0..8 {
         seen.push(g.current());
         g.apply(Command::Wait);
     }
     assert_eq!(seen, [0, 1, 2, 3, 0, 1, 2, 3]);
+}
+
+/// Characters 6.2, 6.4: two players asking once each in a round add one
+/// newcomer, the first asker's, into the lowest free slot.
+#[test]
+fn two_players_asking_in_a_round_add_the_first_ones_newcomer() {
+    let mut g = game(Platform::Pc);
+    let add = |name: &str| Command::AddPlayer {
+        setup: PlayerSetup {
+            name: name.into(),
+            ..Default::default()
+        },
+    };
+    g.apply(add("TWO"));
+    g.apply(Command::Wait);
+    assert_eq!(g.players().len(), 2);
+    assert_eq!(g.current(), 0);
+    assert_eq!(g.apply(add("FIRST")), vec![Event::AddRequested]);
+    g.apply(Command::Wait);
+    assert_eq!(g.current(), 1);
+    assert_eq!(g.apply(add("SECOND")), vec![Event::AddRequested]);
+    let ev = until_added(&mut g);
+    assert_eq!(added(&ev), [2]);
+    assert_eq!(g.players()[2].name, "FIRST");
+    assert_eq!(g.players().len(), 3);
 }
 
 /// Characters 6.2: a request with 4 living is taken at once and refused at
@@ -387,8 +444,8 @@ fn a_full_game_refuses_at_the_round_end_without_a_roll() {
                 ..Default::default()
             },
         });
+        until_added(&mut g);
     }
-    g.apply(Command::Wait);
     assert_eq!(g.players().len(), 4);
     // Same game, with and without the refused request: same draws.
     let mut h = g.clone();
@@ -463,7 +520,9 @@ fn created_and_joining_characters() {
         (p.constitution, p.wisdom, 0, 0)
     );
     assert_eq!(p.speed, 5 + p.dexterity / 7);
+    // Each joins at its round's end, one a round (characters 6.2, 6.4).
     g.apply(Command::CreatePlayer { name: "two".into() });
+    until_added(&mut g);
     g.apply(Command::AddPlayer {
         setup: PlayerSetup {
             name: "saved".into(),
@@ -474,7 +533,7 @@ fn created_and_joining_characters() {
             ..Default::default()
         },
     });
-    g.apply(Command::Wait); // both join at the round's end (characters 6.2)
+    until_added(&mut g);
     let saved = &g.players()[2];
     assert_eq!((saved.power, saved.life_force), (5, 3));
     let r = Game::replay(adv, 5, Rules::default(), first, g.log());
@@ -1269,8 +1328,9 @@ fn an_area_with_an_empty_list_has_no_way_out() {
     assert_eq!(g.players()[0].at, area(1, 1, 5));
 }
 
-/// Encounters 3.5, 7.1: a door of parameter n leads to area n + 1's
-/// entrance, or the start when that area is free or n is above 3.
+/// Encounters 3.5, 7.1: with the editor's area door table a door of
+/// parameter n leads to area n + 1's entrance, or the start when that area
+/// is free or n is above 4.
 #[test]
 fn the_door_parameter_names_the_area_it_leads_to() {
     for n in [1u8, 9] {
@@ -1331,9 +1391,10 @@ fn the_door_parameter_names_the_area_it_leads_to() {
     panic!("no two encounters in 400 seeds");
 }
 
-/// Stores 2.7: a store in an area opens, with empty shelves.
+/// Stores 2.7: a store in an area opens on shelves of every stockable
+/// thing 1..80 with a value above 0, as many as the stock limit allows.
 #[test]
-fn a_store_in_an_area_opens_with_an_empty_stock() {
+fn a_store_in_an_area_offers_every_stockable_thing_of_value() {
     let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, 0), (7, 3, SHOP as u8, 0)])]);
     let (mut g, _) = pulled_in(&a);
     g.place(0, area(1, 8, 3));
@@ -1346,7 +1407,178 @@ fn a_store_in_an_area_opens_with_an_empty_stock() {
             ..
         }
     )));
-    assert!(g.stock(0).is_empty());
+    // KEY and ROPE (treasures of value 1, things 1..32: 3 each); not SWIM
+    // (a spell), nor the portals, spaces, obstacles or the store.
+    let stock: Vec<_> = g.stock(0).iter().map(|s| (s.thing, s.count)).collect();
+    assert_eq!(stock, [(KEY, 3), (ROPE, 3)]);
+}
+
+/// Stores 2.7: only stockable things 1..80 of value above 0; things 33..80
+/// at most one each.
+#[test]
+fn the_map_regions_stock_follows_type_value_and_limit() {
+    let mut a = encounter_adventure(&[(4, 15, 0)]);
+    assert!(a.things.len() > 80);
+    let treasure = a.things[KEY as usize - 1].clone();
+    let mut zero = treasure.clone();
+    if let acs_core::model::ThingKind::Treasure { carry, .. } = &mut zero.kind {
+        carry.value = 0;
+    }
+    // KEY copied as thing 40 (limit 1) and 81 (past 80), one of value 0
+    // as thing 41.
+    a.things[39] = treasure.clone();
+    a.things[40] = zero;
+    a.things[80] = treasure;
+    let (g, _) = Game::new(a, 1, Rules { diagonals: true }, PlayerSetup::default());
+    let stock: Vec<_> = g.stock(0).iter().map(|s| (s.thing, s.count)).collect();
+    assert_eq!(stock, [(KEY, 3), (ROPE, 3), (40, 1)]);
+}
+
+/// Encounters 3.5: a door on an inside square is a way out too.
+#[test]
+fn a_door_on_an_inside_square_is_a_way_out() {
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(7, 5, 82, 0)])]);
+    let (mut g, _) = pulled_in(&a);
+    g.place(0, area(1, 8, 5));
+    let before = g.current_player().moves_left;
+    let ev = mv(&mut g, Dir::W);
+    assert_eq!(
+        g.players()[0].at,
+        Location::World {
+            x: PATCH.0,
+            y: PATCH.1
+        }
+    );
+    assert_eq!(g.current_player().moves_left, before - 1);
+    assert!(ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })));
+    // Closing keeps it (7.2).
+    let doors: Vec<_> = g.region(0).unwrap().rooms[1]
+        .items
+        .iter()
+        .map(|it| (it.x, it.y, it.thing))
+        .collect();
+    assert_eq!(doors, [(7, 5, 82)]);
+}
+
+/// Area 1 with doors of parameters `doors` (in list order) on 0,5, the
+/// area door table `table` and + 0x80E `e`; the player on 1,5.
+fn area_door_game(doors: &[u8], table: [u8; 8], e: u16) -> Game {
+    let items = doors.iter().map(|&n| (0, 5, 82, n)).collect();
+    let mut a = encounter_adventure_with(&[(4, 15, 0)], &[(1, items)]);
+    a.world.unknown_806 = table.to_vec();
+    a.world.unknown_80e = e;
+    let (mut g, _) = pulled_in(&a);
+    g.place(0, area(1, 1, 5));
+    g
+}
+
+/// The editor's area door table with entry `n` set to `entry`.
+fn with_entry(n: usize, entry: [u8; 2]) -> [u8; 8] {
+    let mut t = wm::STOCK_AREA_DOORS;
+    t[n * 2] = entry[0];
+    t[n * 2 + 1] = entry[1];
+    t
+}
+
+/// Encounters 3.5: the parameter picks an entry of the area door table,
+/// read as a room door's destination with codes of its own for the areas.
+#[test]
+fn the_area_door_table_says_where_a_door_leads() {
+    let start = Location::World { x: 20, y: 20 };
+    let cases: [([u8; 2], Location); 7] = [
+        // Map point 0: map door 0's square, not taken through it.
+        ([0x00, 0x00], Location::World { x: 20, y: 19 }),
+        // Map point 35: exit point 3.
+        ([0x00, 35], Location::World { x: 5, y: 6 }),
+        // An unused point, a code that is neither, a free area: the start.
+        ([0x00, 0x01], start),
+        ([0x00, 0x50], start),
+        ([0x00, 0x42], start),
+        // Region 1's deleted room 2, a region the adventure doesn't have.
+        ([0x12, 0x22], start),
+        ([0x32, 0x08], start),
+    ];
+    for (entry, to) in cases {
+        let mut g = area_door_game(&[0], with_entry(0, entry), wm::STOCK_80E);
+        let before = g.current_player().moves_left;
+        let ev = mv(&mut g, Dir::W);
+        assert_eq!(g.players()[0].at, to, "{entry:02x?}");
+        // Not a step: no roll, no door taken; one move used.
+        assert!(encounters(&ev).is_empty());
+        assert!(!ev
+            .iter()
+            .any(|e| matches!(e, Event::TookDoor { .. } | Event::EnteredRoom { .. })));
+        assert_eq!(g.current_player().moves_left, before - 1, "{entry:02x?}");
+        assert!(ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })));
+    }
+    // Area 1's own code: its entrance (area 1 is still open when read).
+    let mut g = area_door_game(&[0], with_entry(0, [0x00, 0x41]), wm::STOCK_80E);
+    mv(&mut g, Dir::W);
+    assert_eq!(
+        g.players()[0].at,
+        Location::World {
+            x: PATCH.0,
+            y: PATCH.1
+        }
+    );
+}
+
+/// Encounters 3.5: region 1 or above is a region change, as a room door
+/// into another region: the turn ends and the moves left are carried.
+#[test]
+fn an_area_door_into_a_region_is_a_region_change() {
+    let mut g = area_door_game(&[0], with_entry(0, [0x10, 0x23]), wm::STOCK_80E);
+    let ev = mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, hall(2, 3));
+    assert!(ev
+        .iter()
+        .any(|e| matches!(e, Event::EnteredRegion { player: 0, region: 1 })));
+    assert!(ev.iter().any(|e| matches!(
+        e,
+        Event::EnteredRoom {
+            player: 0,
+            region: 1,
+            room: 0
+        }
+    )));
+    assert!(ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 })));
+    assert!(ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })));
+    assert!(g.region(0).unwrap().rooms[1].deleted);
+}
+
+/// Encounters 3.5: parameter 4 reads + 0x80E (low byte first); above 4,
+/// the start; + 0x80E changes nothing for parameters 0..3.
+#[test]
+fn parameter_4_reads_the_word_at_0x80e() {
+    let start = Location::World { x: 20, y: 20 };
+    // 00 23 (map point 35) as the word 0x2300.
+    let mut g = area_door_game(&[4], wm::STOCK_AREA_DOORS, 0x2300);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, Location::World { x: 5, y: 6 });
+    // The corpus's 32 08: region 3, room 2, which the fixture lacks.
+    let mut g = area_door_game(&[4], wm::STOCK_AREA_DOORS, wm::STOCK_80E);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, start);
+    let mut g = area_door_game(&[5], wm::STOCK_AREA_DOORS, 0x2300);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, start);
+    let mut g = area_door_game(&[0], with_entry(0, [0x00, 0x00]), 0x2300);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, Location::World { x: 20, y: 19 });
+}
+
+/// Encounters 3.5: with several doors on one square the first in the list
+/// gives the parameter.
+#[test]
+fn the_first_door_on_a_square_gives_the_parameter() {
+    let mut table = with_entry(1, [0x00, 35]);
+    table[0..2].copy_from_slice(&[0x00, 0x00]);
+    let mut g = area_door_game(&[0, 1], table, wm::STOCK_80E);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, Location::World { x: 20, y: 19 });
+    let mut g = area_door_game(&[1, 0], table, wm::STOCK_80E);
+    mv(&mut g, Dir::W);
+    assert_eq!(g.players()[0].at, Location::World { x: 5, y: 6 });
 }
 
 /// Encounters 6.4: a creature leaves by the door item, wherever it is.

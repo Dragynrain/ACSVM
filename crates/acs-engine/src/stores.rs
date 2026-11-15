@@ -359,8 +359,9 @@ mod tests {
     const AREA: u8 = 1;
 
     /// A game whose player (Wisdom 13, 500 gold, one gem) stands on 3,3 of
-    /// encounter area 1, west of a store on 4,3; region 0's stock `stock`.
-    fn in_area(p: Platform, stock: Vec<Possession>) -> Game {
+    /// encounter area 1, west of a store on 4,3; region 0's stock `stock`,
+    /// or the one the game builds (2.7).
+    fn in_area(p: Platform, stock: Option<Vec<Possession>>) -> Game {
         use acs_core::layout::world_map as wm;
         let mut f = common::Fixture::new(p);
         f.header("SHOP", "", "");
@@ -408,7 +409,9 @@ mod tests {
             destination: None,
             gold: None,
         }];
-        g.map.store = stock;
+        if let Some(stock) = stock {
+            g.map.store = stock;
+        }
         g.place(
             0,
             Location::Room {
@@ -424,7 +427,7 @@ mod tests {
     #[test]
     fn a_store_in_an_area_opens_on_region_0s_stock_which_never_changes() {
         for p in [Platform::Pc, Platform::C64] {
-            let mut g = in_area(p, vec![Possession { thing: GEM, count: 1 }]);
+            let mut g = in_area(p, Some(vec![Possession { thing: GEM, count: 1 }]));
             let moves = g.current_player().moves_left;
             // Opens as in a room: a step onto its square, one move (3.2).
             let ev = g.apply(Command::Move { dir: Dir::E });
@@ -472,23 +475,23 @@ mod tests {
     }
 
     #[test]
-    fn region_0_holds_no_stock_from_the_file() {
-        // The file keeps no stock for the map, so the store in an area
-        // offers nothing, and what is sold there doesn't join it.
+    fn region_0s_stock_is_every_stockable_thing_of_value() {
+        // The file keeps no stock for the map: the game offers every thing
+        // a store can stock with a value above 0, to its limit (GEM, 3;
+        // not GOLD, the store or the floor), and buying or selling there
+        // never changes it.
         for p in [Platform::Pc, Platform::C64] {
-            let mut g = in_area(p, Vec::new());
-            assert!(g.stock(0).is_empty());
+            let mut g = in_area(p, None);
+            assert_eq!(g.stock(0), [Possession { thing: GEM, count: 3 }]);
             g.apply(Command::Move { dir: Dir::E });
             assert_eq!(g.store_visit(), Some(StoreVisit { player: 0, region: 0 }));
-            let ev = g.apply(Command::Buy { thing: GEM });
-            assert!(ev.contains(&Event::StoreRefused {
-                player: 0,
-                thing: GEM,
-                reason: StoreRefusal::NotStocked
-            }));
+            for _ in 0..4 {
+                let ev = g.apply(Command::Buy { thing: GEM });
+                assert!(ev.iter().any(|e| matches!(e, Event::Bought { thing: GEM, .. })));
+            }
+            assert_eq!(g.current_player().gold, 300);
             g.apply(Command::Sell { thing: GEM });
-            assert!(g.stock(0).is_empty());
-            assert_eq!(g.current_player().gold, 524);
+            assert_eq!(g.stock(0), [Possession { thing: GEM, count: 3 }]);
         }
     }
 }

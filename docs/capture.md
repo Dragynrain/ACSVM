@@ -2157,3 +2157,591 @@ In this order (planned November 2026):
      to poke between them; not run. Seen besides: 600 gold left T unable
      to move ("you can't move. perhaps you are carrying too much", moves
      0) with the menu coming up at each press (`c3-button`, dropped).
+29. **Room doors, region to region, and carried moves beside an enemy**
+   (2026-11-14; ours, no research pass: the planned captures of
+   `docs/research/turn-order.md` "No third pass", [creatures](rules/creatures.md)
+   2.2.4 and 2.6, [movement](rules/movement.md) 2.3 and "Captures needed"
+   8, [magic](rules/magic.md) 5.3.1). `ACSVM-research/capture/runs/rr25/`
+   (the harness binary in `bin/`, `env.sh`; `build.sh`, `build2.sh`,
+   `build3.sh` make the disks, `room.txt`, `room2.txt`, `wait.txt`,
+   `turn2.txt` the snapshots). New scenario option `--side-door one-way|
+   two-way|region` (`scenario::side_door`): the side room's portal on room
+   0's 7,4 as before, the same with the two-way bit (property byte 0, bit
+   5) set, or one-way into room 0 (FAR ROOM, 10 x 8) of a second region,
+   square 2,4 either way. New `scripts/turnstarts.py`: a `mem` run's turns
+   from the region, counter, individual, moves left, square and Life Force
+   (section 9), each turn's steps and idle moves and, with `--range`, which
+   ranges explain each idle move's healing roll. Each draw shows in
+   `--draws` as two stores, the state XOR the line, then that x 69 + 131
+   (the raw number): one roll, as 10.28 counted them; the script joins the
+   pair. Every disk: T alone, Speed 12, Constitution 40, Life Force 10 (15
+   to 24 by the room). `room.txt` waits for a full bar, lets it drain to W
+   moves, walks south through the map door until C are left and saves
+   `room.vsf` at T's first room turn. A `mem` run has no jitter: one run a
+   case except the random-state sweeps.
+   - **Item 2, a room door into another room** (`one`, `two`: the portal
+     one-way and two-way; from `r8/room.vsf`, 8 moves; `x1` holds east 3M,
+     `x0` the same from `w3/wait.vsf`, 3 moves left). `x1`: 3 squares east,
+     the portal with 5 moves left; **the moves went to 0, the individual to
+     0, the counter up (round 8 to 9), and T's next turn began in the side
+     room on 2,4 with 5 moves**, then walked them (the stick still held);
+     the turn after that 12. `x0`: the portal with the last move; the next
+     turn 12. The same in both, to the instruction nearly: the two-way bit
+     changes nothing. So a room door into another room ends the turn like
+     a map door and **carries the moves left** into the next turn's start
+     (the full Speed if none), as creatures 2.2.4 says of the map door.
+   - **Item 1, from one room region into another** (`reg`, the same
+     runs): `x1` as `one` up to the portal, then the region byte 1 to 2,
+     and T's first turn in region 2 (round 9) with the 5 moves; `x0`: the
+     full 12. No round missed. With a second player (`reg2`, U Speed 4
+     added on T's first map turn, `room2.txt`: T in with 8 moves, U with
+     all 4, both in room 0 of region 1 from round 13; T through the portal
+     with 5 left at once, `x1` 150M, `x2` 400M instructions): **U alone
+     in region 1 rounds 13 to 32, T in region 2 rounds 33 to 42 (its first
+     turn there with the 5 moves, 20 rounds later), U in region 1 from
+     43**. So T, reaching region 2 during the cycle begun at round 13,
+     waited for the next (creatures 2.2.1), where region 1 came first; the
+     carried moves survive the wait.
+   - **Item 3, carried moves beside an enemy** (`adj`: EE, an aggressive
+     enemy of Speed 0 and Strength 1, on 5,4 east of the entry; `diag` the
+     same on 5,5). T's first room turn began with **8 of 8 carried (`adj
+     r8`), 7 of 7 (`adj r7`, one idle move on the map first), 8 (`diag
+     r8`)**: not halved; with none left at the door (`adj r0`) it began
+     with **6**, the full 12 halved as any turn beside EE; T's later turns
+     beside EE 6 each.
+   - **The idle healing roll's range** (`--set-random-state --draws`, Life
+     Force below Constitution throughout; `turnstarts.py --range`): the
+     roll is the first draw in the 300,000 instructions before the moves
+     drop that falls under n (raw // (256 // n), a redraw at n or more);
+     a range fits a move when that roll is 0 exactly when Life Force rose
+     and no redraw follows that n would not make.
+
+     | Turn | Runs | Idle moves | Range that fits all | Others |
+     | --- | --- | --- | --- | --- |
+     | `adj s8` turn 0: 8 carried, door turn 12 | 64 | 512 | **12** | 8: 486, 6: 468, 4: 415 |
+     | `adj s8` turn 1: beside EE, 6 | 64 | 384 | **6** | 12: 362, 8: 369, 4: 350 |
+     | `adj s0`: none carried, 6 | 32 | 192 | **6** | 12: 173, 8: 176 |
+     | `adjside s3`: 3 carried, door turn 6 | 64 | 192 | **6** | 12: 176, 8: 182, 3: 161 |
+
+     `adjside` (`build3.sh`): EE on 3,4, west of the entry, and the
+     side portal; from T's second room turn (`t2/turn2.vsf`: beside EE, 6
+     moves), 3 squares east onto the portal; the next turn in the side
+     room began with the 3 moves. So the range is the moves the last
+     refilled turn top gave, halved there when hindered: a carried turn
+     keeps the door turn's (12, or 6 when that turn was beside EE), never
+     the count carried; an ordinary turn beside an enemy uses its halved
+     bar.
+30. **Characters' open cases: destroy in a room, disk identity, a full
+   roster, a real absence** (2026-11-14; ours, no research pass:
+   [characters](rules/characters.md) 3.5, 6.2, 7.3, 7.5 and "Captures
+   needed" 1 to 3 and 5, [magic](rules/magic.md) 5.5, and the planned
+   captures of `docs/research/characters.md` "No third pass yet").
+   `ACSVM-research/capture/runs/rr26/` (rr24's harness binary and
+   `acs.exe` in `bin/`, `env.sh`; `gen1.py`, `gen3.py`, `gen4.py` write
+   the scripts; `run1.sh`, `run1b.sh`, `run2.sh`, `run2b.sh`, `run34.sh`,
+   `run4.sh` run them two VICE at a time; `sum1.py` lists item 1's room
+   lists). No harness changes. Scripts only, one run a case.
+   - **Destroy in a room, one thing at a time** (`d1-CASE-u` from rr19's
+     `room1/offer.vsf`, T and U in the room, the offer under U's strip;
+     `d1-CASE-last` from rr19's `last1/offer.vsf`, T the last player, AA
+     in the room). At the offer T's gold, weapon held, armor worn and
+     possessions (`$F5B1`, `$F5B3`, `$F5B4`, `$F5B6` on) poked to one
+     thing alone, then F1, the button, F1; the room's list (`$382A`,
+     `$E583`, `$E585` on, section 9) read before, at the moment T's first
+     byte went to 0, 20M later and once the screen settled (alike in
+     every run: nothing changes after the destroy). 26 cases, 46 runs;
+     the list was empty before in every run.
+
+     | Thing (kind, the thing block's "ACS may add" count) | with U | last player |
+     | --- | --- | --- |
+     | 300 gold | on 4,4 | on 4,4 |
+     | BLADE 59 (melee, 0), held or not | on 4,4 (2) | **gone** (2) |
+     | DAGGER 2 (melee, 4), MAGIC SWORD 34 (melee, 1) | on 4,4 | on 4,4 |
+     | BOW 41 (missile, 8), held or not; DART 4 (missile, 15) | on 4,4 | on 4,4 |
+     | MAIL 40 (armor, 1), worn or not; HELMET 54 (armor, 4) | on 4,4 | on 4,4 |
+     | GOODA 13 (treasure, 0), one or two | on 4,4 (x1, x2) | **gone** |
+     | KEY 73 (treasure, 4), JEWEL PACKET 6 (treasure, 2) | on 4,4 | on 4,4 |
+     | SCROLL 57, FOOD CONTAINER 5 (magic items, 3 and 15) | on 4,4 | on 4,4 |
+     | BLESSING 58, FLIGHT 61 (spells) | gone | gone |
+     | HORN 8, HAND 12, ACID TOUCH 79 (0), CLAW 11, DEADLY TOUCH 78 (15): creatures' melee weapons, weight 0, not usable by anyone | gone | gone |
+     | the kit (rr19's: gold, blade, bow, mail, GOODA, GOODB) | all six | bow, mail, gold |
+
+     So it goes by neither kind nor worn or held. **With the other player
+     present** every carriable thing goes down but spells and the
+     creatures' weight-0 weapons. **As the last player** the things whose
+     "ACS may add" count (thing block + 0x800, high nibble) is 0 are lost
+     too (blade, GOODA, GOODB; every thing kept has a count of 1 or more).
+     The creatures' weapons with a count of 15 are lost either way, so
+     their loss is not the count. The count as the cause is a fit to 3
+     things, not tested by changing one. The kit as last player with the
+     random state `$1CC9` set to 0, 85 and 170 before the last F1
+     (`d1-kit-rs*-last`): bow, mail, gold in all 3, as rr19's `newc` found
+     after a newcomer, so the newcomer's save changed nothing there.
+     **Order**: the kit went down gold first, then GOODA, GOODB, MAIL,
+     BOW, BLADE (each new entry goes first in the list): possessions in
+     thing-number order, the held and worn ones among them. Snapshots
+     just after the second F1, without disks:
+     `d1-kit-snap-u/destroyed.vsf`, `d1-kit-snap-last/destroyed.vsf`.
+   - **Disk identity** (`d2-*`, from rr19's `create-menu-nodisk.vsf`,
+     `$3D5A` read 235,252 and poked to 137,87, the adventure disk's own
+     word, as rr19 did; the other disk in drive 8, cursor 0). The other
+     disk was rr19's `other300.d64` (V, 300 gold, the kit) with its word
+     at d64 0x1C800 set to 13,151 (`id-ctrl`), **137,87, the adventure's
+     own** (`id-same`), 137,151 (`id-lo`), 13,87 (`id-hi`), and 137,87
+     then back to 13,151 (`id-back`, byte for byte `other300.d64`): all
+     five showed "you may use the back side", "put the disk from which to
+     copy", then the list with V and the cursor back on 0. The
+     **adventure's own disk** (`own`: a copy of `create-menu-disk.d64`,
+     its roster holding T) the same: T listed, cursor 0. rr19's
+     `retire-disk.d64` (`ownu`: roster entry 1 empty, U in entry 2) put U
+     in the second column and the cursor on 1, as rr19's `ota-ownid`: that
+     comes from the empty first entry, not from the identity. Taken
+     through (`d2b-*`, `id-b.txt` from each `list.vsf`, the adventure disk
+     attached at "put your adventure disk in"): **`id-same` joined V as
+     another adventure's player** (gold 300 raised to 1,000, no weapon,
+     armor or possessions, on 12,12; V's 2 name bytes cleared on the other
+     disk) and **`own` joined T the same way** (T's roster gold 0 raised
+     to 1,000, its room square 4,4 of region 1 replaced by the map's
+     12,12, its name's byte cleared on the copy). **No refusal and no
+     message** in either: the finding's "the same adventure's disk is
+     refused" did not show. `id-ctrl` stuck at "put your adventure disk
+     in" (the `attach` too late, 2.4, as in rr19) and `ownu` took a record
+     that was not U's; neither bears on the identity.
+   - **A full roster** (`d3-*`, `full.txt` from rr19's `ret1/offer.vsf`,
+     the map offer for T, U in play; `gen3.py` names, with copies of U's
+     record, every roster entry of `retire-disk.d64` but U's: `full34` all
+     34, `free34` all but entry 34). `full34`, the button: **"Sorry. The
+     disk is full. T will keep playing."**, the button, and T played on
+     (its turns in rounds 27 and 28, its first byte 75); **the disk
+     unchanged byte for byte**, nothing saved. T's Life Force read 11 (its
+     Constitution) at round 27, 5 at the offer: raised as for a save or
+     healed over those 5 rounds, not separated. `free34`: "saving game",
+     the save, T out of play; **T's name in entry 34** (creatures
+     + 0x1850) and its whole record at + 0x1E6F (the decoder's 25 names
+     and 6 records a page: entry 34's place confirmed), Life Force 11,
+     adventure block + 0xE7 22.
+   - **A real absence** (`ab-4`, `ab-10`, `ab-30`; `ab/`: the `loose`
+     scenario with `--no-item --player name=T --creature
+     name=AA,x=12,y=2,spd=0,con=20,lf=5,wis=20,pow=2`, started with
+     `start-retired.txt`; `gen4.py`). T walked into the room in round 13;
+     AA had turns in rounds 15 to 17 (Life Force and Power up 1 a turn,
+     the byte + 12 15, 16, 17); T stepped onto the exit (room 4,5 to the
+     map's 20,12) in round 18, waited on the map until round 18 + K, was
+     poked onto 12,15 and pushed south through the map door. **While T
+     was on the map AA's slot at `$E1A3` read all zeros** (+ 12 to + 15
+     read 1, 17, 17, 17): the room region was unloaded. Back in the room
+     AA came from the disk with Life Force 8, Power 5 and the byte 17
+     kept, and at its first turn (round 19 + K, so N = K + 6 rounds since
+     round 17):
+
+     | K | N | Life Force, Power at its turn | the rule (8 + N / 2; 5 + (N - 1) + 1 drift) |
+     | --- | --- | --- | --- |
+     | 4 | 6 | 12, 11 | 11, 11 |
+     | 10 | 12 | 14, 17 | 14, 17 |
+     | 30 | 32 | 20, 20 | 20, 20 (the caps) |
+
+     Power as the rule gives in 3 of 3, Life Force in 2 of 3; `ab-4`'s one
+     point more is the Speed 0 creature's extra point of healing that
+     10.27 found going with the random state. The byte was the current
+     round after each turn. So the catch-up holds across a real absence,
+     the region written to the disk and loaded back with the byte.
+   - **Two "Add Someone" requests in one round** (`d5-add2`, `add2.txt`
+     from rr19's `nd-menu/nodisk.vsf`: T asks RETIRE in round 21, U to
+     ask ADD SOMEONE twice): not reached. The blind script lost step with
+     the screens (the retire offer came at round 21's end and a menu press
+     saved T); the add-player screen then came at round 22's end with T
+     listed. It needs a script that waits on each screen.
+31. **A store's stock across visits, saves and restores** (2026-11-14;
+   ours, no research pass; [stores](rules/stores.md) 2.8 and "Captures
+   needed" 1, 3 and 4). `ACSVM-research/capture/runs/rr27/` (the harness
+   binary in `bin/`, `env.sh`; `gen.py` writes the scripts, `build.sh` and
+   `all.sh` the disks, `kill.sh` the deaths; `diskstock.py` reads a disk's
+   region stock and players with `acs dump`; `chg.py` is rr24's). New
+   scenario options: `loose` now takes `--store` and `--stock`, and
+   `--item-once` sets our magic item's "disappears after use" bit
+   (`scenario::item_once`). Disks: rr10's `look` store (5,4) and stock
+   (WARE1 10, WARE2 50 x2, WARE3 200) on the `loose` scenario, so the
+   room has its exit to the map on 4,5; T (Speed 6, Wisdom 20, gold 500)
+   owns GOODA (thing 13, value 100) and the item (thing 70). `shop` has
+   no creature; `shopk` adds EE (an aggressive enemy with rr21's killer's
+   stats, on 13,8) and gives T Constitution and Life Force 10. `build.sh`
+   plays each from `boot/play-nodisk.vsf` in one session (`chain.txt`:
+   `start-retired.txt` then `enter-room.txt`) and saves `room-nodisk.vsf`
+   and the disk as `detach` flushed it (`room.d64`), so each script below
+   writes to its own disk file and ends with `detach`. The drive was
+   alive in every run. One run a case (no roll in a purchase or a sale,
+   10.17).
+   The store visit (`shop()` in `gen.py`): bump east; the button sells
+   GOODA for 59 (gold 559, `$E070` 64: thing 13 in stock); the stick skips
+   the item's offer; browse, bump WARE1 on 6,6 and buy it (gold 549,
+   `$E06D` 100 to 36: thing 1 from 1 to 0); west along row 5 and out by
+   0,4: T on 5,4 with one move. A diagonal push onto the room's exit, or
+   held on the map, did not move T; the scripts walk straight. On the
+   `shop` disk the settle after leaving ran its full 50M (the counter 18
+   to 24, T alone); nothing in the stock or the purse changed meanwhile.
+   - `out`: T west to 4,4, south onto the exit: the map, T on 20,12, the
+     stock bytes all 255 (10.21). **The disk's region 1 stock is now
+     WARE2 x2, WARE3, GOODA** (WARE1 gone, GOODA added) and T's record
+     holds 549 gold, WARE1 and the item: leaving the region wrote the
+     stock with the rest (`room.d64` before: WARE1, WARE2 x2, WARE3; T 500
+     gold, GOODA and the item).
+   - `back`: the same, then south and west onto the map door and in
+     again (the region read from the disk): **`$E06D`-`$E07A` as left**
+     (36, 0, 0, 64, the rest 0), and the store screen draws WARE2, WARE3
+     and GOODA, 6,6 empty (`shelves.png`). The disk at the end as `out`'s.
+   - `nosave` (`shopk`; EE poked to a friend, `$E1A7` 182, before the
+     visit; at T's next turn, round 19, back to 230 and onto 6,4 beside T
+     (`$E1B0`), `kill.vsf`; `kill.sh`: `run mem --answer T --answer-text
+     CONTROL,CONTINUE`, 300M, `nosave-kill`): EE killed T in round 19; the
+     button: **the counter back to 17, gold 500, GOODA owned again, WARE1
+     not, the stock 100, 0, 0, 0 (WARE1 back on its shelf, GOODA gone from
+     it)**, EE's class 227 as built: the room visit's start, stock
+     included. The disk flushed before the death still held the visit
+     start's stock.
+   - `save` (the same, with SAVE GAME at T's turn in round 19, the press
+     1.5M into the turn, once the prompt shows; the save at the round's
+     end; the disk flushed at the "saved" message: **region 1's stock
+     WARE2 x2, WARE3, GOODA, T 549 gold** and WARE1): EE killed T in round
+     20; the button (`save-kill`): **the counter back to 20, gold 549, the
+     stock 36, 0, 0, 64**, EE 182 (as when saved). SAVE GAME saves the
+     stock and the button restores it.
+   - `item` (`shop`): Use Object on the item, "THE ITEM WORKED": **the
+     item gone** (`$F5C2` 4 to 0) and **not in the stock** (`$E079` 0; the
+     store screen drew WARE1 to WARE3 only). A magic item used up does not
+     restock (stores 2.5).
+   - `twice` (`shop`, `$F5B9` poked to 128: GOODA owned twice): the
+     button: "T has 2 GOODAS", "press button to sell one for 59"; the
+     button: gold 559, one left, "T has 1 GOODA", "sell it for 59"; the
+     button: gold 618, none left, the stock's GOODA count 2 (`$E070` 128).
+     **A thing owned twice is offered once per copy** (stores 5.2).
+   Not tried: a magic item set to act when picked up, bought (stores
+   4.4); a store in a room of another size.
+32. **The player's firing checks, a kill, another player as target, and
+   creatures' combat-side open cases** (2026-11-14; ours, no research
+   pass: [combat](rules/combat.md) 8.8 and "Captures needed" 6,
+   [creatures](rules/creatures.md) 2.7, 8.1 and "Captures needed" 7 and
+   8). `ACSVM-research/capture/runs/rr28/` (the harness binaries in
+   `bin/`, `env.sh`, `mem.sh`; `case.sh` is rr20's, which leaves T on 4,5
+   or 4,4 by the walk; `case2.sh` waits for a full bar and lets go as the
+   room region loads, `enter2.txt`: T on 4,4 with Speed - 4 moves;
+   `build2.sh` the two-player disk; `tl.py` prints a `mem` run's changes
+   and draws in time order, `burden.py` and `still.py` sum the creature
+   cases). New scenario option `--room-thing KIND:X,Y`
+   (`scenario::room_things`: a space, custom space or custom obstacle of
+   ours, the door picture, on a room 0 square). `scripts/combatcheck.py`
+   gains the cases `kill-e5` (`--kill-roll yes|no`) and `fire-u`
+   (`--player-roll yes|no`); `scripts/dropcheck.py` the case `drop-kinds`
+   and `--refuse`. Pushes are `mem --push` schedules (the menu: the
+   button, two pushes down to FIRE, the button), one run each where
+   nothing is random.
+   - **Which test comes first** (`bes`: T holding the bow, 2 moves, on
+     4,4; XX, a Speed 0 aggressive brave enemy of Strength 1, on 5,4; from
+     `bes-room.vsf`). T's held weapon `$F5B3` set to 0 (owning the bow,
+     holding nothing), XX left an aggressive enemy (`ord-c6`): FIRE gave
+     "may not use a missile weapon while next to XX" and **no move** (2
+     left; after the button the bar drained them as two idle moves, each
+     with its draw, at 9.0M and 10.8M); with the bow's possession bit
+     cleared too (`$F5BF` 128 to 0: `ord-c6-own0`) the same. With XX a
+     peaceful enemy (`ord-c2`, `ord-c2-own0`) FIRE took a move at once (2
+     to 1) and showed "select a missile weapon", then the menu: NONE and
+     BOW, or NONE alone (screens `sc-ord-c2`, `sc-own0-c2`, `sc-ord-c6`).
+     So **8.8.2's test comes before 8.8.4's**, and it refuses whether a
+     missile weapon is held, owned or neither.
+   - **Who counts beside** (`cls-c0` .. `cls-c7`: XX's class byte `$E1A7`
+     set to 128 + 16 x the class, alignment 0 thief .. 3 friend plus 4 if
+     aggressive, before FIRE; T holding the bow). Refused, no move: the
+     aggressive thief, neutral and enemy (c4, c5, c6). The cursor, then 2
+     shots at the button (`$B799` 1, then 0): the peaceful thief, neutral,
+     enemy and friend (c0 to c3) and **the aggressive friend** (c7).
+     **Another player** (`bes2`: T Speed 12 holding the bow, U Speed 4,
+     both walked in by rr25's `room2.txt`; `bes2fire2.txt`): T stepped
+     east to 5,4 and idled, U idled its first room turn out on 4,4, and at
+     T's next turn (12 moves) FIRE brought the cursor: **another player
+     beside never stops FIRE**. Both as the engine says (aggressive and not
+     a friend; players never). Seen on the way: at T's first room turn U,
+     which came through the door after T, is not yet in the room: it
+     isn't drawn, and in a first 64-run sweep at it (since deleted) no
+     arrow ever reached its square; from its own first turn there on it
+     is drawn and hit.
+   - **The roll of 0 to 9 after an arrow that kills** (`kill`: fire-e5's
+     room, T Speed 10 with 6 moves on 4,4, EE at Life Force 1; cursor
+     snapshot `killsnap/fire-e5.vsf`; sweep `kill-e5`, 64 runs,
+     `--set-random-state`). `combatcheck.py --case kill-e5`: **64/64 with
+     the roll drawn after the killing arrow**, 46/64 without (18 runs then
+     have a draw left over before T's next turn). 25 kills; at each **the
+     firing ends** with shots still due (`$B799` straight to 0, the slot's
+     first byte `$E1A3` to 0, "T harms EE with bow", "EE dies"), then the
+     round's end (the slot roll and the room's percentile) and T's next
+     turn, its bar filling before its next draw.
+   - **The roll after an arrow that damages a player** (`fire-u`: from
+     `bes2fire2/fire-u.vsf`, the cursor on U beside T; 64 runs, 7 shots
+     each, U's record `$F5C4` + 3, + 5, + 6 watched). `combatcheck.py
+     --case fire-u`: **64/64 with the roll after every damaging arrow on
+     U** (288 of them, 91 dodges), 2/64 without. The engine's choice (no
+     roll when the arrow damages a player) disagrees; what the roll
+     decides for a player isn't seen (it has no class to change).
+   - **Why choosing the bow costs a second move** (`rdy`: T Speed 10, 6
+     moves, owning blade and bow, holding the blade, EE at 9,4). The moves
+     `$719A` and the held weapon `$F5B3` timed against the pushes: FIRE
+     took 6 to 5 at the press; **the second move goes at the moment the
+     bow is chosen**, the held weapon becoming the bow in the same sample,
+     and then the cursor holds the bar. Alike holding the blade
+     (`rdy-blade`) or nothing (`rdy-none`); waiting 8M instructions on the
+     message (`rdy-slowmsg`) or on the menu (`rdy-slowmenu`) changed
+     nothing, so it is not the bar running while the menus show. NONE
+     (`rdy-nonepick`) took no move at the choice (the bar then drained as
+     usual). **NEW WEAPON** (the first row's third entry; its "select
+     weapon" menu lists NONE, BOW and BLADE) choosing the bow took one
+     move at the choice too (`nw-bow`, `nw-bow-blade`: 6 to 5), and FIRE
+     with the bow then held went straight to the cursor. So the second
+     move is the readying's own (combat 6.1), the same as NEW WEAPON's,
+     on top of FIRE's. With the moves set to 1 or 2 (`rdy-m1`, `rdy-m2`):
+     FIRE took 1 to 0 (2 to 1), the bow 0 (1 to 0) and was readied all
+     the same, one shot; with 6 (`rdy-m6`) 6, 5, 4 and 3 shots (`$B799`
+     2, 1, 0).
+   - **The second kind of thing that refuses a drop** (`drop-kinds`: WE,
+     rr20's dropper, on 6,4 with a custom obstacle of ours on 5,4, the
+     side room's portal on 7,4, a custom space on 6,3 and a space on 6,5;
+     sweep `drop-kinds-sw`, 256 runs from the turn-end snapshot). With the
+     side room the room's list (the word at `$382A`) starts at `$E58D`,
+     its length byte at `$E58B`. `dropcheck.py --case drop-kinds --refuse
+     5,4`: **256/256**, 306 tries, 50 failed on the custom obstacle,
+     landings 6,3 51, 6,5 50, 7,4 50, the own square 105; with no square
+     refusing 209/256 (all 47 failures tries onto 5,4); with the portal,
+     the custom space or the space refusing instead 164 to 169/256. So
+     **the custom obstacle refuses** (the engine's guess); a portal, a
+     space and a custom space take the thing. A store wasn't tried.
+   - **When a creature counts as overburdened** (`burden2`: four peaceful
+     friends of ours, Constitution and Life Force 10; WA, WB, WC Strength
+     2 (capacity 200) and Speed 6 carrying one treasure each, of weight
+     150, 101 and 100; WD Strength 1 (capacity 100) and Speed 0 carrying
+     400; sweep `burden2-sw`, 8 runs, `burden.py`). In all 8: **WA's turn
+     began with 3 moves** (6 x 2 x 50 / 200), **it dropped the treasure
+     with its first move and took 2 steps after**; **WB began with 5,
+     dropped, then 4 steps**; WC (exactly half) began with 6 and walked 6
+     with no drop; **WD (Speed 0, over its capacity) never dropped**. Their
+     next turns began with 6. So a creature drops once its load passes
+     half its capacity (the slowdown cuts its moves below its Speed), as
+     its turn's first action, using one move, then steps on with the
+     rest; the drop turn's moves come from the load before the drop; a
+     Speed 0 creature never drops: the research's unconfirmed reading
+     (creatures 8.1.2). The engine's choice (only above the capacity, the
+     moves then idled) disagrees. Seen too: in 4 of 8 runs WC, at its
+     second turn, stepped beside T and dropped its treasure there
+     mid-turn (a friend's gift, creatures 7.3, here a treasure; not
+     looked at further).
+   - **A Speed 0 fighter with its goal beside it** (`still-melee`: EE
+     Speed 0, an aggressive brave enemy of Strength 10 owning and holding
+     our blade, on 5,4; T on 4,4 holding nothing; sweep `still-melee-sw`,
+     16 runs from `still-melee-room.vsf`, `still.py`): **64 of 64 of EE's
+     turns had an attack** (`$B799` written each time, 2 blows), T's Life
+     Force fell 16 times in them, EE's square never changed. So it
+     attacks once a turn (creatures 2.7's step is not cancelled onto the
+     goal's square), as traced.
+   Not tried: a Speed 0 fighter beside an exit or a thing it takes; a
+   store refusing a drop; magic items in a drop.
+33. **Creatures' and magic's open cases: readying with the last move, two
+   adds in one round, the Speed 0 extra point** (2026-11-14; ours, no
+   research pass: [creatures](rules/creatures.md) 2.7 and "Captures
+   needed" 7 and 8, [characters](rules/characters.md) 6.1, 6.2 and
+   "Captures needed" 5, [magic](rules/magic.md) 5.3, 5.5 and "Captures
+   needed" 2). `ACSVM-research/capture/runs/rr29/` (the harness binary in
+   `bin/`, `env.sh`; `case.sh` (10.24's) and `build.sh` build the cases of
+   `cases.txt` and their turn-end snapshots, `sweep.sh` and `catch.sh` run
+   the sweeps, `run mem --set-random-state --draws --ram`, two VICE at a
+   time; `py/turns16.py` lists a creature's turns, draws and changes,
+   `py/readycheck.py`, `py/ordcheck.py` and `py/diecheck.py` sort them; the
+   add scripts and their snapshots in `add/`). No harness changes. A
+   creature's turn shows two draws 28,000 instructions apart after its
+   action whatever it did (10.27's turns too), so a turn's action is read
+   from the draws before them.
+   - **Readying that spends the last move** (creatures 2.7, the engine's
+     "every creature's first action is taken"). EE an aggressive brave
+     enemy on 9,4, Strength 10, Dexterity 13, owning our bow (power 10,
+     range 7), T on the entry 4,4; sweeps from T's first turn's end.
+
+     | Case | Runs | EE's first turn | Its later turns |
+     | --- | --- | --- | --- |
+     | `ready1`: Speed 1, bow owned, not held | 32 (`sw-ready1`, `sw-ready1b`) | the die, two checks, the bow readied (`$E1B7` 0 to 41) with the move (1 to 0), **then nothing**: no shot in 32 of 32 (only the turn's closing draws, with redraws in 7) | a shot each turn (break, deviation, side; T hit or dodging in some) |
+     | `ready2`: Speed 2, the same | 32 (`sw-ready2`) | readied (2 to 1), then **a shot** (1 to 0) | a shot each |
+     | `held1`: Speed 1, bow held | 32 (`sw-held1`) | a shot | a shot each |
+     | `ready1w`: `ready1` with Life Force 10 of 20 and the obstacle on 5,4 (the line blocked) | 32 (`sw-ready1w`) | readied, **then nothing**: no step rolls, no step, no idle move's heal (Life Force +1 only in the 4 turns whose top-of-turn die gave it) | 4 step rolls and a step west or south |
+
+     So **when readying spends a creature's last move its turn ends
+     there**: no shot, no step choice, no idle move. The engine's choice
+     (a shot or a step choice, else an idle move) does not hold for Speed
+     above 0; with a move left the readying creature fires as usual.
+   - **Several "Add Someone" requests in one round** (characters 6.2;
+     `add/`, scripts run a step at a time from rr19's
+     `nd-menu/nodisk.vsf`: round 21, T and U living in slots 1 and 2 on
+     the map, T's turn with the menu open on RETIRE; each step's
+     screenshots read before the next was written). ADD SOMEONE is one
+     push north of RETIRE, and three east of MOVE in a newly opened menu;
+     the menu uses no move, so a player can ask twice in one turn.
+     - `a` (T asks twice in its turn, `a1.txt`): **"I will add a player as
+       soon as possible" both times**. At the round's end (the counter
+       already 22) **one** add-player screen; CREATE NEW PLAYER, newcomer
+       N (`a3.txt`, 10.23's steps): **N in slot 3** (`$F5E9` first byte
+       13), slot 4 still free; the game went on, rounds 28 to 32 taking
+       turns 1, 2, 3 (`order-a`, `run mem`), no second screen.
+     - `c` (T asks once, then U once, `c1.txt`): the same, both answered
+       "I will add"; one screen, N in slot 3, slot 4 free, turns 1, 2, 3
+       in rounds 29 to 33 (`order-c`).
+     - `b` (T's turn left through MOVE; at U's turn T's first byte
+       `$F59F` poked to 0, then U asks twice, `b1.txt`): both "I will
+       add"; at the round's end first the restore message of 6.3 (the
+       living count changed), F1, then **one** add-player screen; **N in
+       slot 1** (the freed slot below U's), slots 3 and 4 free; from round
+       28 **N then U** every round, rounds 28 to 34 (`order-b`).
+     So **requests in one round add one player**, whoever asked and how
+     often, with no message for the extra ones; the newcomer takes the
+     lowest free slot, below a living player's too, and moves in that
+     slot's place in the round. The engine's choice (each request
+     handled, one after another) adds two.
+   - **The Speed 0 creature's extra point of Life Force** (magic 5.5,
+     10.27): rr23's `in/room.vsf` (AA Speed 0, Life Force 5 of 20, Power 2,
+     its turn in round 40) with AA's byte (`$E1AF`) set to B = 40, 39 and
+     0, every random state 0..255 (`catch-40`, `catch-39`, `catch-0`, 768
+     runs, `catch.sh`). The extra point is **the top-of-turn die** (5.3.2):
+     the draw just before AA's turn begins, after T's last idle move,
+     heals 1 when it gives a 2 (raw // 42 = 1, a redraw at 252 or more):
+     `diecheck.py` **256/256 for each B**, the states as 10.27 found them
+     (B 40: 85, 136, ..; 39: 168, 184, 200, 248, ..; 0: 40, ..), 36 to 40
+     a B. Each draw is the state XOR the raster line's low byte, then x 69
+     + 131 (10.29), and the catch-up's work moves the die's moment: with
+     B = 39 the die fell **one raster line earlier** than with B = 40 in
+     all 256 runs (269 against 270 in 158, 275 against 276 in 66, ..),
+     with B = 0 at another line again (307 in 158). T's draws before were
+     the same in every B. So the byte changes the die's face only through
+     the timing; the rule is 5.3.2's die, 1 in 6, as for any individual.
+   - **A drop turn's moves** (creatures 8.1.2; `drop6`: WE Speed 6,
+     Strength 1, Constitution and Life Force 10 (capacity 100), owning one
+     treasure of weight 400, on 7,6; `sw-drop6`, 32 runs, the room's list
+     watched as 10.24). In **32 of 32** WE's first turn began with no
+     refill (moves 0), drew the die, its check and the drop's pair, put
+     the treasure down and ended with no step roll and no step; its next
+     turn began with 6 moves and walked 6 squares. So the moves come from
+     the load before the drop, as the engine takes it.
+   - **What counts as ordinary for the cancelled step** (creatures 2.7.3;
+     `ord`: EE Speed 0, an aggressive brave enemy owning and holding our
+     blade, on 9,4; FF a peaceful friend, Speed 0, on 10,4 beside it; T on
+     4,4, 5 squares off; `sw-ord`, 64 runs, `ordcheck.py`). EE's turns:
+     the die, two checks, four step rolls, and then either nothing (82
+     turns: the step cancelled) or **an attack on FF** ("EE misses FF",
+     the blows byte `$B799` written): in **22 of the 64 first turns**.
+     EE never moved. So a square holding an individual it would strike
+     is not ordinary, the step onto it is not cancelled, and a Speed 0
+     fighter strikes a creature beside it that is not its goal, as the
+     engine says. `--answer T` does not press through that message, so
+     those 22 runs stopped there; `sw-ord2` (32 runs, `--answer-text
+     CONTINUE`) played on: 96 turns of EE, **35 with an attack on FF** (7
+     of them hurting it), 61 with none, EE never moving.
+   Skipped: the combat-side cases another capture took (10.32);
+   creatures "Captures needed" 1 (the all-dead save after a newcomer
+   starts on the map: a long chain, and 10.28 found the region change
+   comes after that save), 2 (two random creatures leaving at once), 3
+   (mid-turn adjacency, odd Speeds), 4 and 5 (fighters' goals among
+   other individuals, the first step's costs: no single-roll setup), 7's
+   gifts, magic items and gold's weight; magic "Captures needed" 3 to 7
+   (Kill All, Summons, Add to Room, Activate All, smartness rates): the
+   scenario writer has no such spells or spaces yet.
+34. **Encounter areas' open cases: door items, the door table, reopening,
+   a store's shelves** (2026-11-14; ours, no research pass;
+   [encounters](rules/encounters.md) 8, [stores](rules/stores.md)
+   "Captures needed" 1). New scenario option `--map-bytes OFF:HEX`
+   (repeatable; `scenario::map_bytes`) writes bytes into the world map
+   block at a hex offset, e.g. `806:0042`. `ACSVM-research/capture/runs/rr30/`
+   (the harness binary in `bin/`): `build.sh` builds rr22's `patch`
+   scenario (WOLF on the grass at 60 %, T Speed 6 holding the blade) per
+   case and starts it to T's first turn; `run.sh CASE` runs `in.txt`
+   (the random state poked 0, 1, .. until one push east opens area 1;
+   `in/in.vsf` at T's next turn); `exit.sh CASE DIR X Y D [SZ WP]` runs
+   `out.txt` from it: area 2's entrance `$E0A4`,`$E0A5` poked to 15,11
+   (area 2 free unless SZ/WP say otherwise), T poked onto X,Y, one push D,
+   the map block's tail read from `$E7F2` as in 10.26; `reopen.sh` runs
+   `reopen.txt` from an exit's `out.vsf` (states tried until a step east
+   opens area 1 again); `all.sh` runs every case (two VICE at a time).
+   One run a case (deterministic once the area opens); 17 cases, 24 exits
+   and reopenings. Reads taken while the KERNAL ROM was banked in (bytes
+   like 165 164 175 for `$F5AF` on) are dropped, as in 10.14.3.
+   - **Several doors on one square** (`dbl01`: `1:0,5,82,0/0,5,82,1`;
+     `dbl10` the same reversed): out from 1,5 west, `dbl01` came back on
+     **14,12, area 1's own entrance** (parameter 0), `dbl10` on **15,11**
+     (parameter 1, area 2's poked entrance). **The first door item in the
+     list gives the parameter**, as the engine chose (3.5). Both door
+     entries kept at closing.
+   - **Doors off 0,5 and inside the room** (`twodoor`:
+     `1:0,3,82,1/0,7,82,0/7,5,42,1`; `middoor`: `1:0,5,82,0/7,5,82,1/9,5,42,1`):
+     gaps at rows 3 and 7, 0,5 wall (a push west from 1,5 refused, no
+     move used, `o5`); out by 0,3 onto 15,11 (`o3`), by 0,7 onto the
+     entrance 13,12 (`o7`). **A door item on the floor (7,5) is a way
+     out too**, drawn as plain floor: stepping onto it from 8,5 sent T to
+     15,11 (`mid`). Closing marked the treasure deleted (square 255) and
+     **kept every door entry**, at 0,3, 0,7 and 7,5 alike (engine 7.2:
+     every thing 82 stays). Reopened (`re-o3`): both gaps again.
+   - **A door to another open area's entrance** (`join`: `1:0,5,82,1`):
+     with area 2 set open by pokes (its room record `$E7F7` wall 6,
+     `$E7F8` size 233, entrance 15,11; no creature in it) T came back on
+     15,11 with **place 0** and 5 moves, area 2 still open (`open`), as
+     with area 2 free (`free`). **The player does not join the area**, as
+     the engine chose. Area 2 was opened by pokes, not by an encounter.
+   - **Reopening** (`treasure`, `t80e0`, `t80e9`: `1:0,5,82,0/7,5,42,1`):
+     after the treasure's entry was deleted at the first closing, area 1
+     opened again with **no treasure drawn**; the list in memory held the
+     deleted entry (square 255) unchanged, not compacted, in all three
+     (`re-out`). A treasure listed in the file is there only until the
+     area first closes (7.2).
+   - **The door table at + 0x806** (template lists, area 1's door
+     parameter 0). `t806a` (`806:0042`): T came back on **15,11, area
+     2's entrance**. `t806p` (`806:0000`): T on **12,16, map point 0**
+     (the map door's square), place 0, not through the door. `t806r`
+     (`806:1055`): **"The action moves to TEST REGION"**, and T in TEST
+     ROOM (region 1, room 0) on **5,5**, place 16 (`later/`). So the
+     four words are an ordinary door table (format notes: byte 0 region
+     x 16 + room, byte 1 x x 16 + y, region 0 a map point), the parameter
+     indexing it from 0, and `00 41`..`00 44` are codes past the 64 map
+     points that mean area 1..4's entrance (41,41: the start, 10.26).
+   - **A parameter above 3 and + 0x80E** (`p4`: `1:0,5,82,4` with
+     `80E:0042`): T came back on **15,11**: parameter 4 reads the word at
+     + 0x80E as the table's fifth entry. `p4t` (the same, + 0x80E as the
+     template has it, `32 08`): **"The action moves to"** the template's
+     leftover region 3 (`$397C` 3), read as region 3, room 2, 0,8. The
+     engine's choice (the start point for n above 3) differs.
+     `t80e0`/`t80e9` (+ 0x80E 0x0000, 0x0900, the treasure list): entry,
+     the treasure, the exit and the reopening as with the template's
+     0x0832; the bytes stay in memory as written.
+   - **Lists the decoder warns on.** `outside`
+     (`1:0,5,82,0/7,12,42,1/15,3,43,1/7,5,44,1`): only 7,5's treasure
+     drawn; at closing 7,12 and 7,5 marked deleted, **15,3's entry (square
+     byte 0xF3) kept**. `bad` (`812:2000`: area 1's length 32, running
+     over lists 2..4 and the zeros after): the area opened, its list the
+     door, then the following bytes read as items (things 0, 1, 5 and 82
+     on wall squares): **gaps at 0,0, 0,2 and 0,5**; out from 1,5 onto
+     13,12 (parameter 0), and at closing **no entry marked deleted**. No
+     crash in either. Room 0's list was not written (`--area-list` takes
+     areas 1..4 only).
+   - **A store in area 1** (`store`: `1:0,5,82,0/7,3,83,0`; `shop2.txt`
+     to `shop6.txt` from `store/in/in.vsf`, T stepping onto the store
+     from 8,3; `shop/` superseded, its first shot taken mid-draw). The
+     stock bytes `$E06D`-`$E07A` read 255 throughout. Bumping shelf
+     places (read with `storeread.py`, rr10's letters): **every
+     carriable thing of the template is offered**: things 1 (OIL AND
+     WICK, 20), 2 (DAGGER, 10), 4 (DART, 3), 33 (SCROLL, 2000), 35
+     (HORSE, 2000), 40 (MACE, 35), 59 (BLADE, 10), 68 (SCROLL, 300), 72
+     (MAGIC WAND, 1000); out of stock 12 (HAND, value 0) and the spells
+     61, 64, 80. The two things drawn (10.26) are 33 and 59, the only
+     ones whose picture (3) our scenario leaves non-blank: every thing is
+     drawn, most of them blank. **Buying** (gold poked to 5000): HORSE
+     for 2000, then the BLADE T already owned twice for 10 each (the
+     gold 4990, 4980, the possession unchanged); **selling** the blade at
+     the opening prompt paid 4 and took it; **the stock bytes never
+     changed** (stores 2.7). **Leaving** by 0,4 and the button: T back
+     on the store's square 7,3 in area 1 with **1 move** (`shop5`: 5
+     inside, 1 just after), a push south then stepped to 7,4 and WOLF's
+     turn came (stores 3.7). With the gold poked to 5000 the player came
+     out unable to move ("perhaps you are carrying too much", `shop3`:
+     the gold's weight), and an idle wait drained the one move
+     (`shop4`). The engine's shelves in an area are empty (stores 2.7):
+     the original offers everything.
+   Not run: a second player joining an area for real, room 0's list, a
+   death or a creature through the door.

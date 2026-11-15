@@ -29,6 +29,10 @@ beside it), until the draws run out.
 
     python scripts/combatcheck.py RUNS.jsonl [--case NAME] [--reach trunc] [-v]
 
+The player's FIRE (capture.md 10.24, 10.32): `fire-e5`, `fire-e3`,
+`fire-e0`, `ready-e5` (rr20), `kill-e5` (`--kill-roll`) and `fire-u`, the
+target another player (`--player-roll`) (rr28).
+
 Compares the predicted values of every watched byte (T's Life Force, Power,
 Parry, Armor skill, weapon and armor; EE's Life Force, Power, weapon and
 square) with the run's, glitch reads dropped and nothing after a death (the
@@ -733,22 +737,39 @@ def player_check(v, case):
 # on this square; the run presses the button. EE (the `armed` enemy,
 # holding the blade, Constitution and Life Force 20) on 9,4.
 # ready-e5: the bow chosen from the FIRE menu first (ready5/), cursor on EE.
-FIRE_CASES = {"fire-e5": (9, 4), "fire-e3": (7, 4), "fire-e0": (4, 4), "ready-e5": (9, 4)}
+# kill-e5 (rr28, capture.md 10.32): fire-e5 with EE at Life Force 1, so its
+# first damaging arrow kills it. `--kill-roll` says whether the roll of
+# 0..9 comes after that arrow; after the kill the firing ends, and the
+# round's end follows (the slot roll of 0..15 and the room's percentile)
+# before T's next turn's bar fills (`$719A` rising).
+# fire-u (rr28): two players; T on 5,4 at its second room turn (12 moves),
+# the cursor on U, the second player (record at $F5C4: Life Force +3,
+# Power +5, Dodge +6), beside it on 4,4. `--player-roll` says whether the roll of 0..9 follows a
+# damaging arrow on a player.
+FIRE_CASES = {"fire-e5": (9, 4), "fire-e3": (7, 4), "fire-e0": (4, 4), "ready-e5": (9, 4), "kill-e5": (9, 4),
+              "fire-u": (4, 4)}
+# The target: name, square, its Life Force, Power and Dodge bytes, its
+# Constitution, T's square, its weapon.
+FIRE_TARGETS = {"EE": ("EE", (9, 4), ("E1A6", "E1A8", "E1A9"), 20, T_START, blade()),
+                "fire-u": ("U", (4, 4), ("F5C7", "F5C9", "F5CA"), 40, (5, 4), None)}
 
 
-def fire_check(v, case, reach):
+def fire_check(v, case, reach, kill_roll=True, player_roll=False):
     """T's shots from the run's first draw; returns the predicted values of
-    EE's Life Force and Power, its Dodge skill, T's Missile skill and the
-    moves left, the draw index each shot starts at, and a note."""
+    the target's Life Force and Power, its Dodge skill, T's Missile skill
+    and the moves left, the draw index each shot starts at, and a note.
+    The target is EE, or in `fire-u` the second player U (`player_roll`:
+    whether the roll of 0..9 follows a damaging arrow on it)."""
     cursor = FIRE_CASES[case]
+    name, at, (lf, pw, dg), con, t_at, weapon = FIRE_TARGETS.get(case, FIRE_TARGETS["EE"])
     # The cursor left on the player's own square aims one square south.
-    aim = (cursor[0], cursor[1] + 1) if cursor == T_START else cursor
+    aim = (cursor[0], cursor[1] + 1) if cursor == t_at else cursor
     start = dict(zip(v["watch"], v["start"]))
     d = Draws([x["raw"] for x in v["draws"]])
-    t = fighter("T", T_START, bow(), None, 0, start["F5A2"], 40)
+    t = fighter("T", t_at, bow(), None, 0, start["F5A2"], 40)
     t["missile"] = start["F5A9"]
-    ee = fighter("EE", (9, 4), blade(), None, 0, start["E1A6"], 20)
-    ee["power"], ee["dodge"] = start["E1A8"], start["E1A9"]
+    ee = fighter(name, at, weapon, None, 0, start[lf], con)
+    ee["power"], ee["dodge"] = start[pw], start[dg]
     sim = Sim.__new__(Sim)
     sim.d, sim.notes, sim.reach, sim.obstacles = d, [], reach, set()
     sim.counts = {k: 0 for k in ("shots", "dodge rolls", "dodges", "arrow hits", "damaging", "armor checks",
@@ -761,27 +782,37 @@ def fire_check(v, case, reach):
     # blows, 4 runs fail). EE's class byte is not watched, so what the roll
     # decides is not checked here.
     def after_hit(f):
-        if f is ee:
+        if f is ee and (kill_roll or f["life"] > 0) and (player_roll or name == "EE"):
             d.take(10)
     sim.after_hit = after_hit
     moves = start["719A"]
-    vals = {"E1A6": [start["E1A6"]], "E1A8": [start["E1A8"]], "E1A9": [start["E1A9"]], "F5A9": [start["F5A9"]],
-            "719A": [moves]}
+    vals = {lf: [start[lf]], pw: [start[pw]], dg: [start[dg]], "F5A9": [start["F5A9"]], "719A": [moves]}
 
     def push():
         # Every change, in order, as the watch sees them.
-        for k, val in (("E1A6", ee["life"]), ("E1A8", ee["power"]), ("E1A9", ee["dodge"]),
-                       ("F5A9", t["missile"])):
+        for k, val in ((lf, ee["life"]), (pw, ee["power"]), (dg, ee["dodge"]), ("F5A9", t["missile"])):
             if vals[k][-1] != val:
                 vals[k].append(val)
     sim.record = push
+    sim.round_end = None
     try:
-        sim.fire(t, moves, aim)
+        try:
+            sim.fire(t, moves, aim)
+        except IndexError:
+            raise Out
     except Out:
-        sim.notes.append("out of draws")
+        if sim.dead:
+            try:
+                d.take(16)
+                d.take(100)
+                sim.round_end = d.i
+            except IndexError:
+                sim.notes.append("out of draws")
+        else:
+            sim.notes.append("out of draws")
     push()
     vals["719A"].append(0)
-    return vals, sim.shot_starts, "; ".join(sim.notes), sim.counts
+    return vals, sim.shot_starts, "; ".join(sim.notes), sim.counts, sim.round_end
 
 
 def main():
@@ -791,6 +822,10 @@ def main():
     ap.add_argument("--reach", default="sixteenths", choices=sorted(REACH))
     ap.add_argument("--still-rule", default="pass4", choices=["pass4", "fit"],
                     help="a Speed 0 creature's turn: the researcher's (pass 4) or 10.14.10's fit")
+    ap.add_argument("--kill-roll", default="yes", choices=["yes", "no"],
+                    help="kill-e5: the roll of 0..9 after the player's arrow that kills")
+    ap.add_argument("--player-roll", default="no", choices=["yes", "no"],
+                    help="fire-u: the roll of 0..9 after the player's arrow that damages a player")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
     right = wrong = 0
@@ -798,7 +833,8 @@ def main():
     for text in open(a.runs, encoding="utf-8"):
         v = json.loads(text)
         if a.case in FIRE_CASES:
-            pred, starts, note, counts = fire_check(v, a.case, REACH[a.reach])
+            pred, starts, note, counts, end = fire_check(v, a.case, REACH[a.reach], a.kill_roll == "yes",
+                                                         a.player_roll == "yes")
             seen = observed(v)
             # EE's own turn follows (healing, drift): compare the start.
             bad = [f"{k} predicted {p} seen {seen[k]}" for k, p in pred.items() if seen[k][: len(p)] != p]
@@ -810,6 +846,15 @@ def main():
                     bad.append(f"shot {k} starts at draw {i} ({times[i]}), the byte changes at {writes[k]}")
             if len(writes) < len(starts) - 1:
                 bad.append(f"{len(starts)} shots predicted, the shots-left byte written {len(writes)} times")
+            if end is not None:
+                # After a kill: the round's end takes the draws up to T's
+                # next turn, whose bar fills before its next draw.
+                counts["kills"] = 1
+                fill = next((c["t"] for c in v["changes"] if c["addr"] == "719A" and c["to"] > 0), None)
+                if fill is None or end < 1 or end > len(times) or times[end - 1] > fill or (
+                        end < len(times) and times[end] < fill - SAMPLE):
+                    bad.append(f"after the kill: the round's end ends at draw {end}, the bar fills at {fill}, "
+                               f"draws at {times[max(0, end - 2):end + 2]}")
             ok = not bad
             right += ok
             wrong += not ok

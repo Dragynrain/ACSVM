@@ -1298,6 +1298,8 @@ fn a_death_does_not_end_the_visit() {
                 ..setup()
             },
         );
+        // Characters 6.2, 6.4: one newcomer a round, each joining at the
+        // round's end; then back to player 0's turn.
         for name in ["TWO", "THREE"] {
             g.apply(Command::AddPlayer {
                 setup: PlayerSetup {
@@ -1305,9 +1307,17 @@ fn a_death_does_not_end_the_visit() {
                     ..setup()
                 },
             });
+            let mut ev = Vec::new();
+            while !ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                ev.extend(g.apply(Command::Wait));
+            }
+            while g.current() != 0 {
+                g.apply(Command::Wait);
+            }
         }
-        // Characters 6.2: the newcomer joins at the round's end.
-        g.apply(Command::Wait);
+        assert_eq!(g.players().len(), 3);
+        // The waits may have healed it.
+        g.set_life_force(0, 9);
         // 0 and 1 in the hall, 2 on the map: the hall's visit from here.
         g.place(1, hall(2, 4));
         let ev = mv(&mut g, Dir::E);
@@ -1483,8 +1493,8 @@ fn an_add_in_the_round_of_a_death_comes_after_the_message() {
 
 /// Characters 6.1, 6.2, 6.4: a newcomer takes the lowest free slot, a dead
 /// player's below a living one included, with that slot's number and its
-/// place in the turn list; several requests in a round take the lowest
-/// slots left in the order asked, and the list never holds more than 4.
+/// place in the turn list; several requests in a round add one newcomer,
+/// the first asked, and the list never holds more than 4.
 #[test]
 fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
     both(|p| {
@@ -1512,6 +1522,8 @@ fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
         let ev = mv(&mut g, Dir::E);
         assert!(ev.iter().any(|e| matches!(e, Event::Died { who: ME, .. })));
         assert_eq!(g.current(), 1);
+        // Characters 6.2, 6.4: two requests in the round, both answered
+        // alike; only the first one's newcomer is added, in slot 0.
         for name in ["NEW", "NEXT"] {
             assert_eq!(
                 g.apply(Command::AddPlayer {
@@ -1531,19 +1543,39 @@ fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
                 _ => None,
             })
             .collect();
-        assert_eq!(added, [0, 2]);
+        assert_eq!(added, [0]);
         let names: Vec<&str> = g.players().iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(names, ["NEW", "TWO", "NEXT"]);
+        assert_eq!(names, ["NEW", "TWO"]);
         assert!(g.players().iter().all(|p| p.alive));
-        // The newcomer in slot 0 moves before TWO.
+        // The newcomer in slot 0 moves before TWO; no other add comes in
+        // the rounds after.
         let mut seen = Vec::new();
+        let mut ev = Vec::new();
         for _ in 0..6 {
             seen.push(g.current());
-            g.apply(Command::Wait);
+            ev.extend(g.apply(Command::Wait));
         }
-        assert_eq!(seen, [0, 1, 2, 0, 1, 2]);
-        // Four at most: one more fills slot 3, a fifth is refused.
-        for name in ["FOUR", "FIVE"] {
+        assert_eq!(seen, [0, 1, 0, 1, 0, 1]);
+        assert!(!ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })));
+        assert_eq!(g.players().len(), 2);
+        // Four at most: one a round fills slots 2 and 3; with none free,
+        // two requests in a round bring one refusal.
+        for (name, slot) in [("THREE", 2), ("FOUR", 3)] {
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: name.into(),
+                    ..setup()
+                },
+            });
+            let mut ev = Vec::new();
+            while !ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                ev.extend(g.apply(Command::Wait));
+            }
+            assert!(ev
+                .iter()
+                .any(|e| matches!(e, Event::PlayerAdded { player, .. } if *player == slot)));
+        }
+        for name in ["FIVE", "SIX"] {
             g.apply(Command::AddPlayer {
                 setup: PlayerSetup {
                     name: name.into(),
@@ -1552,13 +1584,10 @@ fn a_newcomer_takes_a_dead_slot_below_a_living_player() {
             });
         }
         let mut ev = Vec::new();
-        for _ in 0..3 {
+        for _ in 0..4 {
             ev.extend(g.apply(Command::Wait));
         }
-        assert!(ev
-            .iter()
-            .any(|e| matches!(e, Event::PlayerAdded { player: 3, .. })));
-        assert!(ev.contains(&Event::AddRefused));
+        assert_eq!(ev.iter().filter(|e| **e == Event::AddRefused).count(), 1);
         assert_eq!(g.players().len(), 4);
     });
 }

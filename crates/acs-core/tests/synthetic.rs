@@ -730,6 +730,32 @@ fn area_lists_of_our_own_and_their_oddities() {
     }
 }
 
+/// Rules/encounters 3.4, 3.5: parameter 4 reads + 0x80E, so only a door
+/// parameter above 4 is warned about.
+#[test]
+fn an_area_door_parameter_above_4_is_warned_about() {
+    for p in PLATFORMS {
+        let mut f = sample(p);
+        f.area_list(1, vec![(0, 5, 82, 4)]);
+        f.area_list(2, vec![(0, 5, 82, 5)]);
+        let d = decode(&f.build()).unwrap();
+        let warned = |loc: &str| {
+            d.diagnostics
+                .iter()
+                .any(|g| g.location == loc && g.message.contains("exit door parameter"))
+        };
+        assert!(!warned("encounter area 1"), "{p}: {:?}", d.diagnostics);
+        assert!(warned("encounter area 2"), "{p}: {:?}", d.diagnostics);
+        let g = d
+            .diagnostics
+            .iter()
+            .find(|g| g.location == "encounter area 2")
+            .unwrap();
+        assert!(g.message.contains("parameter 5"), "{}", g.message);
+        assert!(g.message.contains("start point"), "{}", g.message);
+    }
+}
+
 #[test]
 fn a_bad_area_list_is_an_error_and_the_rest_are_empty() {
     for p in PLATFORMS {

@@ -388,7 +388,9 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
      single shot, which is why our first runs seemed to show no firing.
      [capture: still-bow, 128 runs, 128 turns, capture.md 10.24] **Engine:**
      so. (Superseded: the engine's earlier choice, that with no move left a
-     creature doesn't fire.)
+     creature doesn't fire.) Above Speed 0, readying the bow with the
+     turn's last move ends the turn before any shot ([creatures](creatures.md)
+     2.7; capture.md 10.33).
    - [unknown] whether the goal must be a foe. **Engine:** "not on its
      side" is a foe ([creatures](creatures.md) 7.4), and it fires only at
      a goal that is its foe, so a slinker friend whose goal is the player

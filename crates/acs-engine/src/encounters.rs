@@ -7,7 +7,9 @@
 
 use crate::game::Game;
 use crate::{Event, Location, RemovalReason, Who};
-use acs_core::model::{Alignment, Creature, MagicDefense, Region, Room, Strategy, ThingId, WorldMap};
+use acs_core::model::{
+    Adventure, Alignment, Creature, MagicDefense, Possession, Region, Room, Strategy, ThingId,
+};
 
 /// Encounter areas, rooms 1..=AREAS of the map region (3.1).
 pub const AREAS: u8 = 4;
@@ -86,8 +88,9 @@ fn free_room(number: u8) -> Room {
 
 /// The world map's own region (3.1): room 0 stands for the open map and is
 /// never a room; rooms 1..4 are the areas, free (deleted) until used; 16
-/// creature slots, the copies in 8..15; an empty stock (stores 2.7). With
-/// no lists (a game saved before them) the areas start empty.
+/// creature slots, the copies in 8..15; no stock yet (`seeded_map_region`
+/// builds it). With no lists (a game saved before them) the areas start
+/// empty.
 pub(crate) fn map_region() -> Region {
     Region {
         number: 0,
@@ -103,19 +106,30 @@ pub(crate) fn map_region() -> Region {
 }
 
 /// The map region with its areas seeded from the world map's lists
-/// (3.4): area n gets list n, once, at the start of the game.
-pub(crate) fn seeded_map_region(world: &WorldMap) -> Region {
+/// (3.4): area n gets list n, once, at the start of the game. Its stock
+/// (stores 2.7) is every thing 1..80 a store can stock (treasures, magic
+/// items, weapons and armor, never spells) with a value above 0, each up to
+/// the stock limit (stores 2.6); buying and selling there never change it.
+pub(crate) fn seeded_map_region(adv: &Adventure) -> Region {
     let mut region = map_region();
-    for (n, items) in world.area_items.iter().enumerate().take(AREAS as usize) {
+    for (n, items) in adv.world.area_items.iter().enumerate().take(AREAS as usize) {
         region.rooms[n + 1].items = items.clone();
     }
+    region.store = (1..=80)
+        .filter(|&t| crate::stores::value(adv, t).is_some_and(|v| v > 0))
+        .map(|thing| Possession {
+            thing,
+            count: crate::inventory::limit(thing) as u8,
+        })
+        .collect();
     region
 }
 
 impl Game {
     /// The exit door (3.5) at `at`, if it is one: an item of thing 82 on
-    /// that square of an area. Its parameter n leads to area n + 1's
-    /// entrance (7.1). Front ends draw its square as an opening.
+    /// that square of an area, the first in the list giving the parameter
+    /// n, which picks its entry in the area door table (7.1). Front ends
+    /// draw it as an opening on a wall square, as floor inside.
     pub fn area_door(&self, at: Location) -> Option<u8> {
         let Location::Room {
             region: 0,
@@ -255,20 +269,65 @@ impl Game {
         });
     }
 
-    /// 7.1, 3.5: through a door of parameter `n`, to area n + 1's
-    /// entrance on the map, or the start point when that area is free or
-    /// n is above 3; then `area` closes if no living player is left in it
-    /// (7.2). The caller spends the step.
+    /// 3.5: entry `n` of the area door table, two bytes in the room door
+    /// format: n 0..3 from `unknown_806`, n 4 the word `unknown_80e` (low
+    /// byte first); none above 4.
+    pub fn area_door_entry(&self, n: u8) -> Option<[u8; 2]> {
+        let world = &self.adv.world;
+        match n {
+            0..=3 => {
+                let i = n as usize * 2;
+                Some([*world.unknown_806.get(i)?, *world.unknown_806.get(i + 1)?])
+            }
+            4 => Some(world.unknown_80e.to_le_bytes()),
+            _ => None,
+        }
+    }
+
+    /// 3.5: where a door of parameter `n` leads, `None` for the start
+    /// point: region 0 with code 0x41..0x44 that area's entrance (the start
+    /// while it is free), region 0 with point 0..63 that map point, region
+    /// 1 or above that room's square if the adventure has it.
+    fn area_door_destination(&self, n: u8) -> Option<Location> {
+        let [b0, b1] = self.area_door_entry(n)?;
+        let region = b0 >> 4;
+        if region == 0 {
+            use acs_core::layout::world_map as wm;
+            let world = &self.adv.world;
+            let (x, y) = match b1 {
+                0x41..=0x44 => self.area_entrance(b1 - 0x40)?,
+                p if (p as usize) < wm::DOOR_COUNT => world
+                    .doors
+                    .iter()
+                    .find(|d| d.index == u16::from(p))
+                    .map(|d| (d.at.x, d.at.y))?,
+                p if (p as usize) < wm::POINT_COUNT => world
+                    .exit_points
+                    .get(p as usize - wm::DOOR_COUNT)
+                    .copied()
+                    .flatten()
+                    .map(|pt| (pt.x, pt.y))?,
+                _ => return None,
+            };
+            return self.on_map(x, y).then_some(Location::World { x, y });
+        }
+        let (room, x, y) = (b0 & 0x0F, b1 >> 4, b1 & 0x0F);
+        self.room(region, room)
+            .filter(|r| x < r.width && y < r.height)
+            .map(|_| Location::Room { region, room, x, y })
+    }
+
+    /// 7.1, 3.5: through a door of parameter `n`, to where its area door
+    /// table entry leads, or the start point; then `area` closes if no
+    /// living player is left in it (7.2). Arriving is not a step: no map
+    /// roll, no door taken; into another region it is a region change, with
+    /// the room's encounter roll (movement 7.2). The caller spends the step.
     pub(crate) fn leave_area(&mut self, p: usize, area: u8, n: u8, ev: &mut Vec<Event>) {
         let from = self.players[p].at;
-        let (x, y) = self
-            .area_entrance(n.saturating_add(1))
-            .filter(|_| n < AREAS)
-            .unwrap_or_else(|| {
-                let s = self.adv.world.start;
-                (s.x, s.y)
-            });
-        let to = Location::World { x, y };
+        let to = self.area_door_destination(n).unwrap_or_else(|| {
+            let s = self.adv.world.start;
+            Location::World { x: s.x, y: s.y }
+        });
         self.players[p].at = to;
         ev.push(Event::LeftArea {
             player: p,
@@ -277,6 +336,9 @@ impl Game {
             to,
         });
         self.close_if_empty(area, ev);
+        if to.room().is_some() {
+            self.arrive(p, from, to, ev);
+        }
     }
 
     /// 7.2, 7.4: with no living player left in `area`, it is freed, its

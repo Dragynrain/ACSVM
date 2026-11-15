@@ -393,8 +393,8 @@ runs rr22). Offsets are from the world map block's start.
 | Offset | Meaning | How sure |
 | --- | --- | --- |
 | +0x7F2 + 5 (n - 1) | Area n's room record (n 1..4): +0 wall picture, +1 size (written in play: 233 while open, 0 when free) | Address from the researcher's encounters pass (capture.md 9); the bytes on disk not studied |
-| +0x806 | Four 2-byte entries, `00 41`, `00 42`, `00 43`, `00 44` in every corpus file | Meaning unconfirmed; most likely the areas' door table (below) |
-| +0x80E | A u16, 0x0832 in every corpus file | Meaning unknown. Lists longer than the corpus's with it left unchanged gave no trouble |
+| +0x806 | The area door table: four 2-byte entries in the door format (Doors above), `00 41`, `00 42`, `00 43`, `00 44` in every corpus file | Confirmed by capture (docs/capture.md 10.34) |
+| +0x80E | Read as the table's fifth entry (door parameter 4); bytes `32 08` (u16 0x0832) in every corpus file | Confirmed for parameter 4 by capture (10.34); no effect on parameters 0..3 |
 | +0x810 | Five room item lists: room 0 (the open map), then areas 1..4 | Confirmed by capture |
 
 - **The lists** use the room item-list format (see Room items): a u16
@@ -410,30 +410,50 @@ runs rr22). Offsets are from the world map block's start.
   treasure added to area 1's list is drawn there and can be taken; a store
   added is drawn and opens the store screen. The door is the list's item,
   not a fixed square: moving it to 0,3 moves the wall gap and the way out
-  there, and an empty list leaves the area with no way out. The door's
-  parameter n sends the player to **area n + 1's entrance** on the map,
-  or to the adventure's start when that area is free (entrance 41,41).
-  When an area closes, every entry but the door's is marked deleted in
-  place (square byte 0xFF, the list's length unchanged).
+  there, and an empty list leaves the area with no way out. When an area
+  closes, every entry but the doors' is marked deleted in place (square
+  byte 0xFF, the list's length unchanged), and a reopened area keeps the
+  list as closing left it, not compacted (10.34).
+- **The area door table** (capture.md 10.34, runs rr30). A door item's
+  parameter n indexes the table at +0x806 from 0, two bytes an entry in
+  the door format (Doors above): byte 0 region << 4 | room, byte 1
+  x << 4 | y, region 0 a world map point. Point codes 0x41..0x44, past
+  the 64 points, mean the map entrance of area 1..4 (the adventure's
+  start when that area is free); the corpus's four entries are these
+  codes in order, so as stored parameter n leads to area n + 1's
+  entrance. Seen with entries of ours: `00 00` put the player on map
+  point 0 (not through the map door there); `10 55` moved the game to
+  region 1, room 0, square 5,5. Parameter 4 reads the two bytes at
+  +0x80E as a fifth entry (`00 42` there led to area 2's entrance; the
+  corpus's `32 08` to region 3, room 2, 0,8). What parameters above 4
+  read is unknown (rules/encounters 3.5).
+- **Odd lists on the C64** (10.34): items outside 15 x 10 are not drawn;
+  a length running past its items reads the bytes after them as more
+  items of that area, with no crash (rules/encounters 3.4).
 - **In the model** (`MODEL_VERSION` 4): `WorldMap::area_items` (areas
   1..4), `open_map_items` (room 0, kept, never placed), `unknown_806`
   and `unknown_80e` as stored. Version 3 JSON loads with the editor's
-  values. The decoder warns (diagnostics, not errors) on an area with no
-  door or several, a door parameter above 3, an item outside 15 x 10, a
-  non-empty room 0 list and 0x806 / 0x80E bytes other than the corpus's;
-  a list it can't read is a `BadRoomItems` error, and it and the lists
-  after it are left empty. How the C64 program loads any of these is
-  unknown (rules/encounters 3.4, 3.5 and its captures needed).
-- **The door table guess.** Read as door-table entries (Doors above),
-  `00 41`..`00 44` would be region 0 with a point index of 0x41..0x44,
-  past the 64-entry point table, which would suit a special "area n's
-  entrance" code that parameters 0..3 index. Unchecked: no capture
-  changed these bytes.
+  values. The engine reads the area door table straight from
+  `unknown_806` and `unknown_80e` (little-endian, so its low byte is the
+  entry's byte 0); the fields keep their names and the model version
+  does not change. The decoder warns (diagnostics, not errors) on an
+  area with no door or several, a door parameter above 4, an item
+  outside 15 x 10, a non-empty room 0 list and 0x806 / 0x80E bytes other
+  than the corpus's. It reads the lists one after another by their
+  lengths, as the C64 does; a length that is not 2 + 3k or runs past the
+  block is a `BadRoomItems` error, and that list and the lists after it
+  are left empty.
 - **No stock record for region 0.** The file holds stock only in the
   regions (region + 0x6D); nothing in the world map block or elsewhere is
   a store stock for the map's region. On the C64 the visited region's
   stock bytes read 255 throughout while a store in an area was open
-  (capture.md 10.26; rules/stores 2.7).
+  (capture.md 10.26, 10.34; rules/stores 2.7). With the world map loaded
+  from $E000 (its tail read at $E7F2 = +0x7F2), those bytes ($E06D-$E07A)
+  are the map block's +0x6D..+0x7A, inside the point table: the second
+  byte of point 38 to the first of point 45, extra exit points 6..13,
+  unused (0xFF) in the capture template. Read as a stock bitmap they are
+  everything in stock, which is what the store offered; a map with those
+  points in use was not tried.
 
 ## Written by the program in play
 

@@ -265,9 +265,13 @@ holds Constitution with magic defense in the top two bits.
    in each round's turn list, [creatures](creatures.md) 2.2.3 and 2.2.6) is
    that slot's. With slots 1 and 3 living and 2 dead, the newcomer is
    player 2 and moves between them. [research: first pass, traced, and
-   turn-order first pass (creatures 2.2.6); capture only for an empty
-   game: rr13 `create`, the record in slot 1. A newcomer behind a living
-   player's slot is unconfirmed]
+   turn-order first pass (creatures 2.2.6); capture: rr13 `create`, the
+   record in slot 1 of an empty game] **Below a living player too**: with
+   slot 1 freed and slot 2 living, the newcomer went into slot 1 (slots 3
+   and 4 staying free) and moved before the slot 2 player in every round
+   after; with slots 1 and 2 living it went into slot 3 and moved third.
+   [capture: rr29 `add/` cases b, a and c, rounds 28 to 34, capture.md
+   10.33; ours, no research pass, 2026-11-14]
 2. **"Add Someone" always answers "I will add a player as soon as
    possible."** The request is handled at the end of the round, after any
    retirement (7.1): with a free slot the add-player screen comes; with
@@ -275,12 +279,19 @@ holds Constitution with magic defense in the top two bits.
    before adding another, and adds no one. No character is rolled before
    that screen. [research, pass 2; capture: rr13 `ad-full`, and rr19
    `four-full`, `four-first`: the refusal at the round's end, 2 runs]
-   **Several add requests in one round** are [unknown]: neither pass nor
-   any capture asked "Add Someone" twice before a round's end, and no
-   message like retiring's "another player will retire first" (7.1) was
-   reported for adding. **Engine:** every request waits; at the round's end
-   they are handled one after another in the order asked, each taking the
-   lowest free slot then (6.1) or refused when none is left.
+   **Several add requests in one round add one player.** Every request
+   gets the same "I will add a player as soon as possible", with no
+   further message for a second one (unlike retiring's, 7.1); the round's
+   end brings one add-player screen and one newcomer, and no other add
+   screen comes in the rounds after. It is the same whether one player
+   asks twice in its turn (choosing the menu uses no move) or two players
+   ask once each, and with more than one slot free. When the living count
+   changed in the round as well, the round-end message of 6.3 comes first
+   (F1 to go on), then the one add screen. [capture: rr29 `add/` cases a,
+   c and b, the screens read at each step, capture.md 10.33; ours, no
+   research pass, 2026-11-14] (Superseded: the engine's earlier choice of
+   handling each request in turn, which added two.) Two requests with no
+   free slot were not tried: by this rule one refusal.
 3. **A change in the living count either way** brings the round-end
    message of [creatures](creatures.md) 2.2.5 and 2.2.6 (restore the last
    save and bring back the dead, or F1 to go on): it compares the living
@@ -292,9 +303,13 @@ holds Constitution with magic defense in the top two bits.
    For the harness: poke the first bytes (and sensible Speed, Life Force
    and square), then answer F1 at that round's end (capture.md 10.23).
 4. **Engine:** the request is taken at once (its name checked then, 5.8)
-   and handled at the end of the round, after retirements (7.1), several
-   in the order asked (6.2); with no free slot it is refused then
-   (`AddRefused`), with no draw; otherwise the newcomer is rolled or set
+   and handled at the end of the round, after retirements (7.1); a round
+   holds at most one waiting add (6.2), so a later request in the same
+   round is answered alike and changes nothing (the first request's
+   newcomer is the one added; in the original the newcomer is chosen on
+   the one add screen); with no free slot it is
+   refused then (`AddRefused`, once), with no draw; otherwise the
+   newcomer is rolled or set
    up in the lowest free slot (6.1), reusing a dead or retired player's
    entry rather than adding one, so the player list holds at most 4, and
    joins the next round (movement 1.4). A slot is living by the engine's
@@ -451,8 +466,7 @@ holds Constitution with magic defense in the top two bits.
 - Which record is taken from a roster whose first entry is empty (3.5),
   and whether a full roster's character has its Life Force raised (7.3).
 - Editing keys in name entry (5.5).
-- Two "Add Someone" requests in one round (6.2), and a newcomer put in a
-  dead slot below a living one (6.1).
+- Two "Add Someone" requests in one round with no free slot (6.2).
 
 ## Captures needed
 
@@ -470,11 +484,10 @@ holds Constitution with magic defense in the top two bits.
    open: the full roster's message with T at Life Force 5 read at once
    after the button, to tell the raise from healing.
 4. A creature's ratings with marks, if the editor shows them (4.2).
-5. From `move-basic-start.vsf` with slots 1 and 2 living: slot 1's first
-   byte zeroed (F1 at the offer), then "Add Someone" by two players in one
-   round; read which slots the newcomers' records land in and the turn
-   order after (6.1, 6.2). Tried in rr26 (`d5-add2`, capture.md 10.30)
-   and not reached: it needs a script that waits on each screen.
+5. Two "Add Someone" requests in one round, and a newcomer in a freed
+   slot below a living player: captured (6.1, 6.2, capture.md 10.33: one
+   player added, in the lowest free slot, moving in its place). Still
+   open: two requests with no free slot (one refusal or two).
 6. A Retire with Save as a save point: captured (7.3, creatures 2.2.7,
    capture.md 10.28). Still open: whether a Destroy in a room (7.5)
    writes the game.
