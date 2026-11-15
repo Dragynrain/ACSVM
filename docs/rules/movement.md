@@ -359,8 +359,9 @@ In priority order, for the behaviour-capture harness:
    locked door cost nothing; taking a door, map or room, costs one step).
    Still open: a space that bars passage.
 3. Arriving on a space, obstacle or door: does it trigger?
-4. Map encounter roll and area: researched ([encounters](encounters.md));
-   our own capture of the draws, the squares and the walk-out still to do.
+4. Map encounter roll and area: researched and captured
+   ([encounters](encounters.md), capture.md 10.20, 10.26, 10.34, 10.36);
+   its open points are listed there (section 8).
 5. Room random creature: square choice.
 6. Real-time drain rate of the bar (captured: about 354 frames per point of
    Speed); extra turns for players in other regions.

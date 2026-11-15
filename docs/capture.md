@@ -631,7 +631,7 @@ screen offers next to "create new player".
 | `$71FA` | The number of the individual whose turn it is | Researcher, turn-order first pass, 2026-11-12 |
 | `$E1A3` on | The visited region's creature slots, 37 bytes each: +0 Constitution (0 when free), +6 bit 7 the random mark, +13 and +14 the square | Researcher, random-rolls third pass, 2026-11-12 |
 | `$E1A3` on, `$F59F` on | Fighting bytes of a creature slot and of the first player's record (the stored record layout): +0 magic defense (top 2 bits), +2 Dexterity, +3 Life Force, +5 Power, +6 to +10 Dodge, Parry, Armor, Melee, Missile skills, +15 Size, +20 the weapon held, +21 the armor worn; read by `rr8/rounds.sh` (10.15) | Researcher, combat first pass, 2026-11-13 (`docs/research/combat.md`) |
-| `$B799` | The current attack's blows left; while firing, the shots left after the current one | Researcher, combat first pass, 2026-11-13; shots seen in our `bow` runs (10.14.10) |
+| `$B799` | The current attack's blows left; while firing, the shots left after the current one | Researcher, combat first pass, 2026-11-13; shots seen in our `bow` runs (10.14.10); a melee attack writes its blow count (the blow under way included) at its start, then counts down (10.35) |
 | `$F5B0`, `$F5B1`-`$F5B2` | The first player's Wisdom and gold (the record at `$F59F`, +0x11 and +0x12, from the stored record layout); poked by `rr10/sweep.sh` (10.17), the store screen showing and using both | Researcher, combat first pass (the record's address), 2026-11-13 |
 | `$E06D`-`$E07A` | The visited region's store stock: things 1 to 32 two bits each (a count 0..3, four to a byte, thing 1 in the top two bits of `$E06D`), then things 33 to 80 one bit each from `$E075` (thing 33 the top bit); read and set by `rr11` (10.17) | Researcher, stores first pass, 2026-11-13 (`docs/research/stores.md`) |
 | `$F5B6` on | The first player's possessions in the same layout (record +0x17); set by `rr11` | Researcher, stores first pass, 2026-11-13 |
@@ -1581,8 +1581,9 @@ In this order (planned November 2026):
      256 of 256, **8 rolls on every field step, WOLF's first** (the 7
      empty records on terrain 0, rolled against 0). **`two`** (WOLF and
      HARE on the grass): 256 of 256: both hit in 87 runs (slots 8 and 9,
-     on 2,3 and 3,3), WOLF alone in 40 (slot 8 on 2,3), HARE alone in 59
-     (**slot 8 on 3,3**, its record's square). In every encounter the
+     on 2,3 and 3,3), WOLF alone in 65 (slot 8 on 2,3; first written here
+     as 40, corrected in 10.36), HARE alone in 59 (**slot 8 on 3,3**, its
+     record's square), none in 45, every run one grass step. In every encounter the
      entrance was the square stepped onto (13,12 or 14,12), T on 12,4 in
      area 1 (place 1), the moves 0, area 1's size byte 233 and its wall
      picture the grass's, and no draw between the rolls and the turn's end
@@ -2534,7 +2535,8 @@ In this order (planned November 2026):
      Speed 0, an aggressive brave enemy of Strength 10 owning and holding
      our blade, on 5,4; T on 4,4 holding nothing; sweep `still-melee-sw`,
      16 runs from `still-melee-room.vsf`, `still.py`): **64 of 64 of EE's
-     turns had an attack** (`$B799` written each time, 2 blows), T's Life
+     turns had an attack** (`$B799` written each time; 1 blow, first
+     misread from that byte as 2: see 10.35), T's Life
      Force fell 16 times in them, EE's square never changed. So it
      attacks once a turn (creatures 2.7's step is not cancelled onto the
      goal's square), as traced.
@@ -2745,3 +2747,226 @@ In this order (planned November 2026):
      the original offers everything.
    Not run: a second player joining an area for real, room 0's list, a
    death or a creature through the door.
+35. **Combat open cases, the 2026-11-15 batch** (ours, no research pass:
+   [combat](rules/combat.md) 3.1, 4.1.2, 5.1, 6.2, 6.3, 8.1, 8.8.3 and
+   "Captures needed" 2 to 6, and disagreements of the golden tests,
+   `crates/acs-engine/tests/golden/`). `ACSVM-research/capture/runs/rr31/`
+   (the harness binary in `bin/`, `env.sh`; `case.sh` and `build.sh` build
+   the cases of `cases.txt`: `snap`, rr20's chain to T's first turn's end,
+   or `room2`, rr28's `enter2.txt`, T on 4,4 at its first room turn with 2
+   of 6 moves; `sweep.sh` and `arrow.sh` the sweeps, `run mem
+   --set-random-state --draws --ram --answer T`, three VICE; `rec.py`
+   lists which bytes of a watched record change; `nw1.txt`, `nw2.txt`
+   the player's weapon menu). No harness changes. `scripts/combatcheck.py`
+   gains the cases `still-melee` (rr28), `sm-d8`, `sm-d16`, `sm-d24`,
+   `bow-adj`, `ready-melee`, `brk-parry`, `mb-mail`, `mb-mmail`, the
+   options `--still-first` (3.1's first term at full moves 0),
+   `--build-round down|zero` (4.1.2), and for the FIRE cases `--cls`,
+   `--wis`, `--arrow-rule`, `--arrow-roll` (the class byte `$E1A7`
+   predicted after each damaging arrow), and checks every melee attack's
+   blows against the first value `$B799` is written with.
+   - **A Speed 0 fighter's blows** (EE Speed 0, an aggressive brave enemy
+     of Strength 10 holding our blade, Constitution and Life Force 20, on
+     5,4 beside T, who holds nothing; 32 runs each from the room snapshot,
+     30 million instructions, 4 of EE's turns a run). Each turn: the die,
+     two checks, a step roll for each of the four squares beside (T's
+     included), then the attack (the step onto T is always chosen), then
+     the round's end. Strict, every draw and every change: rr28's
+     `still-melee-sw` (Dexterity 13) **16/16, 1 blow** in all 64 attacks;
+     `sm-d8` **32/32, 1 blow** (128 attacks); `sm-d16` **32/32, 2 blows**
+     (128); `sm-d24` **32/32, 3 blows** (128). With the first term 0
+     instead of 1 `sm-d16` and `sm-d24` fit 0/32; with 4, 0/32. So 3.1's
+     rule holds at Speed 0 with the first term 1. **`$B799` is written
+     with the attack's blows at its start** (the blow under way counted)
+     and counts down: 1 then 0 for a single blow; checked on every attack
+     here and on rr9's `break-many` (4 and 6 blows). 10.32's "2 blows"
+     was a misreading of that byte. **A negative Build rounds toward 0**
+     (combat 4.1.2's open point): EE of Dexterity 8 (Build -4) did 9 with
+     our blade (-40 / 30 taken as -1), T losing 7 Life Force and 4 Power
+     a hit; rounding down (8) fits 13 of 32 `sm-d8` runs, toward zero
+     32/32 (31 hits).
+   - **What the roll of 0 to 9 after a damaging arrow decides** (from
+     rr20's `fire1/fire-e5.vsf`, the cursor on EE at 9,4, the button at the
+     run's start; EE's class byte `$E1A7` set to 128 + 16 x class, its
+     Wisdom `$E1B4` set; `arrow-c0` .. `arrow-c7` at Wisdom 10, 128 runs
+     each, `arrow-c5` 256; `arrow-c5w3`, `arrow-c5w20` 128 each; the class
+     byte compared in full). Every run fits (`--arrow-roll smart`) with:
+     **the roll is combat 7's smartness check, drawn only when the target
+     is aggressive and not a friend and its Wisdom is 6 to 14**; then
+     combat 7's change, the roll counting only for an aggressive neutral
+     (an enemy below Wisdom - 5). Seen: peaceful thief, neutral, enemy
+     turning aggressive (23 each, no roll; 128/128 each; drawing the roll
+     there 113/128), a peaceful friend turning a peaceful neutral (23, no
+     roll), **an aggressive friend turning an aggressive neutral with no
+     roll** (23; 114/128 with the roll), aggressive thief and enemy
+     unchanged with the roll (26 hits each), the aggressive neutral at
+     Wisdom 10 an enemy on rolls 0 to 4 (30 of 57 hits; 256/256, with no
+     change 226/256), at Wisdom 3 never and at 20 always (23 hits), both
+     **with no roll** (with it 112/128 and 115/128). A peaceful neutral hit
+     twice: aggressive, then on the second arrow the roll, and an enemy.
+     The second player as target (`u-rec`: rr28's `fire-u` again, 64
+     runs, U's whole record `$F5C4`..`$F5E8` watched, `rec.py`): only
+     its Life Force, Power and Dodge change, and at U's death (48 runs)
+     bytes +0, +8 and +11; **nothing else in the record moves**: for a
+     player the roll (Wisdom 13) decides nothing. `combatcheck.py --case
+     fire-u --player-roll yes` 64/64 again.
+   - **fire-u's setup** (10.32, from rr28's `bes2/disk.d64`): T Speed 12,
+     Constitution and Life Force 40, Strength 9, Dexterity 13, Wisdom and
+     Power 13, Size 9, Dodge 30, Parry 26, Armor 0, Melee 31, Missile 22,
+     holding and owning our bow (Power 10, range 7, adjustment 0, break
+     chance 0, not magic); U the same but Speed 4 and nothing owned. T on
+     5,4 with 12 moves (7 shots), U on 4,4, the cursor on U. Of 448 shots
+     due **393 were fired: U died in 48 of 64 runs and the firing ended**;
+     **379 reached U** (each drew its dodge roll: 96 % of the shots
+     fired), 91 dodged, **288 did damage**.
+   - **A weapon breaking with blows still due** (`brk-parry`: rr9's
+     `break-many` with T's Parry 127, so EE's blows are parried at 90;
+     both blades break chance 15; EE Dexterity 31; 32 runs from the
+     turn-end snapshot). **32/32**: 70 parries, EE's blade broke 6 times,
+     **4 with blows still due** (2, 3, 5 and 2 left), and each time **the
+     attack ended there**; T's blade broke 3 times on parried
+     counter-blows and EE's attack went on, as 6.3 says.
+   - **A magic weapon against armor** (EE's blade magic; T wearing our
+     mail, Power 2, break chance 15; 32 runs each). `mb-mail` (plain mail):
+     **32/32 with the armor ignored**, no break roll, the full 10 or 15
+     (39 damaging blows); the plain-blade reading (Power off, break roll)
+     fits 6/32. `mb-mmail` (magic mail): **32/32 with the Power taken off
+     and the break roll** (41 damaging blows, the mail broken 8 times);
+     ignoring it 6/32. Both rows of 5.1's table.
+   - **A foe truly beside an archer** (`bow-adj`: EE Speed 3 holding our
+     bow on 5,4, T on 4,4; 32 runs from the room snapshot): **32/32**:
+     EE's turn halved to 2 moves, no shot, a step away (to 5,5 17 times,
+     5,3 9, 6,4 6), then **one shot** with the move left (Dexterity 13 / 8
+     + 1 / 2); 29 arrows reached T, 17 hitting.
+   - **Readying a melee weapon before stepping** (`ready-melee`: EE Speed
+     3 owning our blade, holding nothing, on 5,4 beside T; 32 runs):
+     **32/32**: the turn halved to 2, the blade readied (`$E1B7` 0 to 59)
+     at one move, then the attack with 2 blows (4 x 1 / 2 + 1 - 1); its
+     next turn 4 blows.
+   - **The player's menu with no weapon held** (`p-nowpn`: T owning our
+     blade, holding nothing, 2 moves, EE Speed 0 on 5,4; `nw1.txt` the
+     push east, `nw2.txt` the menu, one run each, deterministic): the push
+     used **no move** and showed "select a melee weapon to use", then a
+     menu of NONE (chosen first) and BLADE. One push down and the button:
+     **the blade readied at one move** (2 to 1, `$F5B3` 59) and **the
+     attack at once**, 1 blow (`$B799` 1; 4 x 1 / 6 + 1 - 1, at least 1),
+     "T misses EE". NONE (`nw-none/`): no move at the choice, no attack,
+     the bar then drained. As 2.8 says.
+   Not run: aggressive thieves and enemies at Wisdom below 6 or above 14
+   (whether their arrow roll also goes); a player target of another
+   Wisdom.
+36. **Encounter areas with several players, deaths and saves inside, the
+   2026-11-15 batch** (ours, no research pass; [encounters](rules/encounters.md)
+   5.2, 6.1, 6.4, 7.4, 7.6, 8 and 2.4, 2.6; the golden test `two_sweep`).
+   `ACSVM-research/capture/runs/rr32/` (the harness binary in `bin/`,
+   `env.sh`). `build.sh` makes three disks of rr14's `patch` layout (the
+   grass at 13..16, 10..12, map record 0 on it at 60 %) with T and U
+   (`--player2`), started to T's first turn (`start.vsf`, its disk
+   `disk1.d64`) and with U added (`two.vsf`, `add-second.txt`; T and U on
+   12,12, both on joystick port 2): `pair` (HARE, a peaceful neutral, Speed
+   3), `death` (WOLF, an aggressive brave enemy with Melee 100, T and U
+   Life Force 6), `kill` (WOLF with Life Force 1, 50 gold, holding the
+   blade; T Melee 100). `tin.sh` pushes T east with the random state 0, 1,
+   .. until area 1 opens (`CASE/in/in.vsf` at the next turn);
+   `step.txt`/`steploop.sh` do one player's step the same way (U's record
+   is T's + 37: place `$F5D4`, square `$F5D1`,`$F5D2`). Turn orders are
+   `run mem --ram` runs read with `roundcheck.py`. A `mem` run has no
+   jitter: one run a case unless said.
+   - **Item 1, a second player onto an open area's entrance** (`pair/join`,
+     U pushed east from 12,12 onto 13,12, area 1's entrance, T inside):
+     **U joins area 1** (place 1) **on 12,4, the same square as T**, no
+     other area opened, no copy placed, its turn ended (moves 0).
+     `pair/joindraws` (the same step, states 0..7, `--draws`): 8 of 8 had
+     **no draw** between the step and the join (the first draw is T's
+     next turn's). Engine (5.2): the same.
+   - **Item 2, players in several areas, and the order** (`order/`, 130M
+     to 150M idle each; all checks hold). The map region (`$397C` 0) holds
+     everything, one counter, **one list a round** for the map and all
+     areas: `split` (U on the map, T in area 1 with copy 8): **2 1 8**;
+     `join` (T and U in area 1): **1 2 8**; `two` (`pair/u2`: U into area
+     2 by 13,11, so T in area 1 with copy 8, U in area 2 with copy 9):
+     **1 8 2 9**; `o2` (U into area 1 first, then T into area 2 by 13,11;
+     copies 8 with U, 9 with T): **1 9 2 8**; `o3` (U in area 2, T out of
+     area 1, which closed and freed slot 8, then T onto 13,11): **T
+     joined area 2** (place 2, 12,4, its turn ended) and the order was
+     **1 2 9**, U having been there first. So: the open map's players
+     first; then the areas, **taken by their lowest-numbered player**, each
+     its players **in number order** (not joining order) then its
+     creatures by slot. Whether an area visit stops at 10 rounds can't
+     show here: nothing else was in play, and region 0 never changed.
+     Engine (6.1): map players in joining order, then areas 1 to 4, each
+     its players in joining order and its creatures: differs in `o2` and
+     `o3`.
+   - **Item 3, a death in an area** (`death.sh`; `two-*` from
+     `death/in/in.vsf`, U on the map; `alone-*` from `death/in1/in.vsf`, T
+     alone; `--answer-text CONTINUE` presses through the hit messages).
+     In all four the WOLF copy killed T (round 22 with U, 15 alone) and,
+     **between the kill and the death message, area 1 closed**: size 0,
+     entrance 41,41, slot 8 freed, T's place byte left 1. F1 (`two-f1`):
+     U alone on the map every round from 23 to 30; (`alone-f1`) the
+     add-a-player screen. The button (`two-button`, `alone-button`):
+     **the last save**, U's adding at round 14 (T and U on 12,12, place
+     0) or T's start at round 0 (T on 12,12): no save had been made in
+     the area. Engine (7.4): the area closes, the usual death follows; the
+     same.
+   - **Item 4, SAVE GAME and Retire in an area.** `save1.txt` (from
+     `death/in1/in.vsf`, T alone in area 1 in round 14, gold 77, SAVE GAME
+     as rr24's `c1.txt`), then `save/s1-button` (`mem`, 200M): the save at
+     round 14's end; the copy killed T in round 15 and **the button
+     brought back round 15 with T in area 1 on 12,4 (place 1), gold 77,
+     the area open (size 233, entrance 13,12) and the WOLF copy alive on
+     its square at the save (8,3)**; the same round replayed 10 times. So
+     the save holds the area, its entrance and the copy. `retire1.txt`
+     (from `pair/in/in.vsf`: at T's turn in round 21, T in area 1 with the
+     HARE copy, U on the map; RETIRE as `c2.txt`): the offer ("press
+     button to save T") at the round's end, the area still open; after
+     the button and "the adventure has been saved", **T's record retired
+     (first byte 0) with its place 1 and square 12,4 kept, area 1 closed
+     (size 0, 41,41) and the copy gone**; U's turn followed in round 22.
+     Re-added from the list later (`retire/readd`, `add-second.txt` from
+     U's turn; T's record alive again in round 29, gold 111): **T on
+     12,12, the map's start, place 0**, not in the area. Engine (7.6):
+     saves replay the log, so a restore comes back in the area as here;
+     retiring closes an emptied area, as here.
+   - **Item 5, all areas or all slots in use** (`full.sh`, from
+     `pair/start.vsf`, states 0..15, a 300k push east, `--draws`, not
+     `--ram`: runs 3 and 4 of `ctrl` and `slots` ended reading the ROM and
+     are dropped). `ctrl`: every readable run met the HARE (area 1 on 13,12
+     or 14,12). `areas` (all four areas set open by pokes): **16 of 16
+     with no draw on any grass step**, T walking on to 14,12 and no area
+     or slot changed (encounters 2.4). `slots` (slots 8..15 set alive in
+     area 4, area 4 open, areas 1..3 free): **every grass step drew its
+     roll**, hits included, and **no area opened**: T walked on with its
+     moves, area 1 free, 14 of 14 (2.6). Engine: the same.
+   - **Item 6, a creature and the area's door** (`hare.sh`, from
+     `pair/in/in.vsf`, the HARE copy, a peaceful neutral, whose only goal
+     is an exit, poked onto 1,5 beside the door on 0,5; states 0..7, 60M,
+     two of its turns of 3 steps each): **it never stepped onto 0,5** in
+     8 of 8 runs, its first step going north or south; in `order/`'s
+     runs (150M) the copies wandered about rows 1 to 8 and never left. So
+     a creature doesn't take the area door, nor seek it as an exit.
+     Engine (6.4): creatures see the door as an exit and one that steps
+     onto it is removed: differs.
+   - **Item 7, a copy killed inside** (`kill1.txt` to `kill3.txt` from
+     `kill/in/in.vsf`: T poked onto 3,3 beside the copy on 2,3, a push
+     west, the hit message and "dies" answered). The copy's slot +0 went
+     to 0 (its gold 50 and weapon left in the slot); **area 1's list in
+     memory (`$E812` on) gained two entries first, on its square 2,3: the
+     blade (thing 59) and a gold entry of 50**, the door after them; T's
+     gold unchanged (0). T then out by 0,5: both entries **marked deleted
+     (square 255)** at closing, the door kept (7.2). Engine: a dying
+     creature drops what it carries and its gold as anywhere (combat), and
+     closing deletes them: the same.
+   - **Item 8, the two percentiles of `two`** (`scripts/encpair.py`, new,
+     on rr15's `two/runs.jsonl`). Every run of the 256 took **one grass
+     step**, and its draws follow the generator from the run's state and
+     the raster lines alone (256 of 256: a = previous XOR the line's low
+     byte, the logged line or the one before it, then a x 69 + 131): the
+     first draw on line 270, the second on **27 after a hit, 38 after a
+     miss, 216 after a redraw** (120, 80 and 56 runs). The counts are
+     **none 45, WOLF alone 65, HARE alone 59, both 87** (the slots at the
+     run's end say the same): 10.20's "WOLF alone in 40" was a slip
+     (corrected there), and with it the 70 / 40 the golden test expects.
+     First-roll hits 152 of 256 and second 146 of 256 give 86.7 for both
+     if independent, against 87 seen: no correlation, and no rule (every
+     record rolled in every run, as encountercheck.py already checks).

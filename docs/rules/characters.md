@@ -292,6 +292,13 @@ holds Constitution with magic defense in the top two bits.
    research pass, 2026-11-14] (Superseded: the engine's earlier choice of
    handling each request in turn, which added two.) Two requests with no
    free slot were not tried: by this rule one refusal.
+   **The add saves the game**: the round's end that brings the newcomer
+   in is a save point, with the newcomer in and the counter gone up, so a
+   later death message's button brings back the round after the request
+   ([creatures](creatures.md) 2.2.7.4, with its order beside a SAVE GAME
+   or a Retire with Save in the same round). [capture: mem, rr32
+   `death/two-button`, capture.md 10.36 item 3; ours, no research pass,
+   2026-11-15]
 3. **A change in the living count either way** brings the round-end
    message of [creatures](creatures.md) 2.2.5 and 2.2.6 (restore the last
    save and bring back the dead, or F1 to go on): it compares the living
@@ -312,7 +319,8 @@ holds Constitution with magic defense in the top two bits.
    newcomer is rolled or set
    up in the lowest free slot (6.1), reusing a dead or retired player's
    entry rather than adding one, so the player list holds at most 4, and
-   joins the next round (movement 1.4). A slot is living by the engine's
+   joins the next round (movement 1.4); its joining moves the save point
+   there (creatures 2.2.7.4; a refusal saves nothing). A slot is living by the engine's
    own alive flag, which stands for the first byte.
 
 ## 7. Retiring

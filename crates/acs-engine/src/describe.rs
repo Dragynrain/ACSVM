@@ -507,7 +507,6 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             let why = match reason {
                 RemovalReason::LeftBehind => "wanders off",
                 RemovalReason::Banished => "is banished",
-                RemovalReason::LeftArea => "leaves the encounter",
                 RemovalReason::AreaClosed => "is gone",
             };
             format!("{} {why}.", creature(game, *region, *slot))
@@ -663,6 +662,22 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         Event::NameRefused => "A name can't start with three spaces; give another.".into(),
         Event::LivingChanged { before, after } => {
             format!("Living players went from {before} to {after}: restore the last save, or go on.")
+        }
+        Event::Restored { round } => {
+            let names: Vec<&str> = game
+                .players()
+                .iter()
+                .filter(|p| p.alive)
+                .map(|p| p.name.as_str())
+                .collect();
+            if names.is_empty() {
+                format!("The last saved game is back, round {round}, with nobody in play.")
+            } else {
+                format!(
+                    "The last saved game is back, round {round}. The adventurers: {}.",
+                    names.join(", ")
+                )
+            }
         }
     }
 }

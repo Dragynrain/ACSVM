@@ -238,13 +238,16 @@ impl Walk {
     }
 
     /// Back to the last autosave (after a death, as in the original).
+    /// The engine's button (`Command::Restore`) on the kept game.
     fn resume(&mut self) {
         self.game = self.restore_target().clone();
-        self.save = self.game.clone();
-        self.older = self.game.clone();
         self.pending_drop = None;
         self.pending_fire = None;
         self.note("Resumed from the last save.".into());
+        let ev = self.game.apply(Command::Restore);
+        self.save = self.game.clone();
+        self.older = self.game.clone();
+        self.record(&ev);
     }
 
     /// While a drop is pending, a direction key or Wait sends the drop;
@@ -1554,7 +1557,8 @@ mod tests {
     }
 
     /// Creatures 2.2.7: SAVE GAME moves the kept save to the round's end;
-    /// resuming goes back there.
+    /// resuming goes back there and logs the button (2.2.6), which saves
+    /// again at the new cycle's first visit.
     #[test]
     fn save_game_moves_the_restore_point() {
         let a = adventure();
@@ -1568,7 +1572,12 @@ mod tests {
         assert_eq!(w.restore_target().log().len(), 2);
         w.apply(Command::Wait);
         w.resume();
-        assert_eq!(w.game.log(), kept);
+        assert_eq!(w.game.log(), [Command::SaveGame, Command::Wait, Command::Restore]);
+        assert_eq!(w.game.save_point(), 3);
+        assert_eq!(w.restore_target().log().len(), 3);
+        // A save file of the resumed walk replays to it.
+        let (_, text) = w.save_file(&a);
+        assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
     }
 }

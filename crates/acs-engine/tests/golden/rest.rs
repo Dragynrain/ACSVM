@@ -108,11 +108,15 @@ fn until_turn_of(g: &mut Game, player: usize) -> Vec<Event> {
 }
 
 /// The game the death message's button brings back: the save at
-/// [`Game::restore_point`], replayed from the seed as a save file is.
+/// [`Game::restore_point`], replayed from the seed as a save file is, and
+/// the button played on it (a new cycle from the restored places).
 fn restore(g: &Game, a: &Adventure) -> Game {
     let mut s = SaveFile::new(g, a, g);
     s.autosave = g.restore_point();
-    s.restore(a).expect("restores").autosave
+    let mut r = s.restore(a).expect("restores").autosave;
+    let ev = r.apply(Command::Restore);
+    assert!(has(&ev, |e| matches!(e, Event::Restored { .. })), "{ev:?}");
+    r
 }
 
 // ---------------------------------------------------------------------------
@@ -1300,17 +1304,20 @@ pub mod encounters {
         }
     }
 
-    /// capture.md 10.20 (`two`, 256 runs): WOLF and HARE on the grass at
-    /// 60% each: both hit in 87 runs (slots 8 and 9, on 2,3 and 3,3), WOLF
-    /// alone in 40 (slot 8 on 2,3), HARE alone in 59 (slot 8 on 3,3, its
-    /// record's square), none in the other 70. Bins: none, WOLF, HARE,
+    /// capture.md 10.20 (`two`, 256 runs of one grass step each, counts as
+    /// corrected in 10.36): WOLF and HARE on the grass at 60% each: both
+    /// hit in 87 runs (slots 8 and 9, on 2,3 and 3,3), WOLF alone in 65
+    /// (slot 8 on 2,3), HARE alone in 59 (slot 8 on 3,3, its record's
+    /// square), none in 45. Every draw followed from the generator alone,
+    /// the two rolls independent (10.36 item 8). Bins: none, WOLF, HARE,
     /// both.
     #[test]
-    #[ignore = "engine disagrees with capture.md 10.20: `two` met none in 70 of 256 runs and WOLF alone in 40, the engine none in about 2% and each alone about equally (independent 60% rolls)"]
     fn two_sweep() {
         let a = patch(&[("WOLF", GRASS, 60), ("HARE", GRASS, 60)]);
         let h = crate::world::histogram(SEEDS, 4, |seed| {
-            let (_, ev, g) = push_east(&a, seed);
+            let mut g = fresh(&a, seed, t());
+            let ev = g.apply(Command::Move { dir: Dir::E });
+            assert!(has(&ev, |e| matches!(e, Event::Moved { .. })), "{ev:?}");
             let at = |s: usize| g.creature(0, s).map(|c| (c.x, c.y));
             match encounters(&ev)[..] {
                 [] => 0,
@@ -1329,7 +1336,7 @@ pub mod encounters {
                 ref other => panic!("{other:?}"),
             }
         });
-        same_histogram("two, met none / WOLF / HARE / both", &[70, 40, 59, 87], &h);
+        same_histogram("two, met none / WOLF / HARE / both", &[45, 65, 59, 87], &h);
     }
 
     /// capture.md 10.20 (`two`): the copies' slots and squares, whichever
@@ -1681,6 +1688,598 @@ pub mod encounters {
             "{ev:?}"
         );
     }
+
+    // ---- rr32: several players, deaths and saves inside (10.36) --------
+
+    const BLADE: u16 = 59;
+    const GOLD: u16 = 81;
+
+    /// rr32's `pair` disk: `patch` with one record on the grass at 60 %,
+    /// HARE, a peaceful neutral of Speed 3.
+    fn pair() -> Adventure {
+        let mut a = patch(&[("HARE", GRASS, 60)]);
+        let c = &mut a.world.random_creatures[0].creature;
+        c.speed = 3;
+        c.strategy.alignment = Alignment::Neutral;
+        c.strategy.aggressive = false;
+        a
+    }
+
+    /// rr32's `death` and `kill` disks: WOLF, an aggressive brave enemy
+    /// holding the blade (thing 59, power 10), then `f`.
+    fn wolf(f: impl FnOnce(&mut acs_core::model::Creature)) -> Adventure {
+        let mut a = patch(&[("WOLF", GRASS, 60)]);
+        thing(&mut a, BLADE, "BLADE", blade(10));
+        let c = &mut a.world.random_creatures[0].creature;
+        c.possessions = vec![Possession {
+            thing: BLADE,
+            count: 1,
+        }];
+        c.weapon = BLADE;
+        f(c);
+        a
+    }
+
+    /// A player of Constitution and Life Force `life`.
+    fn frail(name: &str, life: u8) -> PlayerSetup {
+        PlayerSetup {
+            life_force: life,
+            constitution: life,
+            ..named(name, 6, &[])
+        }
+    }
+
+    /// rr32's `two.vsf`: T and U both on 12,12 (U added at the first
+    /// round's end), T's turn.
+    fn t_and_u(a: &Adventure, seed: u64, t: PlayerSetup, u: PlayerSetup) -> Game {
+        let mut g = fresh(a, seed, t);
+        g.apply(add(u));
+        g.apply(Command::Wait);
+        assert_eq!((g.players().len(), g.current()), (2, 0));
+        assert_eq!(g.players()[1].at, map(12, 12));
+        g
+    }
+
+    /// `player`, the current one, steps `dir`; true when that took it into
+    /// `area`.
+    fn enters(g: &mut Game, player: usize, dir: Dir, area: u8) -> bool {
+        g.current() == player
+            && has(
+                &g.apply(Command::Move { dir }),
+                |e| matches!(*e, Event::EnteredArea { player: p, area: n, .. } if p == player && n == area),
+            )
+    }
+
+    /// The first game over seeds 0.. of T and U (`t`, `u`) for which
+    /// `script`, played from T's first turn, says its encounters came.
+    fn scripted_with(
+        a: &Adventure,
+        t: &PlayerSetup,
+        u: &PlayerSetup,
+        script: impl Fn(&mut Game) -> bool,
+    ) -> Game {
+        for seed in 0..2000 {
+            let mut g = t_and_u(a, seed, t.clone(), u.clone());
+            if script(&mut g) {
+                return g;
+            }
+        }
+        panic!("no seed plays the script");
+    }
+
+    fn scripted(a: &Adventure, script: impl Fn(&mut Game) -> bool) -> Game {
+        scripted_with(a, &self::t(), &named("U", 6, &[]), script)
+    }
+
+    /// `split`: T into area 1 by 13,12 (copy 8), U left on the map.
+    fn split(g: &mut Game) -> bool {
+        enters(g, 0, Dir::E, 1) && g.current() == 1
+    }
+
+    /// `two`: `split`, then U into area 2 by 13,11 (copy 9).
+    fn two(g: &mut Game) -> bool {
+        split(g)
+            && {
+                g.apply(Command::Move { dir: Dir::N });
+                enters(g, 1, Dir::E, 2)
+            }
+            && g.creature(0, 9).is_some_and(|c| c.room == 2)
+    }
+
+    /// Who takes a turn: `P(n)` a player, `C(slot)` a map copy.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Turn {
+        P(usize),
+        C(usize),
+    }
+    use Turn::{C, P};
+
+    fn turns(ev: &[Event]) -> Vec<Turn> {
+        ev.iter()
+            .filter_map(|e| match *e {
+                Event::TurnStarted { player, .. } => Some(P(player)),
+                Event::CreatureTurn { region: 0, slot, .. } => Some(C(slot)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Waiting on, the turns run `round` twice running.
+    fn assert_round(g: &mut Game, case: &str, round: &[Turn]) {
+        let mut seen = Vec::new();
+        for _ in 0..12 {
+            seen.extend(turns(&g.apply(Command::Wait)));
+        }
+        let twice: Vec<Turn> = round.iter().chain(round).copied().collect();
+        assert!(
+            seen.windows(twice.len()).any(|w| w == twice),
+            "{case}: {seen:?}, want {round:?}"
+        );
+    }
+
+    /// capture.md 10.36 item 1 (`pair/join`, `pair/joindraws` states 0..7):
+    /// U pushed east from 12,12 onto 13,12, area 1's entrance, T inside:
+    /// U joined area 1 on 12,4, T's square, no other area opened, no copy
+    /// placed, its turn over (moves 0), and no draw between the step and
+    /// the join in 8 of 8, the first draw being T's next turn's
+    /// (encounters 5.2). The command runs on to T's next turn, whose
+    /// top-of-turn die (magic 5.3) is the one draw it makes.
+    #[test]
+    fn a_second_player_joins_an_open_area() {
+        let a = pair();
+        let mut joined = 0;
+        for seed in 0..64 {
+            let mut g = t_and_u(&a, seed, t(), named("U", 6, &[]));
+            if !split(&mut g) {
+                continue;
+            }
+            joined += 1;
+            let before = rng_state(&g);
+            let ev = g.apply(Command::Move { dir: Dir::E });
+            let end = ev
+                .iter()
+                .position(|e| *e == Event::TurnEnded { player: 1 })
+                .expect("U's turn ends");
+            assert!(
+                matches!(
+                    ev[end - 1],
+                    Event::EnteredArea {
+                        player: 1,
+                        area: 1,
+                        ..
+                    }
+                ),
+                "seed {seed}: {ev:?}"
+            );
+            assert!(encounters(&ev).is_empty(), "seed {seed}");
+            assert_eq!(g.players()[1].at, area_square(1, 12, 4));
+            assert_eq!(g.players()[0].at, area_square(1, 12, 4));
+            assert_eq!((g.area_entrance(1), g.area_entrance(2)), (Some((13, 12)), None));
+            assert!(g.creature(0, 9).is_none(), "seed {seed}");
+            assert!(matches!(ev[end + 1..], [Event::TurnStarted { player: 0, .. }]));
+            assert_eq!(draws(before, rng_state(&g)), 1, "seed {seed}: {ev:?}");
+        }
+        assert!(joined >= 8, "{joined}");
+    }
+
+    /// A scenario played on from T's first turn, as [`scripted`] takes it.
+    type Script<'a> = &'a dyn Fn(&mut Game) -> bool;
+
+    /// capture.md 10.36 item 2 (`order/`, one `mem` run each, no jitter):
+    /// the open map's players first, then the areas taken by their lowest
+    /// player, each its players in number order, then its copies by slot
+    /// (encounters 6.1). T is player 1 there (0 here), U 2 (1). `split`:
+    /// U, T, 8; `join` (U onto 13,12 too): T, U, 8; `two`: T, 8, U, 9;
+    /// `o2` (U into area 1 first, copy 8, then T into area 2 by 13,11, copy
+    /// 9): T, 9, U, 8; `o3` (`two`, then T out of area 1, which closed,
+    /// and onto 13,11, joining area 2 on 12,4, its turn over): T, U, 9.
+    #[test]
+    fn turn_orders_with_players_in_areas() {
+        let a = pair();
+        let join = |g: &mut Game| split(g) && enters(g, 1, Dir::E, 1);
+        let o2 = |g: &mut Game| {
+            g.apply(Command::Move { dir: Dir::N });
+            g.apply(Command::Wait);
+            enters(g, 1, Dir::E, 1) && enters(g, 0, Dir::E, 2)
+        };
+        let o3 = |g: &mut Game| {
+            if !two(g) {
+                return false;
+            }
+            until_turn_of(g, 0);
+            g.place(0, area_square(1, 1, 5));
+            let out = g.apply(Command::Move { dir: Dir::W });
+            has(&out, |e| matches!(e, Event::AreaClosed { area: 1 })) && enters(g, 0, Dir::N, 2)
+        };
+        let cases: [(&str, Script, &[Turn]); 5] = [
+            ("split", &split, &[P(1), P(0), C(8)]),
+            ("join", &join, &[P(0), P(1), C(8)]),
+            ("two", &two, &[P(0), C(8), P(1), C(9)]),
+            ("o2", &o2, &[P(0), C(9), P(1), C(8)]),
+            ("o3", &o3, &[P(0), P(1), C(9)]),
+        ];
+        for (name, script, round) in cases {
+            let mut g = scripted(&a, script);
+            if name == "o2" {
+                assert_eq!(g.creature(0, 8).map(|c| c.room), Some(1));
+                assert_eq!(g.creature(0, 9).map(|c| c.room), Some(2));
+            }
+            if name == "o3" {
+                assert!(g.creature(0, 8).is_none());
+                assert_eq!(g.players()[0].at, area_square(2, 12, 4));
+            }
+            assert_round(&mut g, name, round);
+        }
+    }
+
+    /// The events up to T's death, waiting on (at most 40 turns).
+    fn until_dead(g: &mut Game) -> Vec<Event> {
+        let mut ev = Vec::new();
+        for _ in 0..40 {
+            ev.extend(g.apply(Command::Wait));
+            if has(&ev, |e| {
+                matches!(
+                    e,
+                    Event::Died {
+                        who: Who::Player { player: 0 },
+                        ..
+                    }
+                )
+            }) {
+                return ev;
+            }
+        }
+        panic!("T never died");
+    }
+
+    /// capture.md 10.36 item 3 (`death.sh`: `two-*` with U on the map,
+    /// `alone-*` T alone; one run each): the WOLF copy (Melee 100) killed
+    /// T (Life Force 6), and between the kill and the death message area 1
+    /// closed: free, entrance 41,41, slot 8 freed. Then U alone on the map
+    /// every round (`two-f1`); alone, the button brought back the last
+    /// save, T's start at round 0 (T on 12,12), none having been made in
+    /// the area (encounters 7.4). With U, the button: the next test.
+    #[test]
+    fn a_death_in_an_area_closes_it_before_the_message() {
+        let a = wolf(|c| c.melee = 100);
+        for with_u in [false, true] {
+            let mut g = if with_u {
+                scripted_with(&a, &frail("T", 6), &frail("U", 6), split)
+            } else {
+                pulled_in(&a, frail("T", 6))
+            };
+            let ev = until_dead(&mut g);
+            let died = ev
+                .iter()
+                .position(|e| {
+                    matches!(
+                        e,
+                        Event::Died {
+                            who: Who::Player { player: 0 },
+                            ..
+                        }
+                    )
+                })
+                .unwrap();
+            let closed = ev.iter().position(|e| matches!(e, Event::AreaClosed { area: 1 }));
+            let message = ev.iter().position(|e| matches!(e, Event::LivingChanged { .. }));
+            assert!(
+                closed.is_some_and(|c| c > died) && message > closed,
+                "with U {with_u}: {ev:?}"
+            );
+            assert_eq!(g.area_entrance(1), None);
+            assert!(g.creature(0, 8).is_none());
+            assert!(g.region(0).unwrap().rooms[1].deleted);
+            if with_u {
+                let mut seen = Vec::new();
+                for _ in 0..8 {
+                    seen.extend(turns(&g.apply(Command::Wait)));
+                    assert!(matches!(g.players()[1].at, Location::World { .. }));
+                }
+                assert!(!seen.is_empty() && seen.iter().all(|&t| t == P(1)), "{seen:?}");
+            }
+            if !with_u {
+                let r = restore(&g, &a);
+                assert!(r.players()[0].alive);
+                assert_eq!(r.players()[0].at, map(12, 12));
+                assert_eq!(r.area_entrance(1), None);
+                assert_eq!(r.round(), fresh(&a, 0, frail("T", 6)).round());
+            }
+        }
+    }
+
+    /// capture.md 10.36 item 3 (`two-button`): with U on the map, the
+    /// button after T's death in area 1 brought back the last save, U's
+    /// adding (round 14 there): T and U on 12,12, place 0.
+    #[test]
+    fn after_a_death_in_an_area_the_button_brings_back_the_adding() {
+        let a = wolf(|c| c.melee = 100);
+        let mut g = scripted_with(&a, &frail("T", 6), &frail("U", 6), split);
+        until_dead(&mut g);
+        let r = restore(&g, &a);
+        assert_eq!(r.players().len(), 2);
+        for p in r.players() {
+            assert!(p.alive);
+            assert_eq!(p.at, map(12, 12));
+        }
+        assert_eq!(r.area_entrance(1), None);
+    }
+
+    /// capture.md 10.36 item 4, SAVE GAME (`save1.txt`, `save/s1-button`):
+    /// T alone in area 1 (gold 77) saved at the round's end; the copy
+    /// killed T the round after, and the button brought back that round
+    /// with T in area 1 on 12,4, gold 77, the area open with its entrance
+    /// 13,12 and the WOLF copy alive on its square at the save
+    /// (encounters 7.6).
+    #[test]
+    fn save_game_in_an_area_keeps_it() {
+        let a = wolf(|c| c.melee = 100);
+        let mut g = pulled_in(
+            &a,
+            PlayerSetup {
+                gold: 77,
+                ..frail("T", 6)
+            },
+        );
+        g.apply(Command::SaveGame);
+        let ev = g.apply(Command::Wait);
+        assert!(saves(&ev).iter().any(|s| s.1.is_none()), "{ev:?}");
+        assert!(g.players()[0].alive, "T died in the save's round");
+        let kept = g.clone();
+        until_dead(&mut g);
+        let r = restore(&g, &a);
+        assert_eq!(r.round(), kept.round());
+        assert_eq!(r.players()[0].at, area_square(1, 12, 4));
+        assert_eq!(r.players()[0].gold, 77);
+        assert_eq!(r.area_entrance(1), Some((13, 12)));
+        let xy = |g: &Game| g.creature(0, 8).map(|c| (c.room, c.x, c.y));
+        assert!(xy(&r).is_some());
+        assert_eq!(xy(&r), xy(&kept));
+    }
+
+    /// capture.md 10.36 item 4, Retire (`retire1.txt`, `retire/readd`): at
+    /// T's turn, T in area 1 with the HARE copy and U on the map, RETIRE
+    /// with the save: the offer at the round's end with the area still
+    /// open; then T's record retired with its place 1 and 12,4 kept, area
+    /// 1 closed and the copy gone, U's turn next. Added again from the
+    /// list, T starts on 12,12, the map's start (encounters 7.6).
+    #[test]
+    fn retiring_alone_in_an_area_closes_it() {
+        let a = pair();
+        let mut g = scripted(&a, split);
+        until_turn_of(&mut g, 0);
+        g.apply(Command::Retire { save: true });
+        assert!(!g.region(0).unwrap().rooms[1].deleted);
+        let ev = g.apply(Command::Wait);
+        let retired = ev
+            .iter()
+            .position(|e| matches!(e, Event::Retired { player: 0, .. }));
+        let closed = ev.iter().position(|e| matches!(e, Event::AreaClosed { area: 1 }));
+        assert!(retired.is_some() && retired < closed, "{ev:?}");
+        let saved = ev
+            .iter()
+            .find_map(|e| match e {
+                Event::Retired {
+                    player: 0,
+                    saved: Some(r),
+                    ..
+                } => Some(r.clone()),
+                _ => None,
+            })
+            .expect("saved");
+        assert_eq!(saved.at, area_square(1, 12, 4));
+        assert!(g.creature(0, 8).is_none());
+        assert_eq!(g.area_entrance(1), None);
+        assert_eq!(g.current(), 1);
+        g.apply(add(named(&saved.name, saved.speed, &[])));
+        let ev = g.apply(Command::Wait);
+        assert!(
+            has(
+                &ev,
+                |e| matches!(*e, Event::PlayerAdded { player: 0, at } if at == map(12, 12))
+            ),
+            "{ev:?}"
+        );
+    }
+
+    /// `g` with areas `open` (number, entrance) set open, as pokes.
+    fn poked_open(g: &Game, open: &[(u8, (u8, u8))]) -> Game {
+        let mut v = serde_json::to_value(g).expect("serializes");
+        for &(n, (x, y)) in open {
+            let room = &mut v["map"]["rooms"][n as usize];
+            room["deleted"] = false.into();
+            room["width"] = 15.into();
+            room["height"] = 10.into();
+            v["entrances"][n as usize - 1] = serde_json::json!([x, y]);
+        }
+        serde_json::from_value(v).expect("deserializes")
+    }
+
+    /// `g` with its generator set to `seed`'s state, as `--set-random-state`.
+    fn poked_rng(g: &Game, seed: u64) -> Game {
+        let mut v = serde_json::to_value(g).expect("serializes");
+        v["rng"] = serde_json::to_value(acs_engine::Rng::new(seed)).expect("serializes");
+        serde_json::from_value(v).expect("deserializes")
+    }
+
+    /// capture.md 10.36 item 5 (`full.sh`, states 0..15, a push east from
+    /// 12,12, every draw logged). `areas`: all four areas set open: 16 of
+    /// 16 with no draw on any grass step, T walking on to 14,12, no area
+    /// or slot changed (encounters 2.4). `slots`: slots 8..15 set alive in
+    /// area 4, area 4 open, areas 1..3 free: every grass step drew its
+    /// roll, hits included, and no area opened, T walking on with its
+    /// moves, 14 of 14 (2.6). The pokes' entrances are ours, off the grass.
+    #[test]
+    fn all_areas_or_all_slots_in_use() {
+        let a = patch(&[("WOLF", GRASS, 60)]);
+        let far = [(1, (0, 0)), (2, (1, 0)), (3, (2, 0)), (4, (3, 0))];
+        let mut hits = 0;
+        for seed in 0..16 {
+            for full_slots in [false, true] {
+                let g = fresh(&a, seed, t());
+                let mut g = if full_slots {
+                    let mut g = poked_open(&g, &far[3..]);
+                    for s in 8..16 {
+                        let c = g.creature_mut(0, s).unwrap();
+                        *c = a.world.random_creatures[0].creature.clone();
+                        (c.in_use, c.region, c.room, c.x, c.y) = (true, 0, 4, s as u8 - 6, 3);
+                    }
+                    g
+                } else {
+                    poked_open(&g, &far)
+                };
+                for x in [13, 14] {
+                    let before = rng_state(&g);
+                    let moves = g.current_player().moves_left;
+                    let ev = g.apply(Command::Move { dir: Dir::E });
+                    assert_eq!(g.players()[0].at, map(x, 12), "seed {seed}: {ev:?}");
+                    assert_eq!(g.current_player().moves_left, moves - 1);
+                    assert!(!has(&ev, |e| matches!(e, Event::EnteredArea { .. })));
+                    assert_eq!(draws(before, rng_state(&g)), full_slots as u64, "seed {seed}");
+                    let met = encounters(&ev);
+                    assert!(full_slots || met.is_empty(), "seed {seed}: {ev:?}");
+                    assert!(met.iter().all(|&(_, slot)| slot.is_none()), "{ev:?}");
+                    hits += met.len();
+                }
+                for n in 1..=4 {
+                    let open = !full_slots || n == 4;
+                    assert_eq!(g.area_entrance(n).is_some(), open, "seed {seed}: area {n}");
+                }
+                for s in 8..16 {
+                    assert_eq!(g.creature(0, s).is_some(), full_slots, "seed {seed}: slot {s}");
+                }
+            }
+        }
+        assert!(hits > 0);
+    }
+
+    /// capture.md 10.36 item 6 (`hare.sh`, states 0..7, two of the copy's
+    /// turns of 3 steps): the HARE copy, a peaceful neutral whose only
+    /// goal is an exit, put on 1,5 beside the door on 0,5: it never stepped
+    /// onto the door, 8 of 8, its first step going north or south
+    /// (encounters 6.4). The state set per run, as the capture's.
+    #[test]
+    fn a_creature_never_takes_the_areas_door() {
+        let a = pair();
+        let base = pulled_in(&a, t());
+        let mut north_south = 0;
+        for seed in 0..32 {
+            let mut g = poked_rng(&base, seed);
+            let c = g.creature_mut(0, 8).unwrap();
+            (c.x, c.y) = (1, 5);
+            let mut first = None;
+            for _ in 0..2 {
+                let ev = g.apply(Command::Wait);
+                assert!(
+                    !has(&ev, |e| matches!(e, Event::CreatureRemoved { .. })),
+                    "seed {seed}: {ev:?}"
+                );
+                for e in &ev {
+                    if let Event::CreatureMoved {
+                        region: 0,
+                        slot: 8,
+                        to: Location::Room { x, y, .. },
+                        ..
+                    } = *e
+                    {
+                        assert_ne!((x, y), (0, 5), "seed {seed}: {ev:?}");
+                        first.get_or_insert((x, y));
+                    }
+                }
+            }
+            north_south += matches!(first, Some((1, 4) | (1, 6))) as u64;
+        }
+        same_rate(
+            "hare: first steps north or south",
+            Sweep::Sample,
+            8,
+            8,
+            north_south,
+            32,
+        );
+    }
+
+    /// `kill`: T (Melee 100, holding the blade) has just killed the WOLF
+    /// copy (Life Force 1, 50 gold, holding the blade) on 2,3 from 3,3, in
+    /// the first seed where the blow kills.
+    fn killed_copy() -> Game {
+        let a = wolf(|c| {
+            c.life_force = 1;
+            c.wealth = 50;
+        });
+        let me = PlayerSetup {
+            melee: 100,
+            ..named("T", 6, &[BLADE])
+        };
+        for seed in 0..64 {
+            let mut g = fresh(&a, seed, me.clone());
+            if !has(&g.apply(Command::Move { dir: Dir::E }), |e| {
+                matches!(e, Event::EnteredArea { area: 1, .. })
+            }) {
+                continue;
+            }
+            assert_eq!(g.current(), 0);
+            g.apply(Command::Ready { thing: BLADE });
+            g.place(0, area_square(1, 3, 3));
+            assert_eq!(g.creature(0, 8).map(|c| (c.x, c.y)), Some((2, 3)));
+            let ev = g.apply(Command::Move { dir: Dir::W });
+            if !has(&ev, |e| {
+                matches!(
+                    e,
+                    Event::Died {
+                        who: Who::Creature { region: 0, slot: 8 },
+                        ..
+                    }
+                )
+            }) {
+                continue;
+            }
+            return g;
+        }
+        panic!("no kill in 64 seeds");
+    }
+
+    fn area_1_list(g: &Game) -> Vec<(u8, u8, u16, Option<u16>)> {
+        g.region(0).unwrap().rooms[1]
+            .items
+            .iter()
+            .map(|it| (it.x, it.y, it.thing, it.gold))
+            .collect()
+    }
+
+    /// capture.md 10.36 item 7 (`kill1.txt` .. `kill3.txt`, one run): the
+    /// WOLF copy (Life Force 1, 50 gold, holding the blade) on 2,3, T
+    /// (Melee 100) put on 3,3, a push west: the copy died, and area 1's
+    /// list gained two entries first, on 2,3, the blade and a gold entry
+    /// of 50, the door after them; T's gold unchanged (0). T out by 0,5:
+    /// both deleted at the closing, the door kept (encounters 4.4, 7.2). T
+    /// owns and readies the blade (the capture's T struck with one). The
+    /// two entries' order: the next test.
+    #[test]
+    fn a_killed_copys_drop_goes_at_the_closing() {
+        let mut g = killed_copy();
+        let mut list = area_1_list(&g);
+        assert_eq!(list.pop(), Some((0, 5, DOOR, None)));
+        list.sort_unstable();
+        assert_eq!(list, [(2, 3, BLADE, None), (2, 3, GOLD, Some(50))]);
+        assert_eq!(g.players()[0].gold, 0);
+        assert!(!g.region(0).unwrap().rooms[1].deleted);
+        until_turn_of(&mut g, 0);
+        g.place(0, area_square(1, 1, 5));
+        g.apply(Command::Move { dir: Dir::W });
+        assert_eq!(things_in_area(&g), [(0, 5, DOOR)]);
+    }
+
+    /// capture.md 10.36 item 7: the two new entries in the list's order,
+    /// the blade first, then the gold, then the door.
+    #[test]
+    #[ignore = "unconfirmed: capture.md 10.36 item 7 lists the blade and the gold of 50 as the two new entries but may not give their order; the engine puts the gold first. To capture: read the two entries' order"]
+    fn a_killed_copys_drop_lists_the_blade_first() {
+        assert_eq!(
+            area_1_list(&killed_copy()),
+            [(2, 3, BLADE, None), (2, 3, GOLD, Some(50)), (0, 5, DOOR, None)]
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1741,11 +2340,19 @@ mod saves {
         assert_eq!(r.round(), r0);
         assert_eq!(r.players()[0].at, at);
         assert!(r.players()[1].alive);
+        // Both in the room region: the new cycle visits it again from the
+        // same round, T first, the same draws; only the log differs (it
+        // holds the button).
         let mut again = r.clone();
         for c in &g.log()[g.restore_point()..] {
             again.apply(c.clone());
         }
-        assert_eq!(again, g);
+        assert_eq!(again.players(), g.players());
+        assert_eq!(
+            (again.round(), again.visiting(), again.current()),
+            (g.round(), g.visiting(), g.current())
+        );
+        assert_eq!(again.log().len(), g.log().len() + 1);
         assert!(!again.players()[1].alive);
     }
 
@@ -1866,7 +2473,6 @@ mod saves {
     /// marked from the restored places, lowest region first: the map
     /// first (rounds 80 to 89, U alone), region 1 from round 90.
     #[test]
-    #[ignore = "engine disagrees with capture.md 10.25: after the button the original visits the map first (U), the engine resumes the room visit the save began (T)"]
     fn after_the_button_the_map_comes_first() {
         let a = adventure();
         let (g, visit) = split(&a);

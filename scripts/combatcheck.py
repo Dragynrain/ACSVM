@@ -31,7 +31,12 @@ beside it), until the draws run out.
 
 The player's FIRE (capture.md 10.24, 10.32): `fire-e5`, `fire-e3`,
 `fire-e0`, `ready-e5` (rr20), `kill-e5` (`--kill-roll`) and `fire-u`, the
-target another player (`--player-roll`) (rr28).
+target another player (`--player-roll`) (rr28). rr31 (capture.md 10.35):
+`still-melee`, `sm-d8`, `sm-d16`, `sm-d24` (a Speed 0 fighter beside T,
+`--still-first`), `bow-adj`, `ready-melee`, `brk-parry`, `mb-mail`,
+`mb-mmail`; `--build-round` (combat 4.1.2); the FIRE cases' `--cls`,
+`--wis`, `--arrow-rule` and `--arrow-roll` (EE's class byte after each
+damaging arrow).
 
 Compares the predicted values of every watched byte (T's Life Force, Power,
 Parry, Armor skill, weapon and armor; EE's Life Force, Power, weapon and
@@ -51,6 +56,7 @@ INSIDE = (1, 13, 1, 8)
 T_START = (4, 4)
 BLADE, BOW, MAIL = 59, 41, 40
 SAMPLE = 20000  # instructions between watch reads
+BUILD_ROUND = {"trunc": False}  # combat 4.1.2: Build x P / 30 toward 0, not down
 
 
 def clamp(v):
@@ -77,6 +83,7 @@ MAILS = {
     "mail-nb": {"thing": MAIL, "power": 2, "adj": -30, "brk": 0, "magic": False, "once": False},
     "mail-heavy": {"thing": MAIL, "power": 12, "adj": -30, "brk": 15, "magic": False, "once": False},
     "mail-once": {"thing": MAIL, "power": 2, "adj": -30, "brk": 0, "magic": False, "once": True},
+    "mail-magic15": {"thing": MAIL, "power": 2, "adj": -30, "brk": 15, "magic": True, "once": False},
 }
 
 
@@ -92,7 +99,7 @@ def case(t_weapon=None, t_armor=None, md=0, ee_weapon=None, ee_at=(6, 4), ff=Fal
     # draws that come after a pause (its bar draining), and only they.
     c = {"tw": t_weapon, "ta": t_armor, "md": md, "ew": ee_weapon, "eat": ee_at, "ff": ff,
          "t_at": T_START, "t_last": 6, "armor_skill": 0, "ee_dex": 13, "ee_owns": None, "obstacles": set(),
-         "still": None, "ee_con": 20, "gaps": False}
+         "still": None, "ee_con": 20, "gaps": False, "t_idles": None}
     c.update(kw)
     return c
 
@@ -131,6 +138,26 @@ CASES = {
     "still-whole": case(ee_at=(9, 4), still=1, ee_con=40, gaps=True),
     "still-enemy": case(ee_at=(9, 4), still=2, ee_con=40, gaps=True),
     "still-bow": case(None, None, 0, bow(), (9, 4), still=2, gaps=True),
+    # capture.md 10.32 and 10.35 (rr28, rr31): EE of Speed 0 holding the
+    # blade on 5,4, T beside it on 4,4 holding nothing, from T's first room
+    # turn with 2 of 6 moves left (rr28's enter2.txt); EE's Dexterity 13
+    # (rr28 `still-melee`), 8, 16 or 24 (rr31 `sm-d8` ..).
+    "still-melee": case(None, None, 0, blade(), (5, 4), still=2, t_idles=[6, 6]),
+    "sm-d8": case(None, None, 0, blade(), (5, 4), still=2, t_idles=[6, 6], ee_dex=8),
+    "sm-d16": case(None, None, 0, blade(), (5, 4), still=2, t_idles=[6, 6], ee_dex=16),
+    "sm-d24": case(None, None, 0, blade(), (5, 4), still=2, t_idles=[6, 6], ee_dex=24),
+    # rr31 (10.35): EE of Speed 3 holding the bow on 5,4, T truly beside it
+    # on 4,4 (bow-beside had T diagonal), from T's first room turn as above.
+    "bow-adj": case(None, None, 0, bow(), (5, 4), t_idles=[6, 6]),
+    # rr31: break-many with T's Parry 127 (a parry chance of 90), so EE's
+    # blade (break chance 15) breaks often with blows still due.
+    "brk-parry": case(blade(brk=15), None, 0, blade(brk=15), ee_dex=31),
+    # rr31: EE's blade magic against T's plain or magic mail (break chance 15).
+    "mb-mail": case(None, MAILS["mail"], 0, blade(magic=True)),
+    "mb-mmail": case(None, MAILS["mail-magic15"], 0, blade(magic=True)),
+    # rr31: EE of Speed 3 owning the blade, not holding it, on 5,4 beside T
+    # (combat 6.2: it readies the blade, one move, before its first step).
+    "ready-melee": case(None, None, 0, None, (5, 4), ee_owns=blade(), t_idles=[6, 6]),
 }
 
 
@@ -225,8 +252,11 @@ def melee_weapon(f):
 
 
 class Sim:
-    def __init__(self, d, case, start, watch, reach, still_rule="pass4"):
+    def __init__(self, d, case, start, watch, reach, still_rule="pass4", still_first=1):
         self.still_rule = still_rule
+        # Combat 3.1: the blows' first term when the full moves are 0.
+        self.still_first = still_first
+        self.attack_blows = []  # each attack's blows, as counted
         c = CASES[case]
         self.c = c
         self.d = d
@@ -290,7 +320,8 @@ class Sim:
         heavy = self.take(100) < a["dex"]
         p = w["power"]
         build = max(0, min(30, a["dex"] + a["size"] - 6)) - 15
-        dmg = build * p // 30 + p
+        # Combat 4.1.2: how a negative Build rounds (`--build-round`).
+        dmg = (tdiv(build * p, 30) if BUILD_ROUND["trunc"] else build * p // 30) + p
         if heavy:
             dmg += half(p)
         dmg = min(dmg, 3 * p // 2)
@@ -389,8 +420,11 @@ class Sim:
 
     def attack(self, a, d, left, full):
         dex_term = a["dex"] // 8
-        blows = max(1, (4 * left // full if full else 1) + dex_term - 1)
+        blows = max(1, (4 * left // full if full else getattr(self, "still_first", 1)) + dex_term - 1)
         trace = [blows]
+        if hasattr(self, "attack_blows"):
+            self.attack_blows.append(blows)
+            self.counts[f"attacks of {blows}"] = self.counts.get(f"attacks of {blows}", 0) + 1
         while blows > 0 and a["life"] > 0 and d["life"] > 0:
             out, dmg, stop = self.blow(a, d, blows, False)
             if out == "hit" and dmg > 0:
@@ -491,8 +525,9 @@ class Sim:
     def run(self):
         t, ee = self.t, self.ee
         try:
-            if self.take(self.c["t_last"]) == 0:  # T's last idle move
-                self.heal(t)
+            for n in self.c["t_idles"] or [self.c["t_last"]]:  # T's last idle moves
+                if self.take(n) == 0:
+                    self.heal(t)
             while True:
                 self.ee_turn()
                 if self.ff:
@@ -543,13 +578,23 @@ class Sim:
             self.fire(f, 0)
             return
         t = self.t
+        best = None
         for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
             sq = (f["at"][0] + dx, f["at"][1] + dy)
             if not inside(sq) or sq in others or sq in self.obstacles:
                 continue
             if sq == t["at"] and not melee_weapon(f):
                 continue
-            self.take(3)
+            r = self.take(3)
+            cost = 1 if sq == t["at"] else 2
+            score = 3 * dist(sq, t["at"]) + 5 * cost + 4 * r
+            if best is None or score < best[0]:
+                best = (score, sq)
+        # The step onto T's square is the attack (capture.md 10.32); any
+        # other is cancelled.
+        if best and best[1] == t["at"]:
+            self.attack(f, t, 0, 0)
+            return
         if f["life"] < f["con"]:
             self.counts["idle heals"] += 1
         self.heal(f)
@@ -754,7 +799,22 @@ FIRE_TARGETS = {"EE": ("EE", (9, 4), ("E1A6", "E1A8", "E1A9"), 20, T_START, blad
                 "fire-u": ("U", (4, 4), ("F5C7", "F5C9", "F5CA"), 40, (5, 4), None)}
 
 
-def fire_check(v, case, reach, kill_roll=True, player_roll=False):
+def arrow_class(cls, wis, r):
+    """Combat 7's change of class after a damaging blow (alignment 0 thief
+    .. 3 friend, + 4 if aggressive), the aggressive neutral's smartness
+    check taking the roll r of 0..9."""
+    align, aggressive = cls & 3, cls & 4
+    if align == 3:
+        return 1 | aggressive
+    if not aggressive:
+        return cls | 4
+    if align == 1 and (wis > 14 or (6 <= wis <= 14 and r < wis - 5)):
+        return 2 | 4
+    return cls
+
+
+def fire_check(v, case, reach, kill_roll=True, player_roll=False, cls=None, wis=13, arrow_rule="sect7",
+               arrow_roll="always"):
     """T's shots from the run's first draw; returns the predicted values of
     the target's Life Force and Power, its Dodge skill, T's Missile skill
     and the moves left, the draw index each shot starts at, and a note.
@@ -781,16 +841,43 @@ def fire_check(v, case, reach, kill_roll=True, player_roll=False):
     # roll only while EE is still an aggressive enemy, as for the player's
     # blows, 4 runs fail). EE's class byte is not watched, so what the roll
     # decides is not checked here.
+    # `cls` (rr31, capture.md 10.35): EE's class set before the run; its
+    # class byte ($E1A7: bit 7 brave, bits 4..6 the class) then follows
+    # `arrow_rule` after each damaging arrow, the roll taken for the
+    # smartness check.
+    state = {"cls": cls, "rolls": []}
+
     def after_hit(f):
         if f is ee and (kill_roll or f["life"] > 0) and (player_roll or name == "EE"):
-            d.take(10)
+            c = state["cls"]
+            # `arrow_roll` (rr31): when the roll of 0..9 is drawn: always,
+            # only while the target is aggressive (before any change), or
+            # only when combat 7's first two rules (friend to neutral,
+            # peaceful to aggressive) don't apply.
+            if c is None or arrow_roll == "always":
+                take = True
+            elif arrow_roll == "aggressive":
+                take = bool(c & 4)
+            elif arrow_roll == "no-change":
+                take = (c & 3) != 3 and bool(c & 4)
+            else:  # "smart": as no-change, and only at Wisdom 6..14
+                take = (c & 3) != 3 and bool(c & 4) and 6 <= wis <= 14
+            r = d.take(10) if take else None
+            state["rolls"].append(r)
+            if cls is not None and f["life"] > 0 and arrow_rule == "sect7":
+                state["cls"] = arrow_class(c, wis, 9 if r is None else r)
     sim.after_hit = after_hit
     moves = start["719A"]
     vals = {lf: [start[lf]], pw: [start[pw]], dg: [start[dg]], "F5A9": [start["F5A9"]], "719A": [moves]}
+    if cls is not None:
+        vals["E1A7"] = [start["E1A7"]]
 
     def push():
         # Every change, in order, as the watch sees them.
-        for k, val in ((lf, ee["life"]), (pw, ee["power"]), (dg, ee["dodge"]), ("F5A9", t["missile"])):
+        now = [(lf, ee["life"]), (pw, ee["power"]), (dg, ee["dodge"]), ("F5A9", t["missile"])]
+        if cls is not None:
+            now.append(("E1A7", (start["E1A7"] & 0x80) | state["cls"] << 4))
+        for k, val in now:
             if vals[k][-1] != val:
                 vals[k].append(val)
     sim.record = push
@@ -812,6 +899,9 @@ def fire_check(v, case, reach, kill_roll=True, player_roll=False):
             sim.notes.append("out of draws")
     push()
     vals["719A"].append(0)
+    if cls is not None:
+        sim.notes.append(f"rolls {state['rolls']} class {cls} to {state['cls']}")
+        sim.counts[f"class {cls} to {state['cls']}"] = 1
     return vals, sim.shot_starts, "; ".join(sim.notes), sim.counts, sim.round_end
 
 
@@ -826,18 +916,34 @@ def main():
                     help="kill-e5: the roll of 0..9 after the player's arrow that kills")
     ap.add_argument("--player-roll", default="no", choices=["yes", "no"],
                     help="fire-u: the roll of 0..9 after the player's arrow that damages a player")
+    ap.add_argument("--still-first", type=int, default=1,
+                    help="a Speed 0 fighter's blows: combat 3.1's first term when the full moves are 0")
+    ap.add_argument("--cls", type=int, default=None,
+                    help="fire cases: EE's class set before the run (alignment + 4 if aggressive); "
+                         "its class byte E1A7 is then predicted by combat 7 after each damaging arrow")
+    ap.add_argument("--wis", type=int, default=13, help="fire cases with --cls: EE's Wisdom")
+    ap.add_argument("--arrow-roll", default="always", choices=["always", "aggressive", "no-change", "smart"],
+                    help="--cls: when the roll of 0..9 follows a damaging arrow")
+    ap.add_argument("--arrow-rule", default="sect7", choices=["sect7", "none"],
+                    help="--cls: the class change after a damaging arrow: combat 7's, or none")
+    ap.add_argument("--build-round", default="down", choices=["down", "zero"],
+                    help="combat 4.1.2: a negative Build x P / 30 rounded down or toward zero")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
+    BUILD_ROUND["trunc"] = a.build_round == "zero"
     right = wrong = 0
     totals = {}
     for text in open(a.runs, encoding="utf-8"):
         v = json.loads(text)
         if a.case in FIRE_CASES:
             pred, starts, note, counts, end = fire_check(v, a.case, REACH[a.reach], a.kill_roll == "yes",
-                                                         a.player_roll == "yes")
+                                                         a.player_roll == "yes", a.cls, a.wis, a.arrow_rule,
+                                                         a.arrow_roll)
             seen = observed(v)
-            # EE's own turn follows (healing, drift): compare the start.
-            bad = [f"{k} predicted {p} seen {seen[k]}" for k, p in pred.items() if seen[k][: len(p)] != p]
+            # EE's own turn follows (healing, drift): compare the start; the
+            # class byte in full (nothing else changes it in these runs).
+            bad = [f"{k} predicted {p} seen {seen[k]}" for k, p in pred.items()
+                   if seen[k][: len(p)] != p or (k == "E1A7" and seen[k] != p)]
             times = draw_times(v["draws"])
             writes = [c["t"] for c in v["changes"] if c["addr"] == "B799"]
             for k, i in enumerate(starts):
@@ -881,10 +987,18 @@ def main():
                     print("   ", b)
             continue
         d = Draws([x["raw"] for x in v["draws"]])
-        sim = Sim(d, a.case, v["start"], v["watch"], REACH[a.reach], a.still_rule)
+        sim = Sim(d, a.case, v["start"], v["watch"], REACH[a.reach], a.still_rule, a.still_first)
         sim.run()
         seen = observed(v)
         bad = []
+        # The blows-left byte ($B799) at each attack's start: written with
+        # the attack's blows (capture.md 10.35), from 0.
+        if not CASES[a.case]["ew"] or "range" not in CASES[a.case]["ew"]:
+            firsts = [c["to"] for c in v["changes"] if c["addr"] == "B799" and c["from"] == 0
+                      and c["t"] not in banked_times(v)]
+            n = min(len(firsts), len(sim.attack_blows))
+            if firsts[:n] != sim.attack_blows[:n]:
+                bad.append(f"attacks' blows predicted {sim.attack_blows} the byte's first values {firsts}")
         # Each shot starts with the bow's break roll, as the shots-left byte
         # ($B799) is written. The byte is read every 20,000 instructions, so
         # the shot's first draw falls within the sample before the change.

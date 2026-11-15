@@ -47,9 +47,10 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       that leaves no living player in the region, or when the game is left
       by restoring the saved game (2.2.6). A death alone does not end it.
    3. A **round's turn list** is built at its start. On the map: every
-      living player on the open map, in joining order, then the
-      individuals of the encounter areas in use ([encounters](encounters.md)
-      6.1). In a room region: the rooms that hold a living player (at most
+      living player on the open map, then the encounter areas in use, by
+      their lowest-numbered player, each its players in number order and
+      then its creatures ([encounters](encounters.md) 6.1). In a room
+      region: the rooms that hold a living player (at most
       4, in player order), and in each, its players in joining order, then
       the region's creatures standing there in slot order; nothing
       numbered between the players and the region's creatures (5 to 15)
@@ -108,7 +109,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       is" screen, ends the visit and starts a new cycle from the restored
       places.
    7. **When the saved state is written.** The state the button restores
-      is the latest of three saves:
+      is the latest of the game's start (the add-a-player screen's first
+      player in, counter 0) and four saves:
       1. **A visit that changes region**: when a visit begins in a region
          other than the one the visit before it was in, the state at that
          visit's start is saved, its round counter being the visit's first
@@ -137,12 +139,45 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
          character still out of play), every other record as it stood
          then. A Retire with Destroy on the world map writes nothing
          (characters 7.4).
+      4. **An Add Someone answered in play**: when a round's end brings
+         a newcomer in ([characters](characters.md) 6.2), the state is
+         saved with the newcomer on its starting square and the counter
+         already gone up, as SAVE GAME's round-end save: asked in round
+         13, it restores to the start of round 14 with the newcomer
+         there. No region change and no other request is needed. This is
+         Add Someone from the menu only: a player added on the add-a-player
+         screen at the game's start is in the game's start save already.
+         [capture: mem, rr32 `death/two-button`, capture.md 10.36 item 3;
+         ours, no research pass, 2026-11-15] Whether a refused add (no
+         free slot, characters 6.2) saves anything is [unknown]; **Engine:**
+         only a newcomer who joins makes the save point.
+         **Its order with the other saves of the round** is [unknown]: no
+         run had an add with a SAVE GAME or a Retire with Save in the same
+         round. The round's requests go retire, add, save (2.2.5,
+         characters 7.1), so the add's save comes after a Retire with
+         Save's and before a SAVE GAME's, and the latest wins. **Engine:**
+         one save point a round, holding the state after the add: a
+         Retire with Save then an add moves the point to after the add (the
+         retired slot freed and perhaps refilled by the newcomer,
+         characters 6.1), and
+         a SAVE GAME in the same round is that same point. One `Saved`
+         event a round for these.
+         **The cause.** The run cannot tell this from a second reading: the
+         add ending the visit and starting a new cycle with the scheduler
+         holding no region, as the button does (2.2.6), so that the next
+         visit saves under 2.2.7.1 at the same round 14. Only the world
+         map was in play, so whether the visit was cut short and the marks
+         taken again could not show. **Engine:** the add's own round-end
+         save above, which gives the captured round with one rule and no
+         change to the scheduler; the visit goes on.
       **A save in the round of a death.** The death message comes before
       the round's requests (2.2.5). Its button clears them (2.2.6), so it
       restores the save from before that round, never a SAVE GAME (or, by
-      2.2.5, a Retire with Save) asked during it. Answered with F1, the
+      2.2.5, a Retire with Save or an add, 2.2.7.4) asked during it.
+      Answered with F1, the
       requests go on: a SAVE GAME of that round is written then ("saving
-      game", "the adventure has been saved"), and with nobody alive the
+      game", "the adventure has been saved"), an add of that round brings
+      its newcomer in and saves (2.2.7.4), and with nobody alive the
       add-a-player screen follows, so the state saved has nobody alive.
       A player added then starts with a visit to its own region, a change
       from the region the last player died in, and that visit's save is
@@ -155,7 +190,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       **A save in a visit's last round followed by a region change** gives
       the next visit's first round on the counter either way, with nothing
       played between the two, so it makes no difference which one counts.
-      **Engine:** the latest of the three saves above. SAVE GAME is a
+      **Engine:** the latest of the game's start and the four saves
+      above (the add's as 2.2.7.4 says). SAVE GAME is a
       command logged like any other. It records the request and changes
       nothing else: the turn goes on with the moves it had, and the
       player's next commands walk them or let them run out (`Wait`,
@@ -278,12 +314,27 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    that began with a region change, a kill in round 62: back to counter
    61 and the gold set just before the save, not the visit's start
    (`c3-button2`, 1 run).
+   **An add in play as a save point (2.2.7.4)** [capture: mem, rr32,
+   capture.md 10.36 item 3; ours, no research pass, 2026-11-15]. U was
+   added with ADD SOMEONE on T's first turn, in round 13 (`two.vsf`, as
+   10.10); T then walked into encounter area 1 with U left on the map,
+   both in region 0 all the while, and no SAVE GAME, retirement or region
+   change followed. The area's copy killed T in round 22, and the button
+   brought back round 14, T and U both on the map's start square 12,12
+   (place 0), not the game's start. The same case with T alone (no add)
+   went back to round 0, the game's start. 1 run each.
    **Engine:** the rules 2.2.1 to 2.2.7. A dead player is skipped on
    every list and left out of the marks; the round finishes after a
    death. The death message, its two answers and the add-a-player
    screen are the front end's: F1 is simply going on; the button is
    loading the last save point of 2.2.7 (magic 7.4, `docs/saves.md`
-   1.4); with nobody alive the engine reports it (`AllPlayersDead`),
+   1.4) and then the logged command `Restore`, which brings back the
+   state as it was at the save (before the turn that followed it),
+   clears the marks and requests, ends the visit and marks a new cycle
+   from the restored places, lowest region first (2.2.6; capture.md
+   10.25 `b-split-button`: the map first). The scheduler's region is
+   then none, so the new cycle's first visit saves again (2.2.7.1). With
+   nobody alive, in play or in the save, the engine reports it (`AllPlayersDead`),
    clears the dead players' records and waits for a new player.
    Declining needs no command: the front end shows the screen again
    and the engine takes no turn.
@@ -415,9 +466,14 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    The step is not cancelled onto the goal's own square (cost 1), an exit,
    or a thing it takes, so a Speed 0 fighter owning a melee weapon attacks
    a goal beside it once a turn. [research: traced] An aggressive brave
-   enemy of Speed 0 holding our blade, the player beside it: an attack (2
-   blows) on every one of 64 turns, its square never changing. [capture:
-   rr28 `still-melee-sw`, 16 runs, capture.md 10.32; ours, 2026-11-14]
+   enemy of Speed 0 holding our blade, the player beside it: an attack on
+   every one of 64 turns, its square never changing. [capture: rr28
+   `still-melee-sw`, 16 runs, capture.md 10.32; ours, 2026-11-14] Each
+   attack is **1 blow** at Dexterity 13 ([combat](combat.md) 3.1 with the
+   first term 1 at full moves 0), and 1, 2 and 3 at Dexterity 8, 16 and
+   24. [capture: rr28 `still-melee-sw`, rr31 `sm-d8`, `sm-d16`, `sm-d24`,
+   capture.md 10.35; ours, 2026-11-15] (Superseded: the "2 blows" first
+   read from these runs, a misreading of the blows-left byte.)
    Beside an exit or a thing it takes is not captured. **Engine:** 2.7 as
    written, the smartness checks as 6.6's
    engine choice says, with these two readings settled by capture:
@@ -522,6 +578,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    door destroys it); an "invoke spell" door is closed to creatures when the
    spell is Activate All, Rid Room or Add to Room. Other spell doors let them
    pass and the spell goes off for them ([magic](magic.md) 6.6). [unknown]
+   An encounter area's door item is not a door to creatures: they never
+   step onto it ([encounters](encounters.md) 6.4). [capture]
 4. **Taking a door** costs one step and ends the creature's turn. It arrives
    on the door's destination square. Baber notes that a creature following a player can share
    the player's square for a moment. [designer] On the C64, a friend of
@@ -836,7 +894,11 @@ creatures replay exactly.
    (2.2.7): the last player killed on the world map after a SAVE GAME,
    F1, a newcomer starting on the map, then the newcomer killed and the
    button: whether the all-dead save comes back with no region change
-   after it.
+   after it. An add in play is a save point (2.2.7.4, capture.md 10.36);
+   still open there: an add and a SAVE GAME or a Retire with Save in one
+   round, a refused add, and whether the add saves itself or starts a new
+   cycle (a second region in play would show it: after an add in a room
+   region with another player on the map, does the map's visit come next).
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive

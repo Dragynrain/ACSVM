@@ -25,9 +25,15 @@ loads it.
    are for tests and are not saved.
 4. The **autosave** is a point in the same command list: the number of
    commands played when it was made. After a death, play resumes there
-   (magic 7.4), and new commands carry on from that point, so the list
-   stays one line of play with no branches. A save made after resuming
-   holds only the commands that led to the current game.
+   (magic 7.4): the commands up to the point are replayed and then the
+   death message's button, the logged command `restore` (creatures
+   2.2.6), which brings back the state of the moment the save was made
+   (before the turn the saving command went on to start), clears the
+   round's requests, ends the visit and begins a new cycle from the
+   restored places; that cycle's first visit saves again. New commands
+   carry on after `restore`, so the list stays one line of play with no
+   branches. A save made after resuming holds only the commands that led
+   to the current game.
    It is made where the original saves (movement 6.6, creatures 2.2.7;
    [capture: capture.md 10.25]), not at the door step:
    - when a visit begins in a region other than the previous visit's
@@ -57,7 +63,7 @@ A JSON object (UTF-8, written on one line). Fields:
 | Field | Meaning |
 | --- | --- |
 | `format` | Always `"acsvm-save"`. |
-| `version` | The save format version, now 3. A newer version is refused; versions 1 and 2 are read as 2.1 says. |
+| `version` | The save format version, now 4. A newer version is refused; versions 1 to 3 are read as 2.1 says. |
 | `engine` | The engine version that wrote it (informational). |
 | `adventure` | `name`: the adventure's name; `fingerprint`: 16 hex digits identifying the decoded adventure (section 3). |
 | `seed`, `rules`, `first` | As given to `Game::new`. |
@@ -71,6 +77,12 @@ dropped file is recognised by its `format` field, not its name.
 
 ### 2.1 Versions
 
+- **4** (creatures 2.2.6): `restore` (`{"command":"restore"}`, the death
+  message's button) is new, logged where play resumed from the autosave
+  (1.4). A version 3 save is loaded as it is: it has no `restore`, its
+  commands mean the same, and a game resumed under version 3 replays as
+  it was played then (the saved visit going on). Saving again writes
+  version 4.
 - **3** (creatures 2.2.7): `save_game` (`{"command":"save_game"}`, the
   menu's SAVE GAME) is new, and `autosave` is the point of 1.4: a visit
   to another region beginning, or the end of a round with SAVE GAME or a
@@ -130,7 +142,7 @@ dropped file is recognised by its `format` field, not its name.
    adventure's walk. Its **SAVE GAME** button is the original's menu entry,
    the logged command of 1.4, not a file; **Resume from last save** goes
    back to the autosave (after a death in a round that also saved, the
-   save before it, creatures 2.2.6).
+   save before it, creatures 2.2.6) and plays `restore` there.
 2. A replay is a save too: sharing a save file with its adventure name is
    enough to reproduce a bug exactly, as long as the other side owns the
    same adventure file.

@@ -293,7 +293,17 @@ pub struct Game {
     /// round's requests and the next visit. Not in the fingerprint.
     #[serde(skip)]
     offered: Option<usize>,
+    /// The game as it stood at the moment of its last save (creatures
+    /// 2.2.6): a save point is a command count, and the command that saved
+    /// went on to start the next turn; the button goes back to the moment
+    /// itself. The replay makes it, so it is not in the fingerprint.
+    #[serde(skip)]
+    snapshot: Option<Box<Game>>,
 }
+
+/// The region the scheduler holds after the button (creatures 2.2.6:
+/// none), so the next visit is a change of region and saves (2.2.7.1).
+const NO_REGION: u8 = u8::MAX;
 
 /// The turn scheduler (creatures 2.2): cycles of region visits, each up to
 /// `VISIT_ROUNDS` rounds, each round a list of individuals built at its
@@ -381,12 +391,15 @@ impl Game {
             save_asked: false,
             saved_at: 0,
             offered: None,
+            snapshot: None,
         };
         let mut ev = Vec::new();
         // The first player joins as given: the front end has asked again
         // for a refused name (characters 5.7) before starting the game.
         g.join(first, &mut ev);
         g.begin_cycle(&mut ev);
+        // The game's start is save point 0 (saves 1.4).
+        g.keep_snapshot();
         g.next_turn(&mut ev);
         (g, ev)
     }
@@ -433,6 +446,10 @@ impl Game {
         }
         self.log.push(cmd.clone());
         self.offered = None;
+        if cmd == Command::Restore {
+            self.restore_saved(&mut ev);
+            return ev;
+        }
         // Stores 3.8: anything but buying and selling ends a store visit.
         if !matches!(cmd, Command::Buy { .. } | Command::Sell { .. } | Command::Idle) {
             self.leave_store(&mut ev);
@@ -453,7 +470,7 @@ impl Game {
             Command::SaveGame => self.request_save(&mut ev),
             Command::Buy { thing } => self.buy(thing, &mut ev),
             Command::Sell { thing } => self.sell(thing, &mut ev),
-            Command::LeaveStore => {}
+            Command::LeaveStore | Command::Restore => {}
         }
         // Magic 7.5: a player who died during their own turn ends it.
         if !self.over && !self.players[self.current].alive {
@@ -470,16 +487,16 @@ impl Game {
     /// Commands played when the game was last saved (creatures 2.2.7,
     /// saves 1.4): at the start of a visit to a region other than the one
     /// visited before, or at the end of a round in which SAVE GAME was
-    /// chosen or a player retired with Save; 0 at the game's start. The
-    /// later save wins.
+    /// chosen, a player retired with Save or an Add Someone brought a
+    /// newcomer in; 0 at the game's start. The later save wins.
     pub fn save_point(&self) -> usize {
         self.saved_at
     }
 
     /// What restoring the saved game goes back to now (creatures 2.2.6):
     /// after a command whose round ended with the death message, the save
-    /// as it stood at that message (a SAVE GAME or Retire with Save of that
-    /// round, or the visit
+    /// as it stood at that message (a SAVE GAME, Retire with Save or add of
+    /// that round, or the visit
     /// that follows it, is not yet made when the button is pressed);
     /// otherwise [`Game::save_point`].
     pub fn restore_point(&self) -> usize {
@@ -538,6 +555,7 @@ impl Game {
         // A tool's fresh start: play resumes from here.
         self.saved_at = self.log.len();
         self.offered = None;
+        self.keep_snapshot();
     }
 
     /// The tool placements made so far (saves 1.3).
@@ -599,10 +617,51 @@ impl Game {
     /// played so far, so resuming replays up to the end of this command.
     fn save(&mut self, visit: Option<u8>, ev: &mut Vec<Event>) {
         self.saved_at = self.log.len();
+        self.keep_snapshot();
         ev.push(Event::Saved {
             round: self.sched.round,
             visit,
         });
+    }
+
+    /// Keeps the game as it stands now as the last save's state.
+    fn keep_snapshot(&mut self) {
+        self.snapshot = None;
+        self.snapshot = Some(Box::new(self.clone()));
+    }
+
+    /// The death message's button (creatures 2.2.6), played on the game at
+    /// [`Game::restore_point`]: the state of that save comes back as it was
+    /// at the moment it was made (players, round counter, queue, the rest
+    /// of the world), the marks and the requests are cleared, the visit
+    /// ends and a new cycle is marked from the restored places, lowest
+    /// region first. The scheduler holds no region then, so that cycle's
+    /// first visit saves (2.2.7.1). With nobody alive in the save the game
+    /// waits for a new player.
+    fn restore_saved(&mut self, ev: &mut Vec<Event>) {
+        if let Some(snap) = self.snapshot.take() {
+            let log = std::mem::take(&mut self.log);
+            *self = *snap;
+            self.log = log;
+        }
+        self.sched.marks.clear();
+        self.adds.clear();
+        self.retire = None;
+        self.save_asked = false;
+        self.offered = None;
+        self.store = None;
+        ev.push(Event::Restored {
+            round: self.sched.round,
+        });
+        if !self.players.iter().any(|p| p.alive) {
+            self.over = true;
+            self.clear_records();
+            ev.push(Event::AllPlayersDead);
+            return;
+        }
+        self.sched.region = NO_REGION;
+        self.begin_cycle(ev);
+        self.next_turn(ev);
     }
 
     /// SAVE GAME (creatures 2.2.7.2): recorded for the round's end, where
@@ -631,14 +690,26 @@ impl Game {
         let region = self.sched.region;
         let mut list = Vec::new();
         if region == 0 {
-            // Encounters 6.1: the open map's players, then each area in
-            // use with its players and then its creatures.
+            // Encounters 6.1: the open map's players in number order, then
+            // each area holding a living player, by the lowest player
+            // number in it, with its players in number order and then its
+            // creatures by slot.
+            let mut areas: Vec<u8> = Vec::new();
             for (i, p) in self.players.iter().enumerate() {
-                if p.alive && matches!(p.at, Location::World { .. }) {
-                    list.push(Who::Player { player: i });
+                if !p.alive {
+                    continue;
+                }
+                match p.at {
+                    Location::World { .. } => list.push(Who::Player { player: i }),
+                    Location::Room { region: 0, room, .. }
+                        if (1..=crate::encounters::AREAS).contains(&room) && !areas.contains(&room) =>
+                    {
+                        areas.push(room)
+                    }
+                    _ => {}
                 }
             }
-            for area in 1..=crate::encounters::AREAS {
+            for area in areas {
                 let here: Vec<usize> = (0..self.players.len())
                     .filter(|&i| self.players[i].alive && self.players[i].at.room() == Some((0, area)))
                     .collect();
@@ -747,15 +818,15 @@ impl Game {
             // 2.2.6: the message's button restores the save made so far.
             self.offered = Some(self.saved_at);
         }
-        // 2.2.7.3, characters 7.3: a Retire with Save is a save point.
+        // 2.2.7.3, characters 7.3: a Retire with Save is a save point;
+        // 2.2.7.4, characters 6.2: so is an add that brings a newcomer in
+        // (a refusal saves nothing); 2.2.7.2: so is SAVE GAME. The order is
+        // retire, add, save (2.2.5), and the round makes one save point,
+        // holding the state after the add, with one `Saved` event.
         let retired_saved = self.take_retirement(ev);
-        if retired_saved {
-            self.save(None, ev);
-        }
-        self.take_adds(ev);
-        // One save a round: a SAVE GAME after a Retire with Save is the
-        // same point.
-        if std::mem::take(&mut self.save_asked) && !retired_saved {
+        let joined = self.take_adds(ev);
+        let asked = std::mem::take(&mut self.save_asked);
+        if retired_saved || joined || asked {
             self.save(None, ev);
         }
         if !self.players.iter().any(|p| p.alive) {
@@ -825,14 +896,18 @@ impl Game {
 
     /// The round's waiting add (characters 6.2, 6.4): refused once, with no
     /// draw, while `MAX_PLAYERS` live (6.1); otherwise rolled or set up
-    /// then, and added in the lowest free slot.
-    fn take_adds(&mut self, ev: &mut Vec<Event>) {
-        if let Some(n) = std::mem::take(&mut self.adds).into_iter().next() {
-            if self.living() >= MAX_PLAYERS {
-                ev.push(Event::AddRefused);
-            } else {
-                self.join(n, ev);
-            }
+    /// then, and added in the lowest free slot. True when a newcomer
+    /// joined (a save point, creatures 2.2.7.4).
+    fn take_adds(&mut self, ev: &mut Vec<Event>) -> bool {
+        let Some(n) = std::mem::take(&mut self.adds).into_iter().next() else {
+            return false;
+        };
+        if self.living() >= MAX_PLAYERS {
+            ev.push(Event::AddRefused);
+            false
+        } else {
+            self.join(n, ev);
+            true
         }
     }
 

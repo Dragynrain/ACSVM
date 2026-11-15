@@ -23,7 +23,7 @@ use acs_core::model::{
 };
 use acs_core::{Adventure, Platform};
 use acs_engine::{
-    combat, BlowOutcome, Command, Dir, Event, FireRefusal, Game, Location, PlayerSetup, Slot, Who,
+    combat, BlowOutcome, Command, Dir, Event, FireRefusal, Game, Location, PlayerSetup, Slot, Stat, Who,
 };
 
 const MAIL: u16 = 40;
@@ -400,6 +400,199 @@ fn mail_of_power_12_lets_only_heavy_blows_through() {
     same_rate("mail-heavy: runs with T hurt", Sweep::Sample, 1, 16, hurt, SEEDS);
 }
 
+/// capture.md 10.35 item 4 (`brk-parry`: rr9's `break-many`, the `armed`
+/// round with EE of Dexterity 31, both holding the blade at break chance
+/// 15, T's Parry 127 so EE's blows are parried at 90; 32 runs, 32 of 32
+/// fitting): 70 parries of EE's blows, EE's blade broke 6 times, 4 with
+/// blows still due, and each time EE's attack ended there; T's blade
+/// broke 3 times on parried counter-blows and EE's attack went on (combat
+/// 6.3). T readies the blade with its first move, then the round.
+#[test]
+fn a_weapon_breaking_with_blows_due_ends_its_owners_attack() {
+    let mut a = fighter(true);
+    thing(
+        &mut a,
+        BLADE,
+        "BLADE",
+        ThingKind::MeleeWeapon {
+            picture: 6,
+            disappears_after_use: false,
+            carry: Carry { weight: 5, value: 10 },
+            stats: WeaponStats {
+                break_chance: 15,
+                ..stats(10)
+            },
+        },
+    );
+    a.regions[0].residents[0].dexterity = 31;
+    let mut setup = t(6, 40, vec![BLADE]);
+    setup.parry = 127;
+    let (mut parried, mut ee_broke, mut ee_due, mut t_broke, mut went_on) = (0, 0, 0, 0, 0);
+    for seed in 0..SEEDS / 4 {
+        let mut g = game(&a, seed, setup.clone(), room(4, 4));
+        ready(&mut g, BLADE);
+        let mut ev = wait(&mut g);
+        ev.extend(wait(&mut g));
+        for turn in turns_of(&ev, 0) {
+            let Some(start) = turn
+                .iter()
+                .position(|e| matches!(e, Event::Attacked { by, .. } if *by == slot(0)))
+            else {
+                continue;
+            };
+            let Event::Attacked { blows, .. } = turn[start] else {
+                unreachable!()
+            };
+            // Combat 3.2: a blow uses one, a damaging one two, a damaging
+            // counter-blow one more.
+            let mut used = 0;
+            let mut ee_gone = false;
+            for (i, e) in turn.iter().enumerate().skip(start + 1) {
+                match e {
+                    Event::Blow {
+                        by, counter, outcome, ..
+                    } => {
+                        let damaging = matches!(outcome, BlowOutcome::Hit { damage, .. } if *damage > 0);
+                        if *by == slot(0) && !counter {
+                            assert!(!ee_gone, "seed {seed}: a blow after EE's blade broke: {turn:?}");
+                            used += 1 + damaging as u8;
+                            parried += (*outcome == BlowOutcome::Parried) as u64;
+                        } else if *by == ME && *counter && damaging {
+                            used += 1;
+                        }
+                    }
+                    Event::Broke {
+                        who, thing: BLADE, ..
+                    } if *who == slot(0) => {
+                        ee_broke += 1;
+                        ee_due += (used < blows) as u64;
+                        ee_gone = true;
+                    }
+                    Event::Broke {
+                        who: ME,
+                        thing: BLADE,
+                        ..
+                    } => {
+                        t_broke += 1;
+                        if used < blows && !turn[i + 1..].iter().any(|e| matches!(e, Event::Died { .. })) {
+                            assert!(
+                                turn[i + 1..].iter().any(
+                                    |e| matches!(e, Event::Blow { by, counter: false, .. } if *by == slot(0))
+                                ),
+                                "seed {seed}: EE's attack ended with T's blade: {turn:?}"
+                            );
+                            went_on += 1;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert!(
+        t_broke > 0 && went_on > 0,
+        "T's blade broke {t_broke}, went on {went_on}"
+    );
+    same_rate(
+        "brk-parry: EE's parried blows breaking its blade",
+        Sweep::Sample,
+        6,
+        70,
+        ee_broke,
+        parried,
+    );
+    same_rate(
+        "brk-parry: EE's breaks with blows still due",
+        Sweep::Sample,
+        4,
+        6,
+        ee_due,
+        ee_broke,
+    );
+}
+
+/// capture.md 10.35 item 5 (`mb-mail`, `mb-mmail`, the `armed` round, 32
+/// runs each): EE's blade made magic, T wearing the mail of Power 2, break
+/// chance 15. Plain mail: ignored, no break roll, the full 10 or 15 (39
+/// damaging blows, 32 of 32). Magic mail: its Power off (8 or 13) and the
+/// break roll (41 damaging blows), the mail broken in 8 of the 32 runs
+/// (it leaves its wearer, so once a run at most), after which the full 10
+/// or 15 (combat 5.1's table). T readies the mail, ending its turn, as
+/// `mail-heavy`.
+#[test]
+fn a_magic_weapon_against_plain_and_magic_mail() {
+    for magic_mail in [false, true] {
+        let mut a = fighter(true);
+        thing(
+            &mut a,
+            BLADE,
+            "BLADE",
+            ThingKind::MeleeWeapon {
+                picture: 6,
+                disappears_after_use: false,
+                carry: Carry { weight: 5, value: 10 },
+                stats: WeaponStats {
+                    magic: true,
+                    ..stats(10)
+                },
+            },
+        );
+        thing(
+            &mut a,
+            MAIL,
+            "MAIL",
+            ThingKind::Armor {
+                picture: 8,
+                disappears_after_use: false,
+                carry: Carry { weight: 5, value: 10 },
+                stats: WeaponStats {
+                    break_chance: 15,
+                    magic: magic_mail,
+                    ..stats(2)
+                },
+            },
+        );
+        let (mut broken, mut damaging) = (0, 0);
+        for seed in 0..SEEDS / 4 {
+            let (_, ev) = round(&a, seed, t(6, 40, vec![MAIL]), Command::Ready { thing: MAIL });
+            let mut worn = true;
+            for e in &ev {
+                match e {
+                    Event::Blow {
+                        by,
+                        outcome: BlowOutcome::Hit { damage, heavy },
+                        ..
+                    } if *by == slot(0) => {
+                        let full = if *heavy { 15 } else { 10 };
+                        let want = if magic_mail && worn { full - 2 } else { full };
+                        assert_eq!(*damage, want, "magic mail {magic_mail}, seed {seed}");
+                        damaging += 1;
+                    }
+                    Event::Broke {
+                        who: ME, thing: MAIL, ..
+                    } => {
+                        assert!(magic_mail && worn, "seed {seed}: the plain mail broke");
+                        worn = false;
+                        broken += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        assert!(damaging > 0);
+        if magic_mail {
+            same_rate(
+                "mb-mmail: runs with the mail broken",
+                Sweep::Sample,
+                8,
+                32,
+                broken,
+                SEEDS / 4,
+            );
+        }
+    }
+}
+
 /// capture.md 10.32 (`still-melee`): EE of Speed 0 (Strength 10, holding
 /// the blade) on 5,4 beside T on 4,4 holding nothing; 16 runs, 4 of EE's
 /// turns each: 64 of 64 turns had an attack, EE never moved, and T's Life
@@ -447,19 +640,81 @@ fn a_speed_0_fighter_attacks_its_goal_beside_it_once_a_turn() {
     );
 }
 
-/// capture.md 10.32 (`still-melee`): each attack's blows byte was written
-/// 2 (creatures 2.7: "an attack (2 blows)").
+/// capture.md 10.35 item 1 (`still-melee-sw`, `sm-d8`, `sm-d16`,
+/// `sm-d24`): a Speed 0 fighter's attack has 1, 1, 2 and 3 blows at
+/// Dexterity 13, 8, 16 and 24 (combat 3.1's first term is 1 when the full
+/// moves are 0). 10.32's "2 blows" was a misread of `$B799`.
 #[test]
-#[ignore = "engine disagrees with capture.md 10.32: a Speed 0 fighter of Dexterity 13 strikes 1 blow, the capture 2"]
-fn a_speed_0_fighters_attack_has_2_blows() {
-    let a = still_melee();
-    for seed in 0..64 {
+fn a_speed_0_fighters_blows_by_dexterity() {
+    for (dexterity, want) in [(13, 1), (8, 1), (16, 2), (24, 3)] {
+        let mut a = still_melee();
+        a.regions[0].residents[0].dexterity = dexterity;
+        let mut seen = 0;
+        for seed in 0..64 {
+            for turn in still_melee_turns(&a, seed) {
+                for (_, blows) in attacks(&turn, slot(0)) {
+                    seen += 1;
+                    assert_eq!(blows, want, "Dexterity {dexterity}, seed {seed}");
+                }
+            }
+        }
+        assert!(seen > 0, "Dexterity {dexterity}: no attack");
+    }
+}
+
+/// capture.md 10.35 item 1 (`sm-d8`, 32 runs of 4 of EE's turns): EE of
+/// Dexterity 8 and Size 9 (Build -4) did 9 a hit with the blade (-40 / 30
+/// taken toward 0 as -1, combat 4.1.2), T losing 7 Life Force and 4 Power
+/// a hit (from 40 and 13: the Power share 9 x 13 / 53 = 2); rounding down
+/// (8) fits 13 of the 32 runs. 31 hits in the 128 attacks, many rolls:
+/// a sample. A heavy blow adds half the Power: 14.
+#[test]
+fn a_negative_build_rounds_toward_zero() {
+    let mut a = still_melee();
+    a.regions[0].residents[0].dexterity = 8;
+    let (mut attacked, mut hits, mut firsts) = (0, 0, 0);
+    for seed in 0..SEEDS / 4 {
+        let mut first = true;
         for turn in still_melee_turns(&a, seed) {
-            for (_, blows) in attacks(&turn, slot(0)) {
-                assert_eq!(blows, 2, "seed {seed}");
+            attacked += attacks(&turn, slot(0)).len() as u64;
+            for (i, e) in turn.iter().enumerate() {
+                let Event::Blow {
+                    by,
+                    outcome: BlowOutcome::Hit { damage, heavy },
+                    ..
+                } = e
+                else {
+                    continue;
+                };
+                if *by != slot(0) {
+                    continue;
+                }
+                hits += 1;
+                assert_eq!(*damage, if *heavy { 14 } else { 9 }, "seed {seed}");
+                if std::mem::take(&mut first) && !heavy {
+                    let lost: Vec<(Stat, u8, u8)> = turn[i + 1..]
+                        .iter()
+                        .take_while(|e| matches!(e, Event::StatChanged { .. }))
+                        .filter_map(|e| match e {
+                            Event::StatChanged { who, stat, from, to } if *who == ME => {
+                                Some((*stat, *from, *to))
+                            }
+                            _ => None,
+                        })
+                        .collect();
+                    assert!(
+                        lost.len() == 2
+                            && lost.contains(&(Stat::LifeForce, 40, 33))
+                            && lost.contains(&(Stat::Power, 13, 9)),
+                        "seed {seed}: {lost:?}"
+                    );
+                    firsts += 1;
+                }
             }
         }
     }
+    assert!(firsts > 0);
+    same_rate("sm-d8: attacks that hit", Sweep::Sample, 31, 128, hits, attacked);
 }
 
 /// capture.md 10.33 (`ord`): EE of Speed 0 holding the blade on 9,4, FF a
@@ -613,6 +868,141 @@ fn a_speed_0_archer_shoots_once_a_turn() {
         hit,
         SEEDS,
     );
+}
+
+/// capture.md 10.35 item 6 (`bow-adj`, 32 runs from the room snapshot, 32
+/// of 32 fitting): EE of Speed 3 holding the bow on 5,4, truly beside T
+/// on 4,4: its turn halved to 2 moves (creatures 2.6), no shot, one step
+/// away (to 5,5 17 times, 5,3 9, 6,4 6), then one shot with the move
+/// left (Dexterity 13 / 8 + 1 / 2); 29 of the 32 arrows reached T, 17 of
+/// those hitting (combat 8.1). The step is the run's later rolls: a
+/// histogram. EE's other stats are 10.14.6's; T holds nothing, at
+/// Constitution and Life Force 40.
+#[test]
+fn an_archer_beside_its_foe_steps_away_then_shoots() {
+    let mut a = kit(5);
+    ours(&mut a, 0, 5, 4, |c| {
+        ee(c);
+        holds(c, BOW);
+    });
+    let squares = [(5, 5), (5, 3), (6, 4)];
+    let (mut reached_t, mut hit) = (0, 0);
+    let h = histogram(SEEDS, 4, |seed| {
+        let mut g = game(&a, seed, t(6, 40, vec![]), room(4, 4));
+        let ev = wait(&mut g);
+        let turn = turns_of(&ev, 0)[0];
+        assert_eq!(turn_moves(turn), 2, "seed {seed}");
+        let shot = turn
+            .iter()
+            .position(|e| matches!(e, Event::Fired { .. }))
+            .unwrap_or_else(|| panic!("seed {seed}: no shot: {turn:?}"));
+        assert_eq!(steps(&turn[..shot]), 1, "seed {seed}: {turn:?}");
+        assert_eq!(fired(turn, slot(0)), Some(1), "seed {seed}");
+        let (d, k) = reached(turn, slot(0), ME);
+        reached_t += d + k;
+        hit += k;
+        let to = turn[..shot].iter().find_map(|e| match e {
+            Event::CreatureMoved {
+                to: Location::Room { x, y, .. },
+                ..
+            } => Some((*x, *y)),
+            _ => None,
+        });
+        bin(&squares, to.expect("a step"))
+    });
+    assert_eq!(h[3], 0, "stepped elsewhere");
+    same_histogram("bow-adj: the step to 5,5 5,3 6,4", &[17, 9, 6], &h[..3]);
+    same_rate(
+        "bow-adj: arrows reaching T",
+        Sweep::Sample,
+        29,
+        32,
+        reached_t,
+        SEEDS,
+    );
+    same_rate("bow-adj: of those, hits", Sweep::Sample, 17, 29, hit, reached_t);
+}
+
+/// capture.md 10.35 item 7 (`ready-melee`, 32 of 32 runs): EE of Speed 3
+/// owning the blade, holding nothing, on 5,4 beside T: its turn halved to
+/// 2, the blade readied at one move, then the attack with 2 blows (4 x 1
+/// / 2 + 13 / 8 - 1); its next turn 4 blows (combat 2.6, 6.2). T holds
+/// nothing, at Constitution and Life Force 40.
+#[test]
+fn a_creature_readies_its_melee_weapon_before_the_step_into_its_foe() {
+    let mut a = kit(5);
+    ours(&mut a, 0, 5, 4, |c| {
+        ee(c);
+        has(c, BLADE);
+    });
+    for seed in 0..256 {
+        let mut g = game(&a, seed, t(6, 40, vec![]), room(4, 4));
+        let mut ev = wait(&mut g);
+        ev.extend(wait(&mut g));
+        let turns = turns_of(&ev, 0);
+        let first = turns[0];
+        assert_eq!(turn_moves(first), 2, "seed {seed}");
+        let r = first.iter().position(|e| {
+            matches!(
+                e,
+                Event::CreatureReadied {
+                    slot: 0,
+                    thing: BLADE,
+                    ..
+                }
+            )
+        });
+        let at = first
+            .iter()
+            .position(|e| matches!(e, Event::Attacked { by, .. } if *by == slot(0)));
+        assert!(r.is_some() && r < at, "seed {seed}: {first:?}");
+        assert_eq!(steps(first), 0, "seed {seed}");
+        assert_eq!(attacks(first, slot(0)), [(ME, 2)], "seed {seed}");
+        assert_eq!(
+            attacks(turns[1], slot(0)),
+            [(ME, 4)],
+            "seed {seed}: {:?}",
+            turns[1]
+        );
+    }
+}
+
+/// capture.md 10.35 item 7 (`p-nowpn`, one run, nothing random): T owning
+/// the blade, holding nothing, with 2 moves left, EE of Speed 0 on 5,4:
+/// the push east used no move and brought the melee menu; the blade
+/// chosen, it was readied at one move (2 to 1) and the attack came at
+/// once with 1 blow (4 x 1 / 6 + 13 / 8 - 1 is 0, so 1), ending the turn
+/// (combat 2.8). **Engine:** the menu is the front end's; the push readies
+/// the blade. NONE (`nw-none`) has no engine command: not compared.
+#[test]
+fn the_push_with_a_melee_weapon_owned_but_not_held() {
+    let mut a = kit(5);
+    ours(&mut a, 0, 5, 4, |c| {
+        ee(c);
+        c.speed = 0;
+    });
+    for seed in 0..16 {
+        let mut g = game(&a, seed, t(6, 40, vec![BLADE]), room(4, 4));
+        idle_to(&mut g, 2);
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        let r = ev.iter().position(|e| {
+            matches!(
+                e,
+                Event::Readied {
+                    thing: BLADE,
+                    slot: Slot::Weapon,
+                    ..
+                }
+            )
+        });
+        let at = ev
+            .iter()
+            .position(|e| matches!(e, Event::Attacked { by: ME, .. }));
+        assert!(r.is_some() && r < at, "seed {seed}: {ev:?}");
+        assert_eq!(attacks(&ev, ME), [(slot(0), 1)], "seed {seed}");
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }), "seed {seed}");
+        assert_eq!(g.players()[0].weapon, Some(BLADE));
+    }
 }
 
 /// capture.md 10.33: EE (Strength 10, Dexterity 13) on 9,4 with the bow of
@@ -852,7 +1242,178 @@ fn a_kill_ends_the_players_firing() {
     same_rate("kill-e5: runs with a kill", Sweep::Sample, 25, 64, kills, SEEDS);
 }
 
-/// capture.md 10.24 item 1 and 10.32, the scripted runs (all
+/// The classes `arrow-c0` .. `arrow-c7` set (capture.md 10.35: class byte
+/// 128 + 16 x class): peaceful thief, neutral, enemy, friend, then the
+/// same aggressive.
+const CLASSES: [(Alignment, bool); 8] = [
+    (Alignment::Thief, false),
+    (Alignment::Neutral, false),
+    (Alignment::Enemy, false),
+    (Alignment::Friend, false),
+    (Alignment::Thief, true),
+    (Alignment::Neutral, true),
+    (Alignment::Enemy, true),
+    (Alignment::Friend, true),
+];
+
+/// capture.md 10.35 item 2 (`arrow-c0` .. `arrow-c7` at Wisdom 10, 128
+/// runs each, `arrow-c5` 256; `arrow-c5w3`, `arrow-c5w20` 128 each; every
+/// run fitting): `fire-e5` (3 shots at EE on 9,4) with EE's class and
+/// Wisdom set. After each damaging arrow, combat 7: a peaceful thief,
+/// neutral or enemy turns aggressive, a friend neutral (keeping its
+/// setting), with no roll (23 hits each); an aggressive thief or enemy is
+/// unchanged and draws the roll (26 hits each); an aggressive neutral of
+/// Wisdom 10 draws it and turns an enemy on 0 to 4 (57 hits, a turn in
+/// 30 of the 256 runs: 226 fit with no change), at Wisdom 3 never and at
+/// 20 always, with no roll (23 hits each). A peaceful neutral hit twice
+/// turns aggressive, then may turn an enemy on the second. The roll is
+/// seen through the shots after it: the runs of the classes that don't
+/// draw it are alike shot for shot up to the second damaging arrow, as
+/// are those that do, and the two differ. The hits are compared per shot
+/// due (3 a run).
+#[test]
+fn a_damaging_arrow_makes_section_7s_check_by_the_class() {
+    let cases: [(&str, usize, u8, u64, u64); 10] = [
+        ("arrow-c0", 0, 10, 23, 128),
+        ("arrow-c1", 1, 10, 23, 128),
+        ("arrow-c2", 2, 10, 23, 128),
+        ("arrow-c3", 3, 10, 23, 128),
+        ("arrow-c4", 4, 10, 26, 128),
+        ("arrow-c5", 5, 10, 57, 256),
+        ("arrow-c6", 6, 10, 26, 128),
+        ("arrow-c7", 7, 10, 23, 128),
+        ("arrow-c5w3", 5, 3, 23, 128),
+        ("arrow-c5w20", 5, 20, 23, 128),
+    ];
+    const RUNS: u64 = SEEDS / 8;
+    let mut refs: [Option<Vec<Vec<Event>>>; 2] = [None, None];
+    let mut after_first = vec![false; RUNS as usize];
+    for (name, k, wisdom, cap_hits, cap_runs) in cases {
+        let class = CLASSES[k];
+        let rolls = class.1 && class.0 != Alignment::Friend && (6..=14).contains(&wisdom);
+        let mut a = player_bow();
+        let c = &mut a.regions[0].residents[0];
+        c.strategy.alignment = class.0;
+        c.strategy.aggressive = class.1;
+        c.wisdom = wisdom;
+        let (mut shots, mut hits, mut turned_enemy) = (0, 0, 0);
+        let mut prefixes = Vec::new();
+        for seed in 0..RUNS {
+            let mut g = holding_the_bow(&a, seed);
+            let ev = g.apply(Command::Fire {
+                target: Some((9, 4)),
+                weapon: None,
+            });
+            let end = ev
+                .iter()
+                .position(|e| *e == Event::TurnEnded { player: 0 })
+                .unwrap();
+            let ev = &ev[..end];
+            shots += shots_of(ev, ME);
+            // Section 7 hit by hit: the change due, or for an aggressive
+            // neutral of Wisdom 6 to 14 the one its roll may bring.
+            let (mut now, mut due, mut maybe, mut damaging) = (class, None, false, 0);
+            let mut prefix = Vec::new();
+            for e in ev {
+                let include = damaging < 2;
+                match e {
+                    Event::MissileHit {
+                        by: ME,
+                        target,
+                        outcome: BlowOutcome::Hit { damage, .. },
+                        ..
+                    } if *target == slot(0) && *damage > 0 => {
+                        assert_eq!(due, None, "{name} seed {seed}: no turn: {ev:?}");
+                        hits += 1;
+                        damaging += 1;
+                        if damaging == 2 && k == 1 {
+                            assert_eq!(now, (Alignment::Neutral, true), "{name} seed {seed}");
+                        }
+                        maybe = false;
+                        due = match now {
+                            (Alignment::Friend, a) => Some((Alignment::Neutral, a)),
+                            (c, false) => Some((c, true)),
+                            (Alignment::Neutral, true) if wisdom > 14 => Some((Alignment::Enemy, true)),
+                            (Alignment::Neutral, true) => {
+                                maybe = wisdom >= 6;
+                                None
+                            }
+                            _ => None,
+                        };
+                    }
+                    Event::Died { who, .. } if *who == slot(0) => (due, maybe) = (None, false),
+                    Event::CreatureTurned {
+                        alignment,
+                        aggressive,
+                        ..
+                    } => {
+                        let got = (*alignment, *aggressive);
+                        if let Some(want) = due.take() {
+                            assert_eq!(got, want, "{name} seed {seed}");
+                        } else {
+                            assert!(
+                                std::mem::take(&mut maybe) && got == (Alignment::Enemy, true),
+                                "{name} seed {seed}: {ev:?}"
+                            );
+                            turned_enemy += 1;
+                        }
+                        now = got;
+                        continue;
+                    }
+                    Event::Shot { .. } if damaging == 1 => after_first[seed as usize] = true,
+                    _ => {}
+                }
+                if include {
+                    prefix.push(e.clone());
+                }
+            }
+            assert_eq!(due, None, "{name} seed {seed}: no turn: {ev:?}");
+            prefixes.push(prefix);
+        }
+        match &refs[rolls as usize] {
+            None => refs[rolls as usize] = Some(prefixes),
+            Some(r) => assert!(
+                *r == prefixes,
+                "{name}: the runs differ from the others that {}draw",
+                if rolls { "" } else { "don't " }
+            ),
+        }
+        same_rate(
+            &format!("{name}: damaging arrows a shot"),
+            Sweep::Sample,
+            cap_hits,
+            3 * cap_runs,
+            hits,
+            shots,
+        );
+        if (k, wisdom) == (5, 10) {
+            same_rate(
+                "arrow-c5: runs turned an enemy",
+                Sweep::Sample,
+                30,
+                256,
+                turned_enemy,
+                RUNS,
+            );
+        } else if [0, 2, 4, 6].contains(&k) || wisdom < 6 {
+            // A friend or a peaceful neutral may turn an enemy once it is
+            // an aggressive neutral, by a later arrow's roll.
+            assert_eq!(turned_enemy, 0, "{name}");
+        }
+    }
+    let (Some(plain), Some(rolled)) = (&refs[0], &refs[1]) else {
+        unreachable!()
+    };
+    let candidates = after_first.iter().filter(|&&b| b).count();
+    let differ = (0..RUNS as usize)
+        .filter(|&s| after_first[s] && plain[s] != rolled[s])
+        .count();
+    assert!(
+        candidates > 10 && differ * 10 >= candidates * 9,
+        "{differ} of {candidates}"
+    );
+}
+
 /// deterministic, one run each; the draws-logged refusals 4 runs each):
 /// - `beside`: FIRE with EE beside: refused, no move, nothing drawn;
 /// - the stick into EE, holding the bow and owning no melee weapon:
@@ -1061,43 +1622,100 @@ fn readying_the_bow_for_fire_costs_a_move_of_its_own() {
     }
 }
 
-/// capture.md 10.32 (`bes2`, `fire-u`): T of Speed 12 holding the bow on
-/// 5,4 and another player, U, beside it on 4,4: FIRE is not refused (a
-/// player beside never stops it), and with 12 moves gives 7 shots
-/// (Dexterity 13 / 8 plus 12 / 2). U's stats aren't given: the harness's T at Constitution and
-/// Life Force 63. Not compared: the sweep's 288 damaging arrows and 91
-/// dodges in 448 shots, since T's and U's skills in rr25's two-player
-/// scenario aren't in capture.md, and the share of shots reaching U hangs
-/// on T's Missile skill (at the harness's 22 the engine reaches U with
-/// about 97% of them, the capture with 85% at most).
+/// `fire-u`'s setup: T holding the bow on 5,4 with 12 moves, U beside it
+/// on 4,4, T's turn.
+fn beside_u(a: &Adventure, seed: u64) -> Game {
+    let (mut g, _) = Game::new(a.clone(), seed, Default::default(), t(12, 40, vec![BOW]));
+    let mut u = t(4, 40, vec![]);
+    u.name = "U".into();
+    g.apply(Command::AddPlayer { setup: u });
+    g.apply(Command::Wait);
+    g.place(0, room(5, 4));
+    g.place(1, room(4, 4));
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    ready(&mut g, BOW);
+    g.apply(Command::Wait);
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    assert_eq!(moves(&g), 12);
+    g
+}
+
+/// capture.md 10.32 (`bes2`, `fire-u`), setup from 10.35 item 3: T of
+/// Speed 12 holding the bow (Power 10, range 7) on 5,4 and another player,
+/// U, of Speed 4 beside it on 4,4; both Constitution and Life Force 40,
+/// Strength 9, Dexterity 13, Wisdom and Power 13, Size 9, Dodge 30, Parry
+/// 26, Melee 31, Missile 22. FIRE is not refused (a player beside never
+/// stops it), and with 12 moves gives 7 shots (Dexterity 13 / 8 plus
+/// 12 / 2). Over 64 states: 393 of the 448 shots due fired (U died in 48
+/// runs, ending the firing), 379 reached U, 91 of those dodged, 288
+/// damaging. Many rolls a run: samples.
 #[test]
 fn another_player_beside_never_stops_fire() {
-    let a = kit(5);
-    for seed in 0..64 {
-        let (mut g, _) = Game::new(a.clone(), seed, Default::default(), t(12, 11, vec![BOW]));
-        let mut u = t(4, 63, vec![]);
-        u.name = "U".into();
-        g.apply(Command::AddPlayer { setup: u });
-        g.apply(Command::Wait);
-        g.place(0, room(5, 4));
-        g.place(1, room(4, 4));
-        while g.current() != 0 {
-            g.apply(Command::Wait);
-        }
-        ready(&mut g, BOW);
-        g.apply(Command::Wait);
-        while g.current() != 0 {
-            g.apply(Command::Wait);
-        }
-        assert_eq!(moves(&g), 12);
+    let a = kit(7);
+    let (mut shots, mut dodged, mut hit) = (0, 0, 0);
+    for seed in 0..SEEDS / 4 {
+        let mut g = beside_u(&a, seed);
         let ev = g.apply(Command::Fire {
             target: Some((4, 4)),
             weapon: None,
         });
         assert_eq!(fired(&ev, ME), Some(7), "seed {seed}: {ev:?}");
         let (d, h) = reached(&ev, ME, Who::Player { player: 1 });
-        assert!(d + h > 0, "seed {seed}: no arrow reached U");
+        shots += shots_of(&ev, ME);
+        dodged += d;
+        hit += h;
     }
+    same_rate(
+        "fire-u: shots reaching U",
+        Sweep::Sample,
+        379,
+        393,
+        dodged + hit,
+        shots,
+    );
+    same_rate(
+        "fire-u: arrows reaching U dodged",
+        Sweep::Sample,
+        91,
+        379,
+        dodged,
+        dodged + hit,
+    );
+}
+
+/// capture.md 10.35 item 2 (`u-rec`: `fire-u` again, 64 runs, U's whole
+/// record watched): only U's Life Force, Power and Dodge changed, and its
+/// death's bytes in the 48 runs U died; for a player target the roll after
+/// a damaging arrow (Wisdom 13) decides nothing (combat 7). Compared on
+/// the engine's player record; a dead U only as dead.
+#[test]
+fn a_player_target_changes_only_in_life_force_power_and_dodge() {
+    let a = kit(7);
+    let mut died = 0;
+    for seed in 0..64 {
+        let mut g = beside_u(&a, seed);
+        let before = g.players()[1].clone();
+        g.apply(Command::Fire {
+            target: Some((4, 4)),
+            weapon: None,
+        });
+        let mut after = g.players()[1].clone();
+        if !after.alive {
+            died += 1;
+            continue;
+        }
+        after.life_force = before.life_force;
+        after.power = before.power;
+        after.dodge = before.dodge;
+        // The command runs on into U's turn, which starts its bar.
+        (after.moves_left, after.turn_moves) = (before.moves_left, before.turn_moves);
+        assert_eq!(after, before, "seed {seed}");
+    }
+    same_rate("u-rec: runs with U dead", Sweep::Sample, 48, 64, died, 64);
 }
 
 // ---- drops ----------------------------------------------------------------

@@ -1452,6 +1452,278 @@ fn a_death_offers_the_save_made_before_its_round_ends() {
     });
 }
 
+/// 2.2.6: the button brings back the moment of the save, not the turn the
+/// saving command went on to start: played on the game at the save point,
+/// the restored game starts that same turn with the same draws. The
+/// scheduler holds no region, so the new cycle's first visit saves; the
+/// button is logged.
+#[test]
+fn the_button_goes_back_to_the_moment_of_the_save() {
+    both(|p| {
+        let mut g = start(adventure(p), 0, 2, 2);
+        g.set_life_force(0, 3);
+        g.apply(Command::SaveGame);
+        let ev = wait(&mut g);
+        assert_eq!(saved(&ev).len(), 1, "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        let mut kept = g.clone();
+        let mut r = g.clone();
+        let ev = r.apply(Command::Restore);
+        assert_eq!(ev.first(), Some(&Event::Restored { round: kept.round() }));
+        assert_eq!(saved(&ev), [(kept.round(), Some(1))], "{ev:?}");
+        assert!(ev.contains(&Event::TurnStarted {
+            player: 0,
+            moves: 15,
+            hindered: false
+        }));
+        assert_eq!(r.log().last(), Some(&Command::Restore));
+        assert_eq!(r.save_point(), r.log().len());
+        assert_eq!((r.round(), r.visiting(), r.current()), (kept.round(), 1, 0));
+        assert_eq!(r.players(), kept.players());
+        for _ in 0..8 {
+            wait(&mut r);
+            wait(&mut kept);
+            assert_eq!(r.players(), kept.players());
+            assert_eq!(r.round(), kept.round());
+        }
+    });
+}
+
+/// 2.2.6, 2.2.7.3, 2.2.7.4: a Retire with Save and an "Add Someone" in
+/// one round make one save point, after the add: the retired slot
+/// refilled by the newcomer, with or without a SAVE GAME too, and one
+/// `Saved`. The button clears the requests, so none is made again.
+/// With nobody in play the button does nothing.
+#[test]
+fn the_button_clears_the_requests() {
+    both(|p| {
+        for also_save_game in [false, true] {
+            let mut g = start(adventure(p), 0, 2, 2);
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    speed: 15,
+                    ..Default::default()
+                },
+            });
+            wait(&mut g);
+            g.place(1, at(0, 3, 2));
+            assert_eq!(g.current(), 0);
+            g.apply(Command::AddPlayer { setup: frail() });
+            g.apply(Command::Retire { save: true });
+            if also_save_game {
+                g.apply(Command::SaveGame);
+            }
+            wait(&mut g);
+            let ev = wait(&mut g);
+            assert!(
+                ev.iter()
+                    .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })),
+                "{ev:?}"
+            );
+            assert_eq!(saved(&ev).len(), 1, "{ev:?}");
+            assert_eq!(g.save_point(), g.log().len());
+            assert_eq!(g.players()[0].name, "FRAIL");
+            let mut r = g.clone();
+            let ev = r.apply(Command::Restore);
+            assert!(
+                !ev.iter().any(|e| matches!(
+                    e,
+                    Event::PlayerAdded { .. } | Event::Retired { .. } | Event::AddRefused
+                )),
+                "{ev:?}"
+            );
+            assert_eq!(r.players()[0].name, "FRAIL");
+            assert!(r.players()[0].alive);
+            assert!(r.players()[1].alive);
+            // The newcomer starts on the map, which comes first.
+            assert_eq!((r.round(), r.visiting(), r.current()), (g.round(), 0, 0));
+        }
+        // Nobody in play: ignored, not logged.
+        let mut g = start(with_pit(p), 0, 2, 4);
+        g.set_life_force(0, 9);
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        assert_eq!(ev.last(), Some(&Event::AllPlayersDead), "{ev:?}");
+        let logged = g.log().len();
+        assert!(g.apply(Command::Restore).is_empty());
+        assert_eq!(g.log().len(), logged);
+        assert!(g.is_over());
+    });
+}
+
+/// The game the death message's button brings back: the save at
+/// [`Game::restore_point`], replayed as a save file is, then `Restore`.
+fn button(g: &Game, a: &Adventure) -> Game {
+    let mut s = acs_engine::SaveFile::new(g, a, g);
+    s.autosave = g.restore_point();
+    let mut r = s.restore(a).expect("restores").autosave;
+    r.apply(Command::Restore);
+    r
+}
+
+/// 2.2.7.4, characters 6.2: an Add Someone in play is a save point once
+/// the newcomer joins at the round's end: one `Saved` after `PlayerAdded`,
+/// holding the counter already gone up, and the button brings back that
+/// round's end with the newcomer in. No region change is needed.
+#[test]
+fn an_add_in_play_is_a_save_point() {
+    both(|p| {
+        let a = adventure(p);
+        let mut g = on_map(a.clone(), 15);
+        // A few rounds in, nothing saved since the game's start.
+        for _ in 0..3 {
+            wait(&mut g);
+        }
+        assert_eq!(g.save_point(), 0);
+        let round = g.round();
+        let ev = g.apply(Command::AddPlayer { setup: frail() });
+        assert!(saved(&ev).is_empty(), "{ev:?}");
+        let ev = wait(&mut g);
+        let added = ev
+            .iter()
+            .position(|e| matches!(e, Event::PlayerAdded { player: 1, .. }));
+        let save = ev
+            .iter()
+            .position(|e| matches!(e, Event::Saved { visit: None, .. }));
+        assert!(added.is_some() && added < save, "{ev:?}");
+        assert_eq!(saved(&ev), [(round + 1, None)], "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.visiting(), 0);
+        // Play on, then the button: the round after the request, both in.
+        for _ in 0..5 {
+            wait(&mut g);
+        }
+        let r = button(&g, &a);
+        assert_eq!(r.round(), round + 1);
+        assert_eq!(r.players().len(), 2);
+        assert!(r.players().iter().all(|q| q.alive));
+        assert_eq!(r.players()[1].name, "FRAIL");
+    });
+}
+
+/// 2.2.7.4's engine choice, characters 6.4: a refused add (four living)
+/// saves nothing.
+#[test]
+fn a_refused_add_saves_nothing() {
+    both(|p| {
+        let mut g = on_map(adventure(p), 15);
+        while g.players().len() < 4 {
+            g.apply(Command::AddPlayer { setup: frail() });
+            for _ in 0..8 {
+                let ev = wait(&mut g);
+                if ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                    break;
+                }
+            }
+        }
+        let point = g.save_point();
+        g.apply(Command::AddPlayer { setup: frail() });
+        let mut ev = Vec::new();
+        while !ev.contains(&Event::AddRefused) {
+            ev.extend(wait(&mut g));
+        }
+        assert!(saved(&ev).is_empty(), "{ev:?}");
+        assert_eq!(g.save_point(), point);
+    });
+}
+
+/// 2.2.7.4's engine choice: an add with a SAVE GAME, or with a Retire with
+/// Save, in one round makes one save point, after the add, with one
+/// `Saved` (the order retire, add, save, 2.2.5).
+#[test]
+fn an_add_and_another_save_in_one_round_save_once() {
+    both(|p| {
+        for other in [Command::SaveGame, Command::Retire { save: true }] {
+            let a = adventure(p);
+            let mut g = on_map(a.clone(), 15);
+            g.apply(Command::AddPlayer { setup: frail() });
+            wait(&mut g);
+            assert_eq!(g.players().len(), 2);
+            while g.current() != 0 {
+                wait(&mut g);
+            }
+            let round = g.round();
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: "NEW".into(),
+                    speed: 15,
+                    ..Default::default()
+                },
+            });
+            g.apply(other.clone());
+            let mut ev = wait(&mut g);
+            while !ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                ev.extend(wait(&mut g));
+            }
+            assert_eq!(saved(&ev), [(round + 1, None)], "{other:?}: {ev:?}");
+            let added = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
+            let save = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
+            assert!(added < save, "{ev:?}");
+            if let Some(retired) = ev.iter().position(|e| matches!(e, Event::Retired { .. })) {
+                assert!(retired < added.unwrap(), "{ev:?}");
+            }
+            let retiring = matches!(other, Command::Retire { .. });
+            // The retired slot 0 is freed and refilled by the newcomer.
+            let slot = if retiring { 0 } else { 2 };
+            assert_eq!(g.players()[slot].name, "NEW");
+            assert_eq!(g.save_point(), g.log().len());
+            for _ in 0..4 {
+                wait(&mut g);
+            }
+            let r = button(&g, &a);
+            assert_eq!(r.round(), round + 1);
+            assert_eq!(r.players()[slot].name, "NEW");
+            assert!(r.players()[slot].alive);
+        }
+    });
+}
+
+/// 2.2.6, 2.2.7.4: a death in the round of an add offers the save from
+/// before that round (the button clears the add and the newcomer is not
+/// there); with F1 the add goes ahead and is the save point.
+#[test]
+fn a_death_in_an_add_round_offers_the_earlier_save() {
+    both(|p| {
+        let a = with_pit(p);
+        let mut g = start(a.clone(), 0, 2, 2);
+        g.apply(Command::AddPlayer { setup: frail() });
+        wait(&mut g);
+        g.place(1, at(0, 2, 4));
+        let before = g.save_point();
+        assert_eq!(g.current(), 0);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "NEW".into(),
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        wait(&mut g);
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        let msg = ev
+            .iter()
+            .position(|e| *e == Event::LivingChanged { before: 2, after: 1 });
+        let added = ev
+            .iter()
+            .position(|e| matches!(e, Event::PlayerAdded { player: 1, .. }));
+        let save = ev
+            .iter()
+            .position(|e| matches!(e, Event::Saved { visit: None, .. }));
+        assert!(msg.is_some() && msg < added && added < save, "{ev:?}");
+        assert_eq!(g.save_point(), g.log().len());
+        assert_eq!(g.restore_point(), before);
+        // The button: the save before the round, without the newcomer.
+        let r = button(&g, &a);
+        assert!(r.players().iter().all(|q| q.name != "NEW"), "{:?}", r.players());
+        // F1: play goes on, and the add's save is the one to go back to.
+        wait(&mut g);
+        assert_eq!(g.restore_point(), g.save_point());
+        let r = button(&g, &a);
+        assert_eq!(r.players()[1].name, "NEW");
+        assert!(r.players()[1].alive);
+    });
+}
+
 /// 2.2.6: with nobody alive every record is cleared to 0; declining needs
 /// no command (anything else is ignored: no turn, the counter and region
 /// stay); an added player's visit to the map is a region change and saves.

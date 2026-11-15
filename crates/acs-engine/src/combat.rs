@@ -11,7 +11,7 @@ use crate::creatures::Other;
 use crate::game::Game;
 use crate::magic::{CAST_CHANCE_MAX, CAST_CHANCE_MIN};
 use crate::{Event, FireRefusal, Location, Slot, Stat, Who};
-use acs_core::model::{Alignment, Creature, ThingId, ThingKind, WeaponStats};
+use acs_core::model::{Alignment, Creature, Strategy, ThingId, ThingKind, WeaponStats};
 use serde::{Deserialize, Serialize};
 
 /// How one blow ended.
@@ -182,7 +182,9 @@ pub fn line_of_fire(dx: i32, dy: i32) -> Vec<(i32, i32)> {
 pub fn damage(dexterity: u8, size: u8, power: u8, heavy: bool) -> i32 {
     let p = power as i32;
     let build = (dexterity as i32 + size as i32 - 6).clamp(0, 30) - 15;
-    let mut d = (build * p).div_euclid(30) + p;
+    // 4.1.2: the division drops the fraction toward 0, a negative Build
+    // too.
+    let mut d = build * p / 30 + p;
     if heavy {
         d += half(p);
     }
@@ -502,15 +504,16 @@ impl Game {
         if damage == 0 {
             return (outcome, false);
         }
+        let class = self.class_of(target);
         self.take_damage(target, &d, damage, ev);
         // 6.4: a melee weapon that disappears goes after its first
         // damaging blow.
         if weapon_goes {
             self.lose(by, weapon, true, ev);
         }
-        // 7: a player's damaging blow.
-        if player_blow && self.alive(target) {
-            self.turn_hostile(target, d.wisdom, None, ev);
+        // 7: a player's damaging blow, a killing one too.
+        if player_blow {
+            self.turn_hostile(target, class, d.wisdom, ev);
         }
         (BlowOutcome::Hit { damage, heavy }, weapon_goes && !counter)
     }
@@ -811,14 +814,12 @@ impl Game {
                 }
                 if let BlowOutcome::Hit { damage, .. } = outcome {
                     if damage > 0 {
+                        let class = self.class_of(target);
                         self.take_damage(target, &d, damage, ev);
-                        // 8.8.3: after every damaging player arrow, section
-                        // 7's roll of 0 to 9, whatever the target (another
-                        // player, one it killed), then the change by its
-                        // class (none for a player or a dead creature).
+                        // 8.8.3: after every damaging player arrow, a
+                        // killing one too, section 7's check and change.
                         if player_shot {
-                            let roll = self.rng.below(10);
-                            self.turn_hostile(target, d.wisdom, Some(roll), ev);
+                            self.turn_hostile(target, class, d.wisdom, ev);
                         }
                     }
                 }
@@ -932,31 +933,44 @@ impl Game {
         }
     }
 
-    /// Section 7: a creature a player hurt changes its class. `roll` is the
-    /// smartness roll when already drawn (a player's arrow, 8.8.3);
-    /// otherwise it is drawn only for an aggressive neutral that needs it.
-    fn turn_hostile(&mut self, target: Who, wisdom: u8, roll: Option<u32>, ev: &mut Vec<Event>) {
-        let Who::Creature { region, slot } = target else {
+    /// A creature's class (its strategy) as section 7 reads it; `None` for
+    /// a player or an empty slot.
+    fn class_of(&self, who: Who) -> Option<Strategy> {
+        match who {
+            Who::Creature { region, slot } => self.creature(region, slot).map(|c| c.strategy),
+            Who::Player { .. } => None,
+        }
+    }
+
+    /// Section 7 after a player's damaging blow or arrow, by the class
+    /// `class` the target had when hit (`None` for a player). The
+    /// smartness check is made for an aggressive thief, neutral or enemy,
+    /// or a player, its roll of 0 to 9 drawn only at Wisdom 6 to 14; only
+    /// an aggressive neutral's change depends on it. A friend or a
+    /// peaceful creature changes with no check. A dead target or a player
+    /// changes nothing.
+    fn turn_hostile(&mut self, target: Who, class: Option<Strategy>, wisdom: u8, ev: &mut Vec<Event>) {
+        let player = matches!(target, Who::Player { .. });
+        let checked = match class {
+            Some(s) => s.aggressive && s.alignment != Alignment::Friend,
+            None => player,
+        };
+        let smart = checked
+            && match wisdom {
+                w if w > 14 => true,
+                w if w < 6 => false,
+                w => self.rng.below(10) < (w - 5) as u32,
+            };
+        let (Who::Creature { region, slot }, Some(mut s)) = (target, class) else {
             return;
         };
-        let Some(c) = self.creature(region, slot) else {
+        if !self.alive(target) {
             return;
-        };
-        let mut s = c.strategy;
+        }
         match (s.alignment, s.aggressive) {
             (Alignment::Friend, _) => s.alignment = Alignment::Neutral,
             (_, false) => s.aggressive = true,
-            (Alignment::Neutral, true) => {
-                let smart = match wisdom {
-                    w if w > 14 => true,
-                    w if w < 6 => false,
-                    w => roll.unwrap_or_else(|| self.rng.below(10)) < (w - 5) as u32,
-                };
-                if !smart {
-                    return;
-                }
-                s.alignment = Alignment::Enemy;
-            }
+            (Alignment::Neutral, true) if smart => s.alignment = Alignment::Enemy,
             _ => return,
         }
         if let Some(c) = self.creature_mut(region, slot) {
@@ -1124,6 +1138,59 @@ mod tests {
         }
     }
 
+    /// A bare game: one player on the world map, no creatures.
+    fn bare() -> Game {
+        use crate::test_fixture as common;
+        use acs_core::{decode, Platform};
+        let mut f = common::Fixture::new(Platform::C64);
+        f.header("BARE", "", "");
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        let adv = decode(&f.build()).expect("decodes").adventure;
+        Game::new(adv, 5, crate::Rules::default(), crate::PlayerSetup::default()).0
+    }
+
+    #[test]
+    fn section_7_draws_by_the_class_a_killed_target_had() {
+        // Section 7, 8.8.3: the check is made by the class the target had
+        // when hit, a killing hit too (the slot here is empty: dead). Its
+        // roll is drawn for an aggressive thief, neutral or enemy, or a
+        // player, at Wisdom 6 to 14 only; a dead target changes nothing.
+        let dead = Who::Creature { region: 1, slot: 9 };
+        let class = |alignment, aggressive| {
+            Some(Strategy {
+                alignment,
+                aggressive,
+                brave: true,
+            })
+        };
+        let cases = [
+            (dead, class(Alignment::Enemy, true), 10, 1),
+            (dead, class(Alignment::Thief, true), 6, 1),
+            (dead, class(Alignment::Neutral, true), 14, 1),
+            (dead, class(Alignment::Neutral, true), 5, 0),
+            (dead, class(Alignment::Neutral, true), 15, 0),
+            (dead, class(Alignment::Enemy, true), 20, 0),
+            (dead, class(Alignment::Friend, true), 10, 0),
+            (dead, class(Alignment::Friend, false), 10, 0),
+            (dead, class(Alignment::Enemy, false), 10, 0),
+            (dead, class(Alignment::Neutral, false), 10, 0),
+            (Who::Player { player: 0 }, None, 13, 1),
+            (Who::Player { player: 0 }, None, 3, 0),
+            (Who::Player { player: 0 }, None, 20, 0),
+        ];
+        for (who, class, wisdom, draws) in cases {
+            let mut g = bare();
+            let mut want = g.rng.clone();
+            for _ in 0..draws {
+                want.below(10);
+            }
+            let mut ev = Vec::new();
+            g.turn_hostile(who, class, wisdom, &mut ev);
+            assert_eq!(g.rng, want, "{class:?} Wisdom {wisdom}");
+            assert!(ev.is_empty(), "{class:?}: {ev:?}");
+        }
+    }
+
     #[test]
     fn edges() {
         assert_eq!(clamp(-50), 14);
@@ -1142,6 +1209,11 @@ mod tests {
         assert_eq!(armor_term(Some(10), 50), 10);
         // 4.1: Build -15 halves, the cap is 1.5 x P.
         assert_eq!(damage(0, 0, 10, false), 5);
+        // 4.1.2: a negative Build rounds toward 0: Dexterity 8, Size 9
+        // (Build -4) with Power 10 is -40 / 30 = -1, so 9 (not 8).
+        assert_eq!(damage(8, 9, 10, false), 9);
+        assert_eq!(damage(8, 9, 10, true), 14);
+        assert_eq!(damage(0, 0, 7, false), 4);
         assert_eq!(damage(31, 31, 10, true), 15);
         assert_eq!(damage(13, 9, 0, true), 0);
         // 4.2: the share is at most (Power + 1) / 2; nothing to share.

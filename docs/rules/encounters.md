@@ -21,7 +21,9 @@ world map's tail) and **[capture]** for capture.md 10.26 (runs rr22,
 2026-11-14: lists of ours written into a scenario disk) and 10.34 (runs
 rr30, 2026-11-14: door items moved and doubled, the door table's bytes
 changed, an area reopened, the lists the decoder warns on, a store in an
-area).
+area). Play with several players, deaths, saves and full areas or slots
+(2.4, 2.5, 2.6, 4.4, 5.2, 6.1, 6.4, 7.3, 7.4, 7.6) are **[capture]** of
+capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
 
 ## 1. The records
 
@@ -52,7 +54,10 @@ area).
    as usual. Nothing else changes the chance: not the player's ratings,
    other players or the turn. [research, run; traced]
 4. **Only while an area is free.** There are 4 areas (3.1). With all 4 in
-   use a step takes no rolls at all. [research, traced]
+   use a step takes no rolls at all. [research, traced] [capture:
+   capture.md 10.36 item 5, all four areas held open: 16 of 16 runs drew
+   nothing on any grass step, the player walked on and no area or slot
+   changed]
 5. **Which records roll.** Records 0 to 7 in order; one whose terrain is
    not the entered square's is skipped without a roll; each that matches
    takes one percentile roll (0..99) and **hits below its chance**.
@@ -62,13 +67,23 @@ area).
    hitting] So empty records on terrain 0 roll and never hit. [capture:
    capture.md 10.20, every step of 824 runs: one roll per grass step,
    8 per field step with WOLF's first, 7 with only empty records there;
-   WOLF and HARE both appearing in 87 of 256 runs]
+   WOLF and HARE both appearing in 87 of 256 runs] With two records on
+   the grass (60 % each, one step a run, 256 runs) the outcomes were
+   neither 45, WOLF alone 65, HARE alone 59, both 87; each draw of every
+   run follows from the generator alone, and the two hits are
+   independent (152 and 146 hits of 256 predict 86.7 runs with both,
+   against 87). [capture: capture.md 10.36 item 8, which corrects 10.20's
+   WOLF-alone count] So there is no rule linking the records' rolls.
    **Engine:** so, empty records included (their roll uses the generator
    as the original's does).
 6. **A hit places a copy** of its record (4.3) in the first free creature
    slot of the map, 8 to 15, shared by all 4 areas; with none free that
    hit places nothing. The area opens only if at least one copy was
-   placed. [research, traced] **Engine:** so; a record that is not in use
+   placed. [research, traced] [capture: capture.md 10.36 item 5, slots 8
+   to 15 all alive (in area 4): every grass step still took its roll,
+   hits included, yet no area opened and the player walked on with its
+   moves, 14 of 14 runs; item 2, a second area's copy took slot 9 beside
+   area 1's in slot 8] **Engine:** so; a record that is not in use
    places nothing (it cannot hit in practice, its chance being 0).
 7. Setting the area up takes no rolls: its place, the squares and the
    creatures' values are all fixed. [research, run; capture: no draw
@@ -80,7 +95,8 @@ area).
    1 to 4 of region 0; room 0 is the open map). A hit takes **the first
    free one** and notes **the map square stepped onto** as its entrance.
    [research, run: room 1 in every run; capture: area 1 in every one of
-   our encounters] **Engine:** the map region is
+   our encounters; area 2 for a second encounter while area 1 was in use,
+   capture.md 10.36 item 2] **Engine:** the map region is
    kept by the game (it is not in the adventure's region list), its rooms
    1..4 the areas; a player in an area stands at
    `Location::Room { region: 0, room: 1..=4, .. }`.
@@ -236,6 +252,13 @@ area).
    modelled (the model keeps Power without it).
 3. The record itself never changes: what happens to the copy stays with
    the copy. [research, traced]
+4. **A copy killed in the area** drops what it carries and its gold on
+   its square, as a creature dying anywhere does ([combat](combat.md)):
+   a WOLF copy holding a blade and 50 gold left two new entries at the
+   front of the area's item list, on its square, the blade and a gold
+   item of 50, the door after them; the killer's gold did not change.
+   Both were deleted when the area closed (7.2), the door kept.
+   [capture: capture.md 10.36 item 7] **Engine:** so.
 
 ## 5. Entering
 
@@ -244,29 +267,64 @@ area).
    every encounter] Events: `Encounter` for each copy placed, then `EnteredArea`.
 2. **A second player** who steps onto the entrance square of an open area
    joins it at once, with no roll, on 12,4 like the first, and its turn
-   ends. [research, traced] What two players on 12,4 do is [unknown].
-   **Engine:** it joins, sharing 12,4 (as on a door's destination,
-   movement 6.3).
+   ends. [research, traced] [capture: capture.md 10.36 item 1: the player
+   joined area 1 on 12,4, the square the first player stood on, with no
+   other area opened, no copy placed and its moves 0; no draw between the
+   step and the join in 8 of 8 runs] The two share 12,4. Any player may
+   join any open area, whoever opened it: one that walked out of its own
+   area (which closed) and onto another area's entrance joined that area.
+   [capture: 10.36 item 2, `o3`] **Engine:** so, sharing 12,4 as on a
+   door's destination (movement 6.3).
 
 ## 6. Play inside
 
 1. An area is a room of the map's region, so its turns run in the map's
-   **region visit** ([creatures](creatures.md) 2.2): the round's list
-   holds the players on the open map, then the area's individuals, players
-   before creatures in number order. [research: run for one player and one
-   creature (T, then WOLF); traced for the rest] With players in several
-   areas the order is [unknown]. **Engine:** the open map's players in
-   joining order, then each area in use, 1 to 4, with its players in
-   joining order and its creatures in slot order.
+   **region visit** ([creatures](creatures.md) 2.2): the open map and all
+   four areas share **one round counter and one turn list a round**.
+   [research: run for one player and one creature (T, then WOLF); traced
+   for the rest] [capture: capture.md 10.36 item 2, five cases] The
+   round's list, built at its start:
+   1. the living players on the open map;
+   2. then each area that holds a living player, **ordered by the lowest
+      player number in it** (not by area number, nor by which opened
+      first);
+   3. within an area, its living players **in player-number order** (not
+      the order they came in), then its creature copies in slot order.
+
+   Seen, players T (1) and U (2): U on the map, T in area 1 with copy 8:
+   U, T, 8. Both in area 1: T, U, 8. T in area 1 with copy 8, U in area 2
+   with copy 9: T, 8, U, 9. U into area 1 first (copy 8), T into area 2
+   later (copy 9): T, 9, U, 8. U in area 2 with copy 9, T joining it
+   afterwards: T, U, 9. [capture: 10.36 item 2]
+
+   Not seen: the order of **several players on the open map** at once
+   while an area is in use (every case had at most one there), and
+   whether the map's visit **stops after 10 rounds** as other regions' do
+   (creatures 2.2.2): nothing outside region 0 was in play, so a new
+   visit could not be told from the old one. [unknown] **Engine:** the
+   open map's players in player-number order, like an area's (the same
+   as joining order unless a retired player's number is taken again);
+   the 10-round visit limit applies to region 0 as to any region.
 2. A creature there takes a room creature's turn (creatures 5 to 8).
    [research, run: the draws match]
 3. **No end-of-round rolls** in the map's region: no slot roll, no
    left-behind check, no random room creature. [research, run]
-4. **A creature that walks through the door is removed**: it is sent
-   towards the open map, which creatures cannot enter. [research, traced]
-   **Engine:** creatures see the door item's square (3.5) as a door (an
-   exit, creatures 6.4) and one that steps onto it is removed
-   (`CreatureRemoved`, reason `left_area`).
+4. **The area's door is closed to creatures.** A creature never steps
+   onto it and does not count it as an exit (creatures 5.3, 6.4), so a
+   copy stays in its area until it dies or the area closes (7.2).
+   [capture: capture.md 10.36 item 6: a peaceful neutral copy, whose only
+   goal is an exit, put on 1,5 beside the door on 0,5 never stepped onto
+   it in 8 of 8 runs, its first step going north or south; in the turn
+   order runs, 150M instructions each, the copies wandered rows 1 to 8
+   and none left] The researcher's reading, that a creature walking
+   through the door is removed, [research, traced] was not borne out:
+   nothing of ours ever reached the door. Only a door on a wall square
+   (0,5) was tried; a door item on an inside square (3.5) was not tried
+   with a creature beside it. [unknown] **Engine:** a square holding a
+   thing-82 item in an area is closed to creatures wherever it lies and
+   is never a goal, so an area offers no exit at all to a creature (one
+   whose only goal is an exit has no goal there, creatures 6.2). No creature
+   is ever removed for leaving an area.
 
 ## 7. Leaving and closing
 
@@ -299,31 +357,61 @@ area).
    (as 3.5, any of them is a door), every other item is deleted;
    `AreaClosed`. The engine drops deleted items from the room rather than
    keeping their entries; nothing in play can tell the difference.
-3. **The creatures dying or leaving does not end the area**; only its last
-   player leaving or dying does. [research, traced]
+3. **The creatures dying does not end the area**; only its last player
+   leaving, dying or retiring does (7.4, 7.6). [research, traced]
+   [capture: capture.md 10.36 item 7: with the only copy killed the area
+   stayed open until the player walked out] (Creatures cannot leave, 6.4.)
 4. **A player dying in the area** closes it if no player is left, as 7.2,
-   and the usual death follows. [research, traced]
+   and the usual death follows. [research, traced] [capture: capture.md
+   10.36 item 3, four runs, the player alone and with a second player on
+   the map: between the killing blow and the death message the area
+   closed (free, entrance forgotten, the copy's slot freed); answered with
+   F1, the other player played on alone on the map; with the button, the
+   game came back at the last save, made before the area opened] The
+   dead player's place byte was left naming the area, which nothing
+   showed. **Engine:** so; the death closes the area before the death's
+   choice ([creatures](creatures.md) 2.2.5, 2.2.6).
 5. **A player standing in a freed area** (only in odd cases) is sent to
    the adventure's start; a creature there is removed. [research, traced]
    **Engine:** the player's next step does it, as for any room that is
    gone (movement 6.4).
-6. **Save and retire in an area**: not looked at. [unknown] **Engine:**
-   saves are replays of the command log ([saves](../saves.md)), so a game
-   saved in an area comes back in it.
+6. **Save and retire in an area.** [capture: capture.md 10.36 item 4]
+   - **SAVE GAME** inside keeps the area: restored, the game came back in
+     the round after the save with the player in the area on its square,
+     its gold as saved, the area open with its entrance, and the copy
+     alive on the square it held at the save.
+   - **Retiring** inside: the offer to save comes at the round's end with
+     the area still open; once the player is saved its record is retired,
+     and if no living player is left in the area it closes as in 7.2 (the
+     copy gone), the next player's turn following. The retired record
+     keeps the area's place and 12,4, but a retired player taken back
+     into the game starts **at the adventure's start point on the open
+     map**, not in the area. Retiring one of two players in an area was
+     not tried. [unknown]
+
+   **Engine:** saves are replays of the command log ([saves](../saves.md)),
+   so a game saved in an area comes back in it, as above. Retiring takes
+   the player out of the area like a death (7.4): the area closes when
+   no living player is left in it; with another player still there it
+   stays open. A retired player added again starts at the start point.
 7. Nothing on the map itself changes: its squares and its records are
    untouched. [research, traced]
 
 ## 8. Left for later
 
-The researcher's next pass (`docs/research/encounters.md`): two players
-in one area or in different areas, a death in an area run rather than
-traced, save and retire inside, all four areas in use and all eight slots
-taken, and fighting there (the cleared bit, what a dead copy drops and
-its gold). Not captured by us yet: a second player joining an area for
-real, a death in an area, a creature through the door, all areas or
-slots in use (capture.md 10.20, 10.34).
+The encounters research is closed (no further passes); what is left is
+capture work. Still open: the meaning of the high bit cleared with a
+copy's Power (4.2), and a player standing in a freed area (7.5,
+[research, traced] only).
 
 **Captures needed** for the engine's choices above:
+- the turn order of several players on the open map while an area is in
+  use, and whether region 0's visit ends after 10 rounds (6.1; the
+  engine uses player-number order and the 10-round limit);
+- a creature beside a door item on an inside square (6.4; the engine
+  closes every door item's square to creatures);
+- retiring one of two players in an area (7.6; the engine keeps the area
+  open for the other);
 - a door parameter above 4 (3.5: what it reads past + 0x80E);
 - a door to another area's entrance where that area was opened by a
   real encounter, not by pokes (3.5);
@@ -346,3 +434,8 @@ Settled by capture.md 10.34: several doors on one square, doors moved
 off 0,5 and on the floor, the area door table at + 0x806 and the fifth
 entry at + 0x80E, a door to an open area's entrance, reopening after
 closing, items outside 15 x 10 and over-long lists (3.4, 3.5, 7.2).
+Settled by capture.md 10.36: a second player joining, players in
+several areas and their turn order, a death inside, SAVE GAME and Retire
+inside, all areas or all slots in use, a creature and the door, a killed
+copy's drop, and the independence of two records' rolls (2.4 to 2.6,
+4.4, 5.2, 6.1, 6.4, 7.3, 7.4, 7.6).

@@ -21,7 +21,11 @@ NAME` (capture.md 10.14.10, 10.16): 240 melee runs, 24 player attacks and
 rr20) were checked with the same script and `scripts/dropcheck.py`, and the
 player's FIRE by scripted runs. Our own capture of FIRE's open points,
 with no research pass (capture.md 10.32, run rr28, 2026-11-14), was
-checked the same way.
+checked the same way, and so was a second one on the open melee and
+firing cases (capture.md 10.35, run rr31, 2026-11-15, also no research
+pass), whose `combatcheck.py` checks also hold every melee attack's blow
+count against the value the attack's blows-left byte is first written
+with.
 
 ## 1. Terms
 
@@ -86,8 +90,13 @@ checked the same way.
 6. **Readying on contact.** A creature that owns a melee weapon but holds
    none readies it (its lowest-numbered) as it steps into the foe: one move
    if the weapon in hand changes, then the attack. [research: 3 of 3 runs]
-   **Engine:** so; with no move left for it the attack goes ahead anyway,
-   with 0 moves left (blows from 3.1).
+   (The readying is 6.2's, before the first step.) A Speed 3 enemy owning
+   our blade but holding nothing, beside the player: its turn halved to 2
+   moves, the blade readied at one, then the attack with 2 blows (3.1 from
+   1 move left of 2), in 32 of 32 runs; its next turn struck 4.
+   [capture: rr31 `ready-melee`, 32 runs, capture.md 10.35; ours, no
+   research pass, 2026-11-15] **Engine:** so; with no move left for it the
+   attack goes ahead anyway, with 0 moves left (blows from 3.1).
 7. **A player** attacks by moving into a square with any individual on
    it, whatever its alignment: a friend, a neutral, another player. Holding
    a melee weapon, the attack starts at once, its blows from the moves
@@ -115,7 +124,14 @@ checked the same way.
    10.24] Choosing the blade there readied it (the bow left the hand) with
    the last move, and the attack followed with 1 blow from 0 moves left
    (3.1), then section 7's roll. [research: fourth pass, 1 run]
-   **Engine:** the menu is the front end's; `Game` readies the
+   Holding no weapon at all and owning the blade, with 2 moves left and a
+   creature beside: the push used no move and brought the message and a
+   menu of NONE (chosen first) and the blade; choosing the blade readied it
+   at one move (2 to 1) and the attack came at once, 1 blow (3.1: 4 x 1 /
+   6 + 13 / 8 - 1 is 0, so 1). NONE used no move and made no attack, and
+   the turn went on (the bar then ran out as usual). [capture: rr31
+   `p-nowpn`, `nw-none`, one run each, nothing random, capture.md 10.35;
+   ours, no research pass, 2026-11-15] **Engine:** the menu is the front end's; `Game` readies the
    lowest-numbered melee weapon owned, then attacks. On the world map
    there are no creatures to attack yet (movement 7.1).
 
@@ -127,7 +143,15 @@ checked the same way.
    are 0 the first term counts as 1. Counted once, as the attack starts,
    after any readying. [research] A fighter with Dexterity 13 and a bar of
    3 struck 4 blows with 3 moves left, 2 with 2; with Dexterity 31, up to
-   6. [capture: armed, break-many]
+   6. [capture: armed, break-many] **At Speed 0** (full moves 0, the first
+   term 1) an enemy beside the player struck 1 blow a turn at Dexterity 8
+   and at 13, 2 at 16 and 3 at 24, in every attack of 112 runs (448
+   attacks); a first term of 0 or of 4 fits none of the Dexterity 16 and
+   24 runs. [capture: rr28 `still-melee-sw`, rr31 `sm-d8`, `sm-d16`,
+   `sm-d24`, capture.md 10.35; ours, no research pass, 2026-11-15] (The
+   "2 blows" capture.md 10.32 first gave for Dexterity 13 was a misreading
+   of the blows-left byte, which an attack writes with its whole count,
+   the blow under way included, and then counts down.)
 2. **Using them up.** Each blow uses one; **a blow that does damage uses
    two**. The attack ends when none are left, the defender dies, a weapon
    breaks (6.3) or magic defense calls it off (5.4). There is no separate
@@ -182,8 +206,14 @@ checked the same way.
 1. With the striking weapon's Power P: [research]
    1. **Build**: Dexterity + Size - 6, held to 0..30, then - 15 (so
       -15..15).
-   2. **Damage** = Build x P / 30 + P. [unknown] how a negative Build
-      rounds. **Engine:** down (toward minus infinity).
+   2. **Damage** = Build x P / 30 + P, the division dropping the fraction
+      (toward 0), a negative Build too: Build -4 with Power 10 is -40 / 30,
+      taken as -1, so 9. An enemy of Dexterity 8 and Size 9 (Build -4)
+      with our blade did 9 a hit, the player losing 7 Life Force and 4
+      Power; rounding down (8) fits 13 of the 32 runs, toward 0 all 32 (31
+      hits). [capture: rr31 `sm-d8`, capture.md 10.35; ours, no research
+      pass, 2026-11-15] **Engine:** toward 0. (Superseded: the engine's
+      earlier choice of rounding down, toward minus infinity.)
    3. **Heavy blow**: a roll of 0 to 99; below the attacker's Dexterity,
       add half of P.
    4. At most 3 x P / 2.
@@ -226,8 +256,14 @@ checked the same way.
    left its wearer, and the next blow did the full 10. [capture: mail,
    mail-magic, 32 runs, capture.md 10.14.10] A blow weaker than the armor
    (10 against Power 12) draws no break roll; a heavy 15 got through for 3
-   and drew it. [capture: mail-heavy, 16 runs, capture.md 10.16] Not run:
-   a magic weapon against either.
+   and drew it. [capture: mail-heavy, 16 runs, capture.md 10.16] **A magic
+   weapon**: our blade made magic against plain mail (Power 2, break
+   chance 15) did the full 10 or 15 with **no break roll** (the armor took
+   no part: 39 damaging blows); against magic mail its Power came off and
+   the break roll followed (41 damaging blows, the mail broken 8 times).
+   Each reading taken the other way round fits 6 of 32 runs. [capture: rr31
+   `mb-mail`, `mb-mmail`, 32 runs each, capture.md 10.35; ours, no research
+   pass, 2026-11-15] **Engine:** the table as it stands.
 2. **Armor that disappears after use** goes after the first blow that
    reaches it, and the attack goes on: the next blow hit the unarmored
    wearer for the full 10. [research: third pass] Its break roll is drawn
@@ -281,7 +317,9 @@ checked the same way.
    weapon it doesn't hold; with none beside it, an owned missile weapon.
    Otherwise it keeps what it holds. One move each change. [research:
    traced; the melee case run by the researcher, 4 runs, a snapshot changed
-   by hand: one move, then a step into the player and 2 blows] Owning the
+   by hand: one move, then a step into the player and 2 blows; capture:
+   rr31 `ready-melee`, 32 of 32 runs, the same (2.6), capture.md 10.35;
+   ours, 2026-11-15] Owning the
    bow but holding none, with the player far: it readied the bow at one
    move (3 to 2) and fired at once, in the same turn, 2 shots. [research:
    third pass; capture: bow-ready, 16 runs, the held-weapon byte showing
@@ -305,7 +343,14 @@ checked the same way.
    rolls; one broke the player's blade on its parried counter-blow, its
    held weapon went to none, and it made no counter-blow after. [capture:
    break, 16 runs] Our `break-many` runs (up to 6 blows) had 8 parries,
-   none breaking. [capture: 16 runs, capture.md 10.16]
+   none breaking. [capture: 16 runs, capture.md 10.16] With the player's
+   Parry raised so that the enemy's blows were parried at 90, both blades
+   at break chance 15: the enemy's blade broke 6 times in 70 parries, 4
+   of them with blows still due (2 to 5 left), and each time its attack
+   ended there; the player's blade broke 3 times on parried counter-blows
+   and the enemy's attack went on. [capture: rr31 `brk-parry`, 32 of 32
+   runs, capture.md 10.35; ours, no research pass, 2026-11-15]
+   **Engine:** so.
 4. **Disappearing after use**: a melee weapon after its first damaging
    blow, and **the attack ends there**, also with blows still due; armor
    as 5.2; taken from the owner as on breaking. [research] The blade set
@@ -332,6 +377,40 @@ Right after the damage, by the defender's class: [research]
    roll of 0 to 9 below Wisdom minus 5);
 4. an aggressive thief or enemy, or a player: no change.
 
+**When the roll of 0 to 9 is drawn.** The smartness check is made, by
+the defender's class before any change, whenever the defender is
+aggressive and not a friend (an aggressive thief, neutral or enemy) or
+a player; it draws its roll only at Wisdom 6 to 14, and outside that the
+Wisdom alone decides, with no roll. Only an aggressive neutral's change
+(3) depends on the result; for an aggressive thief or enemy and for a
+player the roll is drawn and decides nothing. A friend or a peaceful
+creature gets no check and no roll: its change (1, 2) is made without
+one. [capture: a player's arrows, rr31 `arrow-c0` to `arrow-c7`,
+`arrow-c5w3`, `arrow-c5w20`, `u-rec`, 1,472 runs, the target's class read
+after every damaging arrow, capture.md 10.35; ours, no research pass,
+2026-11-15] Seen: each peaceful class turning aggressive, a peaceful
+friend a peaceful neutral and an aggressive friend an aggressive
+neutral, none drawing the roll (drawing it fits 113 and 114 of 128
+runs); an aggressive thief and enemy drawing it and staying as they were;
+an aggressive neutral of Wisdom 10 turning an enemy on rolls 0 to 4, of
+Wisdom 3 never and of Wisdom 20 always, these two with no roll (drawing
+it fits 112 and 115 of 128); a peaceful neutral hit by two arrows turning
+aggressive on the first with no roll, then drawing it on the second and
+turning an enemy. A second player as the target (Wisdom 13) drew the roll
+after every damaging arrow and nothing in its record changed but Life
+Force, Power and Dodge (and what its death changes). [unknown] an
+aggressive thief or enemy, or a player, of Wisdom below 6 or above 14 (not
+run). **Engine:** the rule above for them too, so no roll and no change.
+For **a player's blows** the captures agree where they reach (a friend,
+a peaceful creature, an aggressive neutral of Wisdom 10; below);
+[unknown] whether a blow on an aggressive thief or enemy or on a player
+draws the roll as an arrow does, and whether a killing blow does (a
+killing arrow does, 8.8.3). **Engine:** one rule for blows and arrows,
+the one above, also after a hit that kills (by the class it had).
+(Superseded: the engine's earlier choices, a roll after a player's arrow
+whatever the target's class, and after a blow only for an aggressive
+neutral of Wisdom 6 to 14 still alive.)
+
 One change a blow. A friend hit once is a neutral; hit again, it turns
 aggressive. Only a player's own blows (and its arrows, 8.6, 8.8.3) do this, never a creature's or a
 counter-blow. [manual: a friend hurt turns neutral, a peaceful creature
@@ -344,10 +423,8 @@ Read from the creature's class byte, every blow. [capture: player-friend,
 and player-friend with the creature made an aggressive neutral of Wisdom
 10, 12 runs each, capture.md 10.14.10] An enemy's arrow hitting its own
 friend changed nothing about it. [research: second pass, 4 runs]
-**A player's arrow** differs in its draws: the roll of 0 to 9 follows
-every arrow of a player's that does damage, whatever the target's class,
-another player and a target the arrow killed included (8.8.3). [capture:
-capture.md 10.24, 10.32]
+**A player's arrow** that does damage makes the same check, on a target
+the arrow killed too (8.8.3). [capture: capture.md 10.24, 10.32, 10.35]
 
 ## 8. Firing
 
@@ -378,6 +455,11 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
      every step and shot, capture.md 10.14.10, 10.16] With the player
      truly beside it, it stepped away, then fired with the move left
      (1 shot). [research: third pass, 12 runs, a snapshot changed by hand]
+     An archer of ours, Speed 3 holding our bow, the player beside it: its
+     turn halved to 2 moves ([creatures](creatures.md) 2.6), no shot, one
+     step away (south, north or east), then one shot with the move left
+     (8.2: 13 / 8 + 1 / 2), in 32 of 32 runs. [capture: rr31 `bow-adj`,
+     capture.md 10.35; ours, no research pass, 2026-11-15]
    - **The moves left play no part** in the rule. A creature of Speed 0
      takes one action a turn ([creatures](creatures.md) 2.7), and when it
      holds a missile weapon and the rule holds, that action is a shot:
@@ -539,14 +621,21 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       of 64 runs each, 192 shots each, every draw and every change to the
       enemy's Life Force, Power and Dodge and the player's Missile skill
       in order, capture.md 10.24]
-      **After every arrow of the player's that damages a creature** comes
-      a roll of 0 to 9: section 7's smartness roll. It was drawn after
+      **After an arrow of the player's that damages an aggressive
+      enemy** comes a roll of 0 to 9: section 7's smartness roll. It was
+      drawn after
       each of 44 damaging arrows on an aggressive enemy, a second hit in
       one firing included; without it, or taking it only while the target
       was still an aggressive enemy, runs fail with the later draws out of
       step. [capture: `fire-e5`, `fire-e3`, capture.md 10.24] The finding
-      did not name it. What it changes was not watched (the target's
-      class was not read), so the class change stays as section 7 says.
+      did not name it. **It is section 7's smartness check**, made as
+      section 7 says (when the roll is drawn and what it decides): an
+      aggressive thief, neutral or enemy, or a player, at Wisdom 6 to 14
+      draws it; a friend or a peaceful creature never does, nor anyone at
+      Wisdom below 6 or above 14; only an aggressive neutral's class
+      depends on it. [capture: rr31 `arrow-c0` to `arrow-c7`, `arrow-c5w3`,
+      `arrow-c5w20`, the class read after every damaging arrow, capture.md
+      10.35; ours, no research pass, 2026-11-15]
       **The roll comes after an arrow that kills** as well: with the enemy
       at Life Force 1, every run fitted with the roll drawn after the
       killing arrow and 46 of 64 without it. [capture: rr28 sweep
@@ -554,9 +643,12 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       research pass, 2026-11-14]
       **And after an arrow that damages another player**: every one of 288
       damaging arrows on a second player brought the roll (2 of 64 runs fit
-      without it). What it decides for a player is not seen; a player's
-      class never changes (section 7.4). [capture: rr28 sweep `fire-u`, 64
-      of 64 runs, 7 shots each, capture.md 10.32; ours, 2026-11-14]
+      without it). [capture: rr28 sweep `fire-u`, 64 of 64 runs, 7 shots
+      each, capture.md 10.32; ours, 2026-11-14] For a player it decides
+      nothing: with the second player's whole record watched, only its
+      Life Force, Power and Dodge changed (and, at its death, what death
+      changes), the roll drawn at its Wisdom of 13 every time. [capture:
+      rr31 `u-rec`, 64 runs, capture.md 10.35; ours, 2026-11-15]
       (Superseded: the engine's earlier choice of no roll after an arrow
       on a player.)
       **A kill ends the firing**: when an arrow kills its target, the
@@ -565,9 +657,11 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       on the list, straight to its end (the end-of-round rolls of
       [creatures](creatures.md) 2.2.5), then the next turn. [capture:
       `kill-e5`, every one of the 25 kills] **Engine:** after each damaging
-      player arrow, whatever the target (a creature or a player, killed or
-      not), the roll of 0 to 9 is drawn, then section 7's change by the
-      target's class (none for a player or a dead target); a kill by any
+      player arrow, killing or not, section 7's check and change by the
+      class the target had when hit (the roll only as section 7 draws it;
+      no change for a player or a dead target). (Superseded: the engine's
+      earlier choice of the roll after every damaging arrow, whatever the
+      target's class or Wisdom.) A kill by any
       of the player's arrows ends the firing (8.3's early stop), whichever
       square the cursor was on. (Superseded: the engine's earlier choice,
       which stopped early only when the cursor was on a creature's
@@ -615,10 +709,9 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
       missile weapon the player owns (8.8.4's menu lists only those;
       `NotAMissileWeapon`).
 
-Not run: what section 7 does after a player's damaging arrow (the roll
-is captured, 8.8.3, after a kill and on a player too; the class change it
-decides is not); what else misses a player that came into the room after
-the firer (8.8.2).
+Not run: a player's arrow on an aggressive thief or enemy, or on a
+player, of Wisdom below 6 or above 14 (section 7's [unknown]); what else
+misses a player that came into the room after the firer (8.8.2).
 
 ## 9. Left for later
 
@@ -626,7 +719,8 @@ the firer (8.8.2).
   there.
 - **Mimics** copying their opponent.
 - Fights in encounter areas ([encounters](encounters.md)): the bit cleared
-  with a copy's Power, what a dead copy drops and its gold.
+  with a copy's Power. (A dead copy drops what it carries and its gold as
+  anywhere: encounters 4.4, captured.)
 - A Speed 0 fighter owning a melee weapon beside an exit or a thing it
   takes ([creatures](creatures.md) 2.7; with its goal beside it, it
   attacks once a turn, captured).
@@ -642,26 +736,32 @@ the firer (8.8.2).
    disappears: captured (capture.md 10.14.10). The armor term on its
    wearer's side and the Armor check, a blow weaker than the armor, armor
    that disappears, magic defense 3 against a plain weapon, armor with
-   magic defense: captured (capture.md 10.16). Still open: a weapon
-   breaking with blows still due (the researcher's forced rolls only; our
-   `break-many` runs never broke one), a magic weapon against armor.
+   magic defense: captured (capture.md 10.16). A weapon breaking with
+   blows still due (6.3) and a magic weapon against plain and magic armor
+   (5.1): captured (capture.md 10.35). A Speed 0 fighter's blows (3.1) and
+   a negative Build's rounding (4.1.2): captured (capture.md 10.35).
 3. The player's attack, its blows and the alignment changes (7):
    captured; the menu when the player owns a melee weapon but holds the
    bow (2.8), and the push with no melee weapon using no move (2.7):
-   captured (capture.md 10.24). Still open: the menu with no weapon held
-   at all, choosing a weapon from it.
+   captured (capture.md 10.24); the menu with no weapon held at all, and
+   choosing the weapon or NONE from it (2.8): captured (capture.md 10.35).
+   Still open: whether a player's blow on an aggressive thief or enemy or
+   on a player, or a killing blow, draws the smartness roll as an arrow
+   does (7).
 4. Readying before stepping (6.2): a missile weapon captured
-   (`bow-ready`); a melee weapon the researcher's experiment only.
+   (`bow-ready`), a melee weapon too (`ready-melee`, capture.md 10.35).
 5. Firing (section 8): captured but for its "Not run" list; a foe truly
-   beside the shooter (the researcher's changed snapshot only: ours had
-   the player diagonal). A Speed 0 archer: captured (8.1, `still-bow`).
+   beside the shooter (8.1): captured (`bow-adj`, capture.md 10.35). A
+   Speed 0 archer: captured (8.1, `still-bow`).
 6. The player's fire (8.8): the inputs, refusals and costs captured by
    script, and every draw by the sweeps of capture.md 10.24 (`fire-e5`,
    `fire-e3`, `fire-e0`, `ready-e5`, `beside-draws`, `none-draws`,
    `map-draws`). The order of 8.8.2's and 8.8.4's tests, who counts
    beside, the second move of 8.8.4 (the readying, 6.1), the roll of 0 to
    9 after a killing arrow and after one on a player, and a kill ending
-   the firing: captured (capture.md 10.32, rr28). Still open: what the
-   roll of 0 to 9 after a damaging arrow decides (8.8.3; the target's
-   class watched), and what else misses a player that came in after the
-   firer (8.8.2).
+   the firing: captured (capture.md 10.32, rr28). When that roll is drawn
+   and what it decides (section 7, 8.8.3; every class at Wisdom 10, the
+   aggressive neutral at 3 and 20, a player at 13): captured (capture.md
+   10.35, rr31). Still open: aggressive thieves and enemies, and players,
+   at Wisdom below 6 or above 14 (7), and what else misses a player that
+   came in after the firer (8.8.2).

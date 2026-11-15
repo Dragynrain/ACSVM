@@ -444,6 +444,98 @@ fn a_friend_hurt_by_a_player_turns_neutral_then_aggressive() {
 }
 
 #[test]
+fn a_players_damaging_blow_makes_section_7s_check_by_the_class() {
+    // Section 7 (capture.md 10.35), as for arrows: after each damaging
+    // blow the smartness roll of 0 to 9 is drawn for an aggressive thief,
+    // neutral or enemy at Wisdom 6 to 14, never for a friend or a
+    // peaceful creature nor outside 6 to 14. Followed draw by draw (the
+    // creature holds no weapon: no parry, no counter): the to-hit; on a
+    // hit the Melee check, the parry roll and the heavy-blow roll, then
+    // the roll as section 7 says.
+    let classes = [
+        (Alignment::Enemy, true),
+        (Alignment::Neutral, true),
+        (Alignment::Thief, true),
+        (Alignment::Friend, true),
+        (Alignment::Friend, false),
+        (Alignment::Neutral, false),
+        (Alignment::Thief, false),
+        (Alignment::Enemy, false),
+    ];
+    both(|p| {
+        let (mut drew, mut turned_enemy) = (0, false);
+        for (k, &class) in classes.iter().enumerate() {
+            for wisdom in [10u8, 3, 20] {
+                if wisdom != 10 && class != (Alignment::Neutral, true) {
+                    continue;
+                }
+                for seed in 0..12 {
+                    let mut g = duel(p, seed + 100 * k as u64, swordsman(), |c| {
+                        c.strategy.alignment = class.0;
+                        c.strategy.aggressive = class.1;
+                        c.wisdom = wisdom;
+                        c.life_force = 63;
+                        c.constitution = 63;
+                    });
+                    let dexterity = g.players()[0].dexterity;
+                    let mut r = rng(&g);
+                    let ev = g.apply(Command::Move { dir: Dir::E });
+                    let mut now = class;
+                    let mut want: Option<(Alignment, bool)> = None;
+                    for e in &ev {
+                        match e {
+                            Event::Blow {
+                                by: ME,
+                                counter: false,
+                                chance,
+                                outcome,
+                                ..
+                            } => {
+                                assert_eq!(want, None, "seed {seed}: a turn missing");
+                                let hit = r.below(100) < *chance as u32;
+                                assert_eq!(hit, *outcome != BlowOutcome::Miss, "seed {seed}");
+                                if !hit {
+                                    continue;
+                                }
+                                r.below(100); // the Melee check
+                                r.below(100); // the parry roll (chance 0)
+                                let heavy = r.below(100) < dexterity as u32;
+                                assert!(matches!(outcome, BlowOutcome::Hit { heavy: h, .. } if *h == heavy));
+                                if damaging(outcome) {
+                                    let (draws, _) = section_7(now, wisdom, None);
+                                    let roll = draws.then(|| r.below(10));
+                                    drew += draws as u32;
+                                    let (_, after) = section_7(now, wisdom, roll);
+                                    if after != now {
+                                        want = Some(after);
+                                    }
+                                }
+                            }
+                            Event::CreatureTurned {
+                                alignment,
+                                aggressive,
+                                ..
+                            } => {
+                                let got = (*alignment, *aggressive);
+                                assert_eq!(want.take(), Some(got), "seed {seed} {class:?}");
+                                turned_enemy |=
+                                    class == (Alignment::Neutral, true) && got == (Alignment::Enemy, true);
+                                now = got;
+                            }
+                            _ => {}
+                        }
+                    }
+                    assert_eq!(want, None, "seed {seed} {class:?}: a turn missing");
+                }
+            }
+        }
+        // A roll mid-attack shifts the later blows' draws: some attack must
+        // have had a blow after one.
+        assert!(drew > 0 && turned_enemy);
+    });
+}
+
+#[test]
 fn a_defender_holding_a_melee_weapon_strikes_back_on_a_miss() {
     both(|p| {
         let mut counters = 0;
@@ -1115,68 +1207,116 @@ fn an_arrow_flies_the_bows_range_past_a_cursor_short_of_the_creature() {
     });
 }
 
+/// Section 7: whether a player's damaging hit on a creature of `class`
+/// and `wisdom` draws the smartness roll, and the class it leaves (no
+/// change for a dead one) given the roll's result `roll`.
+fn section_7(class: (Alignment, bool), wisdom: u8, roll: Option<u32>) -> (bool, (Alignment, bool)) {
+    let draws = class.1 && class.0 != Alignment::Friend && (6..=14).contains(&wisdom);
+    let smart = match wisdom {
+        w if w > 14 => true,
+        w if w < 6 => false,
+        w => roll.is_some_and(|r| r < (w - 5) as u32),
+    };
+    let after = match class {
+        (Alignment::Friend, a) => (Alignment::Neutral, a),
+        (c, false) => (c, true),
+        (Alignment::Neutral, true) if smart => (Alignment::Enemy, true),
+        c => c,
+    };
+    (draws, after)
+}
+
 #[test]
-fn every_damaging_player_arrow_draws_section_7s_roll_whatever_the_class() {
-    // 8.8.3: the roll of 0 to 9 after each damaging arrow, so the draws
-    // that follow are the same whatever the creature's class; only the
-    // class changes (section 7) differ.
+fn a_damaging_player_arrow_makes_section_7s_check_by_the_class() {
+    // 8.8.3 and section 7 (capture.md 10.35): after each damaging arrow
+    // the smartness roll of 0 to 9 is drawn for an aggressive thief,
+    // neutral or enemy at Wisdom 6 to 14, never for a friend or a
+    // peaceful creature nor outside 6 to 14; only an aggressive neutral's
+    // change depends on it. Followed draw by draw: each shot's break,
+    // deviation and side; a dodge's four rolls; a hit's three, then the
+    // roll as section 7 says.
+    let classes = [
+        (Alignment::Enemy, true),
+        (Alignment::Neutral, true),
+        (Alignment::Thief, true),
+        (Alignment::Friend, true),
+        (Alignment::Friend, false),
+        (Alignment::Neutral, false),
+        (Alignment::Thief, false),
+        (Alignment::Enemy, false),
+    ];
     both(|p| {
-        let mut damaged = false;
-        for seed in 0..20 {
-            let classes = [
-                (Alignment::Enemy, true),
-                (Alignment::Neutral, true),
-                (Alignment::Friend, false),
-                (Alignment::Thief, false),
-            ];
-            let runs: Vec<Vec<Event>> = classes
-                .iter()
-                .map(|&class| {
-                    let mut g = bowman(p, seed, 15, true, class);
-                    let mut ev = g.apply(fire(Some((7, 3)), None));
+        let (mut drew, mut skipped, mut turned_enemy) = (false, false, false);
+        for (k, &class) in classes.iter().enumerate() {
+            for wisdom in [10u8, 3, 20] {
+                if wisdom != 10 && class != (Alignment::Neutral, true) {
+                    continue;
+                }
+                for seed in 0..12 {
+                    let mut g = bowman(p, seed + 100 * k as u64, 15, true, class);
+                    g.creature_mut(1, 1).unwrap().wisdom = wisdom;
+                    let mut r = rng(&g);
+                    let ev = g.apply(fire(Some((7, 3)), None));
                     let end = ev
                         .iter()
                         .position(|e| *e == Event::TurnEnded { player: 0 })
                         .unwrap();
-                    ev.truncate(end);
-                    ev
-                })
-                .collect();
-            let hits = runs[0]
-                .iter()
-                .filter(|e| matches!(e, Event::MissileHit { outcome, .. } if damaging(outcome)))
-                .count();
-            damaged |= hits > 0;
-            let plain = |ev: &[Event]| -> Vec<Event> {
-                ev.iter()
-                    .filter(|e| !matches!(e, Event::CreatureTurned { .. }))
-                    .cloned()
-                    .collect()
-            };
-            for run in &runs[1..] {
-                assert_eq!(plain(run), plain(&runs[0]), "seed {seed}");
-            }
-            // An aggressive enemy never turns; a friend turns neutral at
-            // the first damaging arrow; a peaceful thief aggressive.
-            let turned = |ev: &[Event]| -> Vec<(Alignment, bool)> {
-                ev.iter()
-                    .filter_map(|e| match e {
-                        Event::CreatureTurned {
-                            alignment,
-                            aggressive,
-                            ..
-                        } => Some((*alignment, *aggressive)),
-                        _ => None,
-                    })
-                    .collect()
-            };
-            assert!(turned(&runs[0]).is_empty());
-            if hits > 0 {
-                assert_eq!(turned(&runs[2])[0], (Alignment::Neutral, false), "seed {seed}");
-                assert_eq!(turned(&runs[3])[0], (Alignment::Thief, true), "seed {seed}");
+                    let mut now = class;
+                    let mut want: Option<(Alignment, bool)> = None;
+                    for e in &ev[..end] {
+                        match e {
+                            Event::Shot {
+                                by: ME,
+                                spread,
+                                deviation,
+                                side,
+                            } => {
+                                assert_eq!(want, None, "seed {seed}: a turn missing");
+                                r.below(100);
+                                assert_eq!(r.below(*spread as u32) as u8, *deviation, "seed {seed}");
+                                assert_eq!(r.below(2) == 1, *side, "seed {seed}");
+                            }
+                            Event::Dodged { by: ME, .. } => {
+                                for _ in 0..4 {
+                                    r.below(100);
+                                }
+                            }
+                            Event::MissileHit { by: ME, outcome, .. } => {
+                                for _ in 0..3 {
+                                    r.below(100);
+                                }
+                                if damaging(outcome) {
+                                    let (draws, _) = section_7(now, wisdom, None);
+                                    let roll = draws.then(|| r.below(10));
+                                    drew |= draws;
+                                    skipped |= !draws;
+                                    let (_, after) = section_7(now, wisdom, roll);
+                                    if after != now {
+                                        want = Some(after);
+                                    }
+                                }
+                            }
+                            Event::CreatureTurned {
+                                alignment,
+                                aggressive,
+                                ..
+                            } => {
+                                let got = (*alignment, *aggressive);
+                                assert_eq!(want.take(), Some(got), "seed {seed} {class:?}");
+                                turned_enemy |=
+                                    class == (Alignment::Neutral, true) && got == (Alignment::Enemy, true);
+                                now = got;
+                            }
+                            _ => {}
+                        }
+                    }
+                    assert_eq!(want, None, "seed {seed} {class:?}: a turn missing");
+                    let c = g.creature(1, 1).unwrap();
+                    assert_eq!((c.strategy.alignment, c.strategy.aggressive), now);
+                }
             }
         }
-        assert!(damaged);
+        assert!(drew && skipped && turned_enemy);
     });
 }
 

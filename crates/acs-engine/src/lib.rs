@@ -195,6 +195,11 @@ pub enum Command {
     Sell { thing: ThingId },
     /// Leaves the open store (stores 3.8).
     LeaveStore,
+    /// The death message's button (creatures 2.2.6), played on the game
+    /// rebuilt at [`Game::restore_point`]: the saved state comes back as it
+    /// was when saved, the visit ends and a new cycle begins from the
+    /// restored places. Ignored while nobody is in play.
+    Restore,
 }
 
 /// Why a store refused a purchase or a sale (stores 4.1, 4.3, 5.2).
@@ -897,8 +902,9 @@ pub enum Event {
     },
     /// The game was saved (creatures 2.2.7): at the start of a visit to
     /// region `visit`, another than the one visited before, or (`None`) at
-    /// the end of a round with SAVE GAME or a Retire with Save (after
-    /// `Retired`). `round` is the counter it holds,
+    /// the end of a round with SAVE GAME, a Retire with Save or an add that
+    /// brought a newcomer in (after `Retired` and `PlayerAdded`; one a
+    /// round for these, 2.2.7.4). `round` is the counter it holds,
     /// the round play resumes in. Restoring goes back to the latest save
     /// ([`Game::restore_point`]).
     Saved {
@@ -922,6 +928,12 @@ pub enum Event {
         before: usize,
         after: usize,
     },
+    /// The last saved game came back (`Command::Restore`, creatures
+    /// 2.2.6), its counter at `round`; a new cycle begins from the
+    /// restored places.
+    Restored {
+        round: u32,
+    },
 }
 
 /// An individual: a player or a creature in a region slot.
@@ -941,8 +953,6 @@ pub enum RemovalReason {
     /// Sent through a door into a deleted room (creatures 5.5), or by a
     /// Banish spell (magic 3.2).
     Banished,
-    /// Walked out through an encounter area's door (encounters 6.4).
-    LeftArea,
     /// Its encounter area closed (encounters 7.2).
     AreaClosed,
 }

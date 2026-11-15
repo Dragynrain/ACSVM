@@ -1241,39 +1241,49 @@ fn a_second_player_joins_through_the_entrance() {
     panic!("no encounter");
 }
 
-#[test]
-fn a_creature_through_the_door_is_removed() {
-    let a = encounter_adventure(&[(4, 15, 3)]);
-    let (mut g, _) = pulled_in(&a);
-    // A peaceful, cautious friend beside the door: the door is its goal
-    // (creatures 6.4) and taking it removes it (encounters 6.4).
+/// Encounters 6.4: a peaceful, cautious friend beside the area's door
+/// (its only exit) over `rounds` rounds: it never steps onto `door`, is
+/// never removed, and the area stays open while T is in it.
+fn creature_keeps_off_the_door(a: &Adventure, beside: (u8, u8), door: (u8, u8)) {
+    let (mut g, _) = pulled_in(a);
     let c = g.creature_mut(0, 8).unwrap();
     c.strategy.alignment = acs_core::model::Alignment::Friend;
     c.strategy.aggressive = false;
     c.strategy.brave = false;
     c.wisdom = 20;
-    c.x = 1;
-    c.y = 5;
-    let mut removed = false;
-    for _ in 0..4 {
+    c.x = beside.0;
+    c.y = beside.1;
+    let mut turns = 0;
+    for _ in 0..20 {
         let ev = g.apply(Command::Wait);
-        if ev.iter().any(|e| {
-            matches!(
-                e,
-                Event::CreatureRemoved {
-                    region: 0,
-                    slot: 8,
-                    reason: acs_engine::RemovalReason::LeftArea
-                }
-            )
-        }) {
-            removed = true;
-            break;
-        }
+        turns += ev
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    Event::CreatureTurn {
+                        region: 0,
+                        slot: 8,
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert!(
+            !ev.iter().any(|e| matches!(e, Event::CreatureRemoved { .. })),
+            "{ev:?}"
+        );
+        let c = g.creature(0, 8).expect("the copy stays");
+        assert_ne!((c.x, c.y), door);
     }
-    assert!(removed);
-    // The area stays open while T is in it (7.3).
+    assert!(turns >= 10, "{turns}");
     assert!(!g.region(0).unwrap().rooms[1].deleted);
+}
+
+#[test]
+fn a_creature_never_takes_the_areas_door() {
+    let a = encounter_adventure(&[(4, 15, 3)]);
+    creature_keeps_off_the_door(&a, (1, 5), (0, 5));
 }
 
 /// Encounters 3.4, 3.5, 7.1, 7.2: the area's items are its list's; the
@@ -1581,36 +1591,221 @@ fn the_first_door_on_a_square_gives_the_parameter() {
     assert_eq!(g.players()[0].at, Location::World { x: 5, y: 6 });
 }
 
-/// Encounters 6.4: a creature leaves by the door item, wherever it is.
+/// Encounters 6.4: a door item closes its square to creatures wherever it
+/// lies, on a wall or inside.
 #[test]
-fn a_creature_leaves_by_a_moved_door() {
+fn a_creature_never_takes_a_moved_door() {
     let a = encounter_adventure_with(&[(4, 15, 3)], &[(1, vec![(0, 3, 82, 0)])]);
-    let (mut g, _) = pulled_in(&a);
-    let c = g.creature_mut(0, 8).unwrap();
-    c.strategy.alignment = acs_core::model::Alignment::Friend;
-    c.strategy.aggressive = false;
-    c.strategy.brave = false;
-    c.wisdom = 20;
-    c.x = 1;
-    c.y = 3;
-    let mut removed = false;
-    for _ in 0..4 {
-        let ev = g.apply(Command::Wait);
-        if ev.iter().any(|e| {
-            matches!(
-                e,
-                Event::CreatureRemoved {
-                    region: 0,
-                    slot: 8,
-                    reason: acs_engine::RemovalReason::LeftArea
-                }
-            )
-        }) {
-            removed = true;
-            break;
+    creature_keeps_off_the_door(&a, (1, 3), (0, 3));
+    let a = encounter_adventure_with(&[(4, 15, 3)], &[(1, vec![(7, 5, 82, 0)])]);
+    creature_keeps_off_the_door(&a, (8, 5), (7, 5));
+}
+
+/// Who takes a turn, in order: `P(n)` a player, `C(slot)` a map copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Turn {
+    P(usize),
+    C(usize),
+}
+use Turn::{C, P};
+
+fn turns_of(ev: &[Event]) -> Vec<Turn> {
+    ev.iter()
+        .filter_map(|e| match *e {
+            Event::TurnStarted { player, .. } => Some(P(player)),
+            Event::CreatureTurn { region: 0, slot, .. } => Some(C(slot)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Encounters 6.1: waiting on, the turns run `round` round after round.
+fn assert_round(g: &mut Game, round: &[Turn]) {
+    let mut seen = Vec::new();
+    for _ in 0..12 {
+        seen.extend(turns_of(&g.apply(Command::Wait)));
+    }
+    let twice: Vec<Turn> = round.iter().chain(round).copied().collect();
+    assert!(
+        seen.windows(twice.len()).any(|w| w == twice),
+        "{seen:?}, want {round:?}"
+    );
+}
+
+/// Two patches, a still WOLF at 60 % on them; T (0) and U (1) in play,
+/// U added at the end of the first round. `script` plays on from T's
+/// first turn and says whether its encounters came; the first seed whose
+/// script succeeds.
+fn two_players(script: impl Fn(&mut Game) -> bool) -> Game {
+    let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, 0)])]);
+    for seed in 0..2000 {
+        let (mut g, _) = Game::new(a.clone(), seed, Rules { diagonals: true }, PlayerSetup::default());
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "U".into(),
+                ..Default::default()
+            },
+        });
+        if script(&mut g) {
+            return g;
         }
     }
-    assert!(removed);
+    panic!("no seed plays the script");
+}
+
+/// `player`, the current one, steps `dir`; true when it entered `area`.
+fn enters(g: &mut Game, player: usize, dir: Dir, area: u8) -> bool {
+    g.current() == player
+        && mv(g, dir)
+            .iter()
+            .any(|e| matches!(*e, Event::EnteredArea { player: p, area: a, .. } if p == player && a == area))
+}
+
+/// U on the map, T in area 1 with copy 8.
+fn split(g: &mut Game) -> bool {
+    enters(g, 0, Dir::SW, 1) && g.current() == 1
+}
+
+/// T in area 1 with copy 8, U in area 2 with copy 9.
+fn two_areas(g: &mut Game) -> bool {
+    split(g) && enters(g, 1, Dir::SE, 2) && g.creature(0, 9).is_some_and(|c| c.room == 2)
+}
+
+#[test]
+fn turn_order_split_the_map_first() {
+    let mut g = two_players(split);
+    assert_round(&mut g, &[P(1), P(0), C(8)]);
+}
+
+#[test]
+fn turn_order_join_players_then_the_copy() {
+    // U joins T's area: both players, then the copy.
+    let mut g = two_players(|g| split(g) && enters(g, 1, Dir::SW, 1));
+    assert_eq!(g.players()[1].at, area(1, 12, 4));
+    assert_round(&mut g, &[P(0), P(1), C(8)]);
+}
+
+#[test]
+fn turn_order_two_areas_each_with_its_copy() {
+    let mut g = two_players(two_areas);
+    assert_round(&mut g, &[P(0), C(8), P(1), C(9)]);
+}
+
+#[test]
+fn turn_order_areas_go_by_their_lowest_player_not_their_number() {
+    // T waits two turns while U opens area 1 (copy 8); then T opens
+    // area 2 (copy 9).
+    let mut g = two_players(|g| {
+        g.apply(Command::Wait);
+        g.apply(Command::Wait);
+        enters(g, 1, Dir::SW, 1) && enters(g, 0, Dir::SE, 2)
+    });
+    assert_eq!(g.creature(0, 8).map(|c| c.room), Some(1));
+    assert_eq!(g.creature(0, 9).map(|c| c.room), Some(2));
+    assert_round(&mut g, &[P(0), C(9), P(1), C(8)]);
+}
+
+#[test]
+fn turn_order_a_player_joining_goes_by_its_number() {
+    // T walks out of area 1 (it closes, copy 8 gone) and onto area 2's
+    // entrance, joining U there (encounters 5.2): T, U, then copy 9.
+    let mut g = two_players(|g| {
+        if !two_areas(g) || g.current() != 0 {
+            return false;
+        }
+        g.place(0, area(1, 1, 5));
+        let ev = mv(g, Dir::W);
+        if !ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })) {
+            return false;
+        }
+        // From the patch east twice to the second patch; area 1 is free,
+        // so the grass step rolls (no record there hits).
+        mv(g, Dir::E);
+        enters(g, 0, Dir::E, 2)
+    });
+    assert!(g.creature(0, 8).is_none());
+    assert_eq!(g.players()[0].at, area(2, 12, 4));
+    assert_round(&mut g, &[P(0), P(1), C(9)]);
+}
+
+/// Encounters 7.6: T alone in area 1 retires with a save. The area is
+/// open until the round's end; then the record is saved with the area's
+/// place, the area closes (the copy gone) and U plays on. Added again, T
+/// starts at the start point on the open map.
+#[test]
+fn retiring_alone_in_an_area_closes_it_and_a_return_starts_at_the_start() {
+    let mut g = two_players(split);
+    g.apply(Command::Wait); // U
+    assert_eq!(g.current(), 0);
+    g.apply(Command::Retire { save: true });
+    assert!(!g.region(0).unwrap().rooms[1].deleted);
+    let ev = g.apply(Command::Wait); // T, then copy 8, then the round's end
+    let retired = ev
+        .iter()
+        .position(|e| matches!(e, Event::Retired { player: 0, .. }));
+    let closed = ev.iter().position(|e| matches!(e, Event::AreaClosed { area: 1 }));
+    assert!(retired.is_some() && retired < closed, "{ev:?}");
+    let saved = ev
+        .iter()
+        .find_map(|e| match e {
+            Event::Retired {
+                player: 0,
+                saved: Some(r),
+                ..
+            } => Some(r.clone()),
+            _ => None,
+        })
+        .expect("saved");
+    assert_eq!(saved.at, area(1, 12, 4));
+    assert!(ev.iter().any(|e| matches!(
+        e,
+        Event::CreatureRemoved {
+            region: 0,
+            slot: 8,
+            reason: acs_engine::RemovalReason::AreaClosed
+        }
+    )));
+    assert!(g.creature(0, 8).is_none());
+    assert_eq!(g.area_entrance(1), None);
+    assert_eq!(g.current(), 1);
+    // The retired record joins again: at the start, on the open map.
+    g.apply(Command::AddPlayer {
+        setup: PlayerSetup {
+            name: saved.name.clone(),
+            speed: saved.speed,
+            ..Default::default()
+        },
+    });
+    let ev = g.apply(Command::Wait);
+    let s = a_start(&g);
+    assert!(
+        ev.iter()
+            .any(|e| matches!(*e, Event::PlayerAdded { player: 0, at } if at == s)),
+        "{ev:?}"
+    );
+    assert_eq!(g.players()[0].at, s);
+}
+
+fn a_start(g: &Game) -> Location {
+    let s = g.adventure().world.start;
+    Location::World { x: s.x, y: s.y }
+}
+
+/// Encounters 7.6 (engine's choice): one of two players in an area
+/// retiring leaves it open for the other.
+#[test]
+fn retiring_one_of_two_in_an_area_keeps_it_open() {
+    let mut g = two_players(|g| split(g) && enters(g, 1, Dir::SW, 1));
+    assert_eq!(g.current(), 0);
+    // U joined in U's own turn: T's and copy 8's turns end that round.
+    g.apply(Command::Retire { save: false });
+    let ev = g.apply(Command::Wait);
+    assert!(ev.iter().any(|e| matches!(e, Event::Retired { player: 0, .. })));
+    assert!(!ev.iter().any(|e| matches!(e, Event::AreaClosed { .. })));
+    assert!(!g.region(0).unwrap().rooms[1].deleted);
+    assert!(g.creature(0, 8).is_some());
+    assert_eq!(g.current(), 1);
+    assert_round(&mut g, &[P(1), C(8)]);
 }
 
 #[test]
@@ -1794,7 +1989,36 @@ fn saves_check_the_adventure_and_the_state() {
     ));
 }
 
-/// Saves 2.1: version 3 is written; a version 1 save still loads, its old
+/// Saves 1.4, 2.1: the button (`restore`, creatures 2.2.6) is logged where
+/// play resumed; a save made after it replays to the same game, its
+/// autosave the new cycle's first visit. A version 3 save (no `restore`)
+/// loads as it is.
+#[test]
+fn a_save_after_the_button_replays_the_same() {
+    let (g, autosave, a) = saved_walk();
+    let mut r = autosave.clone();
+    let ev = r.apply(Command::Restore);
+    assert!(ev.iter().any(|e| matches!(e, Event::Restored { .. })), "{ev:?}");
+    assert_eq!(r.log().last(), Some(&Command::Restore));
+    assert_eq!(r.save_point(), r.log().len());
+    let at_restore = r.clone();
+    mv(&mut r, Dir::W);
+    r.apply(Command::Wait);
+    let save = SaveFile::new(&r, &a, &at_restore);
+    let back = SaveFile::from_json(&save.to_json()).unwrap().restore(&a).unwrap();
+    assert_eq!(back.game, r);
+    assert_eq!(back.autosave, at_restore);
+    assert!(!back.diverged);
+    // Version 3 reads unchanged.
+    let old = SaveFile::new(&g, &a, &autosave);
+    let mut v: serde_json::Value = serde_json::from_str(&old.to_json()).unwrap();
+    v["version"] = 3.into();
+    let r3 = SaveFile::from_json(&v.to_string()).unwrap().restore(&a).unwrap();
+    assert_eq!(r3.game, g);
+    assert!(!r3.diverged);
+}
+
+/// Saves 2.1: version 4 is written; a version 1 save still loads, its old
 /// `fire` (refused, no move, no draw) read as `leave_store`, which plays
 /// the same, so the command count, autosave and placements keep their
 /// places and the game comes out the same.
@@ -1802,7 +2026,7 @@ fn saves_check_the_adventure_and_the_state() {
 fn version_1_saves_load_with_fire_mapped() {
     let (g, autosave, a) = saved_walk();
     let save = SaveFile::new(&g, &a, &autosave);
-    assert_eq!(save.version, 3);
+    assert_eq!(save.version, 4);
     let mut v: serde_json::Value = serde_json::from_str(&save.to_json()).unwrap();
     v["version"] = 1.into();
     let commands = v["commands"].as_array_mut().unwrap();
