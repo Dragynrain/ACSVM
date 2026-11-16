@@ -45,16 +45,22 @@ loads it.
      command that does not end the turn), after the counter has gone up;
      the point is the commands played by then.
    - at the end of a round in which a player retired with Save
-     (characters 7.3), the same way.
+     (characters 7.3), the same way; with an add in that round, before
+     the add.
+   - at the end of a round in which a player given as a setup
+     (`AddPlayer`, standing for a roster add) joined, after the add; an
+     add of a rolled player (`CreatePlayer`) or a refused add moves
+     nothing (creatures 2.2.7.4).
    The latest of these is the autosave. [capture: capture.md 10.25,
-   10.28] A SAVE GAME in the same round as a region change gives the
+   10.28, 10.38] A SAVE GAME in the same round as a region change gives the
    same state either way; the engine takes the visit start that follows
    the round's end. A SAVE GAME in the round the last player dies (or
    the last player's Retire with Save) makes the all-dead state the
    autosave, as the original writes it after F1; a newcomer's first visit
-   to another region moves the autosave on, so it comes back only if
-   the newcomer starts in the region the last player died in, which is
-   [unknown] in the original (creatures 2.2.7).
+   to another region moves the autosave on, so it comes back only when
+   the newcomer starts in the region the last player died in (the world
+   map) and was not taken from a roster; the original brings it back
+   then too, nobody alive (creatures 2.2.7, capture.md 10.38 item 3).
 
 ## 2. The file
 

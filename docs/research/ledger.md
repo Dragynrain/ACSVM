@@ -27,6 +27,7 @@ daily cap: 3 passes closed per day
 
 Newest first. One line per step: date, topic, pass, step, outcome.
 
+- 2026-11-15: capture backlog, second round: capture.md 10.37 (drops, gifts, the melee check, rr33: a death drop puts the gold down first, the highest thing on top; a 0-move drop doesn't ready; blows draw section 7's check as arrows do) and 10.38 (characters, the heavy take, saves, rr34: only a roster add saves, the all-dead save comes back, a take over capacity / 4 ends the turn, Destroy in a room loses only spells and weight-0 creature weapons); specs, engine and golden tests; checks all PASS. Open: a Speed 0 neutral beside a portal (golden test ignored, 10.37 item 7).
 - 2026-11-15: capture backlog, first round: golden tests (f8cc023); capture.md 10.35 (combat, rr31: Speed 0 blows are 1 at Dexterity 13, 10.32's 2 a misread; a negative Build rounds toward zero; the 0..9 roll after a damaging hit is section 7's check by class) and 10.36 (encounter areas, rr32: turn order by lowest player, the door closed to creatures, an add in play saves; 10.20's `two` counts corrected); specs, engine and golden tests follow; the button starts a new cycle (save version 4); checks all PASS.
 - 2026-11-15: combat, 4, brief-writer, closed; no pass 5, the rest is capture work.
 - 2026-11-15 digest: closed today 2 (encounters p1, combat p4); every topic's passes are closed; nothing queued or running; all that's left is capture work, listed in each brief and rule file.

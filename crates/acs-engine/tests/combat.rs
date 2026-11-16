@@ -1786,19 +1786,46 @@ fn destroyed_with_another_player_anywhere_all_but_spells_and_claws_go_down_in_nu
 }
 
 #[test]
-fn destroyed_as_the_last_player_count_0_things_are_lost_too() {
+fn destroyed_as_the_last_player_the_counts_do_not_matter() {
     both(|p| {
-        // 7.5.3: GEM and BOW count 0, lost; SWORD 1 and MAIL 15 kept; the
-        // claw and sting (counts 15) and the spell still never go down.
-        let counts = [(SWORD, 1), (MAIL, 15), (CLAW, 15), (STING, 15), (CHANT, 15)];
-        let mut g = destroyer(p, &counts, false);
-        let (left, stack) = destroyed(&mut g);
-        assert_eq!(left, [(GOLD, 300), (SWORD, 1), (MAIL, 1)]);
-        assert_eq!(stack, [MAIL, SWORD, GOLD]);
-        // The same counts with TWO in play: nothing but 7.5.1's is lost.
-        let mut g = destroyer(p, &counts, true);
-        let (left, _) = destroyed(&mut g);
-        assert_eq!(left, [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1), (MAIL, 1)]);
+        // 7.5 (rewritten, capture.md 10.38 item 5): as the last player, with
+        // every count 0 and with the counts set the other way, all but the
+        // spell and the weight-0 weapons nobody may use go down, in the
+        // same order as with TWO in play.
+        for counts in [
+            &[][..],
+            &[(SWORD, 1), (MAIL, 15), (CLAW, 15), (STING, 15), (CHANT, 15)][..],
+            &[(GEM, 4), (BOW, 1)][..],
+        ] {
+            for two in [false, true] {
+                let mut g = destroyer(p, counts, two);
+                let (left, stack) = destroyed(&mut g);
+                assert_eq!(
+                    left,
+                    [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1), (MAIL, 1)],
+                    "{counts:?} {two}"
+                );
+                assert_eq!(stack, [MAIL, BOW, SWORD, GEM, GOLD]);
+            }
+        }
+    });
+}
+
+#[test]
+fn a_destroy_in_a_room_is_not_a_save_point() {
+    both(|p| {
+        // 7.5.4: nothing of the game is written, as last player or not.
+        for two in [false, true] {
+            let mut g = destroyer(p, &[], two);
+            let point = g.save_point();
+            let ev = to_round_end(&mut g);
+            assert!(ev.iter().any(|e| matches!(e, Event::Retired { player: 0, .. })));
+            assert!(
+                !ev.iter().any(|e| matches!(e, Event::Saved { visit: None, .. })),
+                "{ev:?}"
+            );
+            assert_eq!(g.save_point(), point);
+        }
     });
 }
 

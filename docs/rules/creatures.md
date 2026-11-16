@@ -139,54 +139,71 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
          character still out of play), every other record as it stood
          then. A Retire with Destroy on the world map writes nothing
          (characters 7.4).
-      4. **An Add Someone answered in play**: when a round's end brings
-         a newcomer in ([characters](characters.md) 6.2), the state is
-         saved with the newcomer on its starting square and the counter
-         already gone up, as SAVE GAME's round-end save: asked in round
-         13, it restores to the start of round 14 with the newcomer
-         there. No region change and no other request is needed. This is
-         Add Someone from the menu only: a player added on the add-a-player
-         screen at the game's start is in the game's start save already.
-         [capture: mem, rr32 `death/two-button`, capture.md 10.36 item 3;
-         ours, no research pass, 2026-11-15] Whether a refused add (no
-         free slot, characters 6.2) saves anything is [unknown]; **Engine:**
-         only a newcomer who joins makes the save point.
-         **Its order with the other saves of the round** is [unknown]: no
-         run had an add with a SAVE GAME or a Retire with Save in the same
-         round. The round's requests go retire, add, save (2.2.5,
-         characters 7.1), so the add's save comes after a Retire with
-         Save's and before a SAVE GAME's, and the latest wins. **Engine:**
-         one save point a round, holding the state after the add: a
-         Retire with Save then an add moves the point to after the add (the
-         retired slot freed and perhaps refilled by the newcomer,
-         characters 6.1), and
-         a SAVE GAME in the same round is that same point. One `Saved`
-         event a round for these.
-         **The cause.** The run cannot tell this from a second reading: the
-         add ending the visit and starting a new cycle with the scheduler
-         holding no region, as the button does (2.2.6), so that the next
-         visit saves under 2.2.7.1 at the same round 14. Only the world
-         map was in play, so whether the visit was cut short and the marks
-         taken again could not show. **Engine:** the add's own round-end
-         save above, which gives the captured round with one rule and no
-         change to the scheduler; the visit goes on.
+      4. **An Add Someone from a roster answered in play**: when a
+         round's end brings in a player chosen from a roster (this
+         adventure's own list or another adventure's disk,
+         [characters](characters.md) 3.1, 3.2), the program shows
+         "saving game" and "the adventure has been saved" after the
+         choice, and that write is a save point: it holds the newcomer on
+         its starting square and the counter already gone up, so an add
+         asked in round 13 restores to the start of round 14 with the
+         newcomer there. **The add of a newly created player saves
+         nothing**: no save message follows its name, and a later death's
+         button goes back past the add to the save before it (the visit's
+         start, or the game's start), the newcomer's slot empty. A
+         **refused add** (no free slot, characters 6.2) saves nothing
+         either; two requests with no free slot give one refusal. **No
+         add ends the visit**: the visit goes on to its end by 2.2.2 and
+         the cycle runs on, the newcomer's region visited in its turn (a
+         newcomer on the map with a room region being visited waits for
+         the map's visit). This is Add Someone from the menu only: the
+         player added on the add-a-player screen at the game's start is
+         in the game's start save already.
+         **With the round's other saves.** With SAVE GAME in the same
+         round, asked before or after the add: the add-a-player screen
+         comes first, then one save, holding the newcomer, created or
+         from the roster alike. With a Retire with Save in the same
+         round: the retire's offer and its save come first, then the
+         add-a-player screen (the retired character listed there). A
+         created newcomer is not in that save; a newcomer from the roster
+         is, by its own save, which comes after the retire's and is the
+         later one. [capture: mem, rr32 and rr34, capture.md 10.36 item 3
+         and 10.38 items 1 and 2; ours, no research pass, 2026-11-15; the
+         runs are listed after 2.2.7 below]
+         **Engine:** a newcomer given as a setup (`AddPlayer`,
+         `Newcomer::Join`, the front end's roster or another adventure's
+         player) stands for a roster add and saves; a rolled one
+         (`CreatePlayer`, `Newcomer::Create`) does not. At a round's end,
+         in the order of 2.2.5: a Retire with Save saves (its `Saved`
+         event, before the add); then the add (a refusal, `AddRefused`
+         once, saves nothing); then one save, with one `Saved` event, if
+         SAVE GAME was asked or a `Join` newcomer came in, holding the
+         newcomer. The visit goes on. A round with all three (a Retire
+         with Save, an add and SAVE GAME) was not run; the engine makes
+         the two saves above. On the add-a-player screen with nobody in
+         play the same holds: a `Join` saves when it brings the newcomer
+         in (characters 3.2 step 5), a `Create` does not.
       **A save in the round of a death.** The death message comes before
       the round's requests (2.2.5). Its button clears them (2.2.6), so it
       restores the save from before that round, never a SAVE GAME (or, by
-      2.2.5, a Retire with Save or an add, 2.2.7.4) asked during it.
+      2.2.5, a Retire with Save or a roster add, 2.2.7.4) asked during it.
       Answered with F1, the
       requests go on: a SAVE GAME of that round is written then ("saving
       game", "the adventure has been saved"), an add of that round brings
-      its newcomer in and saves (2.2.7.4), and with nobody alive the
-      add-a-player screen follows, so the state saved has nobody alive.
-      A player added then starts with a visit to its own region, a change
-      from the region the last player died in, and that visit's save is
-      the later one; once the newcomer is in, a death goes back to that
-      visit or a later save, never to the all-dead save. With the last
-      player dead in a room region and the newcomer starting on the map,
-      that save was never restored. With the last player dead on the map
-      and a newcomer starting there (no region change), whether the
-      all-dead save could come back is [unknown].
+      its newcomer in (and saves if it is from a roster, 2.2.7.4), and
+      with nobody alive the add-a-player screen follows, so the state
+      saved has nobody alive (the **all-dead save**). A player added then
+      starts on the world map. With the last player dead in a room
+      region, its first visit is a region change and its save is the
+      later one: a death then goes back to that visit or a later save,
+      never to the all-dead save. **With the last player dead on the
+      map**, a created newcomer starting there makes no region change and
+      no save, so the all-dead save is still the latest: when the
+      newcomer is killed in turn, the button brings back that round's
+      end (its counter and state, nobody alive), clears the records and
+      shows the add-a-player screen again, the newcomer lost. [capture:
+      mem, rr34 `i3e-button`, capture.md 10.38 item 3; ours, no research
+      pass, 2026-11-15]
       **A save in a visit's last round followed by a region change** gives
       the next visit's first round on the counter either way, with nothing
       played between the two, so it makes no difference which one counts.
@@ -207,7 +224,11 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       died, or by the last player's Retire with Save, is made as 2.2.5
       reads: the state with nobody in play becomes the save point, and
       the newcomer's first visit saves over it whenever it starts in
-      another region. The button at that round's death message restores
+      another region; when it starts in the same region (the map), the
+      all-dead save stays the point unless the newcomer came from a
+      roster (2.2.7.4), and restoring it brings back nobody in play: the
+      engine clears the records, reports `AllPlayersDead` again and waits
+      for a new player. The button at that round's death message restores
       the save before it, since the button clears the round's requests
       (2.2.6).
    [research: turn-order first pass, 2026-11-12, `docs/research/turn-order.md`] Confirmed: with T in a room with three creatures and U
@@ -314,7 +335,7 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    that began with a region change, a kill in round 62: back to counter
    61 and the gold set just before the save, not the visit's start
    (`c3-button2`, 1 run).
-   **An add in play as a save point (2.2.7.4)** [capture: mem, rr32,
+   **A roster add in play as a save point (2.2.7.4)** [capture: mem, rr32,
    capture.md 10.36 item 3; ours, no research pass, 2026-11-15]. U was
    added with ADD SOMEONE on T's first turn, in round 13 (`two.vsf`, as
    10.10); T then walked into encounter area 1 with U left on the map,
@@ -322,7 +343,32 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    change followed. The area's copy killed T in round 22, and the button
    brought back round 14, T and U both on the map's start square 12,12
    (place 0), not the game's start. The same case with T alone (no add)
-   went back to round 0, the game's start. 1 run each.
+   went back to round 0, the game's start. 1 run each. That add took U
+   from the roster and showed the save messages. **Created and roster
+   adds, the round's other saves, the all-dead save (2.2.7, 2.2.7.4)**
+   [capture: mem, rr34, capture.md 10.38 items 1 to 3; ours, no research
+   pass, 2026-11-15; one run a case, gold poked at each step to mark what
+   came back]. A created player added in round 60, the first round of a
+   room region's visit, with U on the map: the room region went on for
+   rounds 61 to 69, then the map from 70 with U and the newcomer; T
+   killed in round 63, the button brought back counter 60, the visit's
+   start, the newcomer's slot empty (`i1c-button`). A created player
+   added on the map in round 13, no save message: a death in round 21
+   went back to round 0 (`i1d-button`). SAVE GAME and ADD SOMEONE in one
+   turn, in both orders: the add screen, then one save; a death later
+   went back to round 14 with the newcomer, created (`i2s-n`) or from the
+   roster (`i2s-u`), alive. RETIRE then ADD SOMEONE in one turn: the
+   retire's offer and save, then the add screen; with a created newcomer
+   the button went back to counter 21 without it (`i2r-n2-button`), with
+   T taken back from the roster to counter 21 with T in play
+   (`i2r-t-button`). With four living, one or two ADD SOMEONE: one
+   refusal at the round's end, and a later restore went back to round 0
+   (`i2fb1-button`, `i2fb2-button`). T killed alone on the map after a
+   SAVE GAME, F1: the save, the add screen; a created newcomer killed on
+   the map in round 22: the button brought back counter 15, gold 77,
+   nobody alive, then the add screen again (`i3e-button`). The earlier
+   reading, that every add in play saves (from 10.36 alone), was too
+   broad.
    **Engine:** the rules 2.2.1 to 2.2.7. A dead player is skipped on
    every list and left out of the marks; the round finishes after a
    death. The death message, its two answers and the add-a-player
@@ -474,7 +520,16 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    24. [capture: rr28 `still-melee-sw`, rr31 `sm-d8`, `sm-d16`, `sm-d24`,
    capture.md 10.35; ours, 2026-11-15] (Superseded: the "2 blows" first
    read from these runs, a misreading of the blows-left byte.)
-   Beside an exit or a thing it takes is not captured. **Engine:** 2.7 as
+   Beside a thing it takes or an exit the step stands too: a peaceful
+   thief of Speed 0 with 50 gold on the square beside it took the gold on
+   its first turn without moving (16 of 16 runs), and a peaceful neutral
+   of Speed 0 beside a portal went through it once in 16 runs of four
+   turns each, staying put otherwise (the same creature at Speed 2 went
+   through in 2 of 16 and wandered). How often an exit is picked is the
+   goal and step choice's (6). [capture: rr33 `s0g`, `s0x-long`,
+   `s2x-long`, capture.md 10.37 item 7; ours, no research pass,
+   2026-11-15] A Speed 0 fighter owning a weapon beside one was not run.
+   **Engine:** 2.7 as
    written, the smartness checks as 6.6's
    engine choice says, with these two readings settled by capture:
    - **Readying that spends the last move ends the turn**, above Speed 0.
@@ -496,11 +551,16 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
      2026-11-14] **Engine:** so: a creature of Speed above 0 left with 0
      moves after readying ends its turn there. (Superseded: the engine's
      earlier choice, that its shot or step choice, else an idle move,
-     still came.) A creature whose Speed is above 0 but whose load
-     ([movement](movement.md) 2.7) leaves it 0 moves for the turn was in neither capture: whether it
-     takes the Speed 0 creature's one action or stops after readying is
-     [unknown]. **Engine:** the stored Speed decides, so it counts as
-     Speed above 0 and readying ends its turn.
+     still came.) **A creature slowed to 0 moves by its load**
+     ([movement](movement.md) 2.7) counts as Speed above 0 here: it
+     readies and stops. One of Speed 2, Strength 1, carrying 400 and
+     owning our blade, a peaceful neutral kept from dropping by the
+     player beside it (8.1.2), readied the blade and then drew only the turn's
+     two closing rolls: no step rolls, no attack, its load and square
+     unchanged, in 16 of 16 runs. [capture: rr33 `rmb`, capture.md 10.37
+     item 4; ours, no research pass, 2026-11-15] **Engine:** so: the
+     stored Speed decides, and readying ends its turn. (A drop that
+     leaves it 0 moves ends the turn before any readying: 8.1.2.)
    - **What counts as ordinary** for the cancelled step (2.7.3): only an
      empty square, nothing on it and no individual. A square that is not
      the goal's but holds an individual the creature would strike is not
@@ -725,10 +785,20 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    capture.md 10.14.5] The gift is the same action as the overburdened
    drop, so its square is 8.1.1's choice, made **around the giver**, not
    the player; standing beside the player, the giver can put it on the
-   player's square. [research, unconfirmed: combat fourth pass, traced; no
-   gift run of ours checked it] **Engine:** its lowest-numbered magic item,
-   else its lowest-numbered treasure (gold never), onto the square 8.1.1
-   chooses around the giver (following the unconfirmed research). A drop
+   player's square. [research: combat fourth pass, 2026-11-14, traced]
+   A peaceful friend of Strength 20 and Speed 3 with one treasure, beside
+   the player, gave it as its turn's first action with the overburdened
+   drop's draws (one smartness check, then the pairs around its own
+   square): 64 of 64 runs fitted, landing on its own square 24 times, the
+   player's square 6 and its other neighbours 34. Starting three squares
+   off, it stepped twice to come beside the player and gave with its
+   third move in the same turn (38 of 64 runs), the thing landing only around the giver,
+   never on the player's other neighbours. [capture: rr33 `g5`, `g7`, 64
+   runs each, capture.md 10.37 item 6; ours] **Engine:** its
+   lowest-numbered magic item, else its lowest-numbered treasure (gold
+   never), onto the square 8.1.1 chooses around the giver, using a move;
+   a giver that arrives beside the player with a move left gives in the
+   same turn. A drop
    spell then acts on whoever stands on that square, else on the friend
    itself ([magic](magic.md) 2.3). [unknown]
 4. **Foes**, for readying (combat 6.2): [manual] **Engine:**
@@ -791,10 +861,14 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       run fitted only with the custom obstacle failing its tries (50 of
       306); the portal, the custom space and the space took the thing.
       [capture: rr28 `drop-kinds-sw`, 256 of 256 runs, capture.md 10.32;
-      ours, 2026-11-14] A store was not tried: [unknown]. **Engine:** the
-      thing lands on top of the square's stack; the ring, an obstacle and
-      a custom obstacle fail a try; every other square takes it, a store
-      included. In a room whose inside is one square it goes there with no
+      ours, 2026-11-14] **A store takes a drop**: with the region's
+      store beside the dropper, every run fitted only with the store's
+      square taking the thing (256 of 256; refusing it, 207), 49 drops
+      landing there. [capture: rr33 `dst`, `dropcheck.py --case
+      drop-store`, capture.md 10.37 item 5; ours, 2026-11-15]
+      **Engine:** the thing lands on top of the square's stack; the ring,
+      an obstacle and a custom obstacle fail a try; every other square
+      takes it, a store included. In a room whose inside is one square it goes there with no
       draw [research, unconfirmed: traced]; the engine does so, taking
       that square without drawing. On the world map there is no
       square: the thing is lost (inventory 5.3) [research, unconfirmed:
@@ -821,23 +895,44 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       drew no step roll and took no step; its next turn, with the load
       gone, began with 6 moves and walked 6: the drop turn's moves are the
       load before the drop's. [capture: mem `--draws`, rr29 `sw-drop6`, 32
-      of 32 runs, capture.md 10.33; ours, 2026-11-14] That a foe beside
-      it prevents the drop is [research, unconfirmed]: no capture had
-      one. What counts as a **foe beside** here is not defined [unknown];
-      the engine uses 2.6's test, the one that halves a creature's moves:
-      an aggressive individual, or a player not on the creature's side,
-      on one of the 4 squares beside it. So a player beside any creature
-      that is not a friend stops that creature's drop. Whether a creature
-      whose drop leaves it 0 moves still readies (8.2) is [unknown]; the
-      engine has it ready all the same. **Engine:** so: at the top of its turn, after the healing die
-      and the smartness checks (6.6), a creature of Speed above 0 whose
-      load is above half its capacity, with no foe beside it, drops all
-      its gold (one pile), else its lowest-numbered treasure or magic
-      item, onto 8.1.1's square; one drop a turn, using one move; then its
-      readying (8.2) and its steps with the moves left, those having been
-      set from the load before the drop. (Superseded: the engine's earlier
-      choice of dropping only above the capacity, with the moves then
-      idled.) A treasure that disappears when dropped vanishes; things
+      of 32 runs, capture.md 10.33; ours, 2026-11-14]
+      **A foe beside stops the drop**, and the foe is 2.6's test, the one
+      that halves a creature's moves: an aggressive individual, or a
+      player beside a creature that is not a friend, on one of the 4
+      squares beside it; a diagonal neighbour does not count. [research:
+      combat fourth pass, traced] A creature carrying 400 of a capacity
+      of 100 (0 moves) set beside the player never dropped as a peaceful
+      or aggressive thief, neutral or enemy (16 runs each, brave or owning
+      a weapon alike), and dropped in 16 of 16 as an aggressive friend
+      (with two smartness checks before the pairs, as a fighter, 6.6).
+      With the player diagonal to it, it dropped 16 of 16; beside, 0 of
+      16; swapping a peaceful neutral's and an aggressive enemy's class
+      between the two cases changed nothing, the square deciding. With moves left
+      (Speed 6, a load of 150 of 200), beside the player as a peaceful
+      neutral or an aggressive enemy it began with 1 move, did not drop
+      and stepped once; as a friend it began with 3, dropped and stepped
+      twice. With the player far and another creature beside it: an
+      aggressive enemy stopped the drop (1 move, a step); a peaceful
+      enemy or an aggressive friend did not (3 moves, a drop, 2 steps).
+      [capture: rr33 `fb-c0` to `fb-c7`, `fbn`, `fbe`, `wa-`, `wb-`
+      sweeps, capture.md 10.37 item 3; ours, 2026-11-15] **A drop that
+      leaves 0 moves ends the turn**: no readying follows. A creature of
+      Speed 2 carrying 400 of 100 and owning a bow it did not hold, nobody
+      beside, dropped and did not ready (16 of 16, and 8 of 8 in longer
+      runs); its next turn readied the bow and stepped on. [capture: rr33
+      `r0b`, `r0b-long`, capture.md 10.37 item 4] **Engine:** so: at the
+      top of its turn, after the healing die and the smartness checks
+      (6.6), a creature of Speed above 0 whose load is above half its
+      capacity, with no foe beside it (2.6's test), drops all its gold
+      (one pile), else its lowest-numbered treasure or magic item, onto
+      8.1.1's square; one drop a turn, using one move. With no move left
+      the turn ends there; otherwise its readying (8.2) and its steps
+      follow with the moves left, those having been set from the load
+      before the drop. With a foe beside it there is no drop, and the
+      turn goes on as any other (readying included: 2.7). (Superseded:
+      the engine's earlier choices of dropping only above the capacity,
+      with the moves then idled, and of readying after a drop that left 0
+      moves.) A treasure that disappears when dropped vanishes; things
       that can't be dropped (owner-only) are never chosen. While over
       capacity it picks nothing up. [unknown] Not settled: magic items'
       place in the order and how gold counts toward the load.
@@ -890,15 +985,12 @@ creatures replay exactly.
    (2.2.5 to 2.2.7), and SAVE GAME's turn, a Retire with Save as a save
    point and the saves of a death round (capture.md 10.28), and room doors
    and region to region ending the turn and carrying the moves left
-   (2.2.4, capture.md 10.29). Still open
-   (2.2.7): the last player killed on the world map after a SAVE GAME,
-   F1, a newcomer starting on the map, then the newcomer killed and the
-   button: whether the all-dead save comes back with no region change
-   after it. An add in play is a save point (2.2.7.4, capture.md 10.36);
-   still open there: an add and a SAVE GAME or a Retire with Save in one
-   round, a refused add, and whether the add saves itself or starts a new
-   cycle (a second region in play would show it: after an add in a room
-   region with another player on the map, does the map's visit come next).
+   (2.2.4, capture.md 10.29). Adds in play (2.2.7.4: a roster add saves,
+   a created one and a refusal do not, no add ends the visit), their
+   order beside a SAVE GAME or a Retire with Save, and the all-dead save
+   coming back on the map (2.2.7): captured (capture.md 10.36, 10.38).
+   Still open: a Retire with Save, an add and a SAVE GAME in one round; a
+   roster add's effect on the visit order (10.38 used a created player).
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4). Still open: two random creatures left at once.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
@@ -921,18 +1013,18 @@ creatures replay exactly.
    10.24); when a creature counts as overburdened, a drop with moves
    left, the load that sets a drop turn's moves (8.1.2, again in 10.33)
    and the custom obstacle refusing a drop (8.1.1): captured (capture.md
-   10.32). Still
-   open: a store refusing a drop, a foe beside an overburdened creature
-   (8.1.2: whether it stops the drop, and who counts as a foe there; the
-   engine uses 2.6's test, so a player beside a creature that is not a
-   friend stops it), whether a drop that leaves 0 moves still readies
-   (8.1.2, the engine says yes), a friend's gift placed around the giver (7.3), magic items,
-   gold's weight.
+   10.32). A store taking a drop (8.1.1), a foe beside stopping the drop
+   and who counts (8.1.2: 2.6's test, diagonal not), a drop that leaves 0
+   moves ending the turn without readying (8.1.2), and a friend's gift
+   placed around the giver (7.3): captured (capture.md 10.37). Still
+   open: magic items' place in the order, gold's weight, and where
+   readying falls after a drop with moves left (combat 6.2).
 8. A Speed 0 creature's turn (2.7) and a Speed 0 fighter with its goal
    beside it (capture.md 10.32): captured. A creature of Speed above 0
    whose readying spends its last move (its turn ends there) and what
    counts as ordinary for the cancelled step (only an empty square):
-   captured (2.7, capture.md 10.33). Still open: a Speed 0 fighter
-   beside an exit or a thing it takes; a creature of Speed above 0 slowed
-   to 0 moves by its load that readies a weapon (2.7: one action as at
-   Speed 0, or the readying stop; the engine applies the stop).
+   captured (2.7, capture.md 10.33). A creature slowed to 0 moves by its
+   load readying and stopping, and a Speed 0 thief taking gold beside it
+   and a Speed 0 neutral taking a portal beside it (2.7): captured
+   (capture.md 10.37). Still open: a Speed 0 fighter owning a melee
+   weapon beside an exit or a thing it takes.

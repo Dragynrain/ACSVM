@@ -670,15 +670,61 @@ fn kill_all_spares_owners_and_the_dead_leave_their_things() {
             })
             .collect();
         // The vanishing dust, the owner-only claw and the spell are lost;
-        // the gold lands as one pile (a pile's size is two bytes).
+        // the gold lands first, as one pile (a pile's size is two bytes),
+        // the gems on it (7.2).
         assert_eq!(
             died,
-            vec![(cr(1), hall(5, 3), vec![(GEM, 1), (GEM, 1), (GOLD, 300)])]
+            vec![(cr(1), hall(5, 3), vec![(GOLD, 300), (GEM, 1), (GEM, 1)])]
         );
         assert!(g.creature(1, 1).is_none());
         assert!(g.creature(1, 2).is_some());
         assert!(g.current_player().alive);
-        assert_eq!(stack(&g, 0, 5, 3), vec![GOLD, GEM, GEM]);
+        assert_eq!(stack(&g, 0, 5, 3), vec![GEM, GEM, GOLD]);
+    });
+}
+
+#[test]
+fn the_dead_put_their_gold_down_first_then_their_things_lowest_number_up() {
+    // 7.2 (capture.md 10.37 item 2): the gold goes down first, as one pile,
+    // then the possessions from the lowest thing number up, each on top;
+    // what the square held before stays under them all.
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 5, 3, GEM, 0);
+        put_creature(&mut a, 1, 5, 3, |c| {
+            c.possessions = vec![
+                Possession {
+                    thing: STONE,
+                    count: 1,
+                },
+                Possession { thing: GEM, count: 1 },
+                Possession {
+                    thing: POTION,
+                    count: 1,
+                },
+            ];
+            c.wealth = 50;
+        });
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                possessions: vec![DOOM, AMULET],
+                ..setup()
+            },
+        );
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            target: None,
+        });
+        assert!(ev.contains(&Event::Died {
+            who: cr(1),
+            at: hall(5, 3),
+            left: vec![(GOLD, 50), (GEM, 1), (POTION, 1), (STONE, 1)]
+        }));
+        // Top first: the highest-numbered on top, the old gem at the bottom.
+        assert_eq!(stack(&g, 0, 5, 3), vec![STONE, POTION, GEM, GOLD, GEM]);
     });
 }
 
@@ -714,7 +760,7 @@ fn a_player_who_dies_ends_their_turn_and_the_last_one_ends_the_game() {
         assert!(ev.contains(&Event::Died {
             who: ME,
             at: hall(3, 2),
-            left: vec![(GEM, 1), (GOLD, 3)]
+            left: vec![(GOLD, 3), (GEM, 1)]
         }));
         assert!(ev.contains(&Event::TurnEnded { player: 0 }));
         assert_eq!(g.current(), 1);

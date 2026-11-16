@@ -633,3 +633,49 @@ fn inventory_commands_replay_exactly() {
         assert_eq!(r, g2);
     });
 }
+
+/// Takes `dir` from `from` with Strength `strength` and Life Force `lf`
+/// (Constitution 11): whether the take ended the turn.
+fn take_ends_turn(p: Platform, from: (u8, u8), dir: Dir, strength: u8, lf: u8) -> bool {
+    let mut g = game_with(
+        p,
+        PlayerSetup {
+            strength,
+            life_force: lf,
+            ..setup()
+        },
+    );
+    g.place(0, hall(from.0, from.1));
+    let left = g.current_player().moves_left;
+    let ev = mv(&mut g, dir);
+    assert!(
+        ev.iter()
+            .any(|e| matches!(e, Event::PickedUp { .. } | Event::GoldPickedUp { .. })),
+        "{ev:?}"
+    );
+    let ended = ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 }));
+    if !ended {
+        assert_eq!(g.current_player().moves_left, left - 1);
+    }
+    ended
+}
+
+#[test]
+fn a_take_heavier_than_a_quarter_of_the_capacity_ends_the_turn() {
+    // 3.5: ROCK weighs 200. Capacity 800 (Strength 8): exactly a quarter
+    // goes on; 700 ends the turn, whatever moves are left.
+    both(|p| {
+        assert!(!take_ends_turn(p, (4, 2), Dir::N, 8, 11));
+        assert!(take_ends_turn(p, (4, 2), Dir::N, 7, 11));
+        // Wounds count: Strength 8, Life Force 9 under Constitution 11
+        // gives capacity (8 - 1) x 100 = 700.
+        assert!(take_ends_turn(p, (4, 2), Dir::N, 8, 9));
+        assert!(!take_ends_turn(p, (4, 2), Dir::N, 8, 10));
+        // A light thing never: SWORD (5) at capacity 100.
+        assert!(!take_ends_turn(p, (2, 2), Dir::N, 1, 11));
+        // A gold pile weighs its pieces x Gold's weight: 30 x 1, so 120
+        // against capacity 100 ends the turn; 200 goes on.
+        assert!(take_ends_turn(p, (1, 2), Dir::E, 1, 11));
+        assert!(!take_ends_turn(p, (1, 2), Dir::E, 2, 11));
+    });
+}

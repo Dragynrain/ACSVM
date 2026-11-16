@@ -1001,14 +1001,14 @@ mod characters {
     }
 
     /// capture.md 10.30 (rr26 `d1-*`, 26 cases, 46 runs; 10.23 rr19
-    /// `room-dest2`, `newc`): a Destroy in a room, one thing at a time,
-    /// with U in the room and as the last player. With U every carriable
-    /// thing goes down on 4,4 but spells and the creatures' weight-0
-    /// weapons; as the last player things whose "ACS may add" count is 0
-    /// (BLADE, GOODA) are lost too. The kit (gold, GOODA, GOODB, MAIL,
-    /// BOW, BLADE): all six with U, gold first then thing-number order
-    /// (each new entry first in the list); bow, mail and gold as the last
-    /// player (characters 3.5, 7.5).
+    /// `room-dest2`, `newc`), 10.38 item 5 (`d5a-c3`, `d5a-m`): a Destroy
+    /// in a room, one thing at a time, with U in the room and as the last
+    /// player. Either way every carriable thing goes down on 4,4 but spells
+    /// and the creatures' weight-0 weapons, whatever its "ACS may add"
+    /// count (10.30's last-player losses of BLADE and GOODA are superseded
+    /// by 10.38). The kit (gold, GOODA, GOODB, MAIL, BOW, BLADE): all six,
+    /// gold first then thing-number order (each new entry first in the
+    /// list), with U and as the last player (characters 3.5, 7.5).
     #[test]
     fn destroy_in_a_room() {
         const GOLD: u16 = acs_engine::inventory::GOLD;
@@ -1019,15 +1019,15 @@ mod characters {
         // (thing, with U, last player): true when it goes down.
         let table: &[(&[u16], bool, bool)] = &[
             (&[GOLD], true, true),
-            (&[59], true, false),
+            (&[59], true, true),
             (&[2], true, true),
             (&[34], true, true),
             (&[41], true, true),
             (&[4], true, true),
             (&[40], true, true),
             (&[54], true, true),
-            (&[13], true, false),
-            (&[13, 13], true, false),
+            (&[13], true, true),
+            (&[13, 13], true, true),
             (&[73], true, true),
             (&[6], true, true),
             (&[57], true, true),
@@ -1056,8 +1056,9 @@ mod characters {
         let (left, stack) = destroy(&a, &kit, true);
         assert_eq!(left, [(GOLD, 300), (13, 1), (14, 1), (40, 1), (41, 1), (59, 1)]);
         assert_eq!(stack, [59, 41, 40, 14, 13, GOLD]);
-        let (left, _) = destroy(&a, &kit, false);
-        assert_eq!(left, [(GOLD, 300), (40, 1), (41, 1)]);
+        let (left, stack) = destroy(&a, &kit, false);
+        assert_eq!(left, [(GOLD, 300), (13, 1), (14, 1), (40, 1), (41, 1), (59, 1)]);
+        assert_eq!(stack, [59, 41, 40, 14, 13, GOLD]);
     }
 
     /// capture.md 10.33 (`add/`, cases `a`, `c`): Add Someone asked twice
@@ -1122,6 +1123,204 @@ mod characters {
             g.apply(Command::Wait);
         }
         assert_eq!(turns, [0, 1, 0, 1, 0, 1, 0, 1]);
+    }
+
+    /// The kit of 10.38 item 5's `d5b`, `d5c` (gold, GOODA, GOODB, MAIL,
+    /// BOW, BLADE) on T, with 300 gold.
+    fn kitted() -> PlayerSetup {
+        let mut t = named("T", 6, &[59, 41, 40, 14, 13]);
+        t.gold = 300;
+        t
+    }
+
+    /// capture.md 10.38 item 5 (`d5b1`, `d5b2`): U alive on the map, T
+    /// alone in ROOM with the kit, the blade held and the mail worn, RETIRE
+    /// destroyed at the round's end: the kit, all six, on 4,4, the list
+    /// read top first blade, bow, mail, GOODB, GOODA, the gold, as with U
+    /// in the room (characters 7.5).
+    #[test]
+    fn destroy_in_a_room_with_the_other_player_on_the_map() {
+        const GOLD: u16 = acs_engine::inventory::GOLD;
+        let mut a = base(Platform::C64);
+        kill_spell(&mut a);
+        destroy_things(&mut a);
+        let mut g = t_and_u(&a, kitted());
+        walk_in(&mut g);
+        until_turn_of(&mut g, 0);
+        assert_eq!((g.visiting(), g.players()[0].at), (1, room(4, 4)));
+        assert!(matches!(g.players()[1].at, Location::World { .. }));
+        g.apply(Command::Retire { save: false });
+        g.apply(Command::Ready { thing: 59 });
+        let mut ev = g.apply(Command::Ready { thing: 40 });
+        for _ in 0..4 {
+            if has(&ev, |e| matches!(e, Event::Retired { .. })) {
+                break;
+            }
+            ev.extend(g.apply(Command::Wait));
+        }
+        let left = ev
+            .iter()
+            .find_map(|e| match e {
+                Event::Retired { player: 0, left, .. } => Some(left.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("{ev:?}"));
+        assert_eq!(left, [(GOLD, 300), (13, 1), (14, 1), (40, 1), (41, 1), (59, 1)]);
+        let stack: Vec<u16> = g.region(1).unwrap().rooms[ROOM as usize]
+            .items
+            .iter()
+            .filter(|it| (it.x, it.y) == (4, 4))
+            .map(|it| it.thing)
+            .collect();
+        assert_eq!(stack, [59, 41, 40, 14, 13, GOLD]);
+    }
+
+    /// capture.md 10.38 item 5 (`d5c`, `d5c-button`): T (with the kit) and
+    /// U in ROOM since the room visit's start, T destroyed at a round's
+    /// end, U killed three rounds on: the button brings back the room
+    /// visit's start (counter 22 there), T alive with its kit. A destroy
+    /// is not a save point (characters 7.5). U's gold, poked in the
+    /// capture to mark the rounds, isn't followed.
+    #[test]
+    fn a_destroy_in_a_room_is_not_a_save_point() {
+        let mut a = base(Platform::C64);
+        kill_spell(&mut a);
+        destroy_things(&mut a);
+        let mut g = fresh(&a, 1, kitted());
+        g.apply(add(named("U", 6, &[KILL])));
+        let mut ev = walk_in(&mut g);
+        assert_eq!(g.current(), 1);
+        ev.extend(walk_in(&mut g));
+        let s = saves(&ev);
+        assert!(matches!(s[..], [.., (_, Some(1))]), "{s:?}");
+        let r0 = s.last().unwrap().0;
+        assert_eq!((g.current(), g.round()), (0, r0));
+        g.apply(Command::Retire { save: false });
+        let mut ev = g.apply(Command::Wait);
+        ev.extend(g.apply(Command::Wait));
+        assert!(
+            has(&ev, |e| matches!(
+                e,
+                Event::Retired {
+                    player: 0,
+                    saved: None,
+                    ..
+                }
+            )),
+            "{ev:?}"
+        );
+        assert!(saves(&ev).is_empty(), "{ev:?}");
+        for _ in 0..2 {
+            g.apply(Command::Wait);
+        }
+        assert_eq!(g.current(), 1);
+        let ev = g.apply(Command::Cast {
+            thing: KILL,
+            target: None,
+        });
+        assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
+        let r = restore(&g, &a);
+        assert_eq!(r.round(), r0);
+        let t = &r.players()[0];
+        assert!(t.alive && t.gold == 300, "{t:?}");
+        let mut kit = t.possessions.clone();
+        kit.sort_unstable();
+        assert_eq!(kit, [13, 14, 40, 41, 59]);
+        assert!(r.players()[1].alive);
+    }
+
+    /// capture.md 10.38 item 4 (rr34 `i4/`, `--take-weights W1,W2`): T of
+    /// Speed 12, Constitution and Life Force 20 and Strength S (capacity S
+    /// x 100) on 4,4, two treasures of ours on 3,4 and 2,4; at a fresh turn
+    /// a push west takes the first, at the next a step west and a push the
+    /// second. The disks `a` 100,240, `b` 110,130, `c` 150,170, `d`
+    /// 190,210, `e` 225,239, `f` 40,70 at Strengths 3, 5, 9, 20, 31, and 6,
+    /// 7, 8 on the disks the doc's lines name (35 of the 36 runs; the
+    /// 36th isn't named). Every take as the capture gives it by capacity:
+    /// 300, 40 and 70 went on, 100 and up ended the turn; 500, 110 on, 130
+    /// and up ended; 600, 130 and 150 on, 170 ended; 700, 150 and 170 on,
+    /// 190 ended; 800, 190 on, 210 ended; 900, up to 225 on, 239 and 240
+    /// ended; 2,000 and 3,100 all on (inventory 3.5: more than a quarter
+    /// of the capacity). The load after the take doesn't decide (`b` at
+    /// 900: load 240 went on; `a`: load 340 ended), nor the slowdown (`b`
+    /// at 500: 130 ended at a turn of the full 12 moves); a take that goes
+    /// on costs one move.
+    #[test]
+    fn a_take_heavier_than_a_quarter_of_the_capacity_ends_the_turn() {
+        const W1: u16 = 50;
+        const W2: u16 = 51;
+        let ends = |cap: u32, w: i32| match cap {
+            300 => w >= 100,
+            500 => w >= 130,
+            600 => w >= 170,
+            700 => w >= 190,
+            800 => w >= 210,
+            900 => w >= 239,
+            2000 | 3100 => false,
+            _ => unreachable!("capacity {cap}"),
+        };
+        let disks = [
+            ('a', 100, 240),
+            ('b', 110, 130),
+            ('c', 150, 170),
+            ('d', 190, 210),
+            ('e', 225, 239),
+            ('f', 40, 70),
+        ];
+        let mut runs: Vec<((char, i32, i32), u8)> = Vec::new();
+        for d in disks {
+            for s in [3, 5, 9, 20, 31] {
+                runs.push((d, s));
+            }
+        }
+        for (k, s) in [(1, 6), (2, 6), (2, 7), (3, 7), (3, 8)] {
+            runs.push((disks[k], s));
+        }
+        // One take by a push west: whether it ended the turn.
+        let take = |g: &mut Game, thing: u16| {
+            let left = g.players()[0].moves_left;
+            let ev = g.apply(Command::Move { dir: Dir::W });
+            assert!(
+                has(
+                    &ev,
+                    |e| matches!(e, Event::PickedUp { thing: t, .. } if *t == thing)
+                ),
+                "{ev:?}"
+            );
+            let ended = has(&ev, |e| *e == Event::TurnEnded { player: 0 });
+            if !ended {
+                assert_eq!(g.players()[0].moves_left, left - 1);
+                g.apply(Command::Wait);
+            }
+            assert_eq!(g.current(), 0);
+            ended
+        };
+        for ((disk, w1, w2), s) in runs {
+            let mut a = base(Platform::C64);
+            thing(&mut a, W1, "W1", treasure(w1, 1));
+            thing(&mut a, W2, "W2", treasure(w2, 1));
+            item(&mut a, ROOM, 3, 4, W1);
+            item(&mut a, ROOM, 2, 4, W2);
+            let t = PlayerSetup {
+                name: "T".into(),
+                speed: 12,
+                strength: s,
+                constitution: 20,
+                life_force: 20,
+                ..Default::default()
+            };
+            let cap = s as u32 * 100;
+            let mut g = game(&a, 1, t, room(4, 4));
+            assert_eq!(g.players()[0].moves_left, 12);
+            let what = format!("{disk} at Strength {s}");
+            assert_eq!(take(&mut g, W1), ends(cap, w1), "{what}: {w1}");
+            if 2 * (w1 as u32) <= cap {
+                assert_eq!(g.players()[0].moves_left, 12, "{what}: unslowed");
+            }
+            let ev = g.apply(Command::Move { dir: Dir::W });
+            assert!(has(&ev, |e| matches!(e, Event::Moved { .. })), "{what}: {ev:?}");
+            assert_eq!(take(&mut g, W2), ends(cap, w2), "{what}: {w2}");
+        }
     }
 }
 
@@ -2270,10 +2469,10 @@ pub mod encounters {
         assert_eq!(things_in_area(&g), [(0, 5, DOOR)]);
     }
 
-    /// capture.md 10.36 item 7: the two new entries in the list's order,
-    /// the blade first, then the gold, then the door.
+    /// capture.md 10.36 item 7, 10.37 item 2: the two new entries in the
+    /// list's order (top first), the blade, then the gold, then the door:
+    /// the gold went down first (magic 7.2, encounters 4.4).
     #[test]
-    #[ignore = "unconfirmed: capture.md 10.36 item 7 lists the blade and the gold of 50 as the two new entries but may not give their order; the engine puts the gold first. To capture: read the two entries' order"]
     fn a_killed_copys_drop_lists_the_blade_first() {
         assert_eq!(
             area_1_list(&killed_copy()),
@@ -2525,11 +2724,17 @@ mod saves {
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)));
         assert_eq!(saves(&ev), [(g.round(), None)]);
         assert_eq!(restore(&g, &a).round(), r0);
-        // F1: the all-dead save stands; a newcomer comes in.
+        // F1: the all-dead save stands; a newcomer comes in. It is given
+        // as a setup (for its KILL), so it saves as a roster add does
+        // (creatures 2.2.7.4) before its map visit; the capture's created
+        // newcomer did not, and the room visit's save is the later either way.
         let mut ev = g.apply(add(named("N", 6, &[KILL])));
         ev.extend(walk_in(&mut g));
         let s = saves(&ev);
-        assert!(matches!(s[..], [(_, Some(0)), .., (_, Some(1))]), "{s:?}");
+        assert!(
+            matches!(s[..], [(_, None), (_, Some(0)), .., (_, Some(1))]),
+            "{s:?}"
+        );
         let visit = s.last().unwrap().0;
         g.apply(Command::Wait);
         g.apply(Command::Move { dir: Dir::E });
@@ -2542,6 +2747,318 @@ mod saves {
         assert_eq!(r.players()[0].name, "N");
         assert!(r.players()[0].alive);
         assert_eq!(r.players()[0].at, room(4, 4));
+    }
+
+    /// capture.md 10.38 item 3 (`i3e-button`): T killed alone on the map
+    /// after a SAVE GAME, F1: the save is made with nobody alive; a
+    /// created newcomer starts on the map (no region change, no save) and
+    /// is killed there: the button brings back that round's end, nobody
+    /// alive, and the add-a-player screen again (creatures 2.2.7, magic
+    /// 7.4). A newcomer given as a setup (a roster add) saves when it comes
+    /// in, so its death goes back to it instead (2.2.7.4).
+    #[test]
+    fn the_all_dead_save_on_the_map_comes_back() {
+        let a = adventure();
+        for roster in [false, true] {
+            let mut g = fresh(&a, 1, me());
+            for _ in 0..3 {
+                g.apply(Command::Wait);
+            }
+            g.apply(Command::SaveGame);
+            let ev = g.apply(Command::Cast {
+                thing: KILL,
+                target: None,
+            });
+            assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
+            let dead_round = g.round();
+            assert_eq!(saves(&ev), [(dead_round, None)]);
+            let point = g.save_point();
+            let ev = if roster {
+                g.apply(add(named("N", 6, &[])))
+            } else {
+                g.apply(Command::CreatePlayer { name: "N".into() })
+            };
+            assert!(!g.is_over());
+            assert_eq!(g.visiting(), 0);
+            if roster {
+                assert_eq!(saves(&ev), [(dead_round, None)], "{ev:?}");
+                assert_eq!(g.save_point(), g.log().len());
+            } else {
+                assert!(saves(&ev).is_empty(), "{ev:?}");
+                assert_eq!(g.save_point(), point);
+            }
+            // The newcomer killed on the map (a tool hook's spell: the
+            // replay to the save point does not reach it).
+            assert_eq!(g.players()[0].name, "N");
+            g.give(0, KILL);
+            let ev = g.apply(Command::Cast {
+                thing: KILL,
+                target: None,
+            });
+            assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
+            let mut s = SaveFile::new(&g, &a, &g);
+            s.autosave = g.restore_point();
+            let mut r = s.restore(&a).expect("restores").autosave;
+            let ev = r.apply(Command::Restore);
+            assert_eq!(r.round(), dead_round);
+            if roster {
+                assert!(!r.is_over(), "{ev:?}");
+                assert_eq!(r.players()[0].name, "N");
+                assert!(r.players()[0].alive);
+            } else {
+                assert_eq!(ev.last(), Some(&Event::AllPlayersDead), "{ev:?}");
+                assert!(r.is_over());
+                assert!(r.players().iter().all(|p| !p.alive && p.name.is_empty()));
+            }
+        }
+    }
+
+    /// capture.md 10.38 item 1 (`i1b-order`, `i1c-button`): T in region 1's
+    /// visit that began with a region change (round 60 there), U on the
+    /// map; T asks ADD SOMEONE in the visit's first round and N is created
+    /// at its end: region 1's visit goes on, rounds 61 to 69 T's, then the
+    /// map's from round 70 with U and N (N in slot 3); T killed in round
+    /// 63 brings back counter 60, the visit's start, N's slot empty: the
+    /// created add saved nothing and ended no visit (creatures 2.2.7.4).
+    /// (`i1d`, `i1d-button`) The same at T's first turn on the map: T
+    /// killed later goes back to the game's start, round 0, N gone.
+    #[test]
+    fn a_created_add_saves_nothing_and_the_visit_goes_on() {
+        let a = adventure();
+        let mut g = fresh(&a, 1, me());
+        g.apply(add(named("U", 6, &[])));
+        g.apply(Command::Wait);
+        let mut ev = walk_in(&mut g);
+        let mut r0 = None;
+        for _ in 0..64 {
+            if let Some(&(r, _)) = saves(&ev).iter().find(|s| s.1 == Some(1)) {
+                r0 = Some(r);
+                break;
+            }
+            ev.extend(g.apply(Command::Wait));
+        }
+        let r0 = r0.expect("a room visit");
+        assert_eq!((g.round(), g.visiting(), g.current()), (r0, 1, 0));
+        assert_eq!(
+            g.apply(Command::CreatePlayer { name: "N".into() }),
+            [Event::AddRequested]
+        );
+        let ev = g.apply(Command::Wait);
+        assert_eq!(added(&ev), [2], "{ev:?}");
+        assert!(saves(&ev).is_empty(), "{ev:?}");
+        let mut killed = g.clone();
+        for r in r0 + 1..r0 + 10 {
+            assert_eq!((g.round(), g.visiting(), g.current()), (r, 1, 0));
+            g.apply(Command::Wait);
+        }
+        let mut order = Vec::new();
+        for _ in 0..4 {
+            assert_eq!(g.visiting(), 0);
+            order.push(g.current());
+            g.apply(Command::Wait);
+        }
+        assert_eq!(order, [1, 2, 1, 2]);
+        assert_eq!(g.round(), r0 + 12);
+
+        for _ in 0..2 {
+            killed.apply(Command::Wait);
+        }
+        assert_eq!((killed.round(), killed.current()), (r0 + 3, 0));
+        let ev = killed.apply(Command::Cast {
+            thing: KILL,
+            target: None,
+        });
+        assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
+        let r = restore(&killed, &a);
+        assert_eq!(r.round(), r0);
+        assert!(r.players()[0].alive && r.players()[1].alive);
+        assert!(r.players().iter().all(|p| p.name != "N"), "{:?}", r.players());
+
+        let mut g = fresh(&a, 1, me());
+        g.apply(Command::CreatePlayer { name: "N".into() });
+        let ev = g.apply(Command::Wait);
+        assert_eq!(added(&ev), [1]);
+        assert!(saves(&ev).is_empty(), "{ev:?}");
+        for _ in 0..4 {
+            until_turn_of(&mut g, 1);
+            g.apply(Command::Wait);
+        }
+        until_turn_of(&mut g, 0);
+        g.apply(Command::Cast {
+            thing: KILL,
+            target: None,
+        });
+        let r = restore(&g, &a);
+        assert_eq!(r.round(), 0);
+        assert!(r.players().iter().all(|p| p.name != "N"), "{:?}", r.players());
+    }
+
+    /// capture.md 10.38 item 2 (`i2s`, `i2s2`, `i2s-n`, `i2s-u` and their
+    /// `-button`s): at T's turn ADD SOMEONE then SAVE GAME, or SAVE GAME
+    /// then ADD SOMEONE: at the round's end the add, then one save; T
+    /// killed later goes back to that round's end (counter 14 for an add
+    /// in round 13) with T and the newcomer alive, created (N) or from the
+    /// roster (U) alike (creatures 2.2.7.4).
+    #[test]
+    fn an_add_with_save_game_saves_once_after_the_add() {
+        let a = adventure();
+        for save_first in [false, true] {
+            for roster in [false, true] {
+                let mut g = fresh(&a, 1, me());
+                for _ in 0..3 {
+                    g.apply(Command::Wait);
+                }
+                let round = g.round();
+                let (name, newcomer) = if roster {
+                    ("U", add(named("U", 6, &[])))
+                } else {
+                    ("N", Command::CreatePlayer { name: "N".into() })
+                };
+                let cmds = if save_first {
+                    [Command::SaveGame, newcomer]
+                } else {
+                    [newcomer, Command::SaveGame]
+                };
+                for c in cmds {
+                    g.apply(c);
+                }
+                let case = format!("save first {save_first}, roster {roster}");
+                let ev = g.apply(Command::Wait);
+                assert_eq!(added(&ev), [1], "{case}: {ev:?}");
+                assert_eq!(saves(&ev), [(round + 1, None)], "{case}: {ev:?}");
+                let joined = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
+                let saved = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
+                assert!(joined < saved, "{case}: {ev:?}");
+                g.apply(Command::Wait);
+                until_turn_of(&mut g, 0);
+                g.apply(Command::Cast {
+                    thing: KILL,
+                    target: None,
+                });
+                let r = restore(&g, &a);
+                assert_eq!(r.round(), round + 1, "{case}");
+                assert!(r.players()[0].alive, "{case}");
+                assert!(r.players()[1].alive && r.players()[1].name == name, "{case}");
+            }
+        }
+    }
+
+    /// capture.md 10.38 item 2 (`i2r`, `i2r-n2-button`, `i2r-t-button`): T
+    /// and U on the map, T's turn: RETIRE with Save, then ADD SOMEONE. At
+    /// the round's end the retire and its save first, then the add, the
+    /// newcomer in T's freed slot. A created N is not in that save: U
+    /// killed later brings back the retire's round end (counter 21 for
+    /// round 20), slot 1 empty, no N. T taken back from the roster instead
+    /// is saved again after the add: back to the same counter with T alive
+    /// in slot 1 (creatures 2.2.7.4, characters 7.3).
+    #[test]
+    fn a_retire_with_save_and_an_add_in_one_round() {
+        let a = adventure();
+        for roster in [false, true] {
+            let mut g = fresh(&a, 1, me());
+            g.apply(add(named("U", 6, &[KILL])));
+            g.apply(Command::Wait);
+            assert_eq!((g.players().len(), g.current()), (2, 0));
+            let round = g.round();
+            g.apply(Command::Retire { save: true });
+            let newcomer = if roster {
+                add(me())
+            } else {
+                Command::CreatePlayer { name: "N".into() }
+            };
+            assert_eq!(g.apply(newcomer), [Event::AddRequested]);
+            let mut ev = g.apply(Command::Wait);
+            ev.extend(g.apply(Command::Wait));
+            let at = |f: fn(&Event) -> bool| ev.iter().position(f).unwrap_or_else(|| panic!("{ev:?}"));
+            let retired = at(|e| matches!(e, Event::Retired { player: 0, .. }));
+            let joined = at(|e| matches!(e, Event::PlayerAdded { player: 0, .. }));
+            let saved: Vec<usize> = ev
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| matches!(e, Event::Saved { .. }))
+                .map(|(i, _)| i)
+                .collect();
+            assert_eq!(
+                saves(&ev),
+                vec![(round + 1, None); 1 + roster as usize],
+                "roster {roster}: {ev:?}"
+            );
+            assert!(retired < saved[0] && saved[0] < joined, "{ev:?}");
+            if roster {
+                assert!(joined < saved[1], "{ev:?}");
+            }
+            for _ in 0..2 {
+                until_turn_of(&mut g, 1);
+                g.apply(Command::Wait);
+            }
+            until_turn_of(&mut g, 1);
+            let ev = g.apply(Command::Cast {
+                thing: KILL,
+                target: None,
+            });
+            assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
+            let r = restore(&g, &a);
+            assert_eq!(r.round(), round + 1, "roster {roster}");
+            assert!(r.players()[1].alive);
+            if roster {
+                assert!(r.players()[0].alive && r.players()[0].name == "T");
+            } else {
+                assert!(!r.players()[0].alive, "{:?}", r.players());
+                assert!(r.players().iter().all(|p| p.name != "N"), "{:?}", r.players());
+            }
+        }
+    }
+
+    /// capture.md 10.38 item 2 (`i2fa`, `i2fb1`, `i2fb2` and their
+    /// `-button`s): four players living (made so in the capture with no
+    /// save: here created adds, which save nothing), ADD SOMEONE once or
+    /// twice at T's turn, each answered "I will add a player as soon as
+    /// possible": one refusal at the round's end and play on, no second;
+    /// slot 4's player killed later: back to the game's start, round 0. A
+    /// refused add saves nothing (creatures 2.2.7.4, characters 6.2).
+    #[test]
+    fn a_refused_add_saves_nothing() {
+        let a = adventure();
+        for twice in [false, true] {
+            let mut g = fresh(&a, 1, me());
+            for name in ["U", "V", "W"] {
+                g.apply(Command::CreatePlayer { name: name.into() });
+                until_turn_of(&mut g, 0);
+                g.apply(Command::Wait);
+                until_turn_of(&mut g, 0);
+            }
+            assert_eq!(g.players().iter().filter(|p| p.alive).count(), 4);
+            assert_eq!(g.save_point(), 0);
+            for _ in 0..1 + twice as usize {
+                assert_eq!(
+                    g.apply(Command::CreatePlayer { name: "N".into() }),
+                    [Event::AddRequested]
+                );
+            }
+            let mut ev = Vec::new();
+            for _ in 0..4 {
+                ev.extend(g.apply(Command::Wait));
+            }
+            let refusals = ev.iter().filter(|e| **e == Event::AddRefused).count();
+            assert_eq!(refusals, 1, "twice {twice}: {ev:?}");
+            assert!(saves(&ev).is_empty(), "{ev:?}");
+            let mut ev = Vec::new();
+            for _ in 0..8 {
+                ev.extend(g.apply(Command::Wait));
+            }
+            assert!(!ev.contains(&Event::AddRefused));
+            until_turn_of(&mut g, 3);
+            g.give(3, KILL);
+            let ev = g.apply(Command::Cast {
+                thing: KILL,
+                target: None,
+            });
+            assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
+            assert_eq!(g.save_point(), 0);
+            let r = restore(&g, &a);
+            assert_eq!(r.round(), 0, "twice {twice}");
+            assert_eq!(r.players().iter().filter(|p| p.alive).count(), 1);
+        }
     }
 
     /// capture.md 10.28 item 2 (`c2-button`): RETIRE with Save by T in

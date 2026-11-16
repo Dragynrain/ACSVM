@@ -838,6 +838,21 @@ pub fn item_once(img: &mut Image) {
     img.data[at] |= 0x10;
 }
 
+/// Sets a thing's "ACS may add" count (docs/capture.md 10.38): `spec` is
+/// `THING:N`, thing 1..128, N 0..15, the high nibble of the thing block's
+/// byte at + 0x800 + (thing - 1); the low nibble is kept.
+pub fn may_add(img: &mut Image, spec: &str) -> Result<(), String> {
+    let (t, n) = spec.split_once(':').ok_or_else(|| format!("{spec}: THING:N"))?;
+    let t: usize = t.trim().parse().map_err(|_| format!("{spec}: bad thing"))?;
+    let n: u8 = n.trim().parse().map_err(|_| format!("{spec}: bad count"))?;
+    if !(1..=acs_core::layout::things::COUNT).contains(&t) || n > 15 {
+        return Err(format!("{spec}: thing 1..128, count 0..15"));
+    }
+    let at = acs_core::layout::C64.things + acs_core::layout::things::ACS_ADDS + t - 1;
+    img.data[at] = (img.data[at] & 0x0F) | (n << 4);
+    Ok(())
+}
+
 /// Writes bytes into the world map block (docs/capture.md 10.34): `spec`
 /// is `OFF:HEX..`, the offset from the block's start and the bytes, both
 /// in hex (`806:0042` puts 00 42 at + 0x806).
@@ -2037,6 +2052,18 @@ mod tests {
         assert_eq!(&img.data[w + 0x806..w + 0x808], &[0x00, 0x42]);
         assert!(map_bytes(&mut img, "806:004").is_err());
         assert!(map_bytes(&mut img, "BFF:0000").is_err());
+    }
+
+    #[test]
+    fn may_add_sets_the_count() {
+        let mut img = move_basic(&MoveBasic::default(), None);
+        may_add(&mut img, "59:1").unwrap();
+        may_add(&mut img, "2:0").unwrap();
+        let adv = acs_core::decode(&img).expect("decodes").adventure;
+        assert_eq!(adv.things[58].acs_may_add, 1);
+        assert_eq!(adv.things[1].acs_may_add, 0);
+        assert!(may_add(&mut img, "0:1").is_err());
+        assert!(may_add(&mut img, "5:16").is_err());
     }
 
     #[test]

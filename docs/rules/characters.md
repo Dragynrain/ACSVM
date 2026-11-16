@@ -18,8 +18,9 @@ unless marked; the second, also 2026-11-14, marked "pass 2") and
 means no capture of ours has checked it yet. The confirming runs are
 `ACSVM-research/capture/runs/rr13/` ([capture.md](../capture.md) 10.18)
 for the first pass and `rr19/` (capture.md 10.23) for the second;
-`rr26/` (capture.md 10.30, 2026-11-14) are captures of ours with no
-research pass behind them (3.5, 7.3, 7.5).
+`rr26/` (capture.md 10.30, 2026-11-14) and `rr34/` (capture.md 10.38,
+2026-11-15) are captures of ours with no research pass behind them (3.5,
+6.2, 7.3, 7.5).
 
 Words used: a **round** is one pass through a region visit's turn list
 ([creatures](creatures.md) 2.2.3). The **roster** is the list of retired
@@ -290,15 +291,23 @@ holds Constitution with magic defense in the top two bits.
    (F1 to go on), then the one add screen. [capture: rr29 `add/` cases a,
    c and b, the screens read at each step, capture.md 10.33; ours, no
    research pass, 2026-11-14] (Superseded: the engine's earlier choice of
-   handling each request in turn, which added two.) Two requests with no
-   free slot were not tried: by this rule one refusal.
-   **The add saves the game**: the round's end that brings the newcomer
-   in is a save point, with the newcomer in and the counter gone up, so a
-   later death message's button brings back the round after the request
-   ([creatures](creatures.md) 2.2.7.4, with its order beside a SAVE GAME
+   handling each request in turn, which added two.)
+   **Two requests with no free slot give one refusal**: "I will add a
+   player as soon as possible" each time, one "you will have to retire
+   one of your adventurers" at the round's end, then play on. [capture:
+   mem, rr34 `i2fb1`, `i2fb2`, capture.md 10.38 item 2; ours, no research
+   pass, 2026-11-15]
+   **Only a roster add saves the game.** When the newcomer is chosen
+   from a roster (this adventure's, 3.1, or another adventure's, 3.2) the
+   program saves after the choice ("saving game", "the adventure has
+   been saved"): a save point with the newcomer in and the counter gone
+   up, so a later death message's button brings back the round after the
+   request. A newly created player's add, and a refused add, save
+   nothing, and no add ends the visit under way
+   ([creatures](creatures.md) 2.2.7.4, with the order beside a SAVE GAME
    or a Retire with Save in the same round). [capture: mem, rr32
-   `death/two-button`, capture.md 10.36 item 3; ours, no research pass,
-   2026-11-15]
+   `death/two-button`, capture.md 10.36 item 3; rr34 items 1 and 2,
+   capture.md 10.38; ours, no research pass, 2026-11-15]
 3. **A change in the living count either way** brings the round-end
    message of [creatures](creatures.md) 2.2.5 and 2.2.6 (restore the last
    save and bring back the dead, or F1 to go on): it compares the living
@@ -319,8 +328,10 @@ holds Constitution with magic defense in the top two bits.
    newcomer is rolled or set
    up in the lowest free slot (6.1), reusing a dead or retired player's
    entry rather than adding one, so the player list holds at most 4, and
-   joins the next round (movement 1.4); its joining moves the save point
-   there (creatures 2.2.7.4; a refusal saves nothing). A slot is living by the engine's
+   joins the next round (movement 1.4). A newcomer given as a setup
+   (`AddPlayer`) stands for a roster add and its joining moves the save
+   point there; a rolled one (`CreatePlayer`) and a refusal save nothing
+   (creatures 2.2.7.4, with the order of the round's saves). A slot is living by the engine's
    own alive flag, which stands for the first byte.
 
 ## 7. Retiring
@@ -359,9 +370,12 @@ holds Constitution with magic defense in the top two bits.
    nothing is written (the disk unchanged byte for byte, so the game is
    not saved either: no save point) and the request is used up.
    [research, pass 2; capture: rr26 `d3-full34`, 1 run, T's turns in
-   rounds 27 and 28] Its Life Force, 5 under Constitution 11 at the offer,
-   read 11 two rounds on: raised as for a save, or healed over those
-   turns; the run did not separate them, [unknown]. On a save, Life Force
+   rounds 27 and 28] **Its Life Force is not raised**: 5 under
+   Constitution 11 at the offer, still 5 just after the button, 6 as its
+   next turn began (the counter unchanged), 11 only two rounds on, by
+   healing ([magic](magic.md) 5.3). [capture: mem, rr34 `i6/full2`,
+   capture.md 10.38 item 6; ours, no research pass, 2026-11-15; this
+   settles 10.30's 11, which was healing] On a save, Life Force
    below Constitution is raised to Constitution; nothing else changes, Power
    included. The name and the whole record go into the entry: ratings,
    magic defense, gold, weapon held, armor worn, every possession, the
@@ -388,8 +402,9 @@ holds Constitution with magic defense in the top two bits.
    raise goes with a save, and none is made), writes nothing and takes no
    restore point. A Retire with Save is also one of the engine's
    save points (creatures 2.2.7): taken at the round's end, it moves the
-   restore point there (a `Saved` event after `Retired`); a Destroy does
-   not. Pending reversals are dropped, as the finding
+   restore point there (a `Saved` event after `Retired`), before any add
+   of that round (creatures 2.2.7.4); a Destroy does not, on the map or
+   in a room (7.4, 7.5). Pending reversals are dropped, as the finding
    says. Bringing a saved character back from the roster (3.1) is not
    built yet: the engine keeps no roster, so a retired character rejoins
    only as a setup the front end gives `AddPlayer`.
@@ -400,46 +415,52 @@ holds Constitution with magic defense in the top two bits.
    **Engine:** the same.
 5. **Destroy in a room.** The character's things go down on its square,
    all at that moment (nothing changes after), whatever the random state.
-   Which go down depends on whether another player is still in play, not
-   on a thing's kind, nor on its being held or worn:
+   Which go down depends only on what the thing is, not on its kind of
+   weapon, armor or treasure, its being held or worn, its "ACS may add"
+   count, or whether another player is in play:
    1. **Never put down**: spells, and the creatures' own weapons of weight
       0 that nobody may use (horn, hand, claw, touches). They are lost.
-   2. **With another player present** every other thing goes down: each
-      weapon, missile weapon, armor, treasure and magic item, held, worn or
-      only carried, and the gold as one pile.
-   3. **As the last player** the things whose "ACS may add" count is 0
-      (the thing block's + 0x800, high nibble; `Thing::acs_may_add`) are
-      lost as well; the gold and every thing with a count of 1 or more go
-      down. Seen lost: BLADE (count 0), held or not, and the treasures GOODA
-      (0, one or two of it) and GOODB (0, in the kit); seen kept: dagger, magic sword, bow, dart,
-      mail, helmet, a key, a jewel, a scroll and a food container (counts
-      1 to 15).
-   4. **The order**: the gold first, then the possessions in thing-number
+   2. **Every other thing goes down**: each weapon, missile weapon, armor,
+      treasure and magic item, held, worn or only carried, and the gold as
+      one pile. This holds with another player in the room, with another
+      player alive only on the world map, and for the last player in play
+      alike.
+   3. **The order**: the gold first, then the possessions in thing-number
       order, the held weapon and worn armor among them, each on top of the
       last (the last one down is the top of the stack).
+   4. **Not a save point**: nothing of the game is written; a later death
+      message's button goes back past the destroy to the save before it
+      (the room visit's start, the destroyed character back in play with
+      its things).
    [capture: ours, 2026-11-14, rr26 `d1-*`, capture.md 10.30: 26 cases of
    one thing (or the gold, or rr19's whole kit) alone, with U in the room
    and with T the last player, 46 runs, the room's list read in memory at
-   the destroy; the kit as last player alike for 3 random states, and as
-   rr19 `newc` found after a newcomer, so the newcomer changed nothing]
-   The cases are settled; **the count as the cause is [unknown]**: it
-   separates the 3 things lost from the 10 kept, but no run changed a
-   count to test it (the creatures' weapons of count 15 are lost either
-   way, so case 1 is not the count). The researcher's reading (gold,
-   blade and bow put down, mail and treasures lost) matched none of the
-   runs [research, pass 2: disagreed by capture]. The rr19 runs this
-   replaces: `room-dest2`, `rd-*`, `newc` (capture.md 10.23).
+   the destroy; the kit alike for 3 random states] [capture: mem, rr34
+   item 5, capture.md 10.38; ours, no research pass, 2026-11-15: as the
+   last player, blade, dagger, GOODA and bow all went down on a disk as
+   built (blade's count 0, dagger's 4) and with the counts set the other
+   way (blade 1, dagger 0) (`d5a-c3`, `d5a-m`); with U alive only on the
+   map, all six things of the kit went down (`d5b2`); with T and U in the
+   room, the button after the destroy brought back the room visit's start
+   with T and its kit (`d5c-button`)]
+   This replaces 10.30's third case, that the last player also loses
+   things whose "ACS may add" count is 0. The things it saw lost as last
+   player came from rr19's `last1` disk, where the thing numbers used are
+   a spell and two creatures' weight-0 weapons, so their loss was case 1;
+   our blade and treasures were never in those runs [capture: 10.38
+   item 5; the earlier reading disagreed by capture]. The researcher's
+   reading (gold, blade and bow put down, mail and treasures lost)
+   matched none of the runs [research, pass 2: disagreed by capture].
+   The rr19 runs this replaces: `room-dest2`, `rd-*`, `newc` (capture.md
+   10.23).
    **Engine:** as above: spells and weapons of weight 0 that nobody may
-   use are lost; with another living player in play everything else lands
-   on the square, top of the stack, the gold as one pile (inventory 2.5);
-   with none (the last player) things whose "ACS may add" count is 0 are
-   lost too. The order is 4's. Whether "present" means in the same room
-   or anywhere in play is [unknown] (U was in the room in every run);
-   the engine counts any other living player. Whether weight 0 or "nobody
-   may use" is what loses the creatures' weapons is [unknown] (every one
-   tried had both); the engine asks for both. Then as 7.4. Reversals due
-   later for the character (magic 5.2) are dropped, as on Save (7.3);
-   whether the original drops them on Destroy is [unknown].
+   use are lost; everything else lands on the square, top of the stack,
+   the gold as one pile (inventory 2.5), whoever else is in play; the
+   order is 3's; no save point. Whether weight 0 or "nobody may use" is
+   what loses the creatures' weapons is [unknown] (every one tried had
+   both); the engine asks for both. Then as 7.4. Reversals due later for
+   the character (magic 5.2) are dropped, as on Save (7.3); whether the
+   original drops them on Destroy is [unknown].
 6. **Afterwards.** The character is out of play: only the first byte of
    its slot is set to zero, so the slot is free for a newcomer at once
    (6.1); the rest stays until a newcomer clears it. The others play on
@@ -465,37 +486,32 @@ holds Constitution with magic defense in the top two bits.
 
 ## 8. Left for later
 
-- Destroy in a room (7.5): whether the "ACS may add" count is the cause,
-  whether another player elsewhere than the room counts as present, which
-  mark loses the creatures' weapons, and whether waiting reversals are
-  dropped (the engine's choices in 7.5).
+- Destroy in a room (7.5): which mark loses the creatures' weapons, and
+  whether waiting reversals are dropped (the engine's choices in 7.5).
 - Rejoining a retired character from the roster (3.1, 7.3): not built in
   the engine.
-- Which record is taken from a roster whose first entry is empty (3.5),
-  and whether a full roster's character has its Life Force raised (7.3).
+- Which record is taken from a roster whose first entry is empty (3.5).
 - Editing keys in name entry (5.5).
-- Two "Add Someone" requests in one round with no free slot (6.2).
 
 ## Captures needed
 
-1. Destroy in a room: the cases and the order captured (7.5, capture.md
-   10.30). Still open: the blade's "ACS may add" count set to 1 and the
-   dagger's to 0, T the last player, to test the count as the cause; U
-   alive on the map while T is destroyed alone in a room; a reversal
-   waiting (a temporary rating change, magic 5.2), read whether it still
-   comes due.
+1. Destroy in a room: the cases, the order, the count changed, U on the
+   map and the save point captured (7.5, capture.md 10.30, 10.38). Still
+   open: a reversal waiting (a temporary rating change, magic 5.2), read
+   whether it still comes due.
 2. Another adventure's disk with the adventure's own identity, and the
    adventure's own disk: captured, no refusal (3.5, capture.md 10.30).
    Still open: choosing U from a roster with an empty first entry, which
    record joins.
-3. A roster of 34, then a save: captured (7.3, capture.md 10.30). Still
-   open: the full roster's message with T at Life Force 5 read at once
-   after the button, to tell the raise from healing.
+3. A roster of 34, then a save: captured (7.3, capture.md 10.30), and
+   the full roster's Life Force, not raised (capture.md 10.38).
 4. A creature's ratings with marks, if the editor shows them (4.2).
 5. Two "Add Someone" requests in one round, and a newcomer in a freed
    slot below a living player: captured (6.1, 6.2, capture.md 10.33: one
-   player added, in the lowest free slot, moving in its place). Still
-   open: two requests with no free slot (one refusal or two).
+   player added, in the lowest free slot, moving in its place), and two
+   requests with no free slot (one refusal, capture.md 10.38).
 6. A Retire with Save as a save point: captured (7.3, creatures 2.2.7,
-   capture.md 10.28). Still open: whether a Destroy in a room (7.5)
-   writes the game.
+   capture.md 10.28); a Destroy in a room is none (7.5, capture.md
+   10.38). Adds as save points (6.2, creatures 2.2.7.4): captured
+   (capture.md 10.38). Still open: a roster add's effect on the visit
+   order.

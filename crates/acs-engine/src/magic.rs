@@ -1012,6 +1012,23 @@ impl Game {
         things.sort_unstable();
         let mut left = Vec::new();
         if let Location::Room { region, room, x, y } = at {
+            // 7.2: the gold goes down first, as one pile (several only past
+            // the pile limit), then the possessions from the lowest thing
+            // number up, each on top: the highest-numbered ends on top.
+            let gold_vanishes = matches!(
+                self.thing(GOLD).map(|t| &t.kind),
+                Some(ThingKind::Treasure {
+                    disappears_when_dropped: true,
+                    ..
+                })
+            );
+            let mut g = if gold_vanishes { 0 } else { gold };
+            while g > 0 {
+                let n = g.min(PILE_LIMIT);
+                self.put_gold(region, room, x, y, n);
+                left.push((GOLD, n));
+                g -= n;
+            }
             for t in things {
                 let keeps = match self.thing(t).map(|t| &t.kind) {
                     Some(ThingKind::Treasure {
@@ -1030,20 +1047,6 @@ impl Game {
                     self.put_on_top(region, room, x, y, t, 1);
                     left.push((t, 1));
                 }
-            }
-            let gold_vanishes = matches!(
-                self.thing(GOLD).map(|t| &t.kind),
-                Some(ThingKind::Treasure {
-                    disappears_when_dropped: true,
-                    ..
-                })
-            );
-            let mut g = if gold_vanishes { 0 } else { gold };
-            while g > 0 {
-                let n = g.min(PILE_LIMIT);
-                self.put_gold(region, room, x, y, n);
-                left.push((GOLD, n));
-                g -= n;
             }
         }
         match who {

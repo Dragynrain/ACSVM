@@ -258,7 +258,13 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    front of the area's item list, on its square, the blade and a gold
    item of 50, the door after them; the killer's gold did not change.
    Both were deleted when the area closed (7.2), the door kept.
-   [capture: capture.md 10.36 item 7] **Engine:** so.
+   [capture: capture.md 10.36 item 7] The list being top first, that is
+   the blade on top, the gold under it and the door below both: the
+   player's next push onto the square met the blade. The order is
+   [magic](magic.md) 7.2's for any death: gold first, then the possessions
+   from the lowest thing number up, the highest on top. [capture: rr33,
+   from rr32's `kill/k2`, capture.md 10.37 item 2] **Engine:** so.
+   (Superseded: the engine's earlier choice of the gold on top.)
 
 ## 5. Entering
 
@@ -438,4 +444,5 @@ Settled by capture.md 10.36: a second player joining, players in
 several areas and their turn order, a death inside, SAVE GAME and Retire
 inside, all areas or all slots in use, a creature and the door, a killed
 copy's drop, and the independence of two records' rolls (2.4 to 2.6,
-4.4, 5.2, 6.1, 6.4, 7.3, 7.4, 7.6).
+4.4, 5.2, 6.1, 6.4, 7.3, 7.4, 7.6). Settled by capture.md 10.37: the
+order of a killed copy's drop on its square (4.4).

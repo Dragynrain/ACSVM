@@ -42,7 +42,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    step fewer than the same turn without it, every time. [capture: weight,
    300 takes; acts, table take, 125 takes of things of weight 1]
    **Engine:** the thing is taken, the
-   character stays put, and the take spends one step. Gold piles are taken
+   character stays put, and the take spends one step (a heavy one ends
+   the turn, 3.5). Gold piles are taken
    the same way. [unknown for gold]
 2. **At the limit.** If the character already owns as many of that thing as
    allowed, a message says they can't carry more of those, and they must drop
@@ -103,20 +104,34 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    1,000 gave Speed 15, 15, 14, 12, 9, 6, 0; loads 700, 750, 751, 900,
    1,050, 1,200, 1,350, 1,500 gave 10, 10, 9, 8, 6, 4, 2, 0] **Engine:**
    that formula; a capacity of 0 or less with any positive load gives 0.
-4. **When it applies.** The next turn's bar starts from the slowed Speed.
-   [capture: weight] Whether a pick-up shortens the turn already under way
-   beyond the step is [unknown]. **Engine:** a load change counts from the
-   next turn. On the C64 a take of a heavy thing ends the turn under way,
-   whatever steps are left: things of weight 240 and 400 did every time
-   (15 takes, with the weight stored x1 or x20 alike), and so did the first
-   take of the `weight` runs (400 and 700); things of weight 1 never did
-   (125 takes), nor the later `weight` takes of 1 to 100. [capture: weight;
-   acts, table take] Whether the line is a weight between 101 and 239 or a
-   share of the capacity (these players could carry 900 to 1,500) is
-   [unknown]. **Engine:** not yet: a take spends one step whatever the
-   weight. (The `weight` runs took the first heavy thing straight after
-   the door, which looked like "the first take after entering".)
-5. For the AI later: at the start, 3 master creatures and 5 residents carry
+4. **When it applies.** The next turn's bar starts from the slowed Speed:
+   a load change does not shorten the turn under way. [capture: weight]
+   **Engine:** a load change counts from the next turn.
+5. **A heavy take ends the turn.** When the thing taken weighs more than
+   a quarter of the taker's capacity (3.2), the take ends the turn under
+   way, whatever steps are left; a thing of exactly a quarter, or less,
+   costs its one step (2.1) and the turn goes on. Only the thing's own
+   weight decides it (its stored weight with the multiplier): not the
+   load after the take, nor whether the take brings on the slowdown. So
+   at capacity 900 a thing of 225 goes on and one of 239 ends the turn;
+   at 600, 150 goes on and 170 ends it; at 300, 70 goes on and 100 ends
+   it; at 2,000 and 3,100 nothing up to 240 ended it. A load of 240 at
+   capacity 900 went on (the thing 130) where a load of 340 ended (the
+   thing 240), and a thing of 130 at capacity 500, load 240, ended the
+   turn with no slowdown. [capture: mem, rr34 `i4/`, capture.md 10.38
+   item 4: 36 runs, 72 takes at capacities 300 to 3,100 (Strength x 100,
+   no wounds), every one as this rule; ours, no research pass,
+   2026-11-15] The earlier runs fit too: things of 240 and 400 ended the
+   turn at capacities 900 to 1,500, things of 1 to 100 never did.
+   [capture: weight; acts, table take] Not tried: a capacity lowered by
+   wounds (Life Force below Constitution), a negative or zero capacity,
+   a gold pile, and a creature's take.
+   **Engine:** a player's take ends its turn when 4 x the thing's weight
+   is more than its capacity of 3.2 at that moment, wounds included (so a
+   capacity of 0 or less ends it for any positive weight); a gold pile's
+   weight is its pieces times Gold's weight. A creature's take spends its
+   one move as before (the AI rules).
+6. For the AI later: at the start, 3 master creatures and 5 residents carry
    more than their capacity, and 5 master and 9 residents more than half.
    [data] An overburdened creature drops a magic item, treasure or gold.
    [manual]
@@ -203,9 +218,10 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 
 ## Captures needed
 
-1. The slowdown and a take's cost (one step): captured (3.3, 2.1). Still
-   open: where a take starts ending the turn (weight 101 to 239, or a share
-   of the capacity: 4).
+1. The slowdown, a take's cost (one step) and where a take ends the turn
+   (more than a quarter of the capacity): captured (3.3, 2.1, 3.5;
+   capture.md 10.38). Still open: a heavy take with the capacity lowered
+   by wounds, a gold pile, and a creature's take (3.5).
 2. Capacity with Life Force above Constitution, and rounding of odd wounds.
 3. Gold pile size: captured (2.5, the size record). Still open: what the
    pile's own parameter means.

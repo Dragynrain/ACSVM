@@ -1307,8 +1307,9 @@ fn save_game_leaves_the_turn_and_its_idle_rolls() {
 }
 
 /// 2.2.7.3, characters 7.3: a Retire with Save saves at the round's end, a
-/// `Saved` after `Retired`; with a SAVE GAME in the same round it saves
-/// once. A Destroy saves nothing.
+/// `Saved` after `Retired`; with a SAVE GAME in the same round that one
+/// saves again after it (2.2.7.4's order: the retire's save, the adds, then
+/// the round's other save). A Destroy saves nothing.
 #[test]
 fn a_retire_with_save_is_a_save_point() {
     both(|p| {
@@ -1341,7 +1342,8 @@ fn a_retire_with_save_is_a_save_point() {
                     .iter()
                     .position(|e| matches!(e, Event::Saved { visit: None, .. }));
                 assert!(retired < s, "{ev:?}");
-                assert_eq!(saved(&ev), [(round + 1, None)]);
+                let n = if also_save_game { 2 } else { 1 };
+                assert_eq!(saved(&ev), vec![(round + 1, None); n]);
                 assert_eq!(g.save_point(), g.log().len());
             } else {
                 assert!(saved(&ev).is_empty(), "{ev:?}");
@@ -1489,10 +1491,10 @@ fn the_button_goes_back_to_the_moment_of_the_save() {
     });
 }
 
-/// 2.2.6, 2.2.7.3, 2.2.7.4: a Retire with Save and an "Add Someone" in
-/// one round make one save point, after the add: the retired slot
-/// refilled by the newcomer, with or without a SAVE GAME too, and one
-/// `Saved`. The button clears the requests, so none is made again.
+/// 2.2.6, 2.2.7.3, 2.2.7.4: a Retire with Save and a roster "Add Someone"
+/// in one round save twice: the retire's, then one after the add, the
+/// retired slot refilled by the newcomer, with or without a SAVE GAME too.
+/// The button clears the requests, so none is made again.
 /// With nobody in play the button does nothing.
 #[test]
 fn the_button_clears_the_requests() {
@@ -1520,7 +1522,7 @@ fn the_button_clears_the_requests() {
                     .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })),
                 "{ev:?}"
             );
-            assert_eq!(saved(&ev).len(), 1, "{ev:?}");
+            assert_eq!(saved(&ev).len(), 2, "{ev:?}");
             assert_eq!(g.save_point(), g.log().len());
             assert_eq!(g.players()[0].name, "FRAIL");
             let mut r = g.clone();
@@ -1560,12 +1562,13 @@ fn button(g: &Game, a: &Adventure) -> Game {
     r
 }
 
-/// 2.2.7.4, characters 6.2: an Add Someone in play is a save point once
-/// the newcomer joins at the round's end: one `Saved` after `PlayerAdded`,
-/// holding the counter already gone up, and the button brings back that
-/// round's end with the newcomer in. No region change is needed.
+/// 2.2.7.4, characters 6.2: a roster Add Someone in play (`AddPlayer`) is a
+/// save point once the newcomer joins at the round's end: one `Saved` after
+/// `PlayerAdded`, holding the counter already gone up, and the button
+/// brings back that round's end with the newcomer in. No region change is
+/// needed, and the visit goes on.
 #[test]
-fn an_add_in_play_is_a_save_point() {
+fn a_roster_add_in_play_is_a_save_point() {
     both(|p| {
         let a = adventure(p);
         let mut g = on_map(a.clone(), 15);
@@ -1600,79 +1603,184 @@ fn an_add_in_play_is_a_save_point() {
     });
 }
 
-/// 2.2.7.4's engine choice, characters 6.4: a refused add (four living)
-/// saves nothing.
+/// 2.2.7.4 (capture.md 10.38 `i1d-button`, `i1c-button`): a created add
+/// (`CreatePlayer`) saves nothing, on the map or in a room region's visit;
+/// the visit goes on, and the button goes back past the add, the
+/// newcomer's slot empty.
 #[test]
-fn a_refused_add_saves_nothing() {
+fn a_created_add_saves_nothing_and_ends_no_visit() {
     both(|p| {
-        let mut g = on_map(adventure(p), 15);
-        while g.players().len() < 4 {
-            g.apply(Command::AddPlayer { setup: frail() });
-            for _ in 0..8 {
-                let ev = wait(&mut g);
-                if ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
-                    break;
-                }
-            }
+        // On the map: back to the game's start.
+        let a = adventure(p);
+        let mut g = on_map(a.clone(), 15);
+        for _ in 0..3 {
+            wait(&mut g);
         }
-        let point = g.save_point();
-        g.apply(Command::AddPlayer { setup: frail() });
-        let mut ev = Vec::new();
-        while !ev.contains(&Event::AddRefused) {
-            ev.extend(wait(&mut g));
-        }
+        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        let ev = wait(&mut g);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::PlayerAdded { player: 1, .. })));
         assert!(saved(&ev).is_empty(), "{ev:?}");
+        assert_eq!(g.save_point(), 0);
+        let r = button(&g, &a);
+        assert_eq!(r.round(), 0);
+        assert!(r.players().iter().all(|q| q.name != "NEW"), "{:?}", r.players());
+        // In a room region's visit, U (from a roster) on the map: the visit
+        // goes on to its end, the newcomer on the map waiting for it; the
+        // button goes back to U's add, without the newcomer.
+        let mut g = start(a.clone(), 0, 2, 2);
+        g.apply(Command::AddPlayer {
+            setup: PlayerSetup {
+                name: "U".into(),
+                speed: 15,
+                ..Default::default()
+            },
+        });
+        wait(&mut g);
+        let (point, round) = (g.save_point(), g.round());
+        assert_eq!(point, g.log().len());
+        assert_eq!((g.visiting(), g.current()), (1, 0));
+        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        let ev = wait(&mut g);
+        assert!(
+            ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })),
+            "{ev:?}"
+        );
+        assert!(saved(&ev).is_empty(), "{ev:?}");
+        assert_eq!((g.visiting(), g.current()), (1, 0), "the visit goes on");
         assert_eq!(g.save_point(), point);
+        let r = button(&g, &a);
+        assert_eq!(r.round(), round);
+        assert!(r.players().iter().any(|q| q.name == "U" && q.alive));
+        assert!(r.players().iter().all(|q| q.name != "NEW"), "{:?}", r.players());
     });
 }
 
-/// 2.2.7.4's engine choice: an add with a SAVE GAME, or with a Retire with
-/// Save, in one round makes one save point, after the add, with one
-/// `Saved` (the order retire, add, save, 2.2.5).
+/// 2.2.7.4's engine choice, characters 6.2, 6.4: a refused add (four
+/// living) saves nothing; two requests give one refusal.
 #[test]
-fn an_add_and_another_save_in_one_round_save_once() {
+fn a_refused_add_saves_nothing() {
     both(|p| {
-        for other in [Command::SaveGame, Command::Retire { save: true }] {
-            let a = adventure(p);
-            let mut g = on_map(a.clone(), 15);
-            g.apply(Command::AddPlayer { setup: frail() });
-            wait(&mut g);
-            assert_eq!(g.players().len(), 2);
-            while g.current() != 0 {
-                wait(&mut g);
+        for twice in [false, true] {
+            let mut g = on_map(adventure(p), 15);
+            while g.players().len() < 4 {
+                g.apply(Command::AddPlayer { setup: frail() });
+                for _ in 0..8 {
+                    let ev = wait(&mut g);
+                    if ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                        break;
+                    }
+                }
             }
-            let round = g.round();
-            g.apply(Command::AddPlayer {
-                setup: PlayerSetup {
-                    name: "NEW".into(),
-                    speed: 15,
-                    ..Default::default()
-                },
-            });
-            g.apply(other.clone());
-            let mut ev = wait(&mut g);
-            while !ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+            let point = g.save_point();
+            g.apply(Command::AddPlayer { setup: frail() });
+            if twice {
+                g.apply(Command::CreatePlayer { name: "TWO".into() });
+            }
+            let mut ev = Vec::new();
+            while !ev.contains(&Event::AddRefused) {
                 ev.extend(wait(&mut g));
             }
-            assert_eq!(saved(&ev), [(round + 1, None)], "{other:?}: {ev:?}");
-            let added = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
-            let save = ev.iter().position(|e| matches!(e, Event::Saved { .. }));
-            assert!(added < save, "{ev:?}");
-            if let Some(retired) = ev.iter().position(|e| matches!(e, Event::Retired { .. })) {
-                assert!(retired < added.unwrap(), "{ev:?}");
-            }
-            let retiring = matches!(other, Command::Retire { .. });
-            // The retired slot 0 is freed and refilled by the newcomer.
-            let slot = if retiring { 0 } else { 2 };
-            assert_eq!(g.players()[slot].name, "NEW");
-            assert_eq!(g.save_point(), g.log().len());
+            let refusals = ev.iter().filter(|e| **e == Event::AddRefused).count();
+            assert_eq!(refusals, 1, "{ev:?}");
+            assert!(saved(&ev).is_empty(), "{ev:?}");
+            assert_eq!(g.save_point(), point);
             for _ in 0..4 {
-                wait(&mut g);
+                assert!(!wait(&mut g).contains(&Event::AddRefused));
             }
-            let r = button(&g, &a);
-            assert_eq!(r.round(), round + 1);
-            assert_eq!(r.players()[slot].name, "NEW");
-            assert!(r.players()[slot].alive);
+        }
+    });
+}
+
+/// 2.2.7.4's engine choice: with a SAVE GAME in the round, an add, created
+/// or from a roster, is followed by one save holding the newcomer. With a
+/// Retire with Save, the retire's save comes first, before the add: a
+/// roster newcomer saves again after it, a created one does not and is not
+/// in the restore.
+#[test]
+fn an_add_and_another_save_in_one_round() {
+    both(|p| {
+        for other in [Command::SaveGame, Command::Retire { save: true }] {
+            for roster in [true, false] {
+                let a = adventure(p);
+                let mut g = on_map(a.clone(), 15);
+                g.apply(Command::AddPlayer { setup: frail() });
+                wait(&mut g);
+                assert_eq!(g.players().len(), 2);
+                while g.current() != 0 {
+                    wait(&mut g);
+                }
+                let round = g.round();
+                let add = if roster {
+                    Command::AddPlayer {
+                        setup: PlayerSetup {
+                            name: "NEW".into(),
+                            speed: 15,
+                            ..Default::default()
+                        },
+                    }
+                } else {
+                    Command::CreatePlayer { name: "NEW".into() }
+                };
+                let retiring = matches!(other, Command::Retire { .. });
+                // SAVE GAME asked after the add here, before it otherwise.
+                if retiring {
+                    g.apply(add);
+                    g.apply(other.clone());
+                } else {
+                    g.apply(other.clone());
+                    g.apply(add);
+                }
+                let mut ev = wait(&mut g);
+                while !ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })) {
+                    ev.extend(wait(&mut g));
+                }
+                let saves: Vec<usize> = ev
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, e)| matches!(e, Event::Saved { .. }))
+                    .map(|(i, _)| i)
+                    .collect();
+                let added = ev
+                    .iter()
+                    .position(|e| matches!(e, Event::PlayerAdded { .. }))
+                    .unwrap();
+                let n = if retiring && roster { 2 } else { 1 };
+                assert_eq!(
+                    saved(&ev),
+                    vec![(round + 1, None); n],
+                    "{other:?} {roster}: {ev:?}"
+                );
+                if retiring {
+                    let retired = ev
+                        .iter()
+                        .position(|e| matches!(e, Event::Retired { .. }))
+                        .unwrap();
+                    assert!(retired < saves[0] && saves[0] < added, "{ev:?}");
+                    if roster {
+                        assert!(added < saves[1], "{ev:?}");
+                    }
+                } else {
+                    assert!(added < saves[0], "{ev:?}");
+                }
+                // The retired slot 0 is freed and refilled by the newcomer.
+                let slot = if retiring { 0 } else { 2 };
+                assert_eq!(g.players()[slot].name, "NEW");
+                for _ in 0..4 {
+                    wait(&mut g);
+                }
+                let r = button(&g, &a);
+                assert_eq!(r.round(), round + 1);
+                if retiring && !roster {
+                    // The retire's save: the slot free, no newcomer.
+                    assert!(r.players().iter().all(|q| q.name != "NEW"), "{:?}", r.players());
+                    assert!(!r.players()[slot].alive);
+                } else {
+                    assert_eq!(r.players()[slot].name, "NEW");
+                    assert!(r.players()[slot].alive);
+                }
+            }
         }
     });
 }
@@ -1726,7 +1834,9 @@ fn a_death_in_an_add_round_offers_the_earlier_save() {
 
 /// 2.2.6: with nobody alive every record is cleared to 0; declining needs
 /// no command (anything else is ignored: no turn, the counter and region
-/// stay); an added player's visit to the map is a region change and saves.
+/// stay); an added player's visit to the map is a region change and saves,
+/// after the roster add's own save (2.2.7.4); a created one saves only at
+/// the visit.
 #[test]
 fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
     both(|p| {
@@ -1747,10 +1857,14 @@ fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
         }
         assert_eq!((g.round(), g.visiting(), g.log().len()), (round, region, logged));
         assert_eq!(g.restore_point(), point);
+        let mut h = g.clone();
         let ev = g.apply(Command::AddPlayer { setup: frail() });
-        assert_eq!(saved(&ev), [(round, Some(0))], "{ev:?}");
+        assert_eq!(saved(&ev), [(round, None), (round, Some(0))], "{ev:?}");
         assert_eq!(g.save_point(), g.log().len());
         assert_eq!(g.players()[0].name, "FRAIL");
+        let ev = h.apply(Command::CreatePlayer { name: "NEW".into() });
+        assert_eq!(saved(&ev), [(round, Some(0))], "{ev:?}");
+        assert_eq!(h.save_point(), h.log().len());
     });
 }
 
@@ -1820,6 +1934,133 @@ fn above_half_its_capacity_a_creature_drops_with_its_first_move_then_steps() {
             assert_eq!(next.0, 6, "load {gold}: the next turn");
             assert!(!next.1.contains(&Some(GOLD)));
         }
+    });
+}
+
+/// Slot 1's turns in `ev`: for each, its moves and its events.
+fn turn_events_of_1(ev: &[Event]) -> Vec<(u8, Vec<Event>)> {
+    let mut out: Vec<(u8, Vec<Event>)> = Vec::new();
+    let mut mine = false;
+    for e in ev {
+        match e {
+            Event::CreatureTurn { slot, moves, .. } => {
+                mine = *slot == 1;
+                if mine {
+                    out.push((*moves, Vec::new()));
+                }
+            }
+            Event::TurnStarted { .. } => mine = false,
+            _ if mine => out.last_mut().unwrap().1.push(e.clone()),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// A peaceful friend on WEST (8,5) of Speed `speed` and Strength
+/// `strength`, owning the bow (not held) and carrying `gold` gold; the
+/// player far off, the doors blocked.
+fn burdened_archer(p: Platform, speed: u8, strength: u8, gold: u16) -> Game {
+    let mut a = adventure(p);
+    let mut s = spec(0, 8, 5, Alignment::Friend, false);
+    s.speed = speed;
+    put(&mut a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.strength = strength;
+    c.constitution = 20;
+    c.life_force = 20;
+    c.possessions = vec![Possession { thing: BOW, count: 1 }];
+    c.weapon = 0;
+    c.wealth = gold;
+    for (x, y) in [(8, 3), (1, 3), (4, 1), (4, 5)] {
+        item(&mut a, 0, x, y, PILLAR, 0);
+    }
+    start(a, 0, 1, 1)
+}
+
+fn readied_bow(ev: &[Event]) -> bool {
+    ev.iter().any(|e| {
+        matches!(
+            e,
+            Event::CreatureReadied {
+                slot: 1,
+                thing: BOW,
+                ..
+            }
+        )
+    })
+}
+
+#[test]
+fn a_drop_that_leaves_no_move_ends_the_turn_before_readying() {
+    // 8.1.2, combat 6.2 (rr33 `r0b`): Speed 2 carrying 400 of 100, owning
+    // a bow it does not hold, nobody beside: it drops and does not ready;
+    // the next turn readies the bow.
+    both(|p| {
+        let mut g = burdened_archer(p, 2, 1, 400);
+        let mut turns = turn_events_of_1(&wait(&mut g));
+        while turns.len() < 2 {
+            turns.extend(turn_events_of_1(&wait(&mut g)));
+        }
+        let (moves, first) = &turns[0];
+        assert_eq!(*moves, 0, "{first:?}");
+        assert!(first.iter().any(|e| matches!(
+            e,
+            Event::CreatureDropped {
+                slot: 1,
+                thing: GOLD,
+                ..
+            }
+        )));
+        assert!(!readied_bow(first), "{first:?}");
+        let (_, second) = &turns[1];
+        assert!(readied_bow(second), "{second:?}");
+        assert!(!second
+            .iter()
+            .any(|e| matches!(e, Event::CreatureDropped { slot: 1, .. })));
+    });
+}
+
+#[test]
+fn with_moves_left_after_a_drop_a_creature_readies_then_steps() {
+    // 8.1.2 (engine choice): with moves left the readying follows the drop,
+    // before the first step: a load above 150 of 200 at Speed 6 leaves
+    // moves for the drop and the bow.
+    both(|p| {
+        let mut g = burdened_archer(p, 6, 2, 150);
+        let turns = turn_events_of_1(&wait(&mut g));
+        let (moves, ev) = &turns[0];
+        assert!(*moves >= 2, "{moves}");
+        let drop = ev
+            .iter()
+            .position(|e| {
+                matches!(
+                    e,
+                    Event::CreatureDropped {
+                        slot: 1,
+                        thing: GOLD,
+                        ..
+                    }
+                )
+            })
+            .expect("drops");
+        let ready = ev
+            .iter()
+            .position(|e| {
+                matches!(
+                    e,
+                    Event::CreatureReadied {
+                        slot: 1,
+                        thing: BOW,
+                        ..
+                    }
+                )
+            })
+            .expect("readies");
+        assert!(drop < ready, "{ev:?}");
+        assert!(!ev[..ready]
+            .iter()
+            .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })));
     });
 }
 

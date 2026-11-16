@@ -322,10 +322,11 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   "the parameter is most likely the pile's size" and the size records as
   things of their own on square 15,14.
 - **"ACS may add" count** (things block + 0x800, high nibble; 15 means
-  many; `Thing::acs_may_add`): play may read it too. The things a last
-  player destroyed in a room loses are exactly the ones with a count of 0
-  among 13 tried (rules/characters 7.5, docs/capture.md 10.30); no count
-  was changed to test it.
+  many; `Thing::acs_may_add`). It does not decide what a player destroyed
+  in a room puts down: setting the blade's to 1 and the dagger's to 0
+  changed nothing (rules/characters 7.5, docs/capture.md 10.38 item 5;
+  10.30's reading of it as the cause was a fit to things that were in
+  fact a spell and creatures' weapons). No play use of it is known.
 - No thing in the corpus has type 13 or 14; 27 slots are 15 (empty).
 - **PC**: thing 80 of *Rivers of Light*, SWIMMING SKILL, is a magic spell with
   action code 15 (outside 0-14) and power 0. It is never placed; three

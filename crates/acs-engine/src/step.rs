@@ -47,6 +47,24 @@ pub(crate) fn resolve_custom_space(
 }
 
 impl Game {
+    /// Inventory 3.5: a player's take ends the turn when 4 x the thing's
+    /// weight is more than its capacity (3.2, wounds included); exactly a
+    /// quarter or less does not.
+    fn heavy_take(&self, p: usize, weight: i32) -> bool {
+        4 * weight > self.players[p].capacity()
+    }
+
+    /// A take's cost (inventory 2.1, 3.5): its one step, or, when heavy,
+    /// the rest of the turn.
+    fn spend_take(&mut self, heavy: bool, ev: &mut Vec<Event>) {
+        if heavy {
+            self.players[self.current].moves_left = 0;
+            self.end_turn(ev);
+        } else {
+            self.spend(ev);
+        }
+    }
+
     pub(crate) fn step(&mut self, dir: Dir, ev: &mut Vec<Event>) {
         let p = self.current;
         let from = self.players[p].at;
@@ -434,9 +452,14 @@ impl Game {
                         self.remove_item(region, room, index);
                     }
                     ev.push(Event::GoldPickedUp { player: p, amount });
-                    self.spend(ev);
+                    // Inventory 3.5: the pile weighs its pieces x Gold's.
+                    let heavy =
+                        self.heavy_take(p, pile as i32 * inventory::weight(&self.adv, inventory::GOLD));
+                    self.spend_take(heavy, ev);
                     return;
                 }
+                // Inventory 3.5: judged on the capacity at the take.
+                let heavy = self.heavy_take(p, inventory::weight(&self.adv, item.thing));
                 self.remove_item(region, room, index);
                 self.players[p].possessions.push(item.thing);
                 ev.push(Event::PickedUp {
@@ -467,7 +490,7 @@ impl Game {
                         return;
                     }
                 }
-                self.spend(ev);
+                self.spend_take(heavy, ev);
             }
             // Section 6.
             ThingKind::Portal {

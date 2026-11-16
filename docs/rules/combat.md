@@ -25,7 +25,9 @@ checked the same way, and so was a second one on the open melee and
 firing cases (capture.md 10.35, run rr31, 2026-11-15, also no research
 pass), whose `combatcheck.py` checks also hold every melee attack's blow
 count against the value the attack's blows-left byte is first written
-with.
+with. The player's blows and section 7's roll after them (capture.md
+10.37, run rr33, 2026-11-15, no research pass) were checked draw by draw
+with `scripts/blowcheck.py`.
 
 ## 1. Terms
 
@@ -221,14 +223,25 @@ with.
 2. **What damage D takes from the defender**: the Power share is the
    smaller of D x Power / (Power + Life Force) and (Power + 1) / 2. Power
    falls by twice the share, Life Force by D minus the share, neither below
-   0. Life Force 0 is death ([magic](magic.md) 7) and ends the attack.
-   [research] Our blade of Power 10 with Dexterity 13 and Size 9 did 10, or
+   0. Life Force 0 is death ([magic](magic.md) 7) and ends the attack;
+   the dead drop their gold, then their possessions from the lowest
+   thing number up, so the highest-numbered ends on top (magic 7.2,
+   captured). [research] Our blade of Power 10 with Dexterity 13 and Size 9 did 10, or
    15 as a heavy blow; the player at Life Force 40, Power 13 lost 8 Life
    Force and 4 Power for a 10, Life Force read after every hit and
    healing. [capture: armed, 25 hits in 32 runs]
 3. So Life Force above Constitution plays no part in a blow, nor does
    Strength. A wounded individual fights worse through the wound penalty
    (3.4, 3.5); Power counts in to-hit, parry and the share. [research]
+   **Open: Life Force above Constitution in the share.** A creature of
+   Constitution 40 with its Life Force poked to 100 took the player's
+   blows with a split between Life Force and Power that fitted neither
+   4.2's share as written (from the Life Force) nor a share with the Life
+   Force capped at the Constitution. [capture: rr33, a first `b-` sweep of
+   capture.md 10.37 item 1, dropped and not looked at further] [unknown]
+   how the share is taken there. **Engine:** 4.2 as written, from the
+   Life Force as it stands. Life Force above Constitution comes from
+   temporary Life Force ([magic](magic.md) 5.2) and from pokes.
 4. A blow whose damage the armor takes entirely is a hit that does no
    damage: it uses one blow, as a miss, and is not a "damaging blow" (6.4,
    7). [research: third pass; capture: mail-heavy, mail of Power 12
@@ -325,10 +338,13 @@ with.
    third pass; capture: bow-ready, 16 runs, the held-weapon byte showing
    the bow from the first turn] **Engine:** beside as 1.7; the
    lowest-numbered of the kind ([manual]). The engine readies after the smartness check for
-   casting (creatures 6.6), so a creature that casts doesn't ready; on a
-   turn with an overburdened drop (creatures 8.1.2) it readies after the
-   drop, before its first step. [unknown] where readying falls on such a
-   turn.
+   casting (creatures 6.6), so a creature that casts doesn't ready. On a
+   turn with an overburdened drop (creatures 8.1.2) that leaves it no
+   move, it does not ready: the turn ends at the drop and the weapon is
+   readied on its next turn. [capture: rr33 `r0b`, `r0b-long`, capture.md
+   10.37 item 4] With moves left after the drop the engine readies after
+   it, before its first step; [unknown] where readying falls on such a
+   turn (no weapon was owned in the captures of a drop with moves left).
 3. **Breaking** is a roll of 0 to 99 below the thing's break chance
    (0..15): a melee weapon when its blow is parried (the striking weapon,
    not the parrying one); armor on a blow that reaches it (5.1). The thing
@@ -398,18 +414,31 @@ it fits 112 and 115 of 128); a peaceful neutral hit by two arrows turning
 aggressive on the first with no roll, then drawing it on the second and
 turning an enemy. A second player as the target (Wisdom 13) drew the roll
 after every damaging arrow and nothing in its record changed but Life
-Force, Power and Dodge (and what its death changes). [unknown] an
-aggressive thief or enemy, or a player, of Wisdom below 6 or above 14 (not
-run). **Engine:** the rule above for them too, so no roll and no change.
-For **a player's blows** the captures agree where they reach (a friend,
-a peaceful creature, an aggressive neutral of Wisdom 10; below);
-[unknown] whether a blow on an aggressive thief or enemy or on a player
-draws the roll as an arrow does, and whether a killing blow does (a
-killing arrow does, 8.8.3). **Engine:** one rule for blows and arrows,
-the one above, also after a hit that kills (by the class it had).
-(Superseded: the engine's earlier choices, a roll after a player's arrow
-whatever the target's class, and after a blow only for an aggressive
-neutral of Wisdom 6 to 14 still alive.)
+Force, Power and Dodge (and what its death changes).
+
+**A player's blows** follow the same rule, roll for roll. The player
+struck a creature of Constitution and Life Force 40 beside it with 5
+blows a turn, the creature's class and Wisdom set per sweep, every draw
+of the attack checked (`scripts/blowcheck.py`): an aggressive thief and
+an aggressive enemy of Wisdom 10 drew the roll after every damaging blow
+and stayed as they were (32 of 32 runs each; without the roll 8 of 32);
+at Wisdom 3 and at Wisdom 20 they drew none (32 of 32 each; with a roll
+9 and 8 of 32); an aggressive neutral of Wisdom 10 drew it as before. A
+blow that kills draws it too, by the class before the blow, for an
+aggressive thief, neutral and enemy at Life Force 1 (16 of 16 each); a
+peaceful neutral or a peaceful friend killed the same way drew none (16
+of 16 each). A second player of Wisdom 10 struck by the first drew it
+after every damaging blow (32 of 32 runs, 50 blows). [capture: rr33 `b-`,
+`k-`, `u-w10` sweeps, capture.md 10.37 item 1; ours, no research pass,
+2026-11-15] So the Wisdom bounds hold for aggressive thieves and enemies
+as for neutrals, at least for blows; for arrows on them, and for a
+player of Wisdom below 6 or above 14 by blow or arrow, it was not run
+[unknown]. **Engine:** one rule for blows and arrows, the one above,
+also after a hit that kills (by the class it had), so no roll and no
+change outside Wisdom 6 to 14. (Superseded: the engine's earlier
+choices, a roll after a player's arrow whatever the target's class, and
+after a blow only for an aggressive neutral of Wisdom 6 to 14 still
+alive.)
 
 One change a blow. A friend hit once is a neutral; hit again, it turns
 aggressive. Only a player's own blows (and its arrows, 8.6, 8.8.3) do this, never a creature's or a
@@ -723,7 +752,10 @@ misses a player that came into the room after the firer (8.8.2).
   anywhere: encounters 4.4, captured.)
 - A Speed 0 fighter owning a melee weapon beside an exit or a thing it
   takes ([creatures](creatures.md) 2.7; with its goal beside it, it
-  attacks once a turn, captured).
+  attacks once a turn, captured; a Speed 0 thief beside gold and a Speed
+  0 neutral beside a portal took them, capture.md 10.37, but no fighter
+  with a weapon was run).
+- Life Force above Constitution in the damage share (4.3).
 
 ## Captures needed
 
@@ -745,9 +777,11 @@ misses a player that came into the room after the firer (8.8.2).
    bow (2.8), and the push with no melee weapon using no move (2.7):
    captured (capture.md 10.24); the menu with no weapon held at all, and
    choosing the weapon or NONE from it (2.8): captured (capture.md 10.35).
-   Still open: whether a player's blow on an aggressive thief or enemy or
-   on a player, or a killing blow, draws the smartness roll as an arrow
-   does (7).
+   A player's blow on an aggressive thief or enemy (Wisdom 3, 10, 20), on
+   another player (Wisdom 10), and a killing blow, drawing the smartness
+   roll as an arrow does (7): captured (capture.md 10.37). Still open: a
+   player of Wisdom below 6 or above 14 struck by a blow (7), and how the
+   damage share is taken with Life Force above Constitution (4.3).
 4. Readying before stepping (6.2): a missile weapon captured
    (`bow-ready`), a melee weapon too (`ready-melee`, capture.md 10.35).
 5. Firing (section 8): captured but for its "Not run" list; a foe truly

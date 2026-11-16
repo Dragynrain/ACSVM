@@ -52,6 +52,9 @@ CASES = {
     # The side room moves the room's list: its length byte at $E58B, the
     # entries from $E58D.
     "drop-kinds": {"droppers": [("WE", (6, 4), 1, 50, "E1C4")], "obstacles": set(), "list": 0xE58B},
+    # rr33 (capture.md 10.37): WE on 6,4 with the region's store on 5,4
+    # (`--refuse 5,4` takes the store to refuse).
+    "drop-store": {"droppers": [("WE", (6, 4), 1, 50, "E1C4")], "obstacles": set()},
     # rr5's burden (capture.md 10.14.5): WA 300 gold on 10,2, WB 2,000 on
     # 10,7, each dropping its gold on its first turn.
     "burden": {"droppers": [("WA", (10, 2), 1, ("gold", 300), "E1B5"), ("WB", (10, 7), 1, ("gold", 2000), "E1DA")],

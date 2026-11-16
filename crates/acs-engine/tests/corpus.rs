@@ -9,7 +9,7 @@
 use acs_core::model::{Access, Adventure, ThingKind};
 use acs_core::{decode, Image, Platform};
 use acs_engine::inventory::{self, GOLD};
-use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rng, Rules, SaveFile};
+use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rng, Rules, SaveFile, Who};
 use std::path::{Path, PathBuf};
 
 fn find(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -377,8 +377,19 @@ fn every_carriable_thing_can_be_picked_up() {
                     };
                     g.place(0, at(sx, sy));
                     let ev = g.apply(Command::Move { dir });
-                    // The taker stays on its own square (inventory 2.1).
-                    let stayed = g.current_player().at == at(sx, sy);
+                    // The taker stays on its own square (inventory 2.1). A
+                    // heavy take ends the turn (inventory 3.5), and the
+                    // creatures' turns after it may kill the taker.
+                    let died = ev.iter().any(|e| {
+                        matches!(
+                            e,
+                            Event::Died {
+                                who: Who::Player { player: 0 },
+                                ..
+                            }
+                        )
+                    });
+                    let stayed = died || g.current_player().at == at(sx, sy);
                     if ev.iter().any(|e| matches!(e, Event::BumpedCreature { .. })) {
                         continue;
                     }

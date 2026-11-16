@@ -134,14 +134,14 @@ impl Game {
         }
         // 8.1.2: the overburdened drop, after the healing die and the
         // smartness checks, is the turn's first action and uses one move;
-        // the moves were set from the load before it. With moves left the
-        // turn goes on: readying, then the steps.
+        // the moves were set from the load before it. A drop that leaves no
+        // move ends the turn, with no readying (combat 6.2): the weapon is
+        // readied next turn. With moves left the turn goes on: readying,
+        // then the steps.
         if !hindered && self.overburdened_drop(region, slot, ev) {
             self.creature(region, slot)?; // its drop spell may have killed it
             left = left.saturating_sub(1);
             if left == 0 {
-                // 2.7: the test for moves left comes after the action.
-                self.creature_ready(region, slot, ev);
                 return Some((0, moves));
             }
         }

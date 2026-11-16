@@ -205,6 +205,10 @@ enum Cmd {
         /// `806:0042` (docs/capture.md 10.34).
         #[arg(long)]
         map_bytes: Vec<String>,
+        /// A thing's "ACS may add" count (repeatable): `THING:N`, N 0..15,
+        /// the thing block's + 0x800 high nibble (docs/capture.md 10.38).
+        #[arg(long)]
+        may_add: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -445,6 +449,7 @@ fn main() {
             item_once,
             room_thing,
             map_bytes,
+            may_add,
         } => {
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
@@ -606,6 +611,9 @@ fn main() {
             }
             for m in &map_bytes {
                 scenario::map_bytes(&mut img, m).unwrap_or_else(|e| fail(&e));
+            }
+            for m in &may_add {
+                scenario::may_add(&mut img, m).unwrap_or_else(|e| fail(&e));
             }
             std::fs::write(&out, &img.data).unwrap_or_else(|e| fail(&e.to_string()));
             println!("wrote {} ({} bytes)", out.display(), img.data.len());

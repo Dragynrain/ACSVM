@@ -426,11 +426,24 @@ Combat will reuse this; spells are the first thing that can kill.
    whenever Life Force changes (spells, decay).
 2. The dead drop everything they carried where they died, except on the
    world map, and except things set to disappear. Owner-only weapons and
-   armor can't be dropped. [manual] **Engine:** possessions land on the
-   death square, top of the stack, gold as one pile (inventory 2.5); treasures
-   that vanish when dropped vanish; magic spells and owner-only weapons and
-   armor are lost. Drop spells do not go off. [unknown] On the world map
-   everything is lost. One `Died` event lists what was left.
+   armor can't be dropped. [manual] **The order on the square**: the gold
+   goes down first, as one pile (inventory 2.5), then the possessions one
+   by one from the lowest thing number up, each on top of what is there;
+   so the highest-numbered possession ends on top and the gold lies under
+   all of them, above whatever the square held before. A creature holding
+   our blade (thing 59) and owning treasures 50 and 51, with 50 gold,
+   killed on an empty room square, left (top first) the blade, treasure
+   51, treasure 50, the gold; a copy in an encounter area holding the
+   blade with 50 gold left the blade, the gold, then the door already
+   there ([encounters](encounters.md) 4.4). Both times the player's push
+   onto the square met the blade first ("cannot carry more blades", the
+   player owning one). [capture: rr33 `dk` and rr32's `kill/k2`, capture.md
+   10.37 item 2; ours, no research pass, 2026-11-15] **Engine:** so, on
+   the death square; treasures that vanish when dropped vanish; magic
+   spells and owner-only weapons and armor are lost. (Superseded: the
+   engine's earlier choice of the gold on top.) Drop spells do not go off.
+   [unknown] On the world map everything is lost. One `Died` event lists
+   what was left.
 3. A dead creature frees its slot. [data: creatures 1.1]
 4. A dead player stays in the player list, marked dead, and gets no more
    turns. After a death, play resumes from the last save (the region change
@@ -439,9 +452,10 @@ Combat will reuse this; spells are the first thing that can kill.
    left alive the game goes to the add-a-player screen rather than ending
    ([creatures](creatures.md) 2.2.5, 2.2.6). [research, capture] The
    save restored is the latest of the start of the last visit that began
-   in a different region from the visit before it, the last SAVE GAME
-   and the last Retire with Save (both written at the end of the round
-   they were asked in); the round counter comes back as that visit's
+   in a different region from the visit before it, the last SAVE GAME,
+   the last Retire with Save and the last add of a player from a roster
+   (each written at the end of the round it was asked in; an add of a
+   created player saves nothing, creatures 2.2.7.4); the round counter comes back as that visit's
    first round (or the round after the save), not the round of the door
    step (creatures 2.2.7). [capture: rr21, rr24, capture.md 10.25, 10.28]
    The button at a death message restores the save from before that
@@ -451,15 +465,19 @@ Combat will reuse this; spells are the first thing that can kill.
    are cleared; declining to add a player shows the same screen again
    and no turn is taken (creatures 2.2.6). [capture: rr21 `decline`] The
    same screen comes back when the last player retires
-   ([characters](characters.md) 7.6). Whether the all-dead save can come
-   back when the last player died on the world map and the newcomer
-   starts there is [unknown] (creatures 2.2.7, with the engine's choice).
+   ([characters](characters.md) 7.6). When the last player died on the
+   world map and a created newcomer starts there, no region change
+   follows and the all-dead save comes back at the newcomer's death:
+   nobody alive, the add-a-player screen again (creatures 2.2.7).
+   [capture: mem, rr34 `i3e-button`, capture.md 10.38 item 3; ours, no
+   research pass, 2026-11-15]
    **Engine:** when no player is
    left alive, or the last one has retired, the game emits
    `AllPlayersDead` ("nobody is left in play") and ignores every command
    but adding a player; declining is the front end showing its screen
    again. The save point is creatures 2.2.7's, kept in the save file
-   (`docs/saves.md` 1.4); the button resumes from it.
+   (`docs/saves.md` 1.4); the button resumes from it, and a save with
+   nobody alive brings `AllPlayersDead` back.
 5. A player who dies during their own turn ends it at once.
 
 ## 8. Characters

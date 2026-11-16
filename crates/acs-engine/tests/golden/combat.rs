@@ -18,12 +18,13 @@
 use crate::stats::{same_histogram, same_rate, Sweep, SEEDS};
 use crate::world::*;
 use acs_core::model::{
-    Access, Alignment, Carry, Creature, CustomTrigger, MagicDefense, PlacementChoice, Possession, RoomItem,
-    ThingKind, WeaponStats,
+    Access, Alignment, Carry, Creature, CustomTrigger, Destination, MagicDefense, PlacementChoice,
+    Possession, RoomItem, ThingKind, WeaponStats,
 };
 use acs_core::{Adventure, Platform};
 use acs_engine::{
-    combat, BlowOutcome, Command, Dir, Event, FireRefusal, Game, Location, PlayerSetup, Slot, Stat, Who,
+    combat, BlockReason, BlowOutcome, Command, Dir, Event, FireRefusal, Game, Location, PlayerSetup, Slot,
+    Stat, Who,
 };
 
 const MAIL: u16 = 40;
@@ -1414,6 +1415,385 @@ fn a_damaging_arrow_makes_section_7s_check_by_the_class() {
     );
 }
 
+// ---- the player's blows and section 7 -------------------------------------
+
+/// The generator's state, as a number.
+fn rng_state(g: &Game) -> u64 {
+    rng(g)["state"].as_u64().expect("a state")
+}
+
+/// Draws between two generator states (SplitMix64 adds its constant once a
+/// draw).
+fn draws(before: u64, after: u64) -> u64 {
+    const STEP: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut inv = STEP;
+    for _ in 0..6 {
+        inv = inv.wrapping_mul(2u64.wrapping_sub(STEP.wrapping_mul(inv)));
+    }
+    after.wrapping_sub(before).wrapping_mul(inv)
+}
+
+/// `ev` without the class changes (combat 7's outcome, not its draws).
+fn without_turns(ev: &[Event]) -> Vec<Event> {
+    ev.iter()
+        .filter(|e| !matches!(e, Event::CreatureTurned { .. }))
+        .cloned()
+        .collect()
+}
+
+/// `by`'s blows at `target` in `ev`: (all, damaging), and whether a damaging
+/// one has another blow after it.
+fn blows_at(ev: &[Event], by: Who, target: Who) -> (u64, u64, bool) {
+    let (mut blows, mut hits, mut later) = (0, 0, false);
+    for e in ev {
+        if let Event::Blow {
+            by: b,
+            target: t,
+            outcome,
+            ..
+        } = e
+        {
+            if *b != by || *t != target {
+                continue;
+            }
+            later |= hits > 0;
+            blows += 1;
+            hits += matches!(outcome, BlowOutcome::Hit { damage, .. } if *damage > 0) as u64;
+        }
+    }
+    (blows, hits, later)
+}
+
+/// rr33's `pb` (capture.md 10.37 item 1): FF on 5,4, a creature of ours of
+/// Speed 0 holding nothing, Constitution 40 and Life Force `lf`, of `class`
+/// and `wisdom`, T on 4,4.
+fn pb(class: (Alignment, bool), wisdom: u8, lf: u8) -> Adventure {
+    let mut a = kit(5);
+    ours(&mut a, 0, 5, 4, |c| {
+        c.speed = 0;
+        c.constitution = 40;
+        c.life_force = lf;
+        c.wisdom = wisdom;
+        c.strategy.alignment = class.0;
+        c.strategy.aggressive = class.1;
+    });
+    a
+}
+
+/// `pb`'s T (Speed 6, Dexterity 31, Constitution and Life Force 40) readies
+/// the blade (5 of 6 moves left) and pushes east into FF: the attack's
+/// events to T's turn end, and the command's draws.
+fn pb_push(a: &Adventure, seed: u64) -> (Vec<Event>, u64) {
+    let me = PlayerSetup {
+        dexterity: 31,
+        ..t(6, 40, vec![BLADE])
+    };
+    let mut g = game(a, seed, me, room(4, 4));
+    ready(&mut g, BLADE);
+    let before = rng_state(&g);
+    let ev = g.apply(Command::Move { dir: Dir::E });
+    let n = draws(before, rng_state(&g));
+    assert_eq!(attacks(&ev, ME), [(slot(0), 5)], "seed {seed}: {ev:?}");
+    let end = ev
+        .iter()
+        .position(|e| *e == Event::TurnEnded { player: 0 })
+        .unwrap_or_else(|| panic!("seed {seed}: the attack ends the turn: {ev:?}"));
+    (ev[..end].to_vec(), n)
+}
+
+/// capture.md 10.37 item 1 (`pb`, 32 runs a sweep, every draw checked by
+/// `blowcheck.py`): T's 5 blows a run at FF. An aggressive thief, neutral
+/// or enemy of Wisdom 10 (`b-c4`, `b-c5`, `b-c6`) draws combat 7's roll
+/// after every damaging blow (34 damaging blows each), staying as it was
+/// (the neutral may turn an enemy); the aggressive thief and enemy at
+/// Wisdom 3 (`b-c4w3`, `b-c6w3`, 40 each) and 20 (`b-c4w20`, `b-c6w20`, 37
+/// each) draw none. The roll is seen through the blows after it: the
+/// sweeps that draw are alike blow for blow, as are those that don't (no
+/// class changes but the neutral's), and the two differ after a damaging
+/// blow. The damaging blows are compared per blow (5 a run). FF's other
+/// stats are the harness's.
+#[test]
+fn a_damaging_blow_makes_section_7s_check_by_the_class() {
+    const RUNS: u64 = SEEDS / 8;
+    let cases: [(&str, usize, u8, bool, u64); 7] = [
+        ("b-c4", 4, 10, true, 34),
+        ("b-c6", 6, 10, true, 34),
+        ("b-c5", 5, 10, true, 34),
+        ("b-c4w3", 4, 3, false, 40),
+        ("b-c6w3", 6, 3, false, 40),
+        ("b-c4w20", 4, 20, false, 37),
+        ("b-c6w20", 6, 20, false, 37),
+    ];
+    // Each run's events and its draws over the command: the roll shows in
+    // the draws even where the blows after it come out the same.
+    type Runs = Vec<(Vec<Event>, u64)>;
+    let mut refs: [Option<Runs>; 2] = [None, None];
+    let mut damaged = vec![false; RUNS as usize];
+    for (name, k, wisdom, rolls, cap_hits) in cases {
+        let a = pb(CLASSES[k], wisdom, 40);
+        let (mut blows, mut hits) = (0, 0);
+        let mut runs = Vec::new();
+        for seed in 0..RUNS {
+            let (ev, n) = pb_push(&a, seed);
+            let (b, h, _) = blows_at(&ev, ME, slot(0));
+            blows += b;
+            hits += h;
+            if rolls {
+                damaged[seed as usize] = h > 0;
+            }
+            for e in &ev {
+                if let Event::CreatureTurned {
+                    alignment,
+                    aggressive,
+                    ..
+                } = e
+                {
+                    assert!(
+                        k == 5 && (*alignment, *aggressive) == (Alignment::Enemy, true),
+                        "{name} seed {seed}: {e:?}"
+                    );
+                }
+            }
+            runs.push((without_turns(&ev), n));
+        }
+        match &refs[rolls as usize] {
+            None => refs[rolls as usize] = Some(runs),
+            Some(r) => assert!(
+                *r == runs,
+                "{name}: the runs differ from the others that {}draw",
+                if rolls { "" } else { "don't " }
+            ),
+        }
+        same_rate(
+            &format!("{name}: damaging blows a blow"),
+            Sweep::Sample,
+            cap_hits,
+            5 * 32,
+            hits,
+            blows,
+        );
+    }
+    let (Some(plain), Some(rolled)) = (&refs[0], &refs[1]) else {
+        unreachable!()
+    };
+    // Wherever a damaging blow fell, the runs that roll differ from those
+    // that don't, in their blows or their draws.
+    let candidates = damaged.iter().filter(|&&b| b).count();
+    let differ = (0..RUNS as usize)
+        .filter(|&s| damaged[s] && plain[s] != rolled[s])
+        .count();
+    assert!(
+        candidates > 10 && differ == candidates,
+        "{differ} of {candidates}"
+    );
+}
+
+/// capture.md 10.37 item 1 (`k-c4`, `k-c5`, `k-c6`, `k-c1`, `k-c3`, 16 runs
+/// each): `pb` with FF at Life Force 1, the first damaging blow killing it:
+/// 13 kills in 16 runs each. After the killing blow the aggressive thief,
+/// neutral and enemy draw the roll (by the class before the blow), the
+/// peaceful neutral and the peaceful friend none. Seen through the
+/// generator: the runs are alike event for event, and a run with a kill
+/// draws one more over the command for the three that roll. FF's Wisdom
+/// isn't given: the harness's 13.
+#[test]
+fn a_killing_blow_makes_the_check_by_the_class_before_it() {
+    const RUNS: u64 = SEEDS / 8;
+    let cases = [
+        ("k-c1", 1, false),
+        ("k-c3", 3, false),
+        ("k-c4", 4, true),
+        ("k-c5", 5, true),
+        ("k-c6", 6, true),
+    ];
+    let mut plain: Option<Vec<(Vec<Event>, u64)>> = None;
+    for (name, k, rolls) in cases {
+        let a = pb(CLASSES[k], 13, 1);
+        let runs: Vec<(Vec<Event>, u64)> = (0..RUNS)
+            .map(|seed| {
+                let (ev, n) = pb_push(&a, seed);
+                (without_turns(&ev), n)
+            })
+            .collect();
+        let killed = |ev: &[Event]| {
+            ev.iter()
+                .any(|e| matches!(e, Event::Died { who, .. } if *who == slot(0)))
+        };
+        let kills = runs.iter().filter(|(ev, _)| killed(ev)).count() as u64;
+        same_rate(
+            &format!("{name}: runs with a kill"),
+            Sweep::Sample,
+            13,
+            16,
+            kills,
+            RUNS,
+        );
+        match &plain {
+            None => plain = Some(runs),
+            Some(p) => {
+                for (seed, ((ev, n), (pev, pn))) in runs.iter().zip(p).enumerate() {
+                    assert_eq!(ev, pev, "{name} seed {seed}");
+                    if killed(ev) {
+                        assert_eq!(*n, pn + rolls as u64, "{name} seed {seed}: draws");
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// rr33's `pu` (capture.md 10.37 item 1): T of Speed 12, Dexterity 31,
+/// holding the blade, on 5,4 at a turn of 12 moves (6 blows), U of
+/// `wisdom` beside it on 4,4; both Constitution and Life Force 40 (as
+/// 10.35's `fire-u`), the rest the harness's.
+fn pu(a: &Adventure, seed: u64, wisdom: u8) -> Game {
+    let me = PlayerSetup {
+        dexterity: 31,
+        ..t(12, 40, vec![BLADE])
+    };
+    let (mut g, _) = Game::new(a.clone(), seed, Default::default(), me);
+    let mut u = t(4, 40, vec![]);
+    u.name = "U".into();
+    u.wisdom = wisdom;
+    g.apply(Command::AddPlayer { setup: u });
+    g.apply(Command::Wait);
+    g.place(0, room(5, 4));
+    g.place(1, room(4, 4));
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    ready(&mut g, BLADE);
+    g.apply(Command::Wait);
+    while g.current() != 0 {
+        g.apply(Command::Wait);
+    }
+    assert_eq!(moves(&g), 12);
+    g
+}
+
+/// capture.md 10.37 item 1 (`u-w10`, 32 runs, 50 damaging blows): T's 6
+/// blows west at U of Wisdom 10 draw the roll after every damaging blow
+/// (`--player-roll yes`; without it 4 of 32 fit). Seen as above: U of
+/// Wisdom 10 is struck blow for blow as U of Wisdom 13 (both draw), and
+/// otherwise than U of Wisdom 3 (the engine's choice: no roll outside 6 to
+/// 14, combat 7) after a damaging blow. Damaging blows per blow (6 a run).
+#[test]
+fn a_players_damaging_blow_at_a_player_draws_the_roll() {
+    const RUNS: u64 = SEEDS / 8;
+    let a = kit(5);
+    let u = Who::Player { player: 1 };
+    // The blows and the draws over the command: U's Power numbers differ
+    // with its Wisdom (drift), so the events are compared as blows only.
+    let run = |seed: u64, wisdom: u8| {
+        let mut g = pu(&a, seed, wisdom);
+        let before = rng_state(&g);
+        let ev = g.apply(Command::Move { dir: Dir::W });
+        let n = draws(before, rng_state(&g));
+        assert_eq!(attacks(&ev, ME), [(u, 6)], "seed {seed}: {ev:?}");
+        let end = ev
+            .iter()
+            .position(|e| *e == Event::TurnEnded { player: 0 })
+            .unwrap();
+        let blows: Vec<Event> = ev[..end]
+            .iter()
+            .filter(|e| matches!(e, Event::Blow { .. }))
+            .cloned()
+            .collect();
+        (blows, n)
+    };
+    let (mut blows, mut hits, mut candidates, mut differ) = (0, 0, 0, 0);
+    for seed in 0..RUNS {
+        let w10 = run(seed, 10);
+        assert_eq!(w10, run(seed, 13), "seed {seed}");
+        let (b, h, _) = blows_at(&w10.0, ME, u);
+        blows += b;
+        hits += h;
+        if h > 0 {
+            candidates += 1;
+            differ += (w10 != run(seed, 3)) as u64;
+        }
+    }
+    assert!(
+        candidates > 10 && differ == candidates,
+        "{differ} of {candidates}"
+    );
+    same_rate(
+        "u-w10: damaging blows a blow",
+        Sweep::Sample,
+        50,
+        6 * 32,
+        hits,
+        blows,
+    );
+}
+
+/// capture.md 10.37 item 2 (`dk`, random state 0): EE (10.14.6) at Life
+/// Force 1 with 50 gold, holding the blade and owning treasures of ours,
+/// things 50 and 51 (weights not given: 1), on 5,4; T of Melee 100 holding
+/// the blade on 4,4. Killed, its things go down gold first, then its
+/// possessions from the lowest number up: the square's list, top first,
+/// the blade, treasure 51, treasure 50, the gold; T's push onto 5,4 then
+/// "T cannot carry more blades" (magic 7.2, inventory 2.2). Nothing
+/// random in the order: every seed whose pushes kill.
+#[test]
+fn a_killed_creatures_things_go_down_gold_first() {
+    let mut a = kit(5);
+    load(&mut a, T50, 1);
+    load(&mut a, T51, 1);
+    ours(&mut a, 0, 5, 4, |c| {
+        ee(c);
+        c.life_force = 1;
+        c.wealth = 50;
+        holds(c, BLADE);
+        has(c, T50);
+        has(c, T51);
+    });
+    let me = PlayerSetup {
+        melee: 100,
+        ..t(6, 40, vec![BLADE])
+    };
+    let mut killed = 0;
+    for seed in 0..64 {
+        let mut g = game(&a, seed, me.clone(), room(4, 4));
+        ready(&mut g, BLADE);
+        let mut died = None;
+        for _ in 0..8 {
+            assert_eq!(g.players()[0].at, room(4, 4), "seed {seed}");
+            let ev = g.apply(Command::Move { dir: Dir::E });
+            died = ev.iter().find_map(|e| match e {
+                Event::Died { who, at, left } if *who == slot(0) => Some((*at, left.clone())),
+                _ => None,
+            });
+            if died.is_some() || !g.players()[0].alive {
+                break;
+            }
+        }
+        let Some((at, left)) = died else { continue };
+        killed += 1;
+        assert_eq!(at, room(5, 4));
+        assert_eq!(left, [(GOLD, 50), (T50, 1), (T51, 1), (BLADE, 1)], "seed {seed}");
+        let stack: Vec<u16> = g.region(1).unwrap().rooms[ROOM as usize]
+            .items
+            .iter()
+            .filter(|it| (it.x, it.y) == (5, 4))
+            .map(|it| it.thing)
+            .collect();
+        assert_eq!(stack, [BLADE, T51, T50, GOLD], "seed {seed}");
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        assert!(
+            ev.iter().any(|e| matches!(
+                e,
+                Event::Blocked {
+                    reason: BlockReason::CarryLimit { thing: BLADE },
+                    ..
+                }
+            )),
+            "seed {seed}: {ev:?}"
+        );
+    }
+    assert!(killed > 32, "{killed} kills in 64");
+}
+
 /// deterministic, one run each; the draws-logged refusals 4 runs each):
 /// - `beside`: FIRE with EE beside: refused, no move, nothing drawn;
 /// - the stick into EE, holding the bow and owning no melee weapon:
@@ -2002,6 +2382,363 @@ fn a_creature_drops_above_half_its_capacity() {
         assert!(!ev
             .iter()
             .any(|e| matches!(e, Event::CreatureDropped { slot: 3, .. })));
+    }
+}
+
+/// A burdened creature of ours in slot 0 on (x, y): `class`, cautious,
+/// Speed `speed` and Strength `strength`, carrying treasure 50 of weight
+/// `w`, then `f`.
+fn burdened(
+    class: (Alignment, bool),
+    (x, y): (u8, u8),
+    (speed, strength, w): (u8, u8, i32),
+    f: impl FnOnce(&mut Creature),
+) -> Adventure {
+    let mut a = kit(5);
+    load(&mut a, T50, w);
+    ours(&mut a, 0, x, y, |c| {
+        c.strategy.alignment = class.0;
+        c.strategy.aggressive = class.1;
+        c.strategy.brave = false;
+        c.speed = speed;
+        c.strength = strength;
+        has(c, T50);
+        f(c);
+    });
+    a
+}
+
+/// rr16's `drop-corner` WE (Speed 2, Strength 1, carrying 400 of a capacity
+/// of 100: 0 moves) as `class` on (x, y).
+fn we(class: (Alignment, bool), at: (u8, u8), f: impl FnOnce(&mut Creature)) -> Adventure {
+    burdened(class, at, (2, 1, 400), f)
+}
+
+/// Slot 0's first `n` turns with T (Speed 6) on `at`.
+fn first_turns(a: &Adventure, seed: u64, at: Location, n: usize) -> Vec<Vec<Event>> {
+    let mut g = game(a, seed, t(6, 11, vec![]), at);
+    let mut ev = Vec::new();
+    while turns_of(&ev, 0).len() < n {
+        ev.extend(wait(&mut g));
+    }
+    turns_of(&ev, 0)[..n].iter().map(|t| t.to_vec()).collect()
+}
+
+fn dropped(turn: &[Event]) -> bool {
+    turn.iter()
+        .any(|e| matches!(e, Event::CreatureDropped { slot: 0, .. }))
+}
+
+fn readied(turn: &[Event], thing: u16) -> bool {
+    turn.iter()
+        .any(|e| matches!(e, Event::CreatureReadied { slot: 0, thing: t, .. } if *t == thing))
+}
+
+/// capture.md 10.37 item 3 (`fb-c0` .. `fb-c7`, `fb-c6b`, `fb-c6own`,
+/// `fbn`, 16 runs each; `fbe`, `fbe-c1`, `fbn-c6`): WE set onto 5,4 beside
+/// T on 4,4, its class set: no drop in any run for the peaceful and the
+/// aggressive thief, neutral and enemy (brave, or owning the blade, alike);
+/// 16 of 16 for the aggressive friend (and 10.24's peaceful friend, 128 of
+/// 128). With T diagonal on 4,5 it dropped 16 of 16 as an aggressive
+/// enemy and as a peaceful neutral: the square decides (creatures 8.1.2,
+/// 2.6's test). The first turn of each, nothing random in it.
+#[test]
+fn a_foe_beside_stops_the_overburdened_drop() {
+    let mut cases: Vec<(String, Adventure, Location, bool)> = Vec::new();
+    for (k, &class) in CLASSES.iter().enumerate() {
+        let a = we(class, (5, 4), |_| {});
+        cases.push((format!("fb-c{k}"), a, room(4, 4), k == 3 || k == 7));
+    }
+    cases.push((
+        "fb-c6b".into(),
+        we(CLASSES[6], (5, 4), |c| c.strategy.brave = true),
+        room(4, 4),
+        false,
+    ));
+    cases.push((
+        "fb-c6own".into(),
+        we(CLASSES[6], (5, 4), |c| has(c, BLADE)),
+        room(4, 4),
+        false,
+    ));
+    for (name, k) in [("fbe", 6), ("fbe-c1", 1)] {
+        cases.push((name.into(), we(CLASSES[k], (5, 4), |_| {}), room(4, 5), true));
+    }
+    for (name, a, at, drops) in &cases {
+        for seed in 0..32 {
+            let turn = &first_turns(a, seed, *at, 1)[0];
+            assert_eq!(turn_moves(turn), 0, "{name} seed {seed}");
+            assert_eq!(dropped(turn), *drops, "{name} seed {seed}: {turn:?}");
+        }
+    }
+}
+
+/// capture.md 10.37 item 3 (`wa-c1`, `wa-c3`, `wa-c6`, `wb-102`, `wb-38`,
+/// `wb-118`, 8 runs each, all alike): rr28's `burden2` WA (Speed 6,
+/// Strength 2, a load of 150 of 200: 3 moves). Set beside T on 5,4: as a
+/// peaceful friend it began with 3 moves, dropped, stepped twice; as a
+/// peaceful neutral or an aggressive enemy it began with 1, did not drop,
+/// stepped once. With T far and WB set beside it (WA a peaceful friend on
+/// 12,2, WB on 11,2): WB an aggressive enemy, 1 move, no drop, a step; a
+/// peaceful enemy or an aggressive friend, 3 moves, a drop, 2 steps. WB's
+/// stats aren't given: the harness's at Speed 0.
+#[test]
+fn with_moves_left_a_foe_beside_stops_the_drop_too() {
+    let wa = |class, at| burdened(class, at, (6, 2, 150), |_| {});
+    let mut cases: Vec<(String, Adventure, (u8, usize))> = Vec::new();
+    for (k, want) in [(3, (3, 2)), (1, (1, 1)), (6, (1, 1))] {
+        cases.push((format!("wa-c{k}"), wa(CLASSES[k], (5, 4)), want));
+    }
+    for (byte, k, want) in [(102, 6, (1, 1)), (38, 2, (3, 2)), (118, 7, (3, 2))] {
+        let mut a = wa(CLASSES[3], (12, 2));
+        ours(&mut a, 1, 11, 2, |c| {
+            c.speed = 0;
+            c.strategy.alignment = CLASSES[k].0;
+            c.strategy.aggressive = CLASSES[k].1;
+        });
+        cases.push((format!("wb-{byte}"), a, want));
+    }
+    for (name, a, (moves, walked)) in &cases {
+        for seed in 0..32 {
+            let turn = &first_turns(a, seed, room(4, 4), 1)[0];
+            assert_eq!(turn_moves(turn), *moves, "{name} seed {seed}");
+            assert_eq!(dropped(turn), *moves == 3, "{name} seed {seed}: {turn:?}");
+            assert_eq!(steps(turn), *walked, "{name} seed {seed}: {turn:?}");
+        }
+    }
+}
+
+/// capture.md 10.37 item 4: `r0b` (WE, a peaceful friend, owning the bow,
+/// not holding it, on 9,4, nobody beside; 16 runs and 8 longer): the drop
+/// turn (0 moves) dropped and did not ready; its next turn readied the bow
+/// and stepped on. `rmb` (WE owning the blade, a peaceful neutral on 5,4
+/// beside T, so no drop; 16 runs): the blade readied, then nothing: no
+/// step, no attack, its load and square unchanged. `r0m` (the blade, an
+/// aggressive enemy, T diagonal on 4,5; 16 runs): dropped, not readied
+/// (creatures 2.7, 8.1.2).
+#[test]
+fn readying_with_no_moves_left() {
+    let r0b = we(CLASSES[3], (9, 4), |c| has(c, BOW));
+    let rmb = we(CLASSES[1], (5, 4), |c| has(c, BLADE));
+    let r0m = we(CLASSES[6], (5, 4), |c| has(c, BLADE));
+    for seed in 0..32 {
+        let turns = first_turns(&r0b, seed, room(4, 4), 2);
+        assert_eq!(turn_moves(&turns[0]), 0, "r0b seed {seed}");
+        assert!(dropped(&turns[0]), "r0b seed {seed}: {:?}", turns[0]);
+        assert!(!readied(&turns[0], BOW), "r0b seed {seed}: {:?}", turns[0]);
+        assert!(readied(&turns[1], BOW), "r0b seed {seed}: {:?}", turns[1]);
+        assert!(steps(&turns[1]) >= 1, "r0b seed {seed}: {:?}", turns[1]);
+
+        let mut g = game(&rmb, seed, t(6, 11, vec![]), room(4, 4));
+        let ev = wait(&mut g);
+        let turn = turns_of(&ev, 0)[0];
+        assert_eq!(turn_moves(turn), 0, "rmb seed {seed}");
+        assert!(
+            !dropped(turn) && readied(turn, BLADE),
+            "rmb seed {seed}: {turn:?}"
+        );
+        assert_eq!(steps(turn), 0, "rmb seed {seed}");
+        assert!(attacks(turn, slot(0)).is_empty(), "rmb seed {seed}: {turn:?}");
+        let c = g.creature(1, 0).unwrap();
+        assert_eq!((c.x, c.y), (5, 4));
+        assert!(c.possessions.iter().any(|p| p.thing == T50));
+
+        let turn = &first_turns(&r0m, seed, room(4, 5), 1)[0];
+        assert!(
+            dropped(turn) && !readied(turn, BLADE),
+            "r0m seed {seed}: {turn:?}"
+        );
+    }
+}
+
+/// capture.md 10.37 item 5 (`dst`, 256 runs): `drop-wall`'s WE on 6,4 with
+/// the region's store on 5,4: 256 of 256 fitted with the store taking the
+/// thing, landing on 5,4 49, 6,3 37, 6,4 83, 6,5 37, 7,4 50 (creatures
+/// 8.1.1).
+#[test]
+fn a_store_takes_a_drop() {
+    const STORE: u16 = 83;
+    let mut a = dropper(6, 4);
+    thing(&mut a, STORE, "STORE", ThingKind::Store { picture: 5 });
+    item(&mut a, ROOM, 5, 4, STORE);
+    let squares = [(5, 4), (6, 3), (6, 4), (6, 5), (7, 4)];
+    let h = histogram(SEEDS, 6, |seed| bin(&squares, landing(&a, seed)));
+    assert_eq!(h[5], 0, "elsewhere");
+    same_histogram("dst: 5,4 6,3 6,4 6,5 7,4", &[49, 37, 83, 37, 50], &h[..5]);
+}
+
+/// GF (capture.md 10.37 item 6): a peaceful friend of Strength 20 and
+/// Speed 3 owning one treasure of weight 1 (thing 50), on (x, 4).
+fn giver(x: u8) -> Adventure {
+    burdened(CLASSES[3], (x, 4), (3, 20, 1), |_| {})
+}
+
+/// Where slot 0's first drop in `turn` landed, and where it stood then.
+fn gift(turn: &[Event]) -> Option<((u8, u8), (u8, u8))> {
+    let mut at = None;
+    for e in turn {
+        match e {
+            Event::CreatureMoved {
+                slot: 0,
+                to: Location::Room { x, y, .. },
+                ..
+            } => at = Some((*x, *y)),
+            Event::CreatureDropped {
+                slot: 0,
+                thing: T50,
+                at: Some(Location::Room { x, y, .. }),
+                ..
+            } => return Some(((*x, *y), at.unwrap_or((0, 0)))),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// capture.md 10.37 item 6: `g5` (GF on 5,4 beside T on 4,4; 64 runs): the
+/// gift is the turn's first action, landing on its own square 24, T's 4,4
+/// 6, 5,3 8, 5,5 13, 6,4 13. `g7` (GF on 7,4; 64 runs): it stepped to 6,4
+/// and 5,4 and gave with its third move in 38 runs, the landings around
+/// 5,4 (its own 13, 4,4 9, 6,4 9, 5,3 3, 5,5 4), never on T's other
+/// neighbours 3,4, 4,3, 4,5 (creatures 7.3: 8.1.1's choice around the
+/// giver).
+#[test]
+fn a_friends_gift_lands_around_the_giver() {
+    let squares = [(5, 4), (4, 4), (5, 3), (5, 5), (6, 4)];
+    let a = giver(5);
+    let h = histogram(SEEDS, 6, |seed| {
+        let turn = &first_turns(&a, seed, room(4, 4), 1)[0];
+        let (to, from) = gift(turn).unwrap_or_else(|| panic!("g5 seed {seed}: no gift: {turn:?}"));
+        assert_eq!(from, (0, 0), "g5 seed {seed}: stepped first");
+        bin(&squares, to)
+    });
+    assert_eq!(h[5], 0, "elsewhere");
+    same_histogram("g5: own 4,4 5,3 5,5 6,4", &[24, 6, 8, 13, 13], &h[..5]);
+
+    let squares = [(5, 4), (4, 4), (6, 4), (5, 3), (5, 5)];
+    let a = giver(7);
+    let mut gave = 0;
+    let h = histogram(SEEDS, 6, |seed| {
+        let turn = &first_turns(&a, seed, room(4, 4), 1)[0];
+        let Some((to, from)) = gift(turn) else {
+            return 5;
+        };
+        gave += 1;
+        assert_eq!((from, steps(turn)), ((5, 4), 2), "g7 seed {seed}: {turn:?}");
+        assert!(bin(&squares, to) < 5, "g7 seed {seed}: on {to:?}");
+        bin(&squares, to)
+    });
+    same_rate(
+        "g7: runs giving in the first turn",
+        Sweep::Sample,
+        38,
+        64,
+        gave,
+        SEEDS,
+    );
+    same_histogram("g7: own 4,4 6,4 5,3 5,5", &[13, 9, 9, 3, 4], &h[..5]);
+}
+
+/// capture.md 10.37 item 7: `s0g` (TT, a peaceful thief of Speed 0 on 8,4,
+/// 50 gold on 9,4; 16 runs): it took the gold on its first turn without
+/// moving, its wealth 50, 16 of 16. `s0x-long` (NN, a peaceful neutral of
+/// Speed 0 on 6,4 beside the side room's portal on 7,4; 16 runs of four
+/// turns): it went through once, otherwise staying put; `s2x-long` (NN at
+/// Speed 2, runs as long, taken as four turns too): through in 2 of 16
+/// (creatures 2.7: the Speed 0 step is not cancelled onto a thing it takes
+/// or an exit). Many rolls a run: samples.
+#[test]
+#[ignore = "engine disagrees with capture.md 10.37 item 7: a peaceful neutral of Speed 0 beside the portal went through in 1 of 16 four-turn runs, the engine in every run"]
+fn a_speed_0_creature_takes_a_thing_or_an_exit_beside_it() {
+    let mut a = kit(5);
+    ours(&mut a, 0, 8, 4, |c| {
+        c.speed = 0;
+        c.strategy.alignment = Alignment::Thief;
+        c.strategy.aggressive = false;
+    });
+    a.regions[0].rooms[ROOM as usize].items.insert(
+        0,
+        RoomItem {
+            x: 9,
+            y: 4,
+            thing: GOLD,
+            parameter: 0,
+            flag: false,
+            destination: None,
+            gold: Some(50),
+        },
+    );
+    for seed in 0..64 {
+        let mut g = game(&a, seed, t(6, 11, vec![]), room(4, 4));
+        let ev = wait(&mut g);
+        let turn = turns_of(&ev, 0)[0];
+        assert!(
+            turn.iter().any(|e| matches!(
+                e,
+                Event::CreatureGoldPickedUp {
+                    slot: 0,
+                    amount: 50,
+                    ..
+                }
+            )),
+            "s0g seed {seed}: {turn:?}"
+        );
+        assert_eq!(steps(turn), 0);
+        let c = g.creature(1, 0).unwrap();
+        assert_eq!((c.x, c.y, c.wealth), (8, 4, 50), "s0g seed {seed}");
+    }
+
+    for (name, speed, cap) in [("s0x-long", 0, 1), ("s2x-long", 2, 2)] {
+        let mut a = kit(5);
+        ours(&mut a, 0, 6, 4, |c| {
+            c.speed = speed;
+            c.strategy.alignment = Alignment::Neutral;
+            c.strategy.aggressive = false;
+        });
+        a.regions[0].rooms[ROOM as usize].items.insert(
+            0,
+            RoomItem {
+                x: 7,
+                y: 4,
+                thing: DOOR,
+                parameter: 0,
+                flag: false,
+                destination: Some(Destination::Room {
+                    region: 1,
+                    room: SIDE,
+                    x: 2,
+                    y: 4,
+                }),
+                gold: None,
+            },
+        );
+        let through = count(SEEDS / 4, |seed| {
+            let mut g = game(&a, seed, t(6, 11, vec![]), room(4, 4));
+            let mut ev = Vec::new();
+            // Four of its turns, or until it has gone through the portal
+            // (then it takes no more turns in the player's room).
+            for _ in 0..16 {
+                if turns_of(&ev, 0).len() >= 4 || g.creature(1, 0).is_some_and(|c| c.room != ROOM) {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let went = ev
+                .iter()
+                .any(|e| matches!(e, Event::CreatureTookDoor { slot: 0, .. }));
+            if speed == 0 && !went {
+                assert_eq!(steps(&ev), 0, "{name} seed {seed}");
+            }
+            went
+        });
+        same_rate(
+            &format!("{name}: runs through the portal"),
+            Sweep::Sample,
+            cap,
+            16,
+            through,
+            SEEDS / 4,
+        );
     }
 }
 

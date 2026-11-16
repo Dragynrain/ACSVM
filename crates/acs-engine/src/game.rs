@@ -421,24 +421,47 @@ impl Game {
 
     /// Runs one command for the player whose turn it is.
     /// Once every player is dead (magic 7.4) only adding a player is
-    /// accepted, and it starts a new cycle (creatures 2.2.6).
+    /// accepted, and it starts a new cycle (creatures 2.2.6); and the
+    /// button (`Restore`) on the game at an all-dead save, which reports
+    /// nobody in play again (2.2.7).
     pub fn apply(&mut self, cmd: Command) -> Vec<Event> {
         let mut ev = Vec::new();
         if self.over {
+            // Creatures 2.2.7, magic 7.4: the button played on the game at
+            // an all-dead save (nobody alive when it was made) brings back
+            // that very state: nobody in play, waiting for a new player.
+            if cmd == Command::Restore && self.saved_at == self.log.len() {
+                self.log.push(cmd);
+                self.offered = None;
+                ev.push(Event::Restored {
+                    round: self.sched.round,
+                });
+                ev.push(Event::AllPlayersDead);
+                return ev;
+            }
             if !matches!(cmd, Command::AddPlayer { .. } | Command::CreatePlayer { .. }) {
                 return ev;
             }
             self.log.push(cmd.clone());
             self.offered = None;
-            // The add-a-player screen of nobody in play: at once.
+            // The add-a-player screen of nobody in play: at once. A roster
+            // newcomer (`Join`) saves when it comes in (creatures 2.2.7.4,
+            // characters 3.2 step 5); a created one does not, so on the
+            // map, with no region change, the all-dead save stays the
+            // point (2.2.7).
+            let mut roster = false;
             if let Some(n) = newcomer(cmd) {
                 if self.name_ok(&n, &mut ev) {
+                    roster = matches!(n, Newcomer::Join(_));
                     self.join(n, &mut ev);
                 }
             }
             // A refused name leaves nobody in play: still waiting.
             if self.players.iter().any(|p| p.alive) {
                 self.over = false;
+                if roster {
+                    self.save(None, &mut ev);
+                }
                 self.begin_cycle(&mut ev);
                 self.next_turn(&mut ev);
             }
@@ -488,7 +511,8 @@ impl Game {
     /// saves 1.4): at the start of a visit to a region other than the one
     /// visited before, or at the end of a round in which SAVE GAME was
     /// chosen, a player retired with Save or an Add Someone brought a
-    /// newcomer in; 0 at the game's start. The later save wins.
+    /// newcomer in from a roster (`Join`); 0 at the game's start. The
+    /// later save wins.
     pub fn save_point(&self) -> usize {
         self.saved_at
     }
@@ -818,15 +842,17 @@ impl Game {
             // 2.2.6: the message's button restores the save made so far.
             self.offered = Some(self.saved_at);
         }
-        // 2.2.7.3, characters 7.3: a Retire with Save is a save point;
-        // 2.2.7.4, characters 6.2: so is an add that brings a newcomer in
-        // (a refusal saves nothing); 2.2.7.2: so is SAVE GAME. The order is
-        // retire, add, save (2.2.5), and the round makes one save point,
-        // holding the state after the add, with one `Saved` event.
-        let retired_saved = self.take_retirement(ev);
-        let joined = self.take_adds(ev);
+        // 2.2.7.3, characters 7.3: a Retire with Save saves at once, before
+        // the add (a created newcomer is not in it). 2.2.7.4, characters
+        // 6.2: then the add, and one more save if SAVE GAME was asked
+        // (2.2.7.2) or a roster newcomer (`Join`) came in; a created
+        // newcomer or a refusal saves nothing. No add ends the visit.
+        if self.take_retirement(ev) {
+            self.save(None, ev);
+        }
+        let roster = self.take_adds(ev);
         let asked = std::mem::take(&mut self.save_asked);
-        if retired_saved || joined || asked {
+        if roster || asked {
             self.save(None, ev);
         }
         if !self.players.iter().any(|p| p.alive) {
@@ -896,8 +922,9 @@ impl Game {
 
     /// The round's waiting add (characters 6.2, 6.4): refused once, with no
     /// draw, while `MAX_PLAYERS` live (6.1); otherwise rolled or set up
-    /// then, and added in the lowest free slot. True when a newcomer
-    /// joined (a save point, creatures 2.2.7.4).
+    /// then, and added in the lowest free slot. True when a newcomer from
+    /// a roster (`Join`) came in: only that add is a save point (creatures
+    /// 2.2.7.4).
     fn take_adds(&mut self, ev: &mut Vec<Event>) -> bool {
         let Some(n) = std::mem::take(&mut self.adds).into_iter().next() else {
             return false;
@@ -906,8 +933,9 @@ impl Game {
             ev.push(Event::AddRefused);
             false
         } else {
+            let roster = matches!(n, Newcomer::Join(_));
             self.join(n, ev);
-            true
+            roster
         }
     }
 

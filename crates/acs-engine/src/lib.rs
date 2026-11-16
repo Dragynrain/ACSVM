@@ -864,7 +864,8 @@ pub enum Event {
         creature: u16,
     },
     /// Life Force reached 0 (magic 7). `left` lists what now lies at `at`
-    /// (thing, amount; gold in pieces).
+    /// (thing, amount; gold in pieces), in the order put down, the last
+    /// on top (magic 7.2: the gold first).
     Died {
         who: Who,
         at: Location,
