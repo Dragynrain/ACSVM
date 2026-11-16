@@ -6,7 +6,7 @@
 //! comments refer to it).
 
 use crate::game::Game;
-use crate::{Event, Location, RemovalReason, Who};
+use crate::{Event, Location, RemovalReason};
 use acs_core::model::{
     Adventure, Alignment, Creature, MagicDefense, Possession, Region, Room, Strategy, ThingId,
 };
@@ -108,7 +108,7 @@ pub(crate) fn map_region() -> Region {
 /// The map region with its areas seeded from the world map's lists
 /// (3.4): area n gets list n, once, at the start of the game. Its stock
 /// (stores 2.7) is every thing 1..80 a store can stock (treasures, magic
-/// items, weapons and armor, never spells) with a value above 0, each up to
+/// items, weapons and armor, never spells), value 0 included, each up to
 /// the stock limit (stores 2.6); buying and selling there never change it.
 pub(crate) fn seeded_map_region(adv: &Adventure) -> Region {
     let mut region = map_region();
@@ -116,7 +116,7 @@ pub(crate) fn seeded_map_region(adv: &Adventure) -> Region {
         region.rooms[n + 1].items = items.clone();
     }
     region.store = (1..=80)
-        .filter(|&t| crate::stores::value(adv, t).is_some_and(|v| v > 0))
+        .filter(|&t| crate::stores::value(adv, t).is_some())
         .map(|thing| Possession {
             thing,
             count: crate::inventory::limit(thing) as u8,
@@ -240,8 +240,7 @@ impl Game {
         c.x = x;
         c.y = y;
         self.map.residents[slot] = c;
-        self.random.push((0, slot));
-        self.forget_vitals(Who::Creature { region: 0, slot });
+        self.fill_slot(0, slot, true);
         Some(slot)
     }
 

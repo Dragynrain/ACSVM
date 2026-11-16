@@ -335,3 +335,107 @@ fn a_store_visit_end_to_end() {
     assert_eq!(g.current_player().gold, 500 + 24 - 10);
     assert_eq!(stock(&g, GEM), 3);
 }
+
+/// Stores 2.7 (capture.md 10.42 item 3): in a room store, a weapon or
+/// armor of weight 0 that nobody may use (HAND) is out of stock though
+/// stocked, its count kept; a treasure of value 0 sells for 0; a weapon of
+/// weight 0 anyone may use is offered.
+#[test]
+fn a_weightless_weapon_nobody_may_use_is_never_offered() {
+    use acs_core::model::{Carry, Possession, ThingKind};
+    const HAND: u16 = 12;
+    const PLATE: u16 = 13;
+    const STICK: u16 = 14;
+    const PEBBLE: u16 = 22;
+    both(|p| {
+        let mut a = adventure(p);
+        let sword = a.things[SWORD as usize - 1].clone();
+        let weightless = |anyone: bool, armor: bool| {
+            let mut t = sword.clone();
+            if let ThingKind::MeleeWeapon {
+                picture,
+                disappears_after_use,
+                carry,
+                stats,
+            } = &mut t.kind
+            {
+                *carry = Carry { weight: 0, value: 0 };
+                stats.usable_by_anyone = anyone;
+                if armor {
+                    t.kind = ThingKind::Armor {
+                        picture: *picture,
+                        disappears_after_use: *disappears_after_use,
+                        carry: *carry,
+                        stats: *stats,
+                    };
+                }
+            }
+            t
+        };
+        a.things[HAND as usize - 1] = weightless(false, false);
+        a.things[PLATE as usize - 1] = weightless(false, true);
+        a.things[STICK as usize - 1] = weightless(true, false);
+        let mut pebble = a.things[GEM as usize - 1].clone();
+        if let ThingKind::Treasure { carry, .. } = &mut pebble.kind {
+            carry.value = 0;
+        }
+        a.things[PEBBLE as usize - 1] = pebble;
+        for thing in [HAND, PLATE, STICK, PEBBLE] {
+            a.regions[0].store.push(Possession { thing, count: 1 });
+        }
+        a.regions[0].store.sort_by_key(|s| s.thing);
+        let (mut g, _) = Game::new(
+            a,
+            1,
+            Rules::default(),
+            PlayerSetup {
+                speed: 6,
+                gold: 500,
+                ..Default::default()
+            },
+        );
+        g.place(
+            0,
+            Location::Room {
+                region: 1,
+                room: 0,
+                x: 3,
+                y: 3,
+            },
+        );
+        open(&mut g);
+        assert!(g.store_visit().is_some());
+        for thing in [HAND, PLATE] {
+            assert_eq!(g.on_shelf(1, thing), 0, "thing {thing}");
+            let ev = g.apply(Command::Buy { thing });
+            assert!(
+                ev.iter().any(|e| matches!(
+                    e,
+                    Event::StoreRefused {
+                        reason: StoreRefusal::NotStocked,
+                        ..
+                    }
+                )),
+                "thing {thing}: {ev:?}"
+            );
+            assert_eq!(stock(&g, thing), 1, "thing {thing}: the count kept");
+            assert!(!g.current_player().owns(thing));
+        }
+        for thing in [PEBBLE, STICK] {
+            assert_eq!(g.on_shelf(1, thing), 1, "thing {thing}");
+            let ev = g.apply(Command::Buy { thing });
+            assert!(
+                ev.contains(&Event::Bought {
+                    player: 0,
+                    thing,
+                    price: 0,
+                    kept: true
+                }),
+                "thing {thing}: {ev:?}"
+            );
+            assert_eq!(stock(&g, thing), 0);
+            assert!(g.current_player().owns(thing));
+        }
+        assert_eq!(g.current_player().gold, 500);
+    });
+}

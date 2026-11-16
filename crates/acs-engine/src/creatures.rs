@@ -168,9 +168,10 @@ impl Game {
     }
 
     /// 2.4: after a round in a room region, a roll of 0..15 picks a slot;
-    /// if it holds a creature, each random creature of the region takes a
-    /// percentile roll, and under 20 it goes if no living player stands in
-    /// its room now.
+    /// if it holds a creature, each slot carrying the random mark, from
+    /// slot 0 up, takes a percentile roll, whether or not a creature is
+    /// still in it, and under 20 its creature goes if it is alive and no
+    /// living player stands in its room now.
     pub(crate) fn left_behind(&mut self, ev: &mut Vec<Event>) {
         let region = self.sched.region;
         if region == 0 {
@@ -181,15 +182,12 @@ impl Game {
         if pick >= slots || self.creature(region, pick).is_none() {
             return;
         }
-        for (rg, slot) in self.random.clone() {
-            if rg != region || self.creature(region, slot).is_none() {
-                continue;
-            }
-            if !self.rng.percent(LEFT_BEHIND) {
+        for slot in 0..slots {
+            if !self.is_random(region, slot) || !self.rng.percent(LEFT_BEHIND) {
                 continue;
             }
             let Some(c) = self.creature(region, slot) else {
-                continue;
+                continue; // a marked empty slot: nothing happens
             };
             let room = c.room;
             let occupied = self
@@ -200,6 +198,20 @@ impl Game {
                 self.remove_creature(region, slot, RemovalReason::LeftBehind, ev);
             }
         }
+    }
+
+    /// 2.4 (engine choice): a creature put into a slot sets the slot's
+    /// random mark when it is a random room creature or a map-encounter
+    /// copy, and clears it for anything else (a summons). The slot's
+    /// carried moves (5.4) were the last creature's and go.
+    pub(crate) fn fill_slot(&mut self, region: u8, slot: usize, random: bool) {
+        self.random.retain(|&r| r != (region, slot));
+        if random {
+            self.random.push((region, slot));
+        }
+        self.creature_carried
+            .retain(|c| (c.region, c.slot) != (region, slot));
+        self.forget_vitals(Who::Creature { region, slot });
     }
 
     /// Frees a slot; what the creature carried goes with it.
@@ -215,7 +227,9 @@ impl Game {
             c.possessions.clear();
             c.wealth = 0;
         }
-        self.random.retain(|&r| r != (region, slot));
+        // 2.4: the slot keeps its random mark.
+        self.creature_carried
+            .retain(|c| (c.region, c.slot) != (region, slot));
         self.forget_vitals(Who::Creature { region, slot });
         ev.push(Event::CreatureRemoved { region, slot, reason });
     }
@@ -251,8 +265,7 @@ impl Game {
         c.y = y;
         let reg = self.region_mut(region)?;
         reg.residents[slot] = c;
-        self.random.push((region, slot));
-        self.forget_vitals(Who::Creature { region, slot });
+        self.fill_slot(region, slot, true);
         Some((slot, Location::Room { region, room, x, y }))
     }
 }

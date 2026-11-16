@@ -78,7 +78,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       keeps its carried moves meanwhile. In the same region it simply
       takes its next turn in its new room's place on the next round's
       list (2.2.3). The idle healing roll of a carried turn is given in
-      [magic](magic.md) 5.3.1.
+      [magic](magic.md) 5.3.1. **A creature** that takes a door carries
+      its moves the same way: its next turn starts with the moves it had
+      left after the door's step, or its full Speed if none (5.4).
    5. **After each round**, in this order: the round counter goes up by
       one and anything queued for that round is handled; in a room region,
       the end-of-round random creature rolls (2.4); if the number of
@@ -409,9 +411,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    each with its own random state, the rule predicted all 1,280 round
    ends' draws and the 114 removals, 27 of them at the end of the round
    the player left in; the researcher's reading got 154 runs wrong. [capture: mem --draws, case fall,
-   capture.md 10.14.3] Not captured: two random creatures at once (one
-   roll or one each); a player walking into a room mid-round (by the rule
-   above it protects the room's random creatures). In the combat cases
+   capture.md 10.14.3] Not captured: a player walking into a room
+   mid-round (by the rule above it protects the room's random creatures).
+   In the combat cases
    (the player and one or two residents in one room, no random creature)
    each round end drew the slot roll and then exactly one percentile: when
    the slot was in use, this one only, never the further roll `fall`
@@ -428,15 +430,48 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    [research: run, 16 replays of `fall`; traced] A removed creature's slot
    keeps the mark (its Constitution goes to 0, the mark byte stays set in
    all 114 of our removals), which is why the roll goes on after it has
-   gone. [capture: fall, 256 runs] Not captured: two random creatures at
-   once (one roll each, by this). **Engine:** at the end of each round of
-   a room region's visit, the slot roll, then a percentile for each random
-   creature still there (a removed one draws none: the engine keeps no
-   mark), each removed below 20 when no living player stands in its room;
-   it takes what it carries (`CreatureRemoved`, reason `left_behind`);
-   what becomes of its things in the original is not known. The engine
-   takes the room's random-creature roll on entering (3.1), not each
-   round.
+   gone. [capture: fall, 256 runs]
+   **Two random creatures at once** [capture: mem --draws, rr37
+   `f2/sweep`, `scripts/fall2check.py`, capture.md 10.41 item 1; ours, no
+   research pass, 2026-11-16]. The `fall` snapshot with slot 0 marked as
+   well as slot 7, so two random creatures stood in a room with no player,
+   swept over 256 random states for five round ends each. At every round
+   end: the slot roll, and when that slot was in use **one percentile for
+   each marked slot, lowest slot first** (0, then 7), each under 20
+   removing that slot's creature if it was still alive. A slot whose
+   creature had already gone **still drew its percentile** at every later
+   round end where the slot roll hit. Every run's draws fitted (1,280
+   round ends, 643 with the slot in use); slot 0 went in 115 runs, slot 7
+   in 97, each at the round end predicted, and **both went at the same
+   round end in 14 runs**, as predicted. Read the other ways, the slots
+   high to low got 155 runs wrong, one percentile for both 255, a
+   percentile only for a slot whose creature is still alive 112.
+   So the rule, in full:
+   1. At the end of each round of a room region's visit, a roll of 0 to
+      15 picks a slot. If no creature is in that slot, nothing more.
+   2. Otherwise each slot carrying the random mark, from slot 0 up, draws
+      a percentile, whether or not a creature is still in it.
+   3. Under 20, the slot's creature is removed if it is alive and no
+      living player stands in its room. Several can go at one round end.
+   4. The mark is set on a slot when a random room creature is put there
+      (3.3). Removal keeps it (above). What clears it, and whether a
+      death keeps it too, is [unknown]: none of these runs put a new
+      creature into a marked empty slot.
+   **Engine:** so. The engine keeps the mark per slot, apart from the
+   creature: a removal, and (its choice) a banishment and a death, leave
+   it set, so a
+   marked empty slot draws its percentile at each round end where the
+   slot roll hits, and a draw under 20 there does nothing. Engine's choice
+   for the unseen part: putting a creature into a slot sets the mark if
+   it is a random room creature (3.3) or a map encounter copy
+   ([encounters](encounters.md)), and clears it for anything else (a
+   summons, [magic](magic.md) 3.2; an added resident); placed residents
+   start unmarked. A creature removed this way takes what it carries
+   (`CreatureRemoved`, reason `left_behind`); what becomes of its things
+   in the original is not known. (Superseded: the engine's percentile for
+   live random creatures only, which ran one roll short after a removal.)
+   The engine takes the room's random-creature roll on entering (3.1),
+   not each round.
 5. **The movement bar.** A creature's turn has a bar like a player's: its
    Speed after the weight slowdown ([inventory](inventory.md) 3.3), using
    the creature's own Strength, Constitution, Life Force and load. On the
@@ -472,8 +507,24 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    squares beside that is Aggressive and not a Friend) and creatures (a
    foe as combat 8.1); Speed 0 stays 0. The `TurnStarted` event says so
    for a player (`hindered`); a creature's `CreatureTurn` gives the moves.
-   Applied at turn start only; whether walking up to such an individual
-   mid-turn shortens the rest of the bar is not captured.
+   **Odd Speeds and mid-turn** [capture: mem, rr37 `hp-s6` to `hp-s1`,
+   `mc-m`, `cr-m`, `scripts/adjcheck.py`, capture.md 10.41 item 2; ours,
+   no research pass, 2026-11-16]. The halving rounds up at every Speed,
+   for players and creatures alike, and is taken **only at the turn's
+   start**: an individual that comes beside a foe during its turn, by its
+   own step or the foe's, loses only the step it spends and keeps the
+   rest of its bar. A player of Speed 6, 7, 5, 3 and 1 stepped beside an
+   aggressive enemy: right after the step it had 5, 6, 4, 2 and 0 moves
+   (one gone, nothing halved), and each of its next two turns, still
+   beside the enemy, began with 3, 4, 3, 2 and 1. An aggressive enemy of
+   Speed 7 walking up to the player began its turns beside the player
+   with 4 moves (7 otherwise), the player its turns beside it with 3 of 6;
+   arriving beside the player with 0 to 6 moves left, it went on spending
+   them one a step (no drop of more than one inside a turn). Peaceful
+   enemies of Speed 1, 3, 5 and 7 beside a player of Speed 2 began their
+   turns with 1, 2, 3 and 4, the same creatures elsewhere with their full
+   Speed; rounding down misses 33 of the turn starts. **Engine:** so: the
+   test and the halving at the turn's start only, never during a turn.
    **A turn that starts with carried moves** (after a door into another
    room, 2.2.4) is not halved, whoever stands beside the player; a turn
    after such a door with no moves carried starts at the full bar halved,
@@ -485,7 +536,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    every later turn beside the enemy began with 6. [capture: mem, rr25,
    cases adj, diag, capture.md 10.29; ours, no research pass,
    2026-11-14] **Engine:** so; `TurnStarted` reports `hindered` false
-   for a turn that starts with carried moves.
+   for a turn that starts with carried moves. A creature's turn that
+   starts with moves carried through a door (5.4) was never seen beside a
+   foe [unknown]. **Engine:** as for a player: not halved.
 7. **A creature's turn is a loop**: it takes one action (after the top of
    the turn: catch-up, drift and the healing die, [magic](magic.md) 5), then
    another while it has moves left. The test comes after the action, so a
@@ -539,8 +592,15 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    63 seen; when it does win, the step onto
    it stands and the creature goes through. [capture: rr33 `s0x-long`,
    rr35 `ta-pn0`, `ta-pf0`, `ta-an0`, capture.md 10.39 item 1; ours, no
-   research pass, 2026-11-16] A Speed 0 fighter owning a weapon beside one
-   was not run.
+   research pass, 2026-11-16] **A Speed 0 fighter** beside an exit or
+   gold, owning a melee weapon or not, does the same: aggressive neutrals
+   of Speed 0 in the corners, the one other open square beside each a
+   portal or 50 gold, two holding and owning our blade and two unarmed,
+   the player (their goal) across the room, went through the portal or
+   took the gold from beside on their first turn in 64 of 64 runs. With
+   one open square there is one candidate, and the step onto an exit or a
+   thing it takes is never cancelled. [capture: mem, rr37 `w5-m2`,
+   capture.md 10.41 item 5; ours, no research pass, 2026-11-16]
    **Engine:** 2.7 as
    written, the smartness checks as 6.6's
    engine choice says, with these two readings settled by capture:
@@ -642,7 +702,38 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 ## 5. Where a creature may step
 
 1. Creatures never move onto a space or an obstacle, custom ones included.
-   [manual] **Engine:** nor onto walls, stores, or another individual.
+   [manual] On the C64 no space is open to a creature, not a plain one
+   open to anyone, nor a custom one whose condition it meets: peaceful
+   friends of Speed 3 in the four corners, both squares beside each
+   holding a space of ours (one invoking a spell, one plain, a custom one
+   "when moved onto", a custom one open to owners of a thing the friend
+   owned), never left their corners in 64 turns and idled their bars out.
+   [capture: mem, rr37 `cs-m`, capture.md 10.41 item 3; ours, no research
+   pass, 2026-11-16] **Engine:** so, and nor onto walls, stores, or
+   another individual.
+   **An obstacle under the goal** [capture, 1 run: rr37 `ad-ob-m` run 1,
+   capture.md 10.41 item 3; ours, no research pass, 2026-11-16]. A player
+   arrived by a door on the square of an obstacle that bumps for Life
+   Force -5 (movement 6.3). A slinker friend beside that square, the
+   player its goal, picked it in its step choice, scored as a square it
+   had stood on that turn (cost 4: it had arrived there by the same door
+   and stepped off); its Life Force fell by 5 and it stayed where it was.
+   So the obstacle's bump went off for the creature. The other five runs
+   never had the friend beside the square with a move left. What the
+   original does with a goal's square holding an individual and no
+   obstacle is not seen by this [unknown]: elsewhere a slinker beside the
+   player it seeks steps round it (7.2). **Engine:** a narrow rule for
+   this case only. When a creature that does not strike (combat 2.3) has
+   an individual for its goal, and that individual stands on a square
+   whose top thing is an obstacle or a custom obstacle, the square is open
+   to it in its step choice, costing 4 if it has stood there this turn
+   and 1 otherwise (6.5). Picking it is a bump: the creature stays put,
+   the obstacle's bump spell, if it has one, goes off acting on the
+   creature, as a door's spell does ([magic](magic.md) 6.6), a disappearing obstacle
+   vanishes (movement 5.9), and the move is spent, the turn going on. An
+   individual's square is otherwise closed to a creature that does not
+   strike. (The custom obstacle, the move spent and the cost 1 when not
+   stood on are the engine's choices, not seen.)
 2. **Things it won't pick up.** Creatures never pick up magic items,
    weapons or armor; only thieves pick up treasure; all creatures except
    friends and slinker neutrals pick up gold. [manual] An AI will not walk
@@ -673,10 +764,28 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    the player landed on it too, and the friend that followed landed there
    as well, three on one square, then stepped off (6 runs, the friend
    following in 5). [capture: turns, case held, capture.md 10.10.5]
+   **Moves carried through the door.** The creature's next turn starts
+   with the moves it had left after the door's step, as a player's does
+   (2.2.4): a friend of Speed 6 that followed the player through a portal
+   on its first turn began its next turn with 3 moves in 5 runs and 1 in
+   the sixth, its Speed less the steps it had taken up to and onto the
+   portal (3, or 5). [capture: mem, rr37 `ad-sp-m`, `ad-ob-m`, `ad-cs-m`,
+   6 of 6 runs, capture.md 10.41 item 4; ours, no research pass,
+   2026-11-16] Not seen [unknown]: a creature through a door with no move
+   left, one beside a foe at its carried turn's start, and whether the
+   top of that turn (catch-up, drift, the die) or the weight slowdown
+   changes the carried count.
    **Engine:** taking a door costs the step and ends the creature's turn;
    it arrives on the destination square whoever stands there, sharing it
    until they move. The original keeps the creature out of sight until
-   its next turn; the engine places it at once.
+   its next turn; the engine places it at once. Its next turn takes the
+   top of the turn as usual (catch-up, drift, the die, [magic](magic.md)
+   5), then starts with the moves left after the door's step, or its full
+   bar (2.5, 2.6) if none; carried moves are not halved beside a foe and
+   not cut again by the load, and the turn's full moves for the idle
+   healing roll stay those of the door turn, all as for a player (2.2.4,
+   2.6, magic 5.3.1). The carried count is kept until that turn, the next
+   visit or cycle included.
 5. A creature sent through a door into a deleted room is banished.
    [manual] **Engine:** removed (`CreatureRemoved`, reason `banished`) with
    what it carries.
@@ -802,9 +911,17 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    **Engine:** so. (Superseded: the engine's cost 1 or 3 on every step,
    with which a Speed 0 slinker beside an exit always went through on its
    first turn.)
-   Not settled: whether a square holding gold or a treasure it would take
-   also costs 4 on the first step (not tried); one more case in which the
-   step choice gives up. [unknown]
+   **The first step's 4 is an exit's alone.** Gold or a treasure it would
+   take costs its thing rank / 32 on every step, the first included, and 1
+   when it is the goal's own square. An aggressive neutral of Speed 0
+   (gold rank 96, so cost 3) with 50 gold between it and the player, its
+   goal: the gold scored at 3 fitted 16 of 16 runs (32 turns, 14 takes),
+   at 4 on the first step 2 of 16. A peaceful thief of Speed 0 whose goal
+   was 50 gold beside it (cost 1) took it on its first turn in 16 of 16
+   runs; 4 on the first step fitted none. [capture: mem `--draws`, rr37
+   `w5-m2`, `g1-m`, `scripts/goalcheck.py --cand gold:..`, capture.md
+   10.41 item 6; ours, no research pass, 2026-11-16] **Engine:** so.
+   Not settled: one more case in which the step choice gives up. [unknown]
 6. **Engine:** 6.2 to 6.5 as written. Before the goal, a smartness roll
    decides whether a creature acts smart (magic 6.1). On the C64 that roll
    is taken at the top of the turn by friends, enemies and every fighter
@@ -1051,12 +1168,16 @@ creatures replay exactly.
    roster add's effect on the visit order (10.38 used a created player).
 2. Random creatures: appearing and falling away captured and researched
    (3, 2.4); the square swept over 32 random states (3.2, capture.md
-   10.40). Still open (not run in capture.md 10.39 either): two random
-   creatures left at once; the square of each random state, draw by draw.
+   10.40); two random creatures left at once (2.4: a percentile for each
+   marked slot in slot order, a removed one's included; capture.md
+   10.41). Still open: the square of each random state, draw by draw;
+   what clears a slot's random mark (2.4.4).
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend), and a turn that starts with carried moves beside an
-   enemy (not halved, capture.md 10.29). Still open (not run in capture.md
-   10.39): mid-turn, odd Speeds.
+   enemy (not halved, capture.md 10.29); odd Speeds (rounding up) and
+   coming beside a foe mid-turn (no halving), for players and creatures
+   (capture.md 10.41). Still open: a creature's carried turn beside a foe
+   (5.4).
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5), and for a fighter enemy going for the player
@@ -1065,11 +1186,16 @@ creatures replay exactly.
    10.39). Still open: other fighter types' goals among individuals.
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll),
    and an exit's cost of 4 on the turn's first step (6.5, capture.md
-   10.39). Still open: the first step's cost of a square holding gold or
-   a treasure.
+   10.39); gold costing its rank / 32 on the first step too, 1 as the
+   goal (6.5, capture.md 10.41). Still open: the step choice's give-up
+   case; a goal's square holding an individual on an obstacle (5.1, one
+   run), and on no obstacle.
 6. A creature following through a door: captured (5.4: the step ends its
    turn; it lands on the destination square, sharing it with a player or a
-   creature standing there). Seen in the same runs:
+   creature standing there; its next turn starts with the moves it had
+   left, capture.md 10.41). Still open: a creature through a door with no
+   move left. Creatures never stepping onto spaces, custom ones included
+   (5.1): captured (capture.md 10.41). Seen in the same runs:
    creatures' paths and goals varied from run to run (a friend sometimes
    took the portal with the player still in the room), so goal choice
    takes a roll (items 4 and 5; the random-rolls brief, item 12).
@@ -1094,5 +1220,6 @@ creatures replay exactly.
    (capture.md 10.37). How often a Speed 0 creature beside an exit takes
    it (its one step choice a first step, the exit costing 4, 6.5), a
    Speed 0 aggressive neutral with no weapon included: captured (capture.md
-   10.39). Still open: a Speed 0 fighter owning a melee weapon beside an
-   exit or a thing it takes.
+   10.39). A Speed 0 fighter, owning a melee weapon or not, taking the
+   one open square beside it when that is an exit or gold (2.7):
+   captured (capture.md 10.41).

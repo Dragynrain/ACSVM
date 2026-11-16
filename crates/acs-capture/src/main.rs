@@ -75,6 +75,8 @@ struct Cli {
     cmd: Cmd,
 }
 
+// Parsed once at start-up, so the size of the scenario variant does not matter.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Cmd {
     /// Write a scenario adventure disk (docs/capture.md section 7).
@@ -195,6 +197,10 @@ enum Cmd {
         /// Our magic item disappears after use (docs/capture.md 10.31).
         #[arg(long)]
         item_once: bool,
+        /// When our magic item acts: `use`, `pickup`, `drop`, joined by
+        /// `+` (default use; docs/capture.md 10.42).
+        #[arg(long)]
+        item_when: Option<String>,
         /// A fixed thing of ours on a room 0 square (repeatable):
         /// `KIND:X,Y`, KIND space, custom-space or custom-obstacle
         /// (docs/capture.md 10.32).
@@ -456,6 +462,7 @@ fn main() {
             patch,
             area_list,
             item_once,
+            item_when,
             room_thing,
             map_bytes,
             may_add,
@@ -630,6 +637,9 @@ fn main() {
             };
             if item_once {
                 scenario::item_once(&mut img);
+            }
+            if let Some(w) = &item_when {
+                scenario::item_when(&mut img, w).unwrap_or_else(|e| fail(&e));
             }
             for m in &map_bytes {
                 scenario::map_bytes(&mut img, m).unwrap_or_else(|e| fail(&e));

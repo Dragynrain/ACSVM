@@ -27,6 +27,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    thing 81 in all 15 adventures (13 keep the default name, two rename it),
    a treasure of weight 1 or 4 and value 1. Creature records store it as the
    wealth count (at most 3,100 in the corpus), not in the bitmap. [data]
+   Gold's weight counts once per piece, 0 included (3.1). [capture: rr38,
+   capture.md 10.42 item 2]
    **Engine:** a character's gold is a count, 0..25,000; it "owns" thing 81
    when the count is above 0.
 4. A carriable thing numbered above 81 has no place in the bitmap. [data: no
@@ -85,12 +87,47 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    source `picked_up`); a spell that applies to individuals acts on the one
    who picked it up. [manual] 3 corpus items do this. [data] The effect is
    the magic rules' business.
+7. **What a take gives: the placed parameter.** A carriable thing placed
+   in a room carries a parameter byte (format notes, room items), and
+   that byte is what a take gives. On the C64 a take of a thing placed
+   with parameter 0 looks like any other ("T takes ...", the button, the
+   thing gone from the floor, its list entry moved to 15,15) but gives
+   nothing: no possession is set, the taker does not own it afterwards,
+   and the thing is simply gone from the room. The same treasures placed
+   with 1 and with 2 each set their possession bit (things 33..80, one
+   bit, 1.2). [capture: rr38 `pk-e2`, `pk-s2`, `pk-w2`, capture.md 10.42
+   item 6; ours, no research pass, 2026-11-16] This explains a take seen
+   to set no bit before (winning 1.4, a treasure we had placed with 0).
+   A magic item placed with 0 still runs its pick-up spell (2.6) when
+   taken: ours set off its summons and its Add to Room. [capture: rr38
+   `sn-pk2`, `ar-pk2`, capture.md 10.42 items 1 and 4] Not tried: what a
+   2 or 3 gives for things 1..32, whose count has two bits, and a
+   creature's take of a thing placed with 0 [unknown]. The gold pile is
+   not counted this way: its size record decides (2.5).
+   **Engine:** a take adds the placed parameter to the count, capped at
+   the thing's limit (1.2), so for things 33..80 any parameter above 0
+   makes it owned; a parameter of 0 is taken off the floor, spends its
+   step, shows the take and runs a pick-up spell as usual, and adds
+   nothing (a weapon so taken is not readied, 2.4). The limit check of
+   2.2 is made on the count owned, whatever the parameter. Creatures'
+   takes follow the same rule. Things the engine itself puts down
+   (drops, a death's or a destroy's things, Add to Room, whose count was
+   1 on the C64, magic 3.13 and capture.md 10.40) carry 1. How many
+   corpus carriables are placed with 0 is not yet counted [data: to
+   count].
 
 ## 3. Weight, capacity and the slowdown
 
 1. **Load.** Everything an individual owns counts, readied things included:
    each item's weight, plus gold pieces times Gold's weight. Negative weights
-   (a magic bag, a horse) lower the load. [manual] Weights are stored with a
+   (a magic bag, a horse) lower the load. [manual] On the C64 gold weighs
+   per piece: a player carrying nothing but gold (capacity 1,000, Speed
+   15) refilled to 15, 12 and 6 moves with 300, 600 and 800 pieces of
+   weight 1 and to none with 1,000; to 15, 12 and 6 with 100, 150 and 200
+   pieces of weight 4; to 15 with 900 and 3,000 pieces of weight 0, each
+   the slowdown of 3.3 for a load of the pieces times Gold's weight.
+   [capture: rr38 `gw1`, `gw4`, `gw0`, 18 refills, capture.md 10.42 item
+   2; ours, no research pass, 2026-11-16] **Engine:** so. Weights are stored with a
    ×1, ×-1, ×20 or ×-20 multiplier (format notes); 74 carriable things weigh
    less than 0, 285 weigh 0 and 39 use ×20. [data]
 2. **Capacity.** Take Life Force from Constitution, halve it, take the result
@@ -315,3 +352,7 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    player's drop spot, and a drop on the map.
 5. Whether a non-destroying "when dropped here" space leaves the thing:
    captured (5.7: it does, on top).
+6. Gold's weight per piece (3.1) and what a take gives (2.7: the placed
+   parameter, 0 nothing): captured (capture.md 10.42). Still open: a
+   parameter of 2 or 3 on things 1..32, a creature's take of a thing
+   placed with 0, and the corpus count of such placements.

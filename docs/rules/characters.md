@@ -18,9 +18,9 @@ unless marked; the second, also 2026-11-14, marked "pass 2") and
 means no capture of ours has checked it yet. The confirming runs are
 `ACSVM-research/capture/runs/rr13/` ([capture.md](../capture.md) 10.18)
 for the first pass and `rr19/` (capture.md 10.23) for the second;
-`rr26/` (capture.md 10.30, 2026-11-14) and `rr34/` (capture.md 10.38,
-2026-11-15) are captures of ours with no research pass behind them (3.5,
-6.2, 7.3, 7.5).
+`rr26/` (capture.md 10.30, 2026-11-14), `rr34/` (capture.md 10.38,
+2026-11-15) and `rr38/` (capture.md 10.42, 2026-11-16) are captures of
+ours with no research pass behind them (3.1, 3.5, 6.2, 7.3, 7.5).
 
 Words used: a **round** is one pass through a region visit's turn list
 ([creatures](creatures.md) 2.2.3). The **roster** is the list of retired
@@ -99,6 +99,14 @@ holds Constitution with magic defense in the top two bits.
    asked for one). Choosing it clears its name from the roster.
    [research; the picture: research pass 2, unconfirmed; the roster name:
    capture, format-notes, Creatures]
+   **Each place on the list keeps its roster entry**, an empty one
+   included: with entry 1's name cleared (its record still there) and
+   entry 2 U, the screen showed U in the second place with the cursor on
+   CREATE NEW PLAYER; moving it to U and pressing joined U's own record
+   (its name, Speed and Constitution), and pressing on the empty first
+   place rolled a new character (section 1) as CREATE NEW PLAYER does,
+   the record left in entry 1 unused. [capture: rr38 `ru-se`, `ru-s`,
+   capture.md 10.42 item 5; ours, no research pass, 2026-11-16]
    **Engine:** `AddPlayer` keeps the setup's Power (its Wisdom when the
    setup gives none) and Life Force as given.
 2. **A player from another adventure** is reached from the add-player
@@ -152,8 +160,12 @@ holds Constitution with magic defense in the top two bits.
    leaves a gap, so a disk whose first entry is empty and second holds U
    shows U in the second column with the cursor moved one place. That is
    what rr19 read as the own disk being handled differently. [capture:
-   rr26 `d2-ownu`, rr19 `ota-ownid`] Which record is then taken when U is
-   chosen is [unknown]: the one run took a record that was not U's.
+   rr26 `d2-ownu`, rr19 `ota-ownid`] On the adventure's own list the
+   place chosen joins its own entry's record (3.1). Through "another
+   adventure", the one run took a record that was not U's; it was not
+   tried again, and the disk swap's timing (3.2) may explain it [unknown].
+   **Engine:** a front end with rosters joins the record of the place
+   chosen, and treats an empty place as CREATE NEW PLAYER.
    **Engine:** a front end that offers players from another adventure
    applies 3.3 when it builds the setup, for any disk, the adventure's own
    included, and checks no identity; the engine has no rosters or disks
@@ -183,7 +195,10 @@ holds Constitution with magic defense in the top two bits.
    Wisdom and Power 4, up marks on Constitution and Life Force 17 and the
    other 10 unmarked (rr13 `prof`)]
 2. Creatures' ratings follow the same bounds wherever they are shown.
-   [research, unconfirmed] **Engine:** `characters::mark`; the viewer shows
+   [research, unconfirmed] Not reachable by capture: the game shows no
+   creature's ratings, and the harness does not drive the editor
+   (capture.md 10.42 item 5). **Engine:** `characters::mark`, the same
+   bounds for creatures, unconfirmed; the viewer shows
    the marks beside the current player's ratings.
 
 ## 5. Names
@@ -458,9 +473,18 @@ holds Constitution with magic defense in the top two bits.
    the gold as one pile (inventory 2.5), whoever else is in play; the
    order is 3's; no save point. Whether weight 0 or "nobody may use" is
    what loses the creatures' weapons is [unknown] (every one tried had
-   both); the engine asks for both. Then as 7.4. Reversals due later for
-   the character (magic 5.2) are dropped, as on Save (7.3); whether the
-   original drops them on Destroy is [unknown].
+   both); the engine asks for both. Then as 7.4.
+   5. **Waiting reversals never come due.** A player raised by a
+      temporary +10 (Life Force 20 to 30, one step back taken, 29) and
+      destroyed with its next step due a few rounds on kept Life Force 29
+      in its slot, and the queue's entry stayed first and unchanged, for
+      more than 50 rounds after, the other player playing on: the step
+      was never taken. [capture: rr38 `rv-a`, `rv-b`, capture.md 10.42
+      item 5; ours, no research pass, 2026-11-16] The original leaves the
+      entry in the queue but never takes it; whether it holds back
+      reversals queued behind it is [unknown].
+      **Engine:** the destroyed character's reversals are dropped, as on
+      Save (7.3): the same in effect, except for that open case.
 6. **Afterwards.** The character is out of play: only the first byte of
    its slot is set to zero, so the slot is free for a newcomer at once
    (6.1); the rest stays until a newcomer clears it. The others play on
@@ -487,25 +511,29 @@ holds Constitution with magic defense in the top two bits.
 ## 8. Left for later
 
 - Destroy in a room (7.5): which mark loses the creatures' weapons, and
-  whether waiting reversals are dropped (the engine's choices in 7.5).
+  whether a reversal left in the queue holds back later ones (the
+  engine's choices in 7.5).
 - Rejoining a retired character from the roster (3.1, 7.3): not built in
   the engine.
-- Which record is taken from a roster whose first entry is empty (3.5).
+- Which record is taken through "another adventure" from a roster whose
+  first entry is empty (3.5; the own list joins the place's entry, 3.1).
 - Editing keys in name entry (5.5).
 
 ## Captures needed
 
 1. Destroy in a room: the cases, the order, the count changed, U on the
-   map and the save point captured (7.5, capture.md 10.30, 10.38). Still
-   open: a reversal waiting (a temporary rating change, magic 5.2), read
-   whether it still comes due.
+   map and the save point captured (7.5, capture.md 10.30, 10.38), and a
+   reversal waiting, never coming due (7.5.5, capture.md 10.42). Still
+   open: whether the left entry holds back reversals behind it.
 2. Another adventure's disk with the adventure's own identity, and the
    adventure's own disk: captured, no refusal (3.5, capture.md 10.30).
-   Still open: choosing U from a roster with an empty first entry, which
-   record joins.
+   Choosing U on the own list with an empty first entry: captured (3.1:
+   U's record joins, the empty place creates; capture.md 10.42). Still
+   open: the same through "another adventure".
 3. A roster of 34, then a save: captured (7.3, capture.md 10.30), and
    the full roster's Life Force, not raised (capture.md 10.38).
-4. A creature's ratings with marks, if the editor shows them (4.2).
+4. A creature's ratings with marks (4.2): not reachable (no screen shows
+   them and the harness does not drive the editor; capture.md 10.42).
 5. Two "Add Someone" requests in one round, and a newcomer in a freed
    slot below a living player: captured (6.1, 6.2, capture.md 10.33: one
    player added, in the lowest free slot, moving in its place), and two

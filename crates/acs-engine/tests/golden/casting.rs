@@ -2,16 +2,19 @@
 
 //! Casting (magic 4): the cast chance, a failed cast's cost; and the spell
 //! actions (magic 2.4, 3): Kill All, summons, Add to Room, Activate All and
-//! the "when dropped here" space (inventory 5.7).
+//! the "when dropped here" space (inventory 5.7); the cast's target, a
+//! summons with no target press or into a full region, and the death drop
+//! (magic 7.2).
 
 use crate::stats::{same_rate, Sweep, SEEDS};
 use crate::world::*;
 use acs_core::model::{
-    Access, Alignment, CustomTrigger, PlacementChoice, SpellAction, SpellActionKind as K, ThingKind,
+    Access, Alignment, Carry, CustomTrigger, Destination, PlacementChoice, SpellAction, SpellActionKind as K,
+    ThingKind,
 };
 use acs_core::Adventure;
 use acs_core::Platform;
-use acs_engine::{Command, Dir, Event, Game, PlayerSetup, Who};
+use acs_engine::{CastRefusal, Command, Dir, Event, Game, Location, PlayerSetup, Who};
 
 const SPELL: u16 = 33;
 
@@ -100,6 +103,7 @@ fn a_cost_0_spell_always_works() {
 
 const BLADE: u16 = 59;
 const PUTCI: u16 = 60;
+const GOLD: u16 = 81;
 /// Our treasures 61 to 64, what the spaces give.
 const T61: u16 = 61;
 const T62: u16 = 62;
@@ -536,5 +540,426 @@ fn when_dropped_here_gives_and_keeps_the_thing_unless_destroyed() {
         let want = if kept { vec![BLADE, space] } else { vec![space] };
         assert_eq!(stack(&g, 5, 4), want, "{name}");
         assert!(!g.players()[0].owns(BLADE), "{name}");
+    }
+}
+
+// ---- the cast's target, the summons, Add to Room, the death drop -----------
+//
+// capture.md 10.42 (rr38): T on 4,4 at its first room turn, as rr36's.
+// Every case is one deterministic run, but the full region's summons with
+// the random state set.
+
+const DOALL_SPELL: u16 = 37; // 0:12:0, Activate All
+const SUMMON20: u16 = 38; // 20:2:5, summon ZED at cost 20
+const KILL62: u16 = 39; // 0:1:62, kill all but owners of 62
+const SPELL80: u16 = 80; // a spell, lost at a death
+const ITEM: u16 = 70; // magic item, used: Add to Room 61
+const LURE: u16 = 71; // magic item, picked up or dropped: summon ZED
+const SEED: u16 = 72; // magic item, picked up: Add to Room 60
+const GIVE61: u16 = 111; // space: Give 61
+const CALLER: u16 = 112; // space: summon ZED
+const GONG: u16 = 113; // obstacle, bump: summon ZED
+const GATE: u16 = 114; // portal to SIDE (2,4), invokes summon ZED
+const ARCH: u16 = 115; // portal to SIDE (2,4), invokes Add to Room 60
+
+fn magic_item(action: SpellAction, on_use: bool, on_drop: bool, on_pickup: bool) -> ThingKind {
+    ThingKind::MagicItem {
+        picture: 3,
+        disappears_after_use: false,
+        carry: Carry { weight: 1, value: 1 },
+        action,
+        on_use,
+        on_drop,
+        on_pickup,
+    }
+}
+
+fn invoking_portal(action: SpellAction) -> ThingKind {
+    ThingKind::Portal {
+        picture: 5,
+        two_way: false,
+        access: Access::InvokeSpell { action },
+        destroy_needed_thing: false,
+    }
+}
+
+/// rr36's kit with rr38's things.
+fn rr38() -> Adventure {
+    let mut a = magic_kit();
+    let summon = act(K::SummonOrBanish, ZED);
+    thing(&mut a, DOALL_SPELL, "DOALL", spell(0, act(K::ActivateAll, 0)));
+    thing(&mut a, SUMMON20, "TESTSPELL1", spell(20, summon));
+    thing(&mut a, KILL62, "KILL62", spell(0, act(K::KillAllButOwnerOf, T62)));
+    thing(&mut a, SPELL80, "SPELL80", spell(0, nothing()));
+    thing(
+        &mut a,
+        ITEM,
+        "ITEM",
+        magic_item(act(K::AddToRoom, T61), true, false, false),
+    );
+    thing(&mut a, LURE, "LURE", magic_item(summon, false, true, true));
+    thing(
+        &mut a,
+        SEED,
+        "SEED",
+        magic_item(act(K::AddToRoom, PUTCI), false, false, true),
+    );
+    thing(&mut a, GIVE61, "GIVE61", invokes(K::Give, T61));
+    thing(&mut a, CALLER, "CALLER", invokes(K::SummonOrBanish, ZED));
+    thing(
+        &mut a,
+        GONG,
+        "GONG",
+        ThingKind::Obstacle {
+            picture: 7,
+            bump_invokes_spell: true,
+            action: summon,
+        },
+    );
+    thing(&mut a, GATE, "GATE", invoking_portal(summon));
+    thing(&mut a, ARCH, "ARCH", invoking_portal(act(K::AddToRoom, PUTCI)));
+    for n in [13, 14, 50, 51] {
+        thing(&mut a, n, "TREASURE", treasure(1, 1));
+    }
+    thing(&mut a, GOLD, "GOLD", treasure(1, 1));
+    a
+}
+
+/// Puts the portal `thing` on ROOM (x, y), leading to SIDE (2,4).
+fn portal(a: &mut Adventure, x: u8, y: u8, thing: u16) {
+    put(a, x, y, thing, 0);
+    a.regions[0].rooms[ROOM as usize].items[0].destination = Some(Destination::Room {
+        region: 1,
+        room: SIDE,
+        x: 2,
+        y: 4,
+    });
+}
+
+fn side(x: u8, y: u8) -> Location {
+    Location::Room {
+        region: 1,
+        room: SIDE,
+        x,
+        y,
+    }
+}
+
+fn summoned(ev: &[Event]) -> Option<(usize, Location)> {
+    ev.iter().find_map(|e| match e {
+        Event::CreatureSummoned {
+            slot,
+            creature: ZED,
+            at,
+            ..
+        } => Some((*slot, *at)),
+        _ => None,
+    })
+}
+
+fn added(ev: &[Event], thing: u16) -> Option<Location> {
+    ev.iter().find_map(|e| match e {
+        Event::ThingAdded { thing: t, at } if *t == thing => Some(*at),
+        _ => None,
+    })
+}
+
+/// capture.md 10.42 item 1, reach (rr38 `tc-e9`, `tc-e12`, `tc-s4`,
+/// `tc-s6`, `tc-n4`, `tc-n6`, `tc-w4`, `tc-w6`; magic 2.4): Add to Room 60
+/// cast with the cursor pushed 9 or 12 east, 4 or 6 each other way from
+/// 4,4 in the 15 x 10 room: the thing on 13,4, 13,4, 4,8, 4,8, 4,1, 4,1,
+/// 1,4, 1,4. Any inside square, 9 away included; the cursor stops at the
+/// inside edge, never on a wall square, which the engine refuses at no
+/// cost.
+#[test]
+fn the_cursor_reaches_any_inside_square_and_no_wall() {
+    let a = magic_kit();
+    for (dx, dy, edge) in [(1, 0, (13, 4)), (0, 1, (4, 8)), (0, -1, (4, 1)), (-1, 0, (1, 4))] {
+        let mut g = tee(&a, &[ADD]);
+        let ev = at(&mut g, ADD, Some(edge));
+        assert_eq!(added(&ev, PUTCI), Some(room(edge.0, edge.1)), "{edge:?}: {ev:?}");
+        assert_eq!(stack(&g, edge.0, edge.1), [PUTCI], "{edge:?}");
+        // One square further: the wall.
+        let wall = ((edge.0 as i8 + dx) as u8, (edge.1 as i8 + dy) as u8);
+        let mut g = tee(&a, &[ADD]);
+        let ev = at(&mut g, ADD, Some(wall));
+        assert!(
+            matches!(
+                ev[..],
+                [Event::CastRefused {
+                    reason: CastRefusal::BadTarget,
+                    ..
+                }]
+            ),
+            "{wall:?}: {ev:?}"
+        );
+        assert_eq!((g.players()[0].moves_left, g.players()[0].power), (6, 13));
+    }
+}
+
+/// capture.md 10.42 item 1, Use Object (rr38 `ta-use`, `ta-use2`; magic
+/// 2.4): T owning a magic item doing Add to Room 61; the use asked "move
+/// cursor to target" as a cast does: no tap put 61 on T's 4,4, two taps
+/// east on 6,4.
+#[test]
+fn use_object_picks_its_target_as_a_cast_does() {
+    let a = rr38();
+    for (square, on) in [(None, (4, 4)), (Some((6, 4)), (6, 4))] {
+        let mut g = tee(&a, &[ITEM]);
+        let ev = g.apply(Command::Use {
+            thing: ITEM,
+            at: square,
+            target: None,
+        });
+        assert_eq!(added(&ev, T61), Some(room(on.0, on.1)), "{square:?}: {ev:?}");
+        assert_eq!(stack(&g, on.0, on.1), [T61], "{square:?}");
+    }
+}
+
+/// capture.md 10.42 item 1, Activate All cast (rr38 `tb-c`, `ta-sel`,
+/// `ta-actc`; magic 2.5, 3.14): no target prompt; cast by T standing on a
+/// stack it had arrived on and not set off (a space giving 61, then a space
+/// changing Power by +5): 61 given and Power 13 to 17, the turn over. On an
+/// empty square nothing happened.
+#[test]
+fn an_activate_all_cast_runs_the_casters_own_square() {
+    let mut a = rr38();
+    put(&mut a, 4, 4, POWER5, 0);
+    put(&mut a, 4, 4, GIVE61, 0);
+    // The target, were one given, is ignored.
+    for square in [None, Some((6, 6))] {
+        let mut g = tee(&a, &[DOALL_SPELL]);
+        let ev = at(&mut g, DOALL_SPELL, square);
+        assert_eq!(given(&ev), [T61], "tb-c {square:?}: {ev:?}");
+        assert!(
+            ev.contains(&Event::TurnEnded { player: 0 }),
+            "tb-c: the turn over"
+        );
+        assert_eq!(g.players()[0].power, 17, "tb-c {square:?}");
+    }
+    let a = rr38();
+    let mut g = tee(&a, &[DOALL_SPELL]);
+    let ev = at(&mut g, DOALL_SPELL, None);
+    assert!(given(&ev).is_empty(), "ta-sel: {ev:?}");
+    // Only the cast's own trigger: nothing under T to run.
+    assert!(
+        !ev.iter().any(|e| matches!(
+            e,
+            Event::SpellTriggered { thing, .. } if *thing != DOALL_SPELL
+        ) || matches!(e, Event::StatChanged { .. })),
+        "ta-sel: {ev:?}"
+    );
+    assert_eq!(g.players()[0].power, 13, "ta-sel");
+}
+
+/// capture.md 10.42 item 1, a summons with no target press (rr38 `sn-sp`,
+/// `sn-ob`, `sn-po`, `sn-pk2`, `sn-dro`, `sn-drs`; magic 3.2): ZED on 5,4,
+/// the space stepped onto (T's square too); on 3,4, the bumped obstacle's
+/// own square, T staying on 4,4; through the portal on 4,3, ZED on 4,3 of
+/// the first room, T on the side room's 2,4; the item picked up from 4,5
+/// (placed with 0, T not owning it), ZED on 4,5, T on 4,4; the item dropped
+/// on T's 4,4 or on 4,5, ZED on the drop square. Each time the lowest free
+/// slot, made at once.
+#[test]
+fn a_summons_with_no_target_press_lands_on_the_setting_off_things_square() {
+    let mut a = rr38();
+    put(&mut a, 5, 4, CALLER, 0);
+    put(&mut a, 3, 4, GONG, 0);
+    portal(&mut a, 4, 3, GATE);
+    let check = |name: &str, g: &Game, ev: &[Event], on: Location, t: Location| {
+        assert_eq!(summoned(ev), Some((0, on)), "{name}: {ev:?}");
+        assert_eq!(g.players()[0].at, t, "{name}");
+    };
+    for (name, dir, on, t) in [
+        ("sn-sp", Dir::E, room(5, 4), room(5, 4)),
+        ("sn-ob", Dir::W, room(3, 4), room(4, 4)),
+        ("sn-po", Dir::N, room(4, 3), side(2, 4)),
+    ] {
+        let mut g = tee(&a, &[]);
+        let ev = g.apply(Command::Move { dir });
+        check(name, &g, &ev, on, t);
+    }
+
+    let mut b = a.clone();
+    put(&mut b, 4, 5, LURE, 0);
+    let mut g = tee(&b, &[]);
+    let ev = g.apply(Command::Move { dir: Dir::S });
+    assert!(ev.contains(&Event::PickedUp {
+        player: 0,
+        thing: LURE
+    }));
+    check("sn-pk2", &g, &ev, room(4, 5), room(4, 4));
+
+    for (name, dir, on) in [("sn-dro", None, room(4, 4)), ("sn-drs", Some(Dir::S), room(4, 5))] {
+        let mut g = tee(&a, &[LURE]);
+        let ev = g.apply(Command::Drop { thing: LURE, dir });
+        check(name, &g, &ev, on, room(4, 4));
+    }
+}
+
+/// capture.md 10.42 item 1, a summons of cost 20 into a full region (rr38
+/// `sf-r0`, `sf-r85`, `sf-r170`, and `sg-*` with 15 slots in use; magic
+/// 3.2): T of Power 31, the region's 16 slots in use: "a few sparks fizzle
+/// but TESTSPELL1 fails", no prompt, no slot changed, Power 31 to 11, at
+/// every random state. With 15 in use the same states gave two successes
+/// (the creature in slot 15 on T's 4,4) and one failed roll, Power 11 each
+/// time. Exact per seed; both outcomes of the free region's roll seen.
+#[test]
+fn a_summons_into_a_full_region_spends_its_cost_and_fizzles() {
+    let region = |full: bool| {
+        let mut a = rr38();
+        for n in 0..15 {
+            let (x, y) = if n < 13 {
+                (n as u8 + 1, 1)
+            } else {
+                (n as u8 - 12, 7)
+            };
+            still(&mut a, n, x, y);
+        }
+        if full {
+            still(&mut a, 15, 3, 7);
+        }
+        a
+    };
+    let names = |g: &Game| {
+        (0..16)
+            .map(|n| g.creature(1, n).map(|c| c.name.clone()))
+            .collect::<Vec<_>>()
+    };
+    let mut seen = [false; 2];
+    for full in [true, false] {
+        let a = region(full);
+        for seed in 0..32 {
+            let mut g = game(
+                &a,
+                seed,
+                PlayerSetup {
+                    name: "T".into(),
+                    speed: 6,
+                    // Wisdom 11, so no drift moves the 11 left.
+                    wisdom: 11,
+                    possessions: vec![SUMMON20],
+                    ..Default::default()
+                },
+                room(4, 4),
+            );
+            g.set_power(0, 31);
+            let before = names(&g);
+            let ev = at(&mut g, SUMMON20, None);
+            let success = ev
+                .iter()
+                .find_map(|e| match e {
+                    Event::SpellCast {
+                        cost: 20, success, ..
+                    } => Some(*success),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("full {full} seed {seed}: no cast: {ev:?}"));
+            assert_eq!(g.players()[0].power, 11, "full {full} seed {seed}");
+            assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+            if full {
+                assert!(!success, "sf seed {seed}: {ev:?}");
+                assert!(
+                    ev.contains(&Event::SummonUnanswered { creature: ZED }),
+                    "sf seed {seed}"
+                );
+                assert_eq!(summoned(&ev), None);
+                assert_eq!(names(&g), before, "sf seed {seed}: no slot changed");
+            } else {
+                seen[success as usize] = true;
+                let want = success.then_some((15, room(4, 4)));
+                assert_eq!(summoned(&ev), want, "sg seed {seed}: {ev:?}");
+            }
+        }
+    }
+    assert_eq!(seen, [true, true], "sg: a success and a failed roll");
+}
+
+/// capture.md 10.42 item 4 (rr38 `ar-wall`, `ar-po`, `ar-pk2`; magic 3.13):
+/// Add to Room 60 run by an obstacle on the wall line 0,4 bumped from 1,4:
+/// 60 on 1,4, T's own square; by a portal on 4,5 to the side room: T on
+/// the side room's 2,4, 60 on 4,5, the portal's square in the room left;
+/// by our item on 5,4 when picked up (placed with 0, T not owning it): 60
+/// on 5,4, where the item lay.
+#[test]
+fn add_to_room_from_a_wall_obstacle_a_portal_and_a_pick_up() {
+    let mut a = rr38();
+    put(&mut a, 0, 4, CHEST, 0);
+    let mut g = tee(&a, &[]);
+    g.place(0, room(1, 4));
+    let ev = g.apply(Command::Move { dir: Dir::W });
+    assert_eq!(added(&ev, PUTCI), Some(room(1, 4)), "ar-wall: {ev:?}");
+    assert_eq!(stack(&g, 1, 4), [PUTCI], "ar-wall");
+    assert_eq!(stack(&g, 0, 4), [CHEST], "ar-wall");
+    assert_eq!(g.players()[0].at, room(1, 4), "ar-wall");
+
+    let mut a = rr38();
+    portal(&mut a, 4, 5, ARCH);
+    let mut g = tee(&a, &[]);
+    let ev = g.apply(Command::Move { dir: Dir::S });
+    assert_eq!(g.players()[0].at, side(2, 4), "ar-po");
+    assert_eq!(added(&ev, PUTCI), Some(room(4, 5)), "ar-po: {ev:?}");
+    assert_eq!(stack(&g, 4, 5), [PUTCI, ARCH], "ar-po");
+
+    let mut a = rr38();
+    put(&mut a, 5, 4, SEED, 0);
+    let mut g = tee(&a, &[]);
+    let ev = g.apply(Command::Move { dir: Dir::E });
+    assert!(ev.contains(&Event::PickedUp {
+        player: 0,
+        thing: SEED
+    }));
+    assert_eq!(added(&ev, PUTCI), Some(room(5, 4)), "ar-pk2: {ev:?}");
+    assert_eq!(stack(&g, 5, 4), [PUTCI], "ar-pk2");
+    assert_eq!(g.players()[0].at, room(4, 4), "ar-pk2");
+    assert!(!g.players()[0].owns(SEED), "ar-pk2: placed with 0");
+}
+
+/// capture.md 10.42 item 2 (rr38 `dd-aa`, `dd-t`; magic 7.2): Kill All but
+/// owners of 62 cast by T, who owns the blade 59, treasures 13 and 14, our
+/// magic item 70, the spell 80 and 50 gold; AA on 6,4 owns the blade,
+/// treasures 50 and 51, item 70, the spell 80 and 50 gold. Cast at AA: 6,4
+/// held, top first, 70, 59, 51, 50, the gold; cast at T's own square, T
+/// dies and 4,4 held 70, 59, 14, 13, the gold. The magic item by thing
+/// number with the rest, the spell lost, the gold under all.
+#[test]
+fn a_deaths_drop_puts_magic_items_by_number_and_the_gold_under_all() {
+    let mut a = rr38();
+    still(&mut a, 0, 6, 4);
+    let aa = &mut a.regions[0].residents[0];
+    for t in [BLADE, 50, 51, ITEM, SPELL80] {
+        owns(aa, t);
+    }
+    aa.wealth = 50;
+    for (name, square, on, want) in [
+        ("dd-aa", Some((6, 4)), (6, 4), [ITEM, BLADE, 51, 50, GOLD]),
+        ("dd-t", None, (4, 4), [ITEM, BLADE, 14, 13, GOLD]),
+    ] {
+        let mut g = game(
+            &a,
+            1,
+            PlayerSetup {
+                name: "T".into(),
+                speed: 6,
+                wisdom: 13,
+                power: Some(13),
+                gold: 50,
+                possessions: vec![KILL62, BLADE, 13, 14, ITEM, SPELL80],
+                ..Default::default()
+            },
+            room(4, 4),
+        );
+        let ev = at(&mut g, KILL62, square);
+        assert!(
+            ev.iter().any(|e| matches!(e, Event::Died { .. })),
+            "{name}: {ev:?}"
+        );
+        assert_eq!(stack(&g, on.0, on.1), want, "{name}");
+        let pile = g.adventure().regions[0].rooms[ROOM as usize]
+            .items
+            .iter()
+            .find(|it| (it.x, it.y, it.thing) == (on.0, on.1, GOLD))
+            .and_then(|it| it.gold);
+        assert_eq!(pile, Some(50), "{name}: the gold as one pile");
     }
 }

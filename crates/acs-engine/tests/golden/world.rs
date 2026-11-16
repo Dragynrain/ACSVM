@@ -174,15 +174,20 @@ pub fn owns(c: &mut Creature, thing: u16) {
     c.possessions.push(Possession { thing, count: 1 });
 }
 
-/// Puts `thing` on top of ROOM (x, y).
+/// Puts `thing` on top of ROOM (x, y): a carriable thing with parameter
+/// 1, an ordinary take that owns it (inventory 2.7), anything else with 0.
 pub fn item(a: &mut Adventure, room: u8, x: u8, y: u8, thing: u16) {
+    let carried = a
+        .things
+        .get(thing as usize - 1)
+        .is_some_and(|t| acs_engine::inventory::carriable(&t.kind));
     a.regions[0].rooms[room as usize].items.insert(
         0,
         RoomItem {
             x,
             y,
             thing,
-            parameter: 0,
+            parameter: carried as u8,
             flag: false,
             destination: None,
             gold: None,

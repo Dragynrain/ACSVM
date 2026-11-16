@@ -1,14 +1,14 @@
 # duel seed 7 (crates/acs-engine/tests/golden/traces.rs)
-start 4deec3ed0270b468
+start 93052ae4eee79a43
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":12},"to":{"on":"world","x":12,"y":13}}
-state cce753acd5a4add1
+state ff6e4022440400aa
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":13},"to":{"on":"world","x":12,"y":14}}
-state a5aa96b856a51e93
+state 852394e6c4cdf3fc
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":14},"to":{"on":"world","x":12,"y":15}}
-state 90a199914d011703
+state 480a962787f2902a
 > {"command":"move","dir":"s"}
   {"event":"took_door","player":0,"from":{"on":"world","x":12,"y":15},"to":{"on":"room","region":1,"room":0,"x":4,"y":4}}
   {"event":"entered_region","player":0,"region":1}
@@ -16,10 +16,10 @@ state 90a199914d011703
   {"event":"turn_ended","player":0}
   {"event":"saved","round":1,"visit":1}
   {"event":"turn_started","player":0,"moves":2}
-state 424730cd9541af18
+state caa50590864e259d
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":4,"y":4},"to":{"on":"room","region":1,"room":0,"x":4,"y":5}}
-state 4967726f5d9bfeb4
+state 6717a8b4ec70ce2b
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":4,"y":5},"to":{"on":"room","region":1,"room":0,"x":4,"y":6}}
   {"event":"turn_ended","player":0}
@@ -38,7 +38,7 @@ state 4967726f5d9bfeb4
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"power","from":39,"to":29}
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"life_force","from":20,"to":17}
   {"event":"turn_started","player":0,"moves":6}
-state 92c371067a36dd22
+state 2285347d0a28f3df
 > {"command":"move","dir":"e"}
   {"event":"picked_up","player":0,"thing":1}
 state 69d347609e8879cb

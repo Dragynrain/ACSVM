@@ -792,6 +792,10 @@ const CALL10: u16 = 38; // magic spell: summon creature 5, cost 10
 const MAKE: u16 = 39; // magic spell: Add to Room GEM, cost 0
 const BECKON: u16 = 99; // space: summon creature 5
 const BELL: u16 = 100; // obstacle, bump: summon creature 5
+const LURE: u16 = 44; // magic item, picked up: summon creature 5
+const SEED: u16 = 45; // magic item, picked up: Add to Room GEM
+const GATE: u16 = 101; // portal, invokes summon creature 5
+const ARCH: u16 = 102; // portal, invokes Add to Room GEM
 
 /// The extra things the target-square tests use.
 fn more(a: &mut Adventure) {
@@ -813,6 +817,59 @@ fn more(a: &mut Adventure) {
             action: act(K::SummonOrBanish, IMP),
         },
     );
+    let pick = |action| ThingKind::MagicItem {
+        picture: 3,
+        disappears_after_use: false,
+        carry: Carry { weight: 1, value: 1 },
+        action,
+        on_use: false,
+        on_drop: false,
+        on_pickup: true,
+    };
+    set(LURE, "LURE", pick(act(K::SummonOrBanish, IMP)));
+    set(SEED, "SEED", pick(act(K::AddToRoom, GEM)));
+    let portal = |action| ThingKind::Portal {
+        picture: 5,
+        two_way: false,
+        access: Access::InvokeSpell { action },
+        destroy_needed_thing: false,
+    };
+    set(GATE, "GATE", portal(act(K::SummonOrBanish, IMP)));
+    set(ARCH, "ARCH", portal(act(K::AddToRoom, GEM)));
+}
+
+/// Puts a portal of `thing` on HALL (x, y) leading to SIDE (2, 2).
+fn put_portal(a: &mut Adventure, x: u8, y: u8, thing: u16) {
+    a.regions[0].rooms[0].items.insert(
+        0,
+        RoomItem {
+            x,
+            y,
+            thing,
+            parameter: 0,
+            flag: false,
+            destination: Some(acs_core::model::Destination::Room {
+                region: 1,
+                room: 1,
+                x: 2,
+                y: 2,
+            }),
+            gold: None,
+        },
+    );
+}
+
+fn side(x: u8, y: u8) -> Location {
+    Location::Room {
+        region: 1,
+        room: 1,
+        x,
+        y,
+    }
+}
+
+fn rng_state(g: &Game) -> serde_json::Value {
+    serde_json::to_value(g).expect("serializes")["rng"].clone()
 }
 
 fn summoned(ev: &[Event]) -> Option<(usize, u16, Location)> {
@@ -962,51 +1019,188 @@ fn a_summons_takes_no_turn_in_its_round() {
 }
 
 #[test]
-fn a_summons_into_a_full_region_spends_nothing_and_ends_the_turn() {
-    // 3.2: the slots are checked first: no Power spent, no roll, the
-    // cast fails and the turn ends.
+fn a_summons_into_a_full_region_spends_and_rolls_then_fails() {
+    // 3.2 (capture.md 10.42 item 1): at a cost above 0 the Power is spent
+    // and the roll drawn as for any cast, then the full region fails it
+    // whatever the roll; no slot changes and the turn ends. The same
+    // states with a slot free draw alike.
     both(|p| {
-        let mut a = adventure(p);
-        more(&mut a);
-        for slot in 0..16 {
-            put_creature(&mut a, slot, 1 + (slot % 8) as u8, 4 + (slot / 8) as u8, |_| {});
+        let cast = |full: usize, seed: u64| {
+            let mut a = adventure(p);
+            more(&mut a);
+            for slot in 0..full {
+                put_creature(&mut a, slot, 1 + (slot % 8) as u8, 4 + (slot / 8) as u8, |_| {});
+            }
+            let (mut g, _) = Game::new(
+                a,
+                seed,
+                Rules { diagonals: true },
+                PlayerSetup {
+                    wisdom: 31,
+                    possessions: vec![CALL10],
+                    ..setup()
+                },
+            );
+            g.place(0, hall(2, 2));
+            let before = rng_state(&g);
+            let ev = g.apply(Command::Cast {
+                thing: CALL10,
+                at: Some((3, 2)),
+                target: None,
+            });
+            (g, ev, before)
+        };
+        let mut successes = 0;
+        for seed in 0..12 {
+            let (g, ev, before) = cast(16, seed);
+            let (free, free_ev, free_before) = cast(15, seed);
+            assert_eq!(before, free_before);
+            let cast_at = ev
+                .iter()
+                .position(|e| {
+                    matches!(
+                        e,
+                        Event::SpellCast {
+                            success: false,
+                            cost: 10,
+                            ..
+                        }
+                    )
+                })
+                .expect("cast and failed");
+            assert_eq!(ev[cast_at + 1], Event::SummonUnanswered { creature: IMP });
+            assert_eq!(summoned(&ev), None);
+            assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+            // The cost spent in both (the next turn's drift may follow).
+            assert_eq!(g.stat(ME, Stat::Power), free.stat(ME, Stat::Power), "seed {seed}");
+            assert!(g.stat(ME, Stat::Power) < Some(31 - 10 + 3), "seed {seed}");
+            let roll_ok = free_ev
+                .iter()
+                .any(|e| matches!(e, Event::SpellCast { success: true, .. }));
+            successes += roll_ok as u32;
+            assert_eq!(summoned(&free_ev).is_some(), roll_ok);
+            // A failed roll in the free region: both games drew alike.
+            if !roll_ok {
+                assert_eq!(rng_state(&g), rng_state(&free), "seed {seed}");
+            }
         }
-        let mut g = start(
-            a,
-            2,
-            2,
-            PlayerSetup {
-                wisdom: 20,
-                possessions: vec![CALL10],
-                ..setup()
-            },
-        );
+        assert!(successes > 0, "no seed whose roll worked");
+    });
+}
+
+#[test]
+fn a_cost_0_summons_into_a_full_region_spends_and_draws_nothing() {
+    // 3.2: at cost 0 nothing is spent and nothing drawn; the turn ends.
+    both(|p| {
+        let full = || {
+            let mut a = adventure(p);
+            for slot in 0..16 {
+                put_creature(&mut a, slot, 1 + (slot % 8) as u8, 4 + (slot / 8) as u8, |_| {});
+            }
+            start(
+                a,
+                2,
+                2,
+                PlayerSetup {
+                    wisdom: 13,
+                    possessions: vec![CALL, HEAL],
+                    ..setup()
+                },
+            )
+        };
+        let mut g = full();
         let ev = g.apply(Command::Cast {
-            thing: CALL10,
+            thing: CALL,
             at: None,
             target: None,
         });
         assert_eq!(ev[0], Event::SummonUnanswered { creature: IMP });
         assert!(!ev.iter().any(|e| matches!(e, Event::SpellCast { .. })));
         assert!(ev.contains(&Event::TurnEnded { player: 0 }));
-        assert_eq!(g.stat(ME, Stat::Power), Some(20));
+        assert_eq!(g.stat(ME, Stat::Power), Some(13));
+        // The cast drew nothing: a game whose player casts another cost-0
+        // spell, one that draws nothing, ends the turn with the same state.
+        let mut w = full();
+        let ev = w.apply(Command::Cast {
+            thing: HEAL,
+            at: None,
+            target: None,
+        });
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+        assert_eq!(rng_state(&w), rng_state(&g));
     });
 }
 
 #[test]
-fn summons_from_a_space_and_a_bump_go_to_the_setter_offs_square() {
-    // 3.2 Engine: the space stepped on; the bumper's own square.
+fn summons_with_no_target_press_land_on_the_setting_off_things_square() {
+    // 3.2 (capture.md 10.42 item 1): the space stepped on; the obstacle's
+    // own square, the bumper beside it; on the wall line, the bumper's
+    // own; a portal's own square in the room left; the item's square for
+    // a pick-up.
     both(|p| {
         let mut a = adventure(p);
         more(&mut a);
         put_item(&mut a, 0, 3, 2, BECKON, 0);
         put_item(&mut a, 0, 3, 4, BELL, 0);
+        put_item(&mut a, 0, 0, 2, BELL, 0); // on the west wall line
+        put_item(&mut a, 0, 6, 2, LURE, 1);
+        put_portal(&mut a, 6, 4, GATE);
         let mut g = start(a, 2, 2, setup());
         let ev = mv(&mut g, Dir::E);
         assert_eq!(summoned(&ev), Some((0, IMP, hall(3, 2))));
         g.place(0, hall(2, 4));
         let ev = mv(&mut g, Dir::E);
-        assert_eq!(summoned(&ev), Some((1, IMP, hall(2, 4))));
+        assert_eq!(summoned(&ev), Some((1, IMP, hall(3, 4))));
+        assert_eq!(g.current_player().at, hall(2, 4));
+        g.place(0, hall(1, 2));
+        let ev = mv(&mut g, Dir::W);
+        assert_eq!(summoned(&ev), Some((2, IMP, hall(1, 2))));
+        g.place(0, hall(5, 2));
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.contains(&Event::PickedUp {
+            player: 0,
+            thing: LURE
+        }));
+        assert_eq!(summoned(&ev), Some((3, IMP, hall(6, 2))));
+        assert_eq!(g.current_player().at, hall(5, 2));
+        g.place(0, hall(5, 4));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(summoned(&ev), Some((4, IMP, hall(6, 4))));
+        assert_eq!(g.current_player().at, side(2, 2));
+    });
+}
+
+#[test]
+fn add_to_room_with_no_target_press_lands_on_the_setting_off_things_square() {
+    // 3.13 (capture.md 10.42 item 4): an obstacle on the wall line puts
+    // it under the bumper; a portal on its own square in the room left;
+    // a pick-up on the item's square.
+    both(|p| {
+        let mut a = adventure(p);
+        more(&mut a);
+        put_item(&mut a, 0, 0, 4, CHEST, 0); // on the west wall line
+        put_item(&mut a, 0, 6, 2, SEED, 1);
+        put_portal(&mut a, 6, 4, ARCH);
+        let mut g = start(a, 1, 4, setup());
+        let added = |ev: &[Event]| {
+            ev.iter().find_map(|e| match e {
+                Event::ThingAdded { thing: GEM, at } => Some(*at),
+                _ => None,
+            })
+        };
+        let ev = mv(&mut g, Dir::W);
+        assert_eq!(added(&ev), Some(hall(1, 4)));
+        assert_eq!(stack(&g, 0, 1, 4), vec![GEM]);
+        assert_eq!(g.current_player().at, hall(1, 4));
+        g.place(0, hall(5, 2));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(added(&ev), Some(hall(6, 2)));
+        assert_eq!(stack(&g, 0, 6, 2), vec![GEM]);
+        g.place(0, hall(5, 4));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(added(&ev), Some(hall(6, 4)));
+        assert_eq!(stack(&g, 0, 6, 4), vec![GEM, ARCH]);
+        assert_eq!(g.current_player().at, side(2, 2));
     });
 }
 
@@ -2047,5 +2241,78 @@ fn the_catch_up_round_is_never_noted_as_0() {
         // It went round 256 at least twice: 255 then 1, never 0.
         let wraps = seen.windows(2).filter(|w| w[0] == 255 && w[1] == 1).count();
         assert!(wraps >= 2, "{wraps} wraps in {seen:?}");
+    });
+}
+
+#[test]
+fn a_magic_item_placed_with_0_runs_its_pick_up_spell_and_is_not_owned() {
+    // Inventory 2.7 (capture.md 10.42 items 1 and 4): the take owns
+    // nothing, the pick-up spell still goes off.
+    both(|p| {
+        let mut a = adventure(p);
+        more(&mut a);
+        put_item(&mut a, 0, 6, 2, SEED, 0);
+        put_item(&mut a, 0, 6, 4, LURE, 0);
+        let mut g = start(a, 5, 2, setup());
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.contains(&Event::PickedUp {
+            player: 0,
+            thing: SEED
+        }));
+        assert!(ev.contains(&Event::ThingAdded {
+            thing: GEM,
+            at: hall(6, 2)
+        }));
+        assert!(!g.current_player().owns(SEED));
+        assert_eq!(stack(&g, 0, 6, 2), vec![GEM]);
+        g.place(0, hall(5, 4));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(summoned(&ev), Some((0, IMP, hall(6, 4))));
+        assert!(!g.current_player().owns(LURE));
+    });
+}
+
+#[test]
+fn a_death_keeps_the_slot_random_mark_and_a_summons_clears_it() {
+    // Creatures 2.4 (engine choice): the mark is the slot's; a death
+    // leaves it set, a summons put into the slot clears it.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 5, 3, |_| {});
+        let g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                possessions: vec![DOOM, CALL],
+                ..setup()
+            },
+        );
+        let mut v = serde_json::to_value(&g).expect("serializes");
+        v["random"] = serde_json::json!([[1, 0], [1, 1]]);
+        let mut g: Game = serde_json::from_value(v).expect("deserializes");
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: Some((5, 3)),
+            target: None,
+        });
+        assert!(
+            ev.iter()
+                .any(|e| matches!(e, Event::Died { who, .. } if *who == cr(1))),
+            "{ev:?}"
+        );
+        assert!(g.creature(1, 1).is_none());
+        assert!(g.is_random(1, 1), "the dead creature's slot keeps its mark");
+        while g.current() != 0 {
+            g.apply(Command::Wait);
+        }
+        let ev = g.apply(Command::Cast {
+            thing: CALL,
+            at: None,
+            target: None,
+        });
+        assert_eq!(summoned(&ev).map(|s| s.0), Some(0), "{ev:?}");
+        assert!(!g.is_random(1, 0), "the summons clears it");
+        assert!(g.is_random(1, 1));
     });
 }

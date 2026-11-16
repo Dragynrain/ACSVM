@@ -115,6 +115,20 @@ pub fn sell_offer(value: i32, wisdom: u8) -> i32 {
     value - (value - third).min(CUT_MAX) + third.min(THIRD_MAX) * wisdom as i32 / 25
 }
 
+/// 2.7: whether a store ever offers `thing`: never a weapon or armor of
+/// weight 0 that nobody may use (the test of characters 7.5.1), whose
+/// place says out of stock whatever the stock holds.
+pub fn offered(adv: &Adventure, thing: ThingId) -> bool {
+    match adv.things.get((thing as usize).wrapping_sub(1)).map(|t| &t.kind) {
+        Some(
+            ThingKind::MeleeWeapon { carry, stats, .. }
+            | ThingKind::MissileWeapon { carry, stats, .. }
+            | ThingKind::Armor { carry, stats, .. },
+        ) => carry.weight != 0 || stats.usable_by_anyone,
+        _ => true,
+    }
+}
+
 /// How many of `thing` a region's stock holds.
 pub fn stocked(stock: &[Possession], thing: ThingId) -> u8 {
     stock.iter().find(|p| p.thing == thing).map_or(0, |p| p.count)
@@ -124,6 +138,16 @@ impl Game {
     /// The store visit in progress, if any.
     pub fn store_visit(&self) -> Option<StoreVisit> {
         self.store
+    }
+
+    /// How many of `thing` `region`'s store shows on its place: its stock,
+    /// or 0 for a thing never offered (2.7).
+    pub fn on_shelf(&self, region: u8, thing: ThingId) -> u8 {
+        if offered(&self.adv, thing) {
+            stocked(self.stock(region), thing)
+        } else {
+            0
+        }
     }
 
     /// A region's store stock as play has changed it (2.3).
@@ -201,7 +225,7 @@ impl Game {
             ev.push(refuse(StoreRefusal::NotStocked));
             return;
         };
-        if stocked(self.stock(region), thing) == 0 {
+        if !offered(&self.adv, thing) || stocked(self.stock(region), thing) == 0 {
             ev.push(refuse(StoreRefusal::NotStocked));
             return;
         }

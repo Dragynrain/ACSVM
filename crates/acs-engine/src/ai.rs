@@ -8,11 +8,11 @@
 
 use crate::combat::{self, strike_cost};
 use crate::creatures::{self, is_fighter, is_foe, Other};
-use crate::game::Game;
+use crate::game::{CarriedMoves, Game};
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
 use crate::magic::{self, add_possession, take_possession, Spell};
 use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
-use acs_core::model::{Access, Alignment, Creature, Destination, SpellActionKind, ThingKind};
+use acs_core::model::{Access, Alignment, Creature, Destination, SpellAction, SpellActionKind, ThingKind};
 
 use acs_core::model::ThingId;
 use Alignment::{Enemy, Friend, Neutral, Thief};
@@ -78,6 +78,10 @@ enum Sq {
     /// An individual a fighter would strike, at this step cost (combat
     /// 2.2).
     Strike(Who, u16),
+    /// 5.1 (engine choice): the goal individual's square, its top thing an
+    /// obstacle or custom obstacle (room item index), for a creature that
+    /// does not strike: picking it bumps the obstacle.
+    Bump(usize),
     Closed,
 }
 
@@ -124,9 +128,24 @@ impl Game {
         // the moves from the Life Force they left.
         self.turn_top(me, ev);
         let c = self.creature(region, slot)?.clone();
-        // Creatures 2.6: halved, rounding up, with a foe beside it.
+        // Creatures 2.6: halved, rounding up, with a foe beside it. 5.4: a
+        // turn after a door starts with the moves carried through it, not
+        // halved and not cut by the load, its full moves (for the idle
+        // healing roll, magic 5.3.1) those of the door turn; with none
+        // carried, the full bar.
         let hindered = self.threatened(&c, me);
-        let moves = creatures::turn_speed(&self.adv, &c, hindered);
+        let carried = self
+            .creature_carried
+            .iter()
+            .position(|m| (m.region, m.slot) == (region, slot))
+            .map(|i| self.creature_carried.remove(i));
+        let (moves, full) = match carried {
+            Some(m) => (m.moves, m.full),
+            None => {
+                let m = creatures::turn_speed(&self.adv, &c, hindered);
+                (m, m)
+            }
+        };
         ev.push(Event::CreatureTurn { region, slot, moves });
         let mut left = moves;
         // Magic 6.3: casting (or using an item) takes the whole turn.
@@ -143,7 +162,7 @@ impl Game {
             self.creature(region, slot)?; // its drop spell may have killed it
             left = left.saturating_sub(1);
             if left == 0 {
-                return Some((0, moves));
+                return Some((0, full));
             }
         }
         // Combat 6.2: readying after the smartness checks, before the
@@ -154,7 +173,7 @@ impl Game {
             // turn there: no shot, no step choice or its rolls, no idle
             // move or its healing roll. Speed 0 keeps its one action.
             if left == 0 && c.speed > 0 {
-                return Some((0, moves));
+                return Some((0, full));
             }
         }
         // 6.2: one goal for the whole turn.
@@ -174,17 +193,17 @@ impl Game {
                     self.fire(me, crate::combat::Aim::Individual(o.who), left, ev);
                 }
                 self.creature(region, slot)?;
-                return Some((0, moves));
+                return Some((0, full));
             }
-            match self.creature_step(region, slot, goal, start, &mut stood, &mut left, moves, ev) {
+            match self.creature_step(region, slot, goal, start, &mut stood, &mut left, full, ev) {
                 Stepped::Moved => left = left.saturating_sub(1),
                 Stepped::Ended => break,
                 Stepped::Stood if left == 0 => {
                     // 2.7.4: with no move left, the action is one idle move
                     // (magic 5.3.1: no roll drawn with full moves 0).
-                    self.idle_moves(me, 1, moves, ev);
+                    self.idle_moves(me, 1, full, ev);
                     self.creature(region, slot)?;
-                    return Some((0, moves));
+                    return Some((0, full));
                 }
                 Stepped::Stood => break,
             }
@@ -193,7 +212,7 @@ impl Game {
             }
         }
         self.creature(region, slot)?;
-        Some((left, moves))
+        Some((left, full))
     }
 
     /// Magic 6.1-6.5: a smart fighter casts its lowest-numbered fitting
@@ -487,6 +506,10 @@ impl Game {
         let Some(c) = self.creature(region, slot).cloned() else {
             return Stepped::Ended;
         };
+        let mut grid = grid;
+        if let Some((k, i)) = self.goal_obstacle(region, slot, &c, goal, w) {
+            grid[k] = Sq::Bump(i);
+        }
         // 7.3: a friend beside the player it chose.
         if let Some(Goal {
             individual: Some(o), ..
@@ -530,6 +553,13 @@ impl Game {
             let roll = self.rng.below(3) as u16;
             let cost = if first_choice && matches!(sq, Sq::Door(_)) {
                 exit_cost
+            } else if matches!(sq, Sq::Bump(_)) {
+                // 5.1: 4 if stood on this turn, else 1.
+                if stood.contains(&(nx, ny)) {
+                    4
+                } else {
+                    1
+                }
             } else if goal.is_some_and(|g| g.at == (nx, ny)) {
                 1
             } else {
@@ -573,6 +603,16 @@ impl Game {
             *left = 0;
             return Stepped::Ended;
         }
+        if let Sq::Bump(i) = sq {
+            // 5.1: it stays put, the obstacle's bump goes off on it, and
+            // the move is spent; the turn goes on.
+            self.creature_bump(region, slot, (nx, ny), i, ev);
+            return if self.creature(region, slot).is_some() {
+                Stepped::Moved
+            } else {
+                Stepped::Ended
+            };
+        }
         // 2.7.3: no move left for a step onto an ordinary square.
         if *left == 0 && sq == Sq::Open && goal.is_none_or(|g| g.at != (nx, ny)) {
             return Stepped::Stood;
@@ -593,6 +633,18 @@ impl Game {
         match sq {
             Sq::Door(i) => {
                 self.creature_take_door(region, slot, to, i, ev);
+                // 5.4: the door's step is spent and the turn ends; the
+                // moves left start its next turn (none idle now).
+                let carry = left.saturating_sub(1);
+                *left = 0;
+                if carry > 0 && self.creature(region, slot).is_some() {
+                    self.creature_carried.push(CarriedMoves {
+                        region,
+                        slot,
+                        moves: carry,
+                        full,
+                    });
+                }
                 Stepped::Ended
             }
             Sq::Take(i) => {
@@ -611,6 +663,131 @@ impl Game {
                 });
                 Stepped::Moved
             }
+        }
+    }
+
+    /// 5.1 (engine choice): for a creature that does not strike (combat
+    /// 2.3) with an individual for its goal, the grid index and room item
+    /// of the square that individual stands on, when its top thing is an
+    /// obstacle or a custom obstacle.
+    fn goal_obstacle(
+        &self,
+        region: u8,
+        slot: usize,
+        c: &Creature,
+        goal: Option<Goal>,
+        w: u8,
+    ) -> Option<(usize, usize)> {
+        let o = goal?.individual?;
+        let me = Who::Creature { region, slot };
+        if is_fighter(c) && self.owned_melee(me).is_some() {
+            return None;
+        }
+        let Location::Room {
+            region: rg,
+            room,
+            x,
+            y,
+        } = self.location(o.who).filter(|_| self.alive(o.who))?
+        else {
+            return None;
+        };
+        if (rg, room) != (region, c.room) {
+            return None;
+        }
+        let r = self.room(region, room)?;
+        let i = r.items.iter().position(|it| it.x == x && it.y == y)?;
+        matches!(
+            self.thing(r.items[i].thing).map(|t| &t.kind),
+            Some(ThingKind::Obstacle { .. } | ThingKind::CustomObstacle { .. })
+        )
+        .then_some((y as usize * w as usize + x as usize, i))
+    }
+
+    /// 5.1: a creature bumps the obstacle at `at` (room item `index`),
+    /// staying where it is: the bump spell, if any, acts on it, as a
+    /// door's does (magic 6.6), and a disappearing obstacle vanishes
+    /// (movement 5.9), as for a player's bump.
+    fn creature_bump(&mut self, region: u8, slot: usize, at: (u8, u8), index: usize, ev: &mut Vec<Event>) {
+        let Some(c) = self.creature(region, slot).cloned() else {
+            return;
+        };
+        let Some(item) = self
+            .room(region, c.room)
+            .and_then(|r| r.items.get(index))
+            .cloned()
+        else {
+            return;
+        };
+        let Some(t) = self.thing(item.thing).cloned() else {
+            return;
+        };
+        let me = Who::Creature { region, slot };
+        let to = Location::Room {
+            region,
+            room: c.room,
+            x: at.0,
+            y: at.1,
+        };
+        ev.push(Event::CreatureBumped {
+            region,
+            slot,
+            at: to,
+            thing: item.thing,
+        });
+        // Magic 3.2, 3.13: the obstacle's square; for one on the wall
+        // line, the bumper's own.
+        let on = if self.inside(region, c.room, at.0, at.1) {
+            to
+        } else {
+            Location::Room {
+                region,
+                room: c.room,
+                x: c.x,
+                y: c.y,
+            }
+        };
+        let message = self.message(&t.spell_message);
+        let spell = |source, action| Spell {
+            by: me,
+            target: me,
+            source,
+            thing: item.thing,
+            action,
+            message: message.clone(),
+            at: to,
+            on,
+            stack: Some(index),
+        };
+        match t.kind {
+            ThingKind::Obstacle {
+                bump_invokes_spell,
+                action,
+                ..
+            } => {
+                if bump_invokes_spell {
+                    self.run_spell(spell(SpellSource::Obstacle, action), ev);
+                }
+                // Movement 5.9: bit 4 of the first property byte.
+                if t.raw[0] & 0x10 != 0 {
+                    self.remove_thing_at(region, c.room, at.0, at.1, item.thing);
+                    ev.push(Event::ObstacleVanished {
+                        at: to,
+                        thing: item.thing,
+                    });
+                }
+            }
+            ThingKind::CustomObstacle { action, .. } => {
+                let s = spell(
+                    SpellSource::CustomObstacle,
+                    SpellAction {
+                        kind: action.kind,
+                        parameter: item.parameter.into(),
+                    },
+                );
+                self.run_spell(s, ev);
+            }
+            _ => {}
         }
     }
 
@@ -644,9 +821,14 @@ impl Game {
             }
             ev.push(Event::CreatureGoldPickedUp { region, slot, amount });
         } else {
+            // Inventory 2.7: the take adds the placed parameter, capped at
+            // the thing's limit; a 0 is taken but owns nothing.
             self.remove_item(region, room, index);
             if let Some(c) = self.creature_mut(region, slot) {
-                add_possession(c, item.thing);
+                let n = inventory::take_count(creatures::count(c, item.thing), item.parameter, item.thing);
+                for _ in 0..n {
+                    add_possession(c, item.thing);
+                }
             }
             ev.push(Event::CreaturePickedUp {
                 region,
@@ -710,6 +892,17 @@ impl Game {
             } = t.kind
             {
                 let me = Who::Creature { region, slot };
+                // Magic 3.2, 3.13: the portal's own square in the room
+                // left; for one on the wall line, the creature's own.
+                let on = match door {
+                    Location::Room { x, y, .. } if !self.inside(region, c.room, x, y) => Location::Room {
+                        region,
+                        room: c.room,
+                        x: c.x,
+                        y: c.y,
+                    },
+                    _ => door,
+                };
                 self.run_spell(
                     Spell {
                         by: me,
@@ -719,12 +912,7 @@ impl Game {
                         action,
                         message: self.message(&t.spell_message),
                         at: door,
-                        on: Location::Room {
-                            region,
-                            room,
-                            x: lx,
-                            y: ly,
-                        },
+                        on,
                         stack: Some(index),
                     },
                     ev,

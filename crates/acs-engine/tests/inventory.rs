@@ -791,3 +791,85 @@ fn a_take_heavier_than_a_quarter_of_the_capacity_ends_the_turn() {
         assert!(!take_ends_turn(p, (1, 2), Dir::E, 2, 11));
     });
 }
+
+/// 2.7: a take adds the placed parameter, capped at the thing's limit. A
+/// 0 is taken off the floor, shows the take and spends the step, but owns
+/// nothing (a weapon so taken is not readied); 1 or 2 owns a thing 33..80
+/// once; a 2 gives two of a thing 1..32, up to its limit of 3. The limit
+/// check (2.2) is on the count owned.
+#[test]
+fn a_take_gives_the_placed_parameter() {
+    both(|p| {
+        let mut a = adventure(p);
+        let items = &mut a.regions[0].rooms[0].items;
+        let set = |items: &mut Vec<acs_core::model::RoomItem>, x: u8, y: u8, parameter: u8| {
+            let it = items
+                .iter_mut()
+                .find(|it| (it.x, it.y) == (x, y))
+                .expect("placed");
+            it.parameter = parameter;
+        };
+        set(items, 2, 1, 0); // SWORD
+        set(items, 3, 2, 2); // CROWN
+        set(items, 4, 2, 2); // DUST
+                             // A second DUST with 2 on 5,2, and a CROWN with 0 on 6,2.
+        let mut dust = items.iter().find(|it| it.thing == DUST).cloned().expect("dust");
+        dust.x = 5;
+        items.insert(0, dust);
+        let mut crown = items.iter().find(|it| it.thing == CROWN).cloned().expect("crown");
+        (crown.x, crown.parameter) = (6, 0);
+        items.insert(0, crown);
+        let mut g = Game::new(a, 1, Rules { diagonals: true }, setup()).0;
+
+        // SWORD with 0: the take shows, the sword is gone, nothing owned.
+        g.place(0, hall(2, 2));
+        let left = g.current_player().moves_left;
+        let ev = mv(&mut g, Dir::N);
+        assert_eq!(
+            ev[0],
+            Event::PickedUp {
+                player: 0,
+                thing: SWORD
+            }
+        );
+        assert!(!ev.iter().any(|e| matches!(e, Event::Readied { .. })), "{ev:?}");
+        assert!(!g.current_player().owns(SWORD));
+        assert_eq!(g.current_player().weapon, None);
+        assert_eq!(g.current_player().moves_left, left - 1);
+        assert!(!g.adventure().regions[0].rooms[0]
+            .items
+            .iter()
+            .any(|it| (it.x, it.y) == (2, 1)));
+
+        // CROWN (33..80) with 0: taken, not owned; then a CROWN with 2:
+        // owned once.
+        g.place(0, hall(6, 3));
+        let ev = mv(&mut g, Dir::N);
+        assert!(
+            ev.contains(&Event::PickedUp {
+                player: 0,
+                thing: CROWN
+            }),
+            "{ev:?}"
+        );
+        assert_eq!(g.current_player().count(CROWN), 0);
+        g.place(0, hall(3, 3));
+        mv(&mut g, Dir::N);
+        assert_eq!(g.current_player().count(CROWN), 1);
+
+        // DUST (1..32) with 2: two; the next DUST with 2 tops up to 3.
+        g.place(0, hall(4, 3));
+        mv(&mut g, Dir::N);
+        assert_eq!(g.current_player().count(DUST), 2);
+        g.place(0, hall(5, 3));
+        let ev = mv(&mut g, Dir::N);
+        assert!(
+            ev.contains(&Event::PickedUp {
+                player: 0,
+                thing: DUST
+            }),
+            "{ev:?}"
+        );
+        assert_eq!(g.current_player().count(DUST), 3);
+    });
+}

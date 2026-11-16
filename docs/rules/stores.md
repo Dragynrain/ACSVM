@@ -96,8 +96,18 @@ Counts cover all 15 corpus adventures (222 regions).
    72), at their usual prices. Out of stock were one thing of value 0 (the
    template's HAND) and the three spells. Every stocked thing is drawn on
    its place; in the run only two showed, the others' pictures being
-   blank in our scenario. [capture: rr30 `store`, capture.md 10.34] Why
-   the value-0 thing was out (its value or its type) was not split.
+   blank in our scenario. [capture: rr30 `store`, capture.md 10.34]
+   **The value-0 thing was out for what it is, not its value**: in a room
+   store whose stock we set to things 1, 12 (HAND, a melee weapon of value
+   0 and weight 0 that nobody may use), 22 (a treasure of value 0) and a
+   magic item, bumping HAND's place said out of stock though it was
+   stocked, while the value-0 treasure was offered ("purchase ... for
+   0") and the button bought it: the stock went to 0, the player owned
+   it, the gold stayed 500. [capture: rr38 `st-buy2`, capture.md 10.42
+   item 3; ours, no research pass, 2026-11-16] Which of HAND's marks
+   keeps it off the shelves (weight 0, nobody may use, or both, the
+   creatures' own weapons) is [unknown]; every such thing tried had all
+   of them.
    **Where that stock comes from**: the file holds no stock record for
    region 0 anywhere [data], and the 14 bytes where a visited region's
    stock sits read 255 throughout, while the map was the visited region,
@@ -121,10 +131,16 @@ Counts cover all 15 corpus adventures (222 regions).
 
    **Engine:** no store on the open map. A store in an area opens as in a
    room. Its shelves hold every thing 1..80 of a type a store can stock
-   (2.1: treasures, magic items, weapons and armor; never spells) whose
-   value is above 0, each as many as the stock limit allows (2.6): the
-   engine builds the map region's stock that way rather than modelling
-   the map bytes the original reads. Buying and selling pay and take as
+   (2.1: treasures, magic items, weapons and armor; never spells), value
+   0 included, each as many as the stock limit allows (2.6): the engine
+   builds the map region's stock that way rather than modelling the map
+   bytes the original reads. **In every store, room or area**, a weapon
+   or armor of weight 0 that nobody may use (the same test as
+   [characters](characters.md) 7.5.1 for the things a destroy loses) is
+   never offered: its place says out of stock, whatever the stock holds,
+   and the stock count is kept as stored. A thing of value 0 otherwise
+   sells for 0 like any price (4.1). (Superseded: the engine's earlier
+   choice of leaving value-0 things off the map's shelves.) Buying and selling pay and take as
    in a room (4.3, 4.4, 5.1, 5.2), but in region 0 neither changes the
    stock, so every shelf stays as it was.
 8. **The stock is part of the region's saved state**, like its residents
@@ -158,6 +174,9 @@ Counts cover all 15 corpus adventures (222 regions).
    the store's square, the room or the approach: 15 squares across, 10
    down, each square floor, the shelf place of one thing 1..80, or an
    exit. [research] The player always appears on 7,5. [research; capture]
+   A store in a 10 x 8 room gives the same screen: the player on 7,5,
+   thing 1 drawn on its place 6,6. [capture: rr38 `ss-in`, capture.md
+   10.42 item 3; ours, 2026-11-16]
    The map (x across, y down; a number is that thing's place, `.` floor,
    `X` an exit):
 
@@ -237,8 +256,11 @@ Counts cover all 15 corpus adventures (222 regions).
    adds one to the player's count: **a weapon bought is not readied**,
    not even on leaving. [research; capture: rr12 `buy-blade`, the blade
    bought for 10, owned, the hand still empty in the store and back in the
-   room] A magic item set to act when picked up does not act. [research,
-   unconfirmed] **Engine:** as stated (`Bought`, with `kept` false when
+   room] A magic item set to act when picked up does not act: one showing
+   a long message when picked up, bought for 1, left the gold 500 to 499,
+   the stock 1 to 0 and the player owning it, with no message, back at
+   the store screen. [research; capture: rr38 `st-buy3`, capture.md 10.42
+   item 3; ours, 2026-11-16] **Engine:** as stated (`Bought`, with `kept` false when
    the thing was lost to the limit); refusals give `StoreRefused`.
 
 ## 5. Selling back
@@ -305,13 +327,13 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 1. A store in an encounter area on a map whose point table uses the
    points at the stock bytes (2.7): do the shelves follow those bytes?
-   And whether a value-0 thing is out of stock for its value or its type.
-2. A magic item set to act when picked up, bought (4.4; not reached in
-   capture.md 10.31).
-3. A store in a room of another size (the layout is fixed either way;
-   not reached in capture.md 10.31).
+   Value 0: settled (2.7, not the value; capture.md 10.42). Still open:
+   which of HAND's marks (weight 0, nobody may use) keeps it off the
+   shelves; a weapon of weight 0 usable by anyone, or one of weight
+   above 0 nobody may use, would split it.
 
-Settled: restocking from a used-up magic item (2.5), the stock across
+Settled: a magic item that acts when picked up, bought (4.4), and a
+store in a 10 x 8 room (3.3), capture.md 10.42; restocking from a used-up magic item (2.5), the stock across
 visits, saves and restores (2.8) and a thing owned twice (5.2), all
 capture.md 10.31; a store in an area, its shelves, buying, selling and
 leaving (2.7), capture.md 10.34.

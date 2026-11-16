@@ -35,11 +35,19 @@ adventures.
    the space, the long message filled the screen, and after the button
    play went on, the player walking about for rounds afterwards; no win
    screen and no end. [capture: rr36 `win-4`, `win-5`, capture.md 10.40
-   item 7; ours, no research pass, 2026-11-16] An oddity of that run:
-   taking the treasure moved its room entry away as any take does, but no
-   possession bit was seen set in the player's record; it is not
-   explained, and nothing else seen depended on it. A goal the program
-   itself generated was not tried.
+   item 7; ours, no research pass, 2026-11-16] In that run taking the
+   treasure set no possession bit in the player's record. That is
+   explained: we had placed the treasure with parameter 0, and a take
+   adds the placed parameter, so a 0 is taken off the floor and owned by
+   no one; placed with 1 or 2 the same treasures set the bit
+   ([inventory](inventory.md) 2.7). [capture: rr38 `pk-e2`, `pk-s2`,
+   `pk-w2`, capture.md 10.42 item 6; ours, no research pass, 2026-11-16]
+   So a designer's goal placed with 0 would leave the finder not owning
+   it, which matters only to conditions on owning it (2.3). A goal the
+   program itself generated could not be tried: making one needs the
+   editor's "Let ACS Write the Adventure", which the harness does not
+   drive. [capture: not reached, capture.md 10.42 item 6] **Engine:**
+   a generated goal plays as any placed thing.
 5. **No stored goal has been found.** The decoder reads no goal field, and
    nothing in the known layout holds one (format notes). [data] Whether the
    goal setting is saved with the adventure, in one of the header bytes not
@@ -98,6 +106,10 @@ when it is implemented.
 1. Whether picking up the generated goal, or running the success stack, ends
    the game, shows a win screen or changes anything saved: for a stack of
    ours, captured (1.4: the message, then play goes on; capture.md 10.40).
-   Still open: a goal ACS generated, what a save holds afterwards, and the
-   possession bit not seen set at the take.
-2. Where the "Let ACS Write" goal setting is stored, if anywhere.
+   Still open: a goal ACS generated (not reachable by the harness, which
+   does not drive the editor; capture.md 10.42) and what a save holds
+   afterwards. The possession bit at the take: settled (1.4, the placed
+   parameter, capture.md 10.42).
+2. Where the "Let ACS Write" goal setting is stored, if anywhere: not
+   reachable by capture for the same reason (capture.md 10.42); left to
+   the format (1.5).

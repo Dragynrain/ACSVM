@@ -28,6 +28,12 @@ pub fn limit(thing: ThingId) -> u16 {
     }
 }
 
+/// 2.7: how many of `thing` a take of one placed with `parameter` adds
+/// to an owner of `owned`: the parameter, capped at the thing's limit.
+pub fn take_count(owned: u16, parameter: u8, thing: ThingId) -> u16 {
+    (parameter as u16).min(limit(thing).saturating_sub(owned))
+}
+
 /// Whether a thing kind is carried (1.1).
 pub fn carriable(kind: &ThingKind) -> bool {
     matches!(

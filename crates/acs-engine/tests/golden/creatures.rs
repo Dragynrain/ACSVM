@@ -15,14 +15,16 @@
 use crate::stats::{same_histogram, same_rate, Sweep, SEEDS, Z_FAIL};
 use crate::world::*;
 use acs_core::model::{
-    Access, Alignment, Creature, Destination, RoomItem, SpellAction, SpellActionKind, ThingKind,
+    Access, Alignment, Creature, CustomTrigger, Destination, PlacementChoice, RoomItem, SpellAction,
+    SpellActionKind, ThingKind,
 };
 use acs_core::{Adventure, Platform};
-use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason, Rules};
+use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason, Rules, Stat};
 
 /// A two-way portal (10.29 `two`).
 const TWO_WAY: u16 = 83;
 const SPELL: u16 = 33;
+const GOLD: u16 = 81;
 /// The second region of 10.29 `reg`.
 const FAR: u8 = 2;
 
@@ -1604,4 +1606,650 @@ fn the_room_random_creature_lands_anywhere_inside_but_the_players_square() {
     });
     same_rate("rc-sw: runs with RR", Sweep::Sample, 21, 32, eng, SEEDS);
     assert_eq!(squares.len(), 13 * 8 - 1, "{squares:?}");
+}
+
+// ---- capture.md 10.41: creatures and movement, the open cases left ---------
+
+/// The game with exactly these region-1 slots carrying the random mark
+/// (`--set E1A9=158` on the slot's mark byte, creatures 2.4).
+fn marked(g: &Game, slots: &[usize]) -> Game {
+    let mut v = serde_json::to_value(g).expect("serializes");
+    v["random"] = serde_json::json!(slots.iter().map(|&s| (1u8, s)).collect::<Vec<_>>());
+    serde_json::from_value(v).expect("deserializes")
+}
+
+/// capture.md 10.41 item 1 (rr37 `f2/sweep`, 256 states, five round ends
+/// each; creatures 2.4): 10.14.3's `fall/side.vsf` (residents of ours in
+/// slots 0 to 6, the random creature in slot 7, T gone on into the side
+/// room) with slot 0's mark set too, so two random creatures stand in room
+/// 0 with no player. Slot 0 was removed in 115 runs, slot 7 in 97, both at
+/// the same round end in 14. Later rolls follow from the first: samples.
+#[test]
+fn two_random_creatures_take_a_roll_each() {
+    let mut a = with_portal(DOOR, to_side());
+    for (slot, (x, y)) in [(1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (12, 8)]
+        .into_iter()
+        .enumerate()
+    {
+        ours(&mut a, slot, &format!("R{slot}"), x, y, |c| c.speed = 0);
+    }
+    random_creature(&mut a, ROOM, 100);
+    let player = PlayerSetup {
+        speed: 7,
+        constitution: 20,
+        life_force: 20,
+        ..Default::default()
+    };
+    let gone = |ev: &[Event], n: usize| {
+        ev.contains(&Event::CreatureRemoved {
+            region: 1,
+            slot: n,
+            reason: RemovalReason::LeftBehind,
+        })
+    };
+    let (mut runs, mut zero, mut seven, mut both) = (0, 0, 0, 0);
+    for seed in 0..SEEDS / 4 {
+        let mut g = start(&a, seed, player.clone());
+        assert_eq!(appeared(&walk_in(&mut g), ROOM), Some(7));
+        let c = g.creature_mut(1, 7).expect("the random creature");
+        (c.x, c.y) = (7, 1);
+        let ev = east(&mut g, 3);
+        assert_eq!(g.players()[0].at, side(2, 4));
+        // The snapshot had both standing: a run losing slot 7 first is not
+        // one of the capture's.
+        if gone(&ev, 7) {
+            continue;
+        }
+        let mut g = marked(&g, &[0, 7]);
+        runs += 1;
+        let (mut at0, mut at7) = (None, None);
+        for end in 0..5 {
+            let ev = wait(&mut g);
+            assert_eq!(g.players()[0].at, side(2, 4));
+            if gone(&ev, 0) {
+                at0 = Some(end);
+            }
+            if gone(&ev, 7) {
+                at7 = Some(end);
+            }
+        }
+        // A removed slot keeps its mark.
+        assert!(g.is_random(1, 0) && g.is_random(1, 7), "seed {seed}");
+        zero += u64::from(at0.is_some());
+        seven += u64::from(at7.is_some());
+        both += u64::from(at0.is_some() && at0 == at7);
+    }
+    same_rate("f2: slot 0 removed", Sweep::Sample, 115, 256, zero, runs);
+    same_rate("f2: slot 7 removed", Sweep::Sample, 97, 256, seven, runs);
+    same_rate("f2: both at one round end", Sweep::Sample, 14, 256, both, runs);
+}
+
+/// capture.md 10.41 item 2 (rr37 `hp-s6` .. `hp-s1`, one run each;
+/// creatures 2.6): T on 4,4, EE an aggressive enemy of Speed 0, Wisdom 3,
+/// on 6,4. T of Speed 6, 7, 5, 3 or 1 steps east beside EE: its moves at
+/// that turn's start 6, 7, 5, 3, 1; right after the step 5, 6, 4, 2, 0;
+/// at each of its next two turn starts 3, 4, 3, 2, 1, halved rounding up.
+#[test]
+fn halving_rounds_up_at_odd_speeds_and_only_at_the_turns_start() {
+    let mut a = closed();
+    creature(&mut a, 0, 6, 4, |c| {
+        c.name = "EE".into();
+        c.speed = 0;
+        c.wisdom = 3;
+    });
+    for (speed, after, halved) in [(6, 5, 3), (7, 6, 4), (5, 4, 3), (3, 2, 2), (1, 0, 1)] {
+        let mut g = game(&a, 1, tee(speed), room(4, 4));
+        assert_eq!(started(&wait(&mut g)), (0, speed, false), "hp-s{speed}");
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        assert_eq!(g.players()[0].at, room(5, 4), "hp-s{speed}");
+        let mut starts = Vec::new();
+        if after == 0 {
+            assert!(
+                ev.contains(&Event::TurnEnded { player: 0 }),
+                "hp-s{speed}: {ev:?}"
+            );
+            starts.push(started(&ev).1);
+        } else {
+            assert_eq!(g.players()[0].moves_left, after, "hp-s{speed}: after the step");
+        }
+        while starts.len() < 2 {
+            starts.push(started(&wait(&mut g)).1);
+        }
+        assert_eq!(starts, [halved; 2], "hp-s{speed}");
+    }
+}
+
+/// Every turn start in `ev`, read against the squares then: (who, moves,
+/// beside a foe at that moment). T stays on 4,4; the creatures' squares
+/// follow their steps from `at`.
+fn turn_starts(ev: &[Event], at: &mut [(u8, u8)]) -> Vec<(Mover, u8, bool)> {
+    let beside = |p: (u8, u8)| p.0.abs_diff(4) + p.1.abs_diff(4) == 1;
+    let mut out = Vec::new();
+    for e in ev {
+        match *e {
+            Event::CreatureMoved {
+                region: 1, slot, to, ..
+            } => at[slot] = to.xy(),
+            Event::CreatureTurn {
+                region: 1,
+                slot,
+                moves,
+            } => out.push((C(slot), moves, beside(at[slot]))),
+            Event::TurnStarted { player, moves, .. } => {
+                out.push((P(player, moves), moves, at.iter().any(|&p| beside(p))))
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// capture.md 10.41 item 2 (rr37 `mc-m`, `cr-m`, 8 states each, 40M;
+/// `adjcheck.py`; creatures 2.6). `mc`: MM, an aggressive enemy of Speed 7
+/// on 8,4, walks up to T (Speed 6) on 4,4: MM's 13 turns begun beside T
+/// had 4 moves, its 13 others 7; T's 15 turns begun with MM beside it 3,
+/// its 7 others 6. `cr`: peaceful enemies of Speed 1, 3, 5, 7 on the four
+/// squares beside T (Speed 2) and the same four far off: beside T at a turn
+/// start 1, 2, 3, 4, elsewhere 1, 3, 5, 7; every turn start as predicted.
+/// The rule is deterministic: every engine turn start must fit it.
+#[test]
+fn creatures_are_halved_rounding_up_beside_a_foe() {
+    let up = |s: u8| s.div_ceil(2);
+    // `mc`
+    let mut a = closed();
+    creature(&mut a, 0, 8, 4, |c| {
+        c.name = "MM".into();
+        c.speed = 7;
+        c.wisdom = 3;
+    });
+    let mut seen = [[0; 2]; 2];
+    for seed in 0..8 {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let mut at = [(8, 4)];
+        for _ in 0..8 {
+            for (who, moves, beside) in turn_starts(&wait(&mut g), &mut at) {
+                let (k, speed) = match who {
+                    C(_) => (0, 7),
+                    P(..) => (1, 6),
+                };
+                let want = if beside { up(speed) } else { speed };
+                assert_eq!(moves, want, "mc seed {seed}: {who:?} beside {beside}");
+                seen[k][beside as usize] += 1;
+            }
+        }
+    }
+    assert!(seen.iter().flatten().all(|&n| n > 0), "mc: {seen:?}");
+
+    // `cr`
+    let mut a = closed();
+    let squares = [(3, 4), (5, 4), (4, 3), (4, 5), (1, 1), (13, 1), (1, 8), (13, 8)];
+    let speeds = [1, 3, 5, 7, 1, 3, 5, 7];
+    for (n, (&(x, y), &speed)) in squares.iter().zip(&speeds).enumerate() {
+        creature(&mut a, n, x, y, |c| {
+            c.name = format!("E{n}");
+            c.speed = speed;
+            c.wisdom = 3;
+            c.strategy.aggressive = false;
+        });
+    }
+    let mut seen = [[0; 2]; 4];
+    for seed in 0..8 {
+        let mut g = game(&a, seed, tee(2), room(4, 4));
+        let mut at = squares;
+        for _ in 0..5 {
+            for (who, moves, beside) in turn_starts(&wait(&mut g), &mut at) {
+                let C(n) = who else { continue };
+                let want = if beside { up(speeds[n]) } else { speeds[n] };
+                assert_eq!(moves, want, "cr seed {seed}: E{n} beside {beside}");
+                seen[n % 4][beside as usize] += 1;
+            }
+        }
+    }
+    assert!(seen.iter().all(|s| s[1] > 0), "cr: {seen:?}");
+}
+
+/// capture.md 10.41 item 3 (rr37 `cs-m`, 8 states, 40M; creatures 5.1,
+/// movement 5.5): peaceful friends of Speed 3 (Constitution 30, Life Force
+/// 20) in the four corners, both open squares beside each holding a space:
+/// FA's an "invoke spell" space (Life Force -5), FB's a plain one open to
+/// anyone, FC's a custom space "when moved onto" (-5 from the placement,
+/// 133), FD's a custom space open to owners of thing 50, which FD owns. In
+/// 64 creature turns no creature left its corner and no Life Force fell.
+/// Deterministic: every engine turn must so.
+#[test]
+fn creatures_never_step_onto_spaces() {
+    const FIFTY: u16 = 50;
+    const MINUS5: u16 = 0x85;
+    let mut a = closed();
+    thing(&mut a, FIFTY, "FIFTY", treasure(1, 1));
+    let life = |parameter| SpellAction {
+        kind: SpellActionKind::ChangeLifeForce,
+        parameter,
+    };
+    let custom = |placement_choice, trigger, action| ThingKind::CustomSpace {
+        picture: 4,
+        placement_choice,
+        trigger,
+        action,
+        destroy_needed_thing: false,
+    };
+    let kinds = [
+        ThingKind::Space {
+            picture: 4,
+            access: Access::InvokeSpell { action: life(MINUS5) },
+        },
+        ThingKind::Space {
+            picture: 4,
+            access: Access::Anyone,
+        },
+        custom(
+            PlacementChoice::SpellParameter,
+            CustomTrigger::WhenMovedOnto,
+            life(0),
+        ),
+        custom(
+            PlacementChoice::Thing,
+            CustomTrigger::OpenToOwnersOf,
+            life(MINUS5),
+        ),
+    ];
+    // (corner, the two squares beside it, the placement parameter)
+    type Corner = ((u8, u8), [(u8, u8); 2], u8);
+    let corners: [Corner; 4] = [
+        ((1, 1), [(2, 1), (1, 2)], 0),
+        ((13, 1), [(12, 1), (13, 2)], 0),
+        ((1, 8), [(2, 8), (1, 7)], MINUS5 as u8),
+        ((13, 8), [(12, 8), (13, 7)], FIFTY as u8),
+    ];
+    for (n, (kind, &(corner, beside, parameter))) in kinds.into_iter().zip(&corners).enumerate() {
+        let t = 101 + n as u16;
+        thing(&mut a, t, &format!("SPACE{n}"), kind);
+        for (x, y) in beside {
+            item(&mut a, ROOM, x, y, t);
+            a.regions[0].rooms[ROOM as usize].items[0].parameter = parameter;
+        }
+        ours(&mut a, n, ["FA", "FB", "FC", "FD"][n], corner.0, corner.1, |c| {
+            c.constitution = 30;
+            c.life_force = 20;
+            if n == 3 {
+                owns(c, FIFTY);
+            }
+        });
+    }
+    let mut turns = 0;
+    for seed in 0..8 {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let mut lives = [20u8; 4];
+        let mut mine = 0;
+        for _ in 0..8 {
+            if mine >= 8 {
+                break;
+            }
+            for e in &wait(&mut g) {
+                match e {
+                    Event::CreatureTurn { region: 1, .. } => mine += 1,
+                    Event::CreatureMoved { slot, .. }
+                    | Event::CreatureTookDoor { slot, .. }
+                    | Event::CreatureBumped { slot, .. } => {
+                        panic!("cs seed {seed}: slot {slot} left its corner: {e:?}")
+                    }
+                    _ => {}
+                }
+            }
+            for (n, &(corner, ..)) in corners.iter().enumerate() {
+                let c = g.creature(1, n).expect("alive");
+                assert_eq!((c.x, c.y), corner, "cs seed {seed}: slot {n}");
+                assert!(
+                    c.life_force >= lives[n],
+                    "cs seed {seed}: slot {n}'s Life Force fell"
+                );
+                lives[n] = c.life_force;
+            }
+        }
+        assert!(mine >= 8, "cs seed {seed}: {mine} turns");
+        turns += mine;
+    }
+    assert!(turns >= 64, "{turns}");
+}
+
+/// rr37's `ad-*` disks: on the side room's 2,4, where the portal leads, a
+/// space "invoke spell" (Life Force -5, `ad-sp`), an obstacle that bumps
+/// for -5 (`ad-ob`), or a custom space open only to owners of the blade
+/// giving +5 (`ad-cs`); FF, a peaceful friend of Speed 6, Life Force 15,
+/// on 5,5 (its Constitution 15 too, so no healing hides a fall).
+fn arrival(case: &str) -> Adventure {
+    const BLADE: u16 = 59;
+    const PAD: u16 = 101;
+    let minus5 = SpellAction {
+        kind: SpellActionKind::ChangeLifeForce,
+        parameter: 0x85,
+    };
+    let mut a = with_portal(DOOR, to_side());
+    thing(&mut a, BLADE, "BLADE", blade(10));
+    let (kind, parameter) = match case {
+        "ad-sp" => (
+            ThingKind::Space {
+                picture: 4,
+                access: Access::InvokeSpell { action: minus5 },
+            },
+            0,
+        ),
+        "ad-ob" => (
+            ThingKind::Obstacle {
+                picture: 7,
+                bump_invokes_spell: true,
+                action: minus5,
+            },
+            0,
+        ),
+        _ => (
+            ThingKind::CustomSpace {
+                picture: 4,
+                placement_choice: PlacementChoice::Thing,
+                trigger: CustomTrigger::OpenToOwnersOf,
+                action: SpellAction {
+                    kind: SpellActionKind::ChangeLifeForce,
+                    parameter: 5,
+                },
+                destroy_needed_thing: false,
+            },
+            BLADE as u8,
+        ),
+    };
+    thing(&mut a, PAD, "PAD", kind);
+    item(&mut a, SIDE, 2, 4, PAD);
+    a.regions[0].rooms[SIDE as usize].items[0].parameter = parameter;
+    ours(&mut a, 0, "FF", 5, 5, |c| {
+        c.speed = 6;
+        c.constitution = 15;
+        c.life_force = 15;
+    });
+    a
+}
+
+/// capture.md 10.41 item 4 (rr37 `ad-sp`, `ad-ob`, `ad-cs`; movement 6.3,
+/// creatures 5.4): T (Speed 12) through the portal onto the side room's
+/// 2,4 holding a space "invoke spell" (-5), an obstacle that bumps for -5
+/// or a custom space open only to owners of the blade (+5): T stood on 2,4,
+/// its Life Force unchanged, each time (`ad-*-a`). `ad-*-m` (2 states
+/// each): FF followed through the portal on its first turn in 6 of 6
+/// runs, landed on 2,4 with its Life Force unchanged; its next turn began
+/// with its Speed 6 less the steps it took to the portal (3 in 5 runs, 1
+/// in the sixth). The following is a sample; the rest exact.
+#[test]
+fn arriving_by_a_room_door_triggers_nothing_and_a_creature_carries_its_moves() {
+    let quiet = |ev: &[Event]| {
+        !ev.iter().any(|e| {
+            matches!(
+                e,
+                Event::SpellTriggered { .. }
+                    | Event::Given { .. }
+                    | Event::StatChanged { .. }
+                    | Event::CreatureBumped { .. }
+            )
+        })
+    };
+    let (mut n, mut followed) = (0, 0);
+    for case in ["ad-sp", "ad-ob", "ad-cs"] {
+        let a = arrival(case);
+        for seed in 0..SEEDS / 16 {
+            let mut g = start(&a, seed, tee(12));
+            walk_in(&mut g);
+            let mut ev = east(&mut g, 3);
+            assert_eq!(g.players()[0].at, side(2, 4), "{case}");
+            assert_eq!(life(&g), 40, "{case} seed {seed}");
+            assert!(quiet(&ev), "{case} seed {seed}: {ev:?}");
+            n += 1;
+            // FF's first turn: the one in the round T went through.
+            let first = turns_of(&ev, 0)
+                .first()
+                .unwrap_or_else(|| panic!("{case} seed {seed}: FF took no turn"))
+                .to_vec();
+            if !first
+                .iter()
+                .any(|e| matches!(e, Event::CreatureTookDoor { slot: 0, to, .. } if *to == side(2, 4)))
+            {
+                continue;
+            }
+            followed += 1;
+            let steps = first
+                .iter()
+                .filter(|e| matches!(e, Event::CreatureMoved { slot: 0, .. }))
+                .count() as u8;
+            let ff = g.creature(1, 0).expect("FF");
+            assert_eq!(
+                (ff.room, ff.x, ff.y, ff.life_force),
+                (SIDE, 2, 4, 15),
+                "{case} seed {seed}"
+            );
+            // Its next turn: the moves left after the door's step.
+            for _ in 0..4 {
+                if turns_of(&ev, 0).len() >= 2 {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let Event::CreatureTurn { moves, .. } = turns_of(&ev, 0)[1][0] else {
+                unreachable!()
+            };
+            assert_eq!(moves, 6 - steps - 1, "{case} seed {seed}: FF's carried moves");
+        }
+    }
+    same_rate(
+        "ad-*-m: FF through the portal on its first turn",
+        Sweep::Sample,
+        6,
+        6,
+        followed,
+        n,
+    );
+}
+
+/// capture.md 10.41 item 3, seen once (rr37 `ad-ob-m` run 1; creatures
+/// 5.1): FF, a slinker friend on the side room's 1,4 beside the obstacle
+/// that bumps for -5 on 2,4, the player (its goal) on that square, picked
+/// the square east: its Life Force fell 16 to 11 and it stayed on 1,4.
+/// Here every bump FF makes at 2,4 after following T there must so: the
+/// bump's -5 at once (to 0 at most), FF never on 2,4 again. One run: no
+/// rate.
+#[test]
+fn a_creature_bumps_the_obstacle_its_goal_stands_on() {
+    let a = arrival("ad-ob");
+    let (mut bumps, mut runs) = (0, 0);
+    for seed in 0..SEEDS / 16 {
+        let mut g = start(&a, seed, tee(12));
+        walk_in(&mut g);
+        let mut ev = east(&mut g, 3);
+        for _ in 0..8 {
+            ev.extend(wait(&mut g));
+        }
+        let Some(landed) = ev
+            .iter()
+            .position(|e| matches!(e, Event::CreatureTookDoor { slot: 0, to, .. } if *to == side(2, 4)))
+        else {
+            continue;
+        };
+        let after = &ev[landed + 1..];
+        let mut left = false;
+        let before = bumps;
+        for (i, e) in after.iter().enumerate() {
+            match *e {
+                Event::CreatureMoved {
+                    slot: 0, from, to, ..
+                } => {
+                    assert_ne!(to, side(2, 4), "seed {seed}: FF stepped back onto the obstacle");
+                    left |= from == side(2, 4);
+                }
+                Event::CreatureBumped { slot: 0, at, .. } => {
+                    assert!(left && at == side(2, 4), "seed {seed}: {e:?}");
+                    let change = after[i + 1..]
+                        .iter()
+                        .find(|e| matches!(e, Event::StatChanged { .. }));
+                    assert!(
+                        matches!(
+                            change,
+                            Some(Event::StatChanged { who, stat: Stat::LifeForce, from, to })
+                                if *who == slot(0) && *to == from.saturating_sub(5)
+                        ),
+                        "seed {seed}: the bump's -5: {change:?}"
+                    );
+                    bumps += 1;
+                }
+                _ => {}
+            }
+        }
+        assert_eq!(g.players()[0].at, side(2, 4));
+        runs += u64::from(bumps > before);
+    }
+    println!("ad-ob: {bumps} bumps at the goal's obstacle in {runs} runs");
+    assert!(bumps > 0, "no bump at the goal's obstacle");
+}
+
+/// Puts a pile of `amount` gold on ROOM (x, y).
+fn gold_at(a: &mut Adventure, x: u8, y: u8, amount: u16) {
+    a.regions[0].rooms[ROOM as usize].items.insert(
+        0,
+        RoomItem {
+            x,
+            y,
+            thing: GOLD,
+            parameter: 0,
+            flag: false,
+            destination: None,
+            gold: Some(amount),
+        },
+    );
+}
+
+/// rr37's `w5`: aggressive neutrals of Speed 0, Wisdom 3, in the corners,
+/// our obstacles on one square beside each so the other is the only open
+/// one: NA (holding our blade) and NC (no weapon) beside a portal to the
+/// side room on 1,2 and 1,7; NB (the blade) and ND (none) beside 50 gold on
+/// 13,2 and 13,7. The player on 4,4 their goal.
+fn w5() -> Adventure {
+    const BLADE: u16 = 59;
+    let mut a = closed();
+    thing(&mut a, BLADE, "BLADE", blade(10));
+    thing(&mut a, GOLD, "GOLD", treasure(1, 1));
+    for (n, (x, y)) in [(1, 1), (13, 1), (1, 8), (13, 8)].into_iter().enumerate() {
+        creature(&mut a, n, x, y, |c| {
+            c.name = ["NA", "NB", "NC", "ND"][n].into();
+            c.speed = 0;
+            c.wisdom = 3;
+            c.strategy.alignment = Alignment::Neutral;
+            c.weapon = 0;
+            c.possessions.clear();
+            if n < 2 {
+                owns(c, BLADE);
+                c.weapon = BLADE;
+            }
+        });
+    }
+    for (x, y) in [(2, 1), (12, 1), (2, 8), (12, 8)] {
+        item(&mut a, ROOM, x, y, OBSTACLE);
+    }
+    for (x, y) in [(1, 2), (1, 7)] {
+        door_at(&mut a, x, y, DOOR, to_side());
+    }
+    for (x, y) in [(13, 2), (13, 7)] {
+        gold_at(&mut a, x, y, 50);
+    }
+    a
+}
+
+/// capture.md 10.41 item 5 (rr37 `w5-m2`, 16 states, 40M; creatures 2.7):
+/// every one of the four went through the portal or took the gold from
+/// beside on its first turn, 64 of 64, its square unchanged by the take.
+/// Owning a melee weapon changes nothing. Exact.
+#[test]
+fn a_speed_0_fighter_takes_the_exit_or_gold_beside_it() {
+    let a = w5();
+    for seed in 0..16 {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let ev = wait(&mut g);
+        for (n, corner) in [(0, (1, 1)), (1, (13, 1)), (2, (1, 8)), (3, (13, 8))] {
+            let turn = turns_of(&ev, n)[0];
+            let ok = if corner.0 == 1 {
+                turn.iter()
+                    .any(|e| matches!(e, Event::CreatureTookDoor { slot, .. } if *slot == n))
+            } else {
+                let c = g.creature(1, n).expect("alive");
+                assert_eq!(
+                    (c.x, c.y, c.wealth),
+                    (corner.0, corner.1, 50),
+                    "seed {seed}: slot {n}"
+                );
+                turn.iter()
+                    .any(|e| matches!(e, Event::CreatureGoldPickedUp { slot, amount: 50, .. } if *slot == n))
+            };
+            assert!(ok, "w5-m2 seed {seed}: slot {n}: {turn:?}");
+        }
+    }
+}
+
+/// capture.md 10.41 item 6 (creatures 6.5). `w5-m2`'s NE, an aggressive
+/// neutral of Speed 0 on 8,4 with 50 gold on 7,4 between it and T on 4,4,
+/// its goal (gold rank 96, cost 3): 16 runs of two turns, the gold taken in
+/// 14. `g1-m` (16 states): TH, a peaceful thief of Speed 0 on 8,4, the gold
+/// on 7,4 its goal (cost 1): taken on its first turn 16 of 16, exact.
+#[test]
+fn gold_costs_its_rank_on_the_first_step() {
+    let mut a = closed();
+    thing(&mut a, GOLD, "GOLD", treasure(1, 1));
+    gold_at(&mut a, 7, 4, 50);
+    let took = |ev: &[Event]| {
+        ev.iter().any(|e| {
+            matches!(
+                e,
+                Event::CreatureGoldPickedUp {
+                    slot: 0,
+                    amount: 50,
+                    ..
+                }
+            )
+        })
+    };
+    let mut ne = a.clone();
+    creature(&mut ne, 0, 8, 4, |c| {
+        c.name = "NE".into();
+        c.speed = 0;
+        c.wisdom = 3;
+        c.strategy.alignment = Alignment::Neutral;
+    });
+    let runs = SEEDS / 4;
+    let eng = count(runs, |seed| {
+        let mut g = game(&ne, seed, tee(6), room(4, 4));
+        let mut ev = Vec::new();
+        for _ in 0..4 {
+            if turns_of(&ev, 0).len() >= 2 {
+                break;
+            }
+            ev.extend(wait(&mut g));
+        }
+        turns_of(&ev, 0).iter().take(2).any(|t| took(t))
+    });
+    same_rate(
+        "w5-m2: NE takes the gold in two turns",
+        Sweep::Sample,
+        14,
+        16,
+        eng,
+        runs,
+    );
+
+    let mut th = a;
+    creature(&mut th, 0, 8, 4, |c| {
+        c.name = "TH".into();
+        c.speed = 0;
+        c.wisdom = 3;
+        c.strategy.alignment = Alignment::Thief;
+        c.strategy.aggressive = false;
+    });
+    for seed in 0..16 {
+        let mut g = game(&th, seed, tee(6), room(4, 4));
+        let ev = wait(&mut g);
+        assert!(took(turns_of(&ev, 0)[0]), "g1-m seed {seed}: {ev:?}");
+        let c = g.creature(1, 0).expect("TH");
+        assert_eq!((c.x, c.y, c.wealth), (8, 4, 50), "g1-m seed {seed}");
+    }
 }

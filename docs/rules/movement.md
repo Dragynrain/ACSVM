@@ -96,7 +96,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    remaining moves, except through a door into another room (a room door
    to another room of the region or of another region, or a map door
    into a room), which ends the turn and carries the moves left into the
-   next turn's start (creatures 2.2.4).
+   next turn's start (creatures 2.2.4). A creature taking a door carries
+   its moves left into its next turn the same way. [capture: mem, rr37,
+   capture.md 10.41 item 4; [creatures](creatures.md) 5.4]
 4. The bar also drains slowly in real time while the player does nothing.
    [manual] On the C64, a full Speed 6 bar left alone empties in 2,136 to
    2,142 frames (about 42.7 s on PAL), losing a pixel every 43 to 48 frames,
@@ -144,8 +146,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    [unknown] **Engine:** the bar starts at Speed after the weight slowdown
    ([inventory](inventory.md) 3.3), set after the top-of-turn healing die
    from the Life Force it leaves (inventory 3.4; [capture: capture.md
-   10.39 item 4]); adjacency halves the moves as in
-   [creatures](creatures.md) 2.6, except moves carried through a door
+   10.39 item 4]); adjacency halves the moves, rounding up, at the
+   turn's start only, as in [creatures](creatures.md) 2.6 ([capture:
+   capture.md 10.41 item 2]), except moves carried through a door
    into another room (2.3, creatures 2.2.4), which are not halved, as on
    the C64. [capture: mem, rr25, capture.md 10.29]
 8. Speed 0: the manual only says such a creature does not show its name on its
@@ -234,7 +237,13 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    player staying put; a space barring a non-owner refused it at no cost
    (2.2). Arriving on them by a door triggers nothing (6.3). [capture:
    rr36 `arsp-ew`, `arob-ew`, `bar`, capture.md 10.40 item 5; ours, no
-   research pass, 2026-11-16] Not tried: a creature's step onto a space.
+   research pass, 2026-11-16] Creatures never step onto a space, a plain
+   one open to anyone and a custom one whose condition they meet included
+   ([creatures](creatures.md) 5.1). [capture: mem, rr37 `cs-m`,
+   capture.md 10.41 item 3; ours, no research pass, 2026-11-16] A
+   creature trying to step onto its goal's square where an individual
+   stands on an obstacle bumps the obstacle (creatures 5.1). [capture, 1
+   run: rr37 `ad-ob-m`, capture.md 10.41 item 3]
 
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
    passes and the spell runs); open only to owners of a thing; open only to
@@ -282,8 +291,16 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    did not own stood on the square each time, was given nothing and took
    no door; stepping off and back, or bumping from beside, then set them
    off as usual (5.5). [capture: rr36 `arsp`, `arob`, `ardo`, `arcs`,
-   capture.md 10.40 item 5; ours, no research pass, 2026-11-16] Not
-   tried: arriving by a room door. **Engine:** arriving triggers nothing
+   capture.md 10.40 item 5; ours, no research pass, 2026-11-16] Arriving
+   by a room door is the same, for a player and a creature: through a
+   portal onto a square holding a space that invokes a spell (Life Force
+   -5), an obstacle that bumps for -5, or a custom space open only to
+   owners of a thing (giving +5) that it did not own, a Speed 12 player
+   stood on the square with its Life Force unchanged each time, and a
+   friend of Speed 6 that followed it through landed there with its Life
+   Force unchanged in 6 of 6 runs, then stepped off later. [capture: mem,
+   rr37 `ad-sp`, `ad-ob`, `ad-cs`, `arrive.txt`, capture.md 10.41 item 4;
+   ours, no research pass, 2026-11-16] **Engine:** arriving triggers nothing
    and never chains to another door, by any door; the character just
    stands there, on an obstacle's square too. If an
    individual already stands on the destination square, the character
@@ -338,7 +355,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
      is in use (16 in Classic) the roll is skipped. Extended adventures
      also skip it when the room already holds `creatures_per_room`.
    - Random creatures in rooms no player occupies are removed now and then.
-     [manual] How often is [unknown].
+     [manual] How often: a roll at each round's end, one percentile per
+     random-marked slot ([creatures](creatures.md) 2.4). [research;
+     capture]
 3. All rolls use the game's one seeded generator, so a game replays exactly
    from its seed and command log. [design]
 
@@ -351,7 +370,9 @@ These need the AI and are listed so the movement code leaves room for them.
    can follow through a door. [manual]
 2. Creatures never step onto spaces or obstacles, custom ones included. They
    take doors only within their own region, and only doors without a do-all,
-   rid-room or add-to-room spell. [manual]
+   rid-room or add-to-room spell. [manual] Spaces: [capture, capture.md
+   10.41 item 3] ([creatures](creatures.md) 5.1, with its one exception, a
+   bump at the goal's square).
 3. A creature sent through a door into a deleted room is banished. [manual]
 
 ## 9. What later rules need from movement
@@ -384,8 +405,9 @@ In priority order, for the behaviour-capture harness:
    locked door cost nothing; taking a door, map or room, costs one step;
    a space that bars passage costs nothing, capture.md 10.40).
 3. Arriving on a space, obstacle or door: captured by the map door (6.3:
-   nothing triggers; capture.md 10.40). Still open: by a room door, and a
-   creature's step onto a space.
+   nothing triggers; capture.md 10.40) and by a room door, for a player
+   and a creature, and creatures never stepping onto a space (5.5,
+   capture.md 10.41). Still open: arriving by a room door on a portal.
 4. Map encounter roll and area: researched and captured
    ([encounters](encounters.md), capture.md 10.20, 10.26, 10.34, 10.36);
    its open points are listed there (section 8).

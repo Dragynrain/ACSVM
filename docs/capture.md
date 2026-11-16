@@ -656,6 +656,7 @@ screen offers next to "create new player".
 | Adventure block + 0xE7, + 0xE8 | The round counter as saved (22 in 10.23's save at round 22) | Researcher, characters second pass, 2026-11-14 |
 | d64 0x1C800, 0x1C802 | The disk's identity word and adventure-disk mark (361 on every disk of ours) | Researcher, characters second pass, 2026-11-14 |
 | `$382A` (word), `$E583` on | The visited room's list of things: the word at `$382A` points at it (`$E585` in our scenarios), the byte two before (`$E583`) is its length in bytes plus 2; each entry the square (column x 16 + row), the thing, a count, a gold entry (thing 81) 6 bytes with the amount in its last two (low byte first); a new entry goes first. Read by `scripts/dropcheck.py` (10.24) | Researcher, combat fourth pass, 2026-11-14 (`docs/research/combat.md`) |
+| `$E1A3` + 37 s + 16, + 18 | Creature slot s's room byte (16 + its room of region 1) and gold (low byte), from the stored record layout; watched by `rr37` (10.41: a creature through a door, a creature's take). `$719A` holds a creature's moves on its turn as a player's (10.41) | Researcher, combat first pass (the stored record layout), 2026-11-13 |
 
 These are the only addresses in the original program in use, and they
 come from the researcher, never from the harness's own reading of the
@@ -3525,3 +3526,329 @@ In this order (planned November 2026):
      different among the 21: 1,2 1,4 1,7 3,3 3,5 3,8 4,1 4,5 5,3 5,5 6,5
      6,8 7,1 7,5 8,6 9,7 10,1 11,6 13,8; 1,4 and 5,5 twice), never T's;
      the room held no things. The engine places it too (creatures 3.2, `place_random`; an earlier note here said it placed none, which was out of date).
+41. **Creatures and movement, the open cases left, the 2026-11-16 batch**
+   (ours, no research pass: [creatures](rules/creatures.md) 2.4, 2.6,
+   2.7, 6.5 and "Captures needed" 2, 3, 5 and 8,
+   [movement](rules/movement.md) 5.5, 6.3 and "Captures needed" 3).
+   `ACSVM-research/capture/runs/rr37/` (the harness binary in `bin/`,
+   `env.sh`; `case.sh` and `build.sh` build the cases of `cases.txt` to
+   T's first room turn under way on 4,4, `NAME-room.vsf`, `P=1` one at a
+   time; `mem.sh` runs `run mem --set-random-state --draws` from one;
+   `hp.txt` and `arrive.txt` are scripts; `f2.sh` the item 1 sweep). At
+   most three VICE of ours. Harness: `#[allow(clippy::large_enum_variant)]`
+   on the command enum (no change in behaviour). New
+   `scripts/adjcheck.py` reads each turn start's moves (`$719A`) against
+   the halving rule and lists falls of more than one inside a turn;
+   `scripts/memtrace.py` prints a run's watched bytes as a timeline;
+   `goalcheck.py` gains `gold:X,Y:RANK` candidates (taken from beside,
+   seen in the slot's wealth byte) and `--gold-first`; `fall2check.py`
+   (item 1) reads two marked slots' falls.
+   - **Item 1, two random creatures left at once** (creatures 2.4,
+     "Captures needed" 2). rr4's `fall/side.vsf` (10.14.3: residents of
+     ours in slots 0 to 6, the random creature in slot 7, T in the side
+     room) with slot 0's mark set too (`--set E1A9=158`, its +6 byte 30
+     with the top bit), so two random creatures stand in room 0 with no
+     player; `f2/sweep`, 256 random states, 60M each (five round ends),
+     every draw. `fall2check.py`, each round end's draws: T's idle
+     healing roll, the slot roll; if the slot is in use, **one percentile
+     for each marked slot, in slot order (0, then 7)**, each under 20
+     removing a live creature; then the side room's roll. A removed
+     creature's slot keeps its mark and **still draws its percentile**
+     at later round ends.
+     Result (256 runs, 2 jobs, about 2.7 hours): **every run's draws as
+     predicted**, 1,280 round ends (643 with the slot in use), slot 0
+     removed in 115 runs and slot 7 in 97, at the round end predicted,
+     **both in the same round end in 14** (14 predicted). The other
+     readings: the marked slots high to low 155 runs wrong, one
+     percentile for both 255, a percentile only for a slot still alive
+     (the engine's) 112. (`fall2check.py` first read a burst of draws as
+     ending at a gap of 150,000 instructions; a removal pauses the draws
+     about 200,000, so the gap is 300,000; and it takes a round end only
+     where the counter goes up by one, a banked read sometimes showing
+     another value across the real change.)
+     So each random creature takes its own roll and both can go in one
+     round. Engine (2.4): a percentile for each random creature still
+     there, a removed one drawing none; the removals agree, the draws
+     after a removal do not (the engine's stream runs one roll short).
+   - **Item 2, the adjacency slowdown at odd Speeds and mid-turn**
+     (creatures 2.6, "Captures needed" 3). `hp` (T on 4,4; EE, an
+     aggressive enemy of Speed 0, Wisdom 3, on 6,4): `hp.txt` pokes T's
+     Speed (record +4, `$F5A3`, 6 before) to 6, 7, 5, 3 or 1, waits for
+     T's next turn, steps east to 5,4 beside EE and idles (`hp-s6` ..
+     `hp-s1`, one run each). Moves at that turn's start 6, 7, 5, 3, 1; at
+     once after the step **5, 6, 4, 2, 0** (one move, no halving); at the
+     next two turn starts, beside EE, **3, 4, 3, 2, 1** each time: halved
+     rounding up. `mc` (MM, an aggressive enemy of Speed 7 on 8,4, walking
+     up to T), `mc-m`, 8 states, 40M: MM's 13 turns that began beside T
+     had **4** moves, its 13 others 7; T's 15 turns that began with MM
+     beside it had 3, its 7 others 6; in 13 turns MM arrived beside T with
+     0 to 6 moves left and went on spending them one a step, no fall of
+     more than one (`adjcheck.py`: 0 jumps). `cr` (peaceful enemies of
+     Speed 1, 3, 5, 7 on the four squares beside T, the same four far off;
+     T of Speed 2), `cr-m`, 8 states, 40M: beside T at a turn start **1,
+     2, 3, 4** (8, 8, 8, 9 turns), elsewhere 1, 3, 5, 7 (57 turns), every
+     turn start as predicted; rounding down misses 33. So 2.6's halving
+     rounds up at every Speed, for players and creatures, and is taken at
+     the turn's start only: walking up to a foe, either way, leaves the
+     rest of the bar alone. Engine (2.6): the same.
+   - **Item 3, creatures and spaces** (movement 5.5, 8.2, creatures 5.1).
+     `cs`: peaceful friends of Speed 3 (Constitution 30, Life Force 20) in
+     the four corners, both open squares beside each holding a space of
+     ours: FA a space "invoke spell" (Life Force -5, `08420885`), FB a
+     plain space open to anyone (`08020000`), FC a custom space "when
+     moved onto" (-5 from the placement, `89420800`, 133), FD a custom
+     space open to owners of thing 50, which FD owns (`09820805`, 50).
+     `cs-m`, 8 states, 40M: in 64 creature turns **no creature left its
+     corner** and no Life Force fell; each idled its bar out, healing (up
+     1 to 4). So no space is open to a creature, the plain one and the
+     one whose condition it meets included. Engine (5.1): the same.
+     Seen once besides (item 4's `ad-ob-m` run 1): FF, a slinker friend
+     standing on 1,4 beside the obstacle that bumps for -5 on 2,4, the
+     player (its goal) standing on that obstacle's square, picked the
+     square east (its rolls 2, 2, 0: 20 against 24 and 24, the square
+     counted as one it had stood on), **its Life Force fell 16 to 11**
+     and it stayed on 1,4: the obstacle's bump spell went off for a
+     creature that tried to step onto its goal on an obstacle. The other
+     five runs never had FF beside 2,4 with a move left. Engine: an
+     individual's square is closed to a slinker, so it never bumps.
+   - **Item 4, arriving by a room door** (movement 6.3, "Captures needed"
+     3). `ad-sp`, `ad-ob`, `ad-cs`: on the side room's 2,4, where the
+     portal on 7,4 leads, a space "invoke spell" (Life Force -5), an
+     obstacle that bumps for -5, or a custom space open only to owners of
+     the blade giving +5 (T not one); T of Speed 12, FF a peaceful friend
+     of Speed 6 (Life Force 15) on 5,5. `arrive.txt` holds the stick east
+     until T's column reads 2 (`ad-*-a`, 220,000 instructions): T **stood
+     on 2,4, its Life Force unchanged** (39 and 40) each time; then
+     `ad-*-m`, 2 states each, 40M: FF followed through the portal on its
+     first turn in 6 of 6 runs, **landed on 2,4 with its Life Force
+     unchanged**, and stepped off later; neither was ever set off by the
+     square they arrived on. So arriving by a room door triggers nothing,
+     for players and creatures, as by the map door (10.40 item 5).
+     Engine (6.3): the same. Seen too: FF's next turn began with **3**
+     moves in 5 runs and **1** in the sixth, which is its Speed 6 less the
+     steps it took before the portal (3, or 5): a creature through a door
+     carries its moves left into its next turn, as a player does
+     (creatures 2.2.4); T's first turn after the door began with 6.
+   - **Item 5, Speed 0 fighters beside an exit or gold** (creatures 2.7,
+     "Captures needed" 8). `w5`: aggressive neutrals of Speed 0 (Wisdom
+     3) in the corners, our obstacles on one square beside each so the
+     other is the only open one: NA (owning and holding our blade, power
+     10) and NC (no weapon) beside a portal (`103` on 1,2 and 1,7, to
+     the side room), NB (the blade) and ND (none) beside 50 gold (13,2,
+     13,7); the player 4,4 their goal. `w5-m2`, 16 states, 40M,
+     `--answer-text FINDS,TAKES` (`w5-m` stalled at the first gold
+     message: a Speed 0 creature's turn leaves T's name on the strip):
+     **every one went through the portal or took the gold on its first
+     turn**, 64 of 64 (the take from beside, its square unchanged). So
+     owning a melee weapon changes nothing: the step onto an exit or a
+     thing it takes stands. Engine (2.7): the same.
+   - **Item 6, gold on the first step** (creatures 6.5's [unknown]). NE in
+     `w5`, an aggressive neutral of Speed 0 on 8,4, 50 gold on 7,4 between
+     it and T (the goal; gold rank 96, cost 3 by 6.5): `goalcheck.py
+     --slot 4 --speed 0 --cand player:4,4:1 --cand gold:7,4:96` with the
+     gold square at 3: **16 of 16 runs** (32 turns, 14 takes); at 4 on the
+     first step 2 of 16. `g1`: TH, a peaceful thief of Speed 0 on 8,4 with
+     the gold on 7,4 its goal (rank 32, cost 1 as the goal's square),
+     `g1-m`, 16 states, 30M: cost 1 **16 of 16** (taken on its first turn
+     every time), 4 on the first step 0 of 16. So the first step's 4 is
+     the exit's alone: gold costs its rank / 32, or 1 as the goal, on
+     every step. Engine (6.5): the same. Not run: the step choice's
+     give-up case.
+42. **Magic, items, stores and characters, the open cases left, the
+   2026-11-16 batch** (ours, no research pass: [magic](rules/magic.md)
+   2.4, 3.2, 3.13, 3.14, 7.2 and "Captures needed" 4 and 6,
+   [inventory](rules/inventory.md) 1.3, 3.1, [stores](rules/stores.md)
+   "Captures needed" 1 to 3, [characters](rules/characters.md) 3 and
+   "Captures needed" 1, 2 and 4, [winning](rules/winning.md) "Captures
+   needed" 1 and 2). `ACSVM-research/capture/runs/rr38/` (the harness
+   binary in `bin/`, `env.sh` with `sc`; `case.sh` and `build.sh` build
+   the cases of `cases.txt` and `cases2.txt` to T's first room turn under
+   way on 4,4, `room.vsf`; `runs.sh` plays the run lists `runs.txt`,
+   `runs3.txt`, `runs5.txt` from them, `gen.py` writing menu scripts and
+   `py/steps.py` push scripts (a `.` presses the button); `py/last.py`
+   reads a log block by block (T's record, the creature slots, the room's
+   list); `gw.sh` the gold runs, `st-buy2.txt` and `st-buy3.txt` the
+   store, `ru-add.txt`, `ru-pick.txt` and `ru-runs.sh` the roster,
+   `rv-chain.sh`, `rv-a.txt` and `rv-b.txt` the reversal). Started by an
+   earlier agent and resumed after a reboot: its finished builds were
+   checked and the three a failed fork had cut short were built again.
+   One harness change: `scenario --item-when use+pickup+drop`
+   (`scenario::item_when`) sets when our magic item acts. At most three
+   VICE of ours. Every case is one deterministic run read from RAM and
+   the screenshots, except the summons with the random state set.
+   Harness notes: peeks taken while a message waits for the button, or
+   during a disk access, can read the ROM over `$E000` on (garbage, left
+   out); the word at `$382A` moves while the room's list stays where it
+   was at the visit's start (in `ar` and `sn`, with the side room, the
+   list starts at `$E58B`, not `$E585`).
+   - **Item 1, the cast's target and the summons.**
+     - *Reach* (`tc`: Add to Room 60 the only spell; `tc-e9`, `tc-e12`,
+       `tc-s4`, `tc-s6`, `tc-n4`, `tc-n6`, `tc-w4`, `tc-w6`, the cursor
+       pushed 9 or 12 east, 4 or 6 each other way from 4,4 in the 15 x 10
+       room): the thing landed on **13,4, 13,4, 4,8, 4,8, 4,1, 4,1, 1,4,
+       1,4**. The cursor goes anywhere inside the room, 9 squares away
+       included, and stops at the inside edge: it never reaches a wall
+       square. Engine (magic 2.4): any square of the caster's room, a wall
+       square refused; the same in effect, the refusal never being
+       reached from the C64's cursor.
+     - *Use Object* (`ta`: T owning a magic item doing Add to Room 61):
+       USE OBJECT, the item, then **"move cursor to target"** as for a
+       cast: no tap put 61 on T's 4,4 (`ta-use`), two taps east on 6,4
+       (`ta-use2`). Engine: a use picks its target like a cast; agrees.
+     - *Activate All cast* (`ta`, `tb`): choosing the spell and pressing
+       ran it **with no target prompt** (`ta-sel`, `ta-actc`: the screen
+       back to "move with the joystick" at once, the taps after it moving
+       T). Cast by T standing on a stack it had arrived on and not set off
+       (a space giving 61, then a space changing Power by +5; `tb-c`):
+       **61 given and Power 13 to 17**, the turn over. So Activate All
+       acts on the caster's own square and runs the stack there; on an
+       empty square nothing happened (`ta-sel`). Engine (magic 2.5, 3.14):
+       room spells ignore the target, and away from a stack Activate All
+       runs the stack where it takes effect; agrees. (The earlier 10.40
+       wording "every cast asked for a target, room spells included"
+       holds for Kill All, Summons and Add to Room, not Activate All.)
+       Harness note: in `ta` the SELECT SPELL list held NONE and
+       TESTSPELL2 on its first row, TESTSPELL1 on the second; a tap east
+       went to TESTSPELL2 (thing 79) and a second tap east stayed there,
+       so `ta`'s reach runs (`ta-e9` .. `ta-w6`, `ta-act66`) all cast
+       Activate All and are replaced by `tc`.
+     - *A summons with no target press* (`sn`: master creature 5 ours,
+       ZED; on 5,4 a space summoning it, on 3,4 an obstacle summoning it
+       when bumped, on 4,3 a portal to the side room summoning it, our
+       magic item summoning it when picked up or dropped on 4,5 and owned
+       by T). Stepping onto the space (`sn-sp`): ZED on **5,4**, the
+       space, T's square too. Bumping the obstacle from 4,4 (`sn-ob`):
+       ZED on **3,4, the obstacle's own square**, T staying on 4,4.
+       Through the portal (`sn-po`): T in the side room on 2,4, ZED on
+       **4,3 of the first room, the portal's square**, not with T.
+       Picking up the item from 4,5 (`sn-pk2`, T's ownership of it
+       cleared, the take answered): ZED on **4,5, where the item lay**,
+       T on 4,4. Dropping the item on T's own square (`sn-dro`): ZED on
+       **4,4**; on 4,5 (`sn-drs`): **4,5**, the drop square. Each copy
+       went to the lowest free slot, made at once. Engine (magic 3.2):
+       the space (agrees), the bumper's own square (**disagrees**: the
+       obstacle's square), the door's destination (**disagrees**: the
+       portal's own square, in the room left), the picker's square
+       (**disagrees**: the item's square), the drop square (agrees). (In
+       `sn-dro` ZED then walked through the portal and a second ZED
+       appeared in the first room on 5,2 two rounds later: a creature
+       passing the portal sets it off too.)
+     - *A summons of cost 20 with the region full* (`sf`: 16 slots in
+       use, T Power 31 (the profile's cap on our 40), spell cost 20;
+       `sg` the same with 15 in use; the random state `$1CC9` set to 0,
+       85 and 170 before the menu). `sf-r0`, `sf-r85`, `sf-r170`: **"a few
+       sparks fizzle but TESTSPELL1 fails"**, no prompt, no slot changed,
+       **Power 31 to 11**: the cost is spent. The random state moved as in
+       the open region (0 to 191 in both `sf-r0` and `sg-r0`), so the
+       roll is drawn first. `sg-r85` and `sg-r170` succeeded (disk
+       access, then the creature in slot 15 on T's 4,4, the cursor taps
+       having come during the disk access); `sg-r0` failed its roll
+       ("fizzle", Power 31 to 11) where `sf-r0` failed too, while
+       `sf-r85` and `sf-r170`, whose rolls succeeded in `sg`, fizzled.
+       So a full region turns a successful roll into a fizzle after the
+       cost is paid. Engine (magic 3.2): slots checked first, nothing
+       spent, no roll; **disagrees**.
+   - **Item 2, the drop order and gold's weight.**
+     - *Magic items and gold among a death's drops* (`dd`: Kill All but
+       owners of 62 cast by T, who owns blade 59, treasures 13 and 14,
+       our magic item 70, the spell 80 and 50 gold; AA on 6,4 owns the
+       blade, treasures 50 and 51, item 70, the spell 80 (set at `$E1C6`,
+       `$E1C7`) and 50 gold). Cast at AA (`dd-aa`): AA's square 6,4 held,
+       top first, **70, 59, 51, 50, the gold** (thing 81, its size record
+       50); cast at T's own square (`dd-t`): "T dies", 4,4 held **70, 59,
+       14, 13, the gold**. The magic item goes down in thing-number
+       order with the rest, the spell is lost, the gold lies under all.
+       Engine (magic 7.2): agrees.
+     - *Gold's weight per piece* (`gw1`, `gw4`, `gw0`: T Speed 15,
+       Strength 10, Constitution = Life Force 20, capacity 1,000, nothing
+       else carried; Gold's weight 1 (the template's), 4 or 0 by
+       `--put 81=..`; `run mem` with T's gold `$F5B1` set at the start,
+       `$719A` watched for 60 million instructions). Moves at each refill:
+       weight 1 with 300, 600, 800, 1,000 gold: **15, 12, 6** and no
+       refill (Speed 0); weight 4 with 100, 150, 200: **15, 12, 6**;
+       weight 0 with 900 and 3,000: **15**. 18 refills in all, each the
+       slowdown of inventory 3.3 for a load of gold x Gold's weight.
+       Engine (inventory 3.1): agrees.
+   - **Item 3, stores.**
+     - *Value 0* (`st`: the room store on 4,5, stock poked to thing 1
+       (value 5), 12 (the template's HAND, a melee weapon of value 0 and
+       weight 0 nobody may use), 22 (a template treasure of value 0) and
+       our item 70; `st-buy2` walked from 7,5). Bumping 6,7 (HAND): **"out
+       of stock"**. Bumping 3,7: **"purchase KDNP'D PRINCESS for 0"**, the
+       button bought it: stock to 0, T owning it, gold 500 kept. So a
+       value of 0 does not keep a thing off the shelves; HAND's being out
+       comes from what HAND is (neither thing was drawn on its place:
+       their pictures are blank in our scenario). Engine (stores 2.7):
+       an area store leaves out value-0 things; **disagrees** for a
+       treasure of value 0 (rooms use the stock as stored).
+     - *A magic item set to act when picked up, bought* (`st-buy3`, item
+       70 showing long message 2 when picked up, value 1): offered,
+       bought (gold 500 to 499, stock to 0, T owning it), **no message
+       shown**, the store screen back. Engine (stores 4.4): does not act;
+       agrees.
+     - *A store in a room of another size* (`ss`: the store on the side
+       room's 5,4, 10 x 8; `ss-in` walked in through the portal): the
+       store screen as in the 15 x 10 room, T on **7,5**, thing 1 drawn on
+       **6,6**, T bumping it with its last move. Engine (stores 3.3): one
+       fixed layout; agrees.
+   - **Item 4, Add to Room from a wall line, a door and a pick-up**
+     (`ar`: Add to Room 60 run by an obstacle bumped on the wall line
+     0,4, a portal on 4,5 to the side room, and our item on 5,4 when
+     picked up). `ar-wall`: T walked to 1,4 and bumped 0,4: 60 on **1,4,
+     T's own square**. `ar-po`: T went through to the side room's 2,4; 60
+     on **4,5, the portal's square** in the room left. `ar-pk2` (T's
+     ownership cleared, the take answered): 60 on **5,4, where the item
+     lay**. Engine (magic 3.13): a wall square gives the nearest inside
+     square with no thing and no individual (**disagrees**: the
+     bumper's square, T on it), a door its destination (**disagrees**:
+     its own square), a pick-up the square where it takes effect (agrees
+     if read as the item's square). *Activate All away from a stack*: in
+     item 1 (`tb`, `ta-sel`).
+   - **Item 5, characters.**
+     - *Choosing U with an empty first entry* (`ru`: the own disk's roster
+       with entry 1's name cleared, its record T's (Speed 9, Constitution
+       33), entry 2 U (Speed 4, Constitution 20); `ruc` the same with T
+       named). The add-player screen put U in the second column and the
+       cursor on CREATE NEW PLAYER (`$7161` 1), as 10.30 saw; a tap down
+       (3) and east (4) put it on U, and the button **joined U's record**
+       (name U, Speed 4, Constitution 20; `ru-se`). The cursor on the empty
+       first place (`ru-s`, 3) went to the picture choice and **a new
+       character was rolled** (Speed 7, Constitution 10, no name). So on
+       the adventure's own list each place keeps its entry and an empty
+       place behaves as CREATE NEW PLAYER. Not retried through the
+       "another adventure" disk, where 10.30's `d2b-ownu` took another
+       record (the disk swap's timing, 2.4). Engine (characters 3): no
+       rosters; nothing to compare.
+     - *A reversal waiting across a Destroy* (`rv`: T and U on the map,
+       T casting a temporary Life Force +10 at itself, cost 0, round 21:
+       Life Force 20 to 30, the first step back at round 24 (29), the
+       queue's first entry (`$F65F`) then due at round 26; T asked RETIRE
+       and was destroyed at the round's end, rr26's F1, button, F1;
+       `rv-a`, `rv-b`). Over rounds 28 to 79, U playing on, T's slot kept
+       first byte 0 and **Life Force 29**, and the queue's first 8 bytes
+       stayed **26 0 239 125 1 255 255 9** throughout: the reversal never
+       came due again, though round 26 passed (nine steps were left).
+       Engine (characters 7.5, magic 5.2): reversals dropped on Destroy;
+       agrees in effect (the original leaves the entry in place but never
+       takes it; whether it blocks reversals behind it was not tried).
+     - *A creature's ratings with marks*: not reached. The game shows no
+       creature's ratings, and the harness does not drive the editor.
+   - **Item 6, winning.**
+     - *The possession bit at a take* (`pk`: our treasures 60 on 5,4
+       placed with parameter 0, 61 on 4,5 with 1, 62 on 3,4 with 2;
+       `pk-e2`, `pk-s2`, `pk-w2`, each take answered with the button).
+       60: "T takes", its entry moved to 15,15, **no bit set**; 61 and 62:
+       **the bit set** (one bit, things 33..80). So a placed thing's
+       parameter is what a take gives: 0 gives nothing. 10.40's `win`
+       treasure was placed with parameter 0, which explains the bit not
+       seen there (as did our item 70 placed with 0 in `sn` and `ar`).
+       Engine: not checked here; for the spec-writer (what a placed
+       carriable's count is).
+     - *A goal the program generated, and where the setting is stored*:
+       not reached. It needs the editor's "Let ACS Write the Adventure",
+       which the harness does not drive (only the template's making goes
+       through the editor, by hand).
+
+   No new addresses: the possession bytes (`$F5B6` on, a slot's +0x17
+   on), the queue's first entry (`$F65F`) and the rest are section 9's.
+   `$F65F`'s other seven bytes were only read, not interpreted.

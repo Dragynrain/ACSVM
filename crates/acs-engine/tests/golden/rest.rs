@@ -589,7 +589,8 @@ mod stores {
     /// encounter area 1, stepped onto from 8,3. Every carriable thing of
     /// the template is offered: 1 (20), 2 (10), 4 (3), 33 (2000), 35
     /// (2000), 40 (35), 59 (10), 68 (300), 72 (1000); out of stock 12 (the
-    /// HAND, value 0) and the spells 61, 64, 80. The HORSE bought for
+    /// HAND, weight 0 and nobody may use it: stocked, never offered,
+    /// stores 2.7 and capture.md 10.42) and the spells 61, 64, 80. The HORSE bought for
     /// 2,000; the BLADE T owns bought twice for 10 each (5,000 to 4,990 to
     /// 4,980), the possession unchanged; the blade sold for 4 and taken;
     /// the stock never changing. Leaving: back on 7,3 with 1 move.
@@ -636,6 +637,7 @@ mod stores {
             (1, 3),
             (2, 3),
             (4, 3),
+            (12, 3),
             (33, 1),
             (35, 1),
             (40, 1),
@@ -644,6 +646,8 @@ mod stores {
             (72, 1),
         ];
         assert_eq!(stock(&g, 0), shelves);
+        assert_eq!(g.on_shelf(0, 12), 0, "HAND: out of stock");
+        assert_eq!(g.on_shelf(0, 1), 3);
         g.place(0, area_square(1, 8, 3));
         let ev = g.apply(Command::Move { dir: Dir::W });
         assert!(
@@ -683,6 +687,133 @@ mod stores {
         g.apply(Command::LeaveStore);
         let p = g.current_player();
         assert_eq!((p.at, p.moves_left), (area_square(1, 7, 3), 1));
+    }
+
+    /// capture.md 10.42 item 3 (rr38 `st-buy2`; stores 2.7): a room store
+    /// stocking thing 1, 12 (HAND, a melee weapon of value 0 and weight 0
+    /// nobody may use), 22 (a treasure of value 0) and our item 70; T with
+    /// 500 gold. HAND: "out of stock", its count kept; 22: "purchase ... for
+    /// 0", bought: the stock to 0, T owning it, the gold still 500.
+    #[test]
+    fn a_value_0_treasure_sells_for_0_and_the_hand_is_out_of_stock() {
+        const HAND: u16 = 12;
+        const PEBBLE: u16 = 22;
+        let mut a = shop(&[(WARE1, 1), (HAND, 1), (PEBBLE, 1), (ITEM, 1)]);
+        let mut hand = blade(3);
+        if let ThingKind::MeleeWeapon { carry, stats, .. } = &mut hand {
+            *carry = Carry { weight: 0, value: 0 };
+            stats.usable_by_anyone = false;
+        }
+        thing(&mut a, HAND, "HAND", hand);
+        thing(&mut a, PEBBLE, "KDNP'D PRINCESS", treasure(1, 0));
+        let mut g = game(&a, 1, shopper(13, 500, &[]), room(4, 4));
+        open(&mut g);
+        let ev = g.apply(Command::Buy { thing: HAND });
+        assert_eq!(refusal(&ev), Some(StoreRefusal::NotStocked), "{ev:?}");
+        let ev = g.apply(Command::Buy { thing: PEBBLE });
+        assert!(
+            has(&ev, |e| matches!(
+                e,
+                Event::Bought {
+                    thing: PEBBLE,
+                    price: 0,
+                    kept: true,
+                    ..
+                }
+            )),
+            "{ev:?}"
+        );
+        let p = g.current_player();
+        assert_eq!((p.gold, p.count(PEBBLE)), (500, 1));
+        assert_eq!(stock(&g, 1), [(WARE1, 1), (HAND, 1), (ITEM, 1)]);
+    }
+
+    /// capture.md 10.42 item 3 (rr38 `st-buy3`; stores 4.4): item 70 set to
+    /// show long message 2 when picked up, value 1: offered and bought, the
+    /// gold 500 to 499, the stock 1 to 0, T owning it, no message shown,
+    /// the store screen back.
+    #[test]
+    fn a_bought_pick_up_item_does_not_act() {
+        let mut a = shop(&[(ITEM, 1)]);
+        thing(
+            &mut a,
+            ITEM,
+            "ITEM",
+            ThingKind::MagicItem {
+                picture: 9,
+                disappears_after_use: false,
+                carry: Carry { weight: 1, value: 1 },
+                action: SpellAction {
+                    kind: SpellActionKind::LongMessage,
+                    parameter: 2,
+                },
+                on_use: false,
+                on_drop: false,
+                on_pickup: true,
+            },
+        );
+        a.long_messages[1] = "PICKED UP".into();
+        let mut g = game(&a, 1, shopper(13, 500, &[]), room(4, 4));
+        open(&mut g);
+        let ev = g.apply(Command::Buy { thing: ITEM });
+        assert!(
+            has(&ev, |e| matches!(
+                e,
+                Event::Bought {
+                    thing: ITEM,
+                    price: 1,
+                    ..
+                }
+            )),
+            "{ev:?}"
+        );
+        assert!(
+            !has(&ev, |e| matches!(
+                e,
+                Event::LongMessage { .. } | Event::SpellTriggered { .. }
+            )),
+            "{ev:?}"
+        );
+        let p = g.current_player();
+        assert_eq!((p.gold, p.count(ITEM)), (499, 1));
+        assert_eq!(stock(&g, 1), []);
+        assert!(g.store_visit().is_some(), "the store screen back");
+    }
+
+    /// capture.md 10.42 item 3 (rr38 `ss-in`; stores 3.3): the store on the
+    /// 10 x 8 side room's 5,4, T bumping it with its last move: the store
+    /// screen as in the 15 x 10 room, T on 7,5, thing 1 on its place 6,6.
+    /// The engine's screen is one fixed layout; here the store opens in the
+    /// side room as in the first, sells there, and leaving puts T back on
+    /// its square with the one move.
+    #[test]
+    fn a_store_in_a_room_of_another_size() {
+        let mut a = shop(&[(WARE1, 1)]);
+        a.regions[0].rooms[ROOM as usize]
+            .items
+            .retain(|it| it.thing != STORE);
+        item(&mut a, SIDE, 5, 4, STORE);
+        let side = |x, y| Location::Room {
+            region: 1,
+            room: SIDE,
+            x,
+            y,
+        };
+        let mut g = game(&a, 1, shopper(13, 500, &[]), side(4, 4));
+        for _ in 0..5 {
+            g.apply(Command::Idle);
+        }
+        assert_eq!(g.current_player().moves_left, 1);
+        open(&mut g);
+        assert_eq!(g.current_player().moves_left, 0);
+        assert_eq!(stores::ENTRY, (7, 5));
+        assert_eq!(stores::shelf_place(WARE1), Some((6, 6)));
+        assert_eq!(g.on_shelf(1, WARE1), 1);
+        g.apply(Command::Buy { thing: WARE1 });
+        assert_eq!(g.current_player().gold, 490);
+        g.apply(Command::LeaveStore);
+        let p = g.current_player();
+        assert_eq!((p.at, p.moves_left), (side(5, 4), 1));
     }
 }
 
@@ -1326,6 +1457,97 @@ mod characters {
             assert!(has(&ev, |e| matches!(e, Event::Moved { .. })), "{what}: {ev:?}");
             assert_eq!(take(&mut g, W2), ends(cap, w2), "{what}: {w2}");
         }
+    }
+
+    /// capture.md 10.42 item 5 (rr38 `rv-a`, `rv-b`; characters 7.5.5,
+    /// magic 5.2): T and U on the map; T casts a temporary Life Force +10
+    /// (cost 0) at itself, 20 to 30, the first step back taken (29) with
+    /// nine to come; T is destroyed on RETIRE at the round's end. Over rounds
+    /// 28 to 79, U playing on, T's slot kept Life Force 29: the reversal
+    /// never came due again. The engine drops it on Destroy, the same in
+    /// effect. Here T asks to retire at its first turn after the step back,
+    /// in the runs whose next step is due after the destroy's round end.
+    #[test]
+    fn a_reversal_waiting_across_a_destroy_never_comes_due() {
+        const TEMP: u16 = 61;
+        let mut a = base(Platform::C64);
+        kill_spell(&mut a);
+        thing(
+            &mut a,
+            TEMP,
+            "TEMP",
+            spell(
+                0,
+                SpellAction {
+                    kind: SpellActionKind::ChangeLifeForce,
+                    parameter: 0x40 | 10,
+                },
+            ),
+        );
+        let t = PlayerSetup {
+            constitution: 20,
+            life_force: 20,
+            ..named("T", 6, &[TEMP])
+        };
+        let me = Who::Player { player: 0 };
+        let mut runs = 0;
+        for seed in 0..16 {
+            let mut g = fresh(&a, seed, t.clone());
+            g.apply(add(named("U", 6, &[KILL])));
+            g.apply(Command::Wait);
+            assert_eq!((g.players().len(), g.current()), (2, 0));
+            g.apply(Command::Cast {
+                thing: TEMP,
+                target: None,
+                at: None,
+            });
+            assert_eq!(g.players()[0].life_force, 30, "seed {seed}");
+            // Until the first step back (a die of 1 to 6 rounds), then to
+            // T's next turn.
+            for _ in 0..16 {
+                if g.players()[0].life_force == 29 && g.current() == 0 {
+                    break;
+                }
+                g.apply(Command::Wait);
+            }
+            assert_eq!((g.players()[0].life_force, g.current()), (29, 0), "seed {seed}");
+            assert!(g.temporary_life(me) > 0, "seed {seed}: steps to come");
+            // The capture's next step was due two rounds on, after the
+            // destroy: a run whose step falls due at this round's end (the
+            // destroy's) is not one of its.
+            let v = serde_json::to_value(&g).expect("serializes");
+            let due = v["reversals"][0]["due"].as_u64().expect("a reversal");
+            if due <= u64::from(g.round()) + 1 {
+                continue;
+            }
+            runs += 1;
+            g.apply(Command::Retire { save: false });
+            g.apply(Command::Wait);
+            let ev = g.apply(Command::Wait);
+            assert!(
+                has(&ev, |e| matches!(
+                    e,
+                    Event::Retired {
+                        player: 0,
+                        saved: None,
+                        ..
+                    }
+                )),
+                "seed {seed}: {ev:?}"
+            );
+            assert_eq!(g.temporary_life(me), 0, "seed {seed}");
+            assert_eq!(g.players()[0].life_force, 29, "seed {seed}: {ev:?}");
+            for _ in 0..52 {
+                assert_eq!(g.current(), 1, "seed {seed}: U plays on");
+                let ev = g.apply(Command::Wait);
+                assert!(
+                    !has(&ev, |e| matches!(e, Event::StatChanged { who, .. } if *who == me)),
+                    "seed {seed}: {ev:?}"
+                );
+                assert_eq!(g.players()[0].life_force, 29, "seed {seed}");
+            }
+        }
+        assert!(runs >= 4, "{runs} runs");
     }
 }
 

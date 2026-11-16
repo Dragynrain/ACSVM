@@ -94,7 +94,7 @@ fn fixture(platform: Platform) -> Fixture {
                     (7, 3, (LOCKED as u8), 2),     // east wall -> CELL (1,3), key needed
                     (0, 2, (MAGIC_DOOR as u8), 3), // west wall -> world map exit point
                     (0, 3, (DOOR as u8), 4),       // west wall -> deleted room 2
-                    (2, 1, (KEY as u8), 0),
+                    (2, 1, (KEY as u8), 1),        // an ordinary take (inventory 2.7)
                     (3, 1, (BED as u8), 0),
                     (4, 1, (GATE as u8), 0),
                     (5, 1, (LIGHT as u8), (ROPE as u8)),
@@ -105,7 +105,7 @@ fn fixture(platform: Platform) -> Fixture {
                     (1, 4, (SHOP as u8), 0),
                     (2, 4, (CURSE as u8), 0),
                     (2, 3, (WALL as u8), 0), // a pillar on top of a key: the pillar decides
-                    (2, 3, (KEY as u8), 0),
+                    (2, 3, (KEY as u8), 1),
                     (2, 0, (ONE_WAY as u8), 6), // north wall -> CELL (2,2)
                     (0, 1, (ONE_WAY as u8), 7), // west wall -> region 2 YARD (2,2)
                 ],
@@ -1402,7 +1402,7 @@ fn the_door_parameter_names_the_area_it_leads_to() {
 }
 
 /// Stores 2.7: a store in an area opens on shelves of every stockable
-/// thing 1..80 with a value above 0, as many as the stock limit allows.
+/// thing 1..80, value 0 included, as many as the stock limit allows.
 #[test]
 fn a_store_in_an_area_offers_every_stockable_thing_of_value() {
     let a = encounter_adventure_with(&[(4, 15, 0)], &[(1, vec![(0, 5, 82, 0), (7, 3, SHOP as u8, 0)])]);
@@ -1423,8 +1423,8 @@ fn a_store_in_an_area_offers_every_stockable_thing_of_value() {
     assert_eq!(stock, [(KEY, 3), (ROPE, 3)]);
 }
 
-/// Stores 2.7: only stockable things 1..80 of value above 0; things 33..80
-/// at most one each.
+/// Stores 2.7: only stockable things 1..80, value 0 included; things
+/// 33..80 at most one each.
 #[test]
 fn the_map_regions_stock_follows_type_value_and_limit() {
     let mut a = encounter_adventure(&[(4, 15, 0)]);
@@ -1435,13 +1435,13 @@ fn the_map_regions_stock_follows_type_value_and_limit() {
         carry.value = 0;
     }
     // KEY copied as thing 40 (limit 1) and 81 (past 80), one of value 0
-    // as thing 41.
+    // as thing 41 (stocked too, capture.md 10.42).
     a.things[39] = treasure.clone();
     a.things[40] = zero;
     a.things[80] = treasure;
     let (g, _) = Game::new(a, 1, Rules { diagonals: true }, PlayerSetup::default());
     let stock: Vec<_> = g.stock(0).iter().map(|s| (s.thing, s.count)).collect();
-    assert_eq!(stock, [(KEY, 3), (ROPE, 3), (40, 1)]);
+    assert_eq!(stock, [(KEY, 3), (ROPE, 3), (40, 1), (41, 1)]);
 }
 
 /// Encounters 3.5: a door on an inside square is a way out too.

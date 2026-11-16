@@ -3,7 +3,8 @@
 //! Movement and weight (movement 2-3, 5-6, inventory 2-5): the Speed survey,
 //! the weight slowdown and capacity, refused moves and the door's cost,
 //! spaces on arrival, drops, readying armor, gold piles and the success
-//! stack (winning 1). All deterministic.
+//! stack (winning 1), gold's weight per piece and what a take gives. All
+//! deterministic.
 
 use crate::world::*;
 use acs_core::model::{
@@ -631,4 +632,79 @@ fn the_success_stack_shows_its_message_and_play_goes_on() {
     }
     assert!(walked >= 3, "{walked}");
     assert!(!g.is_over());
+}
+
+// ---- gold's weight and what a take gives (capture.md 10.42) ----------------
+
+/// capture.md 10.42 item 2 (rr38 `gw1`, `gw4`, `gw0`, `run mem` watching
+/// the moves 60M; inventory 1.3, 3.1): T of Speed 15, Strength 10,
+/// Constitution and Life Force 20 (capacity 1,000), carrying nothing but
+/// gold. Gold's weight 1 with 300, 600, 800 and 1,000 pieces: refills of
+/// 15, 12, 6 and none (Speed 0); weight 4 with 100, 150, 200: 15, 12, 6;
+/// weight 0 with 900 and 3,000: 15. 18 refills in all, each 3.3's slowdown
+/// for pieces x Gold's weight. Here two refills a case, 18.
+#[test]
+fn gold_weighs_per_piece() {
+    let mut refills = 0;
+    for (weight, gold, moves) in [
+        (1, 300, 15),
+        (1, 600, 12),
+        (1, 800, 6),
+        (1, 1000, 0),
+        (4, 100, 15),
+        (4, 150, 12),
+        (4, 200, 6),
+        (0, 900, 15),
+        (0, 3000, 15),
+    ] {
+        let mut a = kit();
+        thing(&mut a, GOLD, "GOLD", treasure(weight, 1));
+        let mut g = game(
+            &a,
+            1,
+            PlayerSetup {
+                speed: 15,
+                strength: 10,
+                constitution: 20,
+                life_force: 20,
+                gold,
+                ..Default::default()
+            },
+            room(4, 4),
+        );
+        for _ in 0..2 {
+            assert_eq!(next_turn(&mut g), moves, "weight {weight}, {gold} gold");
+            refills += 1;
+        }
+    }
+    assert_eq!(refills, 18);
+}
+
+/// capture.md 10.42 item 6 (rr38 `pk-e2`, `pk-s2`, `pk-w2`, each take
+/// answered; inventory 2.7, winning 1.4): our treasures 60 on 5,4 placed
+/// with parameter 0, 61 on 4,5 with 1, 62 on 3,4 with 2. 60: "T takes", the
+/// thing gone from the floor, no possession set; 61 and 62: the possession
+/// set (one bit, things 33..80). One run each.
+#[test]
+fn a_take_gives_the_placed_parameter() {
+    const PUTGJ: u16 = 62;
+    let mut a = kit();
+    thing(&mut a, PUTGJ, "PUTGJ", treasure(1, 1));
+    put(&mut a, 5, 4, PUTCI, 0);
+    put(&mut a, 4, 5, GIFT, 1);
+    put(&mut a, 3, 4, PUTGJ, 2);
+    for (name, dir, t, (x, y), owned) in [
+        ("pk-e2", Dir::E, PUTCI, (5, 4), 0),
+        ("pk-s2", Dir::S, GIFT, (4, 5), 1),
+        ("pk-w2", Dir::W, PUTGJ, (3, 4), 1),
+    ] {
+        let mut g = game(&a, 1, tee(&[]), room(4, 4));
+        let ev = g.apply(Command::Move { dir });
+        assert!(
+            ev.contains(&Event::PickedUp { player: 0, thing: t }),
+            "{name}: {ev:?}"
+        );
+        assert!(stack(&g, x, y).is_empty(), "{name}: gone from the floor");
+        assert_eq!(g.players()[0].count(t), owned, "{name}");
+    }
 }

@@ -861,7 +861,8 @@ fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
             rounds += 1;
         }
         assert!(g.creature(1, 0).is_none());
-        assert!(!g.is_random(1, 0));
+        // 2.4: the removal keeps the slot's random mark.
+        assert!(g.is_random(1, 0));
     });
 }
 
@@ -2202,5 +2203,305 @@ fn a_creatures_moves_come_from_the_life_force_its_turn_top_left() {
             let turns = turns_of_1(&wait(&mut g));
             assert_eq!(turns[0].0, moves, "byte {byte}");
         }
+    });
+}
+
+/// Inventory 2.7: a creature's take adds the placed parameter too; a
+/// treasure placed with 0 is taken off the floor and owned by no one.
+#[test]
+fn a_creatures_take_of_a_thing_placed_with_0_owns_nothing() {
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 2, 3, Alignment::Thief, false));
+        item(&mut a, 0, 4, 3, GEM, 0);
+        let mut g = start(a, 0, 1, 1);
+        let mut took = false;
+        for _ in 0..6 {
+            let ev = wait(&mut g);
+            took |= ev.iter().any(|e| {
+                matches!(
+                    e,
+                    Event::CreaturePickedUp {
+                        slot: 1,
+                        thing: GEM,
+                        ..
+                    }
+                )
+            });
+            if took {
+                break;
+            }
+        }
+        assert!(took, "the thief took the gem");
+        let c = g.creature(1, 1).cloned().expect("alive");
+        assert_eq!(acs_engine::creatures::count(&c, GEM), 0, "{c:?}");
+        assert!(!g.adventure().regions[0].rooms[0]
+            .items
+            .iter()
+            .any(|it| it.thing == GEM));
+    });
+}
+
+// ---- capture.md 10.41: the slot mark, carried moves, the bump at the goal
+
+/// The generator's state, read from the game's serialized form.
+fn rng_of(g: &Game) -> acs_engine::Rng {
+    serde_json::from_value(serde_json::to_value(g).expect("serializes")["rng"].clone()).expect("an Rng")
+}
+
+/// The game with exactly these region-1 slots carrying the random mark,
+/// listed in this order (2.4).
+fn marked(g: &Game, slots: &[usize]) -> Game {
+    let mut v = serde_json::to_value(g).expect("serializes");
+    v["random"] = serde_json::json!(slots.iter().map(|&s| (1u8, s)).collect::<Vec<_>>());
+    serde_json::from_value(v).expect("deserializes")
+}
+
+#[test]
+fn every_marked_slot_draws_at_the_round_end_from_slot_0_up() {
+    // 2.4 (capture.md 10.41 item 1): the slot roll, and when it hits a
+    // slot in use one percentile per marked slot from slot 0 up, a marked
+    // empty slot (0 here) drawing its percentile with nothing happening.
+    // Slots 2 and 3 are marked random creatures in EAST, slot 5 an
+    // unmarked resident there; the player waits in WEST.
+    both(|p| {
+        let mut a = adventure(p);
+        for slot in [2, 3, 5] {
+            let mut s = spec(1, slot as u8, 2, Alignment::Friend, false);
+            s.speed = 0;
+            put(&mut a, slot, s);
+        }
+        let mut removals = 0;
+        for seed in 0..24 {
+            let g = start_seeded(a.clone(), seed, 0, 2, 2);
+            // Listed out of order: the draws still go 0, 2, 3.
+            let mut g = marked(&g, &[3, 0, 2]);
+            for _ in 0..12 {
+                let pl = g.current_player();
+                let (left, full) = (pl.moves_left, pl.turn_moves);
+                let mut r = rng_of(&g);
+                // The player's idle moves (magic 5.3.1), then the round end.
+                for _ in 0..left {
+                    r.below(u32::from(full));
+                }
+                let mut gone = Vec::new();
+                let pick = r.below(16) as usize;
+                if g.creature(1, pick).is_some() {
+                    for slot in [0, 2, 3] {
+                        if r.percent(20) && g.creature(1, slot).is_some() {
+                            gone.push(slot);
+                        }
+                    }
+                }
+                let ev = wait(&mut g);
+                let seen: Vec<usize> = ev
+                    .iter()
+                    .filter_map(|e| match e {
+                        Event::CreatureRemoved {
+                            slot,
+                            reason: RemovalReason::LeftBehind,
+                            ..
+                        } => Some(*slot),
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(seen, gone, "seed {seed}");
+                removals += gone.len();
+                // The removals keep their marks; the resident never had one.
+                assert!(g.is_random(1, 0) && g.is_random(1, 2) && g.is_random(1, 3));
+                assert!(!g.is_random(1, 5));
+                assert!(g.creature(1, 5).is_some());
+                // The next turn's healing die (magic 5.3.2) and nothing else.
+                r.below(6);
+                assert_eq!(rng_of(&g), r, "seed {seed}: the round end's draws");
+            }
+        }
+        assert!(removals > 0);
+    });
+}
+
+#[test]
+fn a_random_creature_marks_a_slot_and_its_removal_keeps_the_mark() {
+    // 2.4, 3.3 (engine choice): the mark goes with the slot, not the
+    // creature; a random creature put into a marked slot keeps it set.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut bat = a.regions[0].residents[0].clone();
+        bat.in_use = true;
+        bat.name = "BAT".into();
+        bat.speed = 0;
+        a.regions[0].random_creatures[2] = bat;
+        a.regions[0].rooms[1].random_chance = 100;
+        a.regions[0].rooms[1].random_creature = 2;
+        let g = start(a, 0, 8, 3);
+        let mut g = marked(&g, &[0]);
+        assert!(g.creature(1, 0).is_none() && g.is_random(1, 0));
+        g.apply(Command::Move { dir: Dir::E });
+        assert!(g.creature(1, 0).is_some() && g.is_random(1, 0));
+        assert_eq!(
+            serde_json::to_value(&g).expect("serializes")["random"],
+            serde_json::json!([[1, 0]]),
+            "marked once"
+        );
+    });
+}
+
+/// The moves of every `CreatureTurn` of `slot`.
+fn turns_of(ev: &[Event], slot: usize) -> Vec<u8> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::CreatureTurn { slot: s, moves, .. } if *s == slot => Some(*moves),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_creature_carries_its_moves_through_a_door_and_is_not_halved() {
+    // 5.4, 2.6 (capture.md 10.41 item 4): its next turn starts with the
+    // moves left after the door's step, not halved beside a foe; with none
+    // carried, the full bar (halved beside one).
+    both(|p| {
+        let mut carried_seen = 0;
+        for seed in 0..16 {
+            let mut a = adventure(p);
+            // An unarmed aggressive enemy, Speed 15: the player its foe.
+            put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
+            let mut g = start_seeded(a, seed, 0, 8, 2);
+            // Through the east door onto EAST (1,3); the enemy follows.
+            let ev = g.apply(Command::Move { dir: Dir::SE });
+            let at_door = ev
+                .iter()
+                .position(|e| matches!(e, Event::CreatureTookDoor { slot: 1, .. }));
+            let Some(at_door) = at_door else {
+                continue;
+            };
+            let steps = ev[..at_door]
+                .iter()
+                .filter(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }))
+                .count() as u8;
+            let carry = 15 - steps - 1;
+            assert_eq!(xy(&g, 1), (1, 1, 3));
+            // The player steps off east, so the enemy starts beside it.
+            g.apply(Command::Move { dir: Dir::E });
+            assert_eq!(g.current_player().at, at(1, 2, 3));
+            let ev = wait(&mut g);
+            let turns = turns_of(&ev, 1);
+            let expected = if carry > 0 { carry } else { 8 };
+            assert_eq!(turns.first(), Some(&expected), "seed {seed}: {ev:?}");
+            carried_seen += usize::from(carry > 0 && carry != 8);
+        }
+        assert!(carried_seen > 0);
+    });
+}
+
+/// PILLAR set to bump for Life Force -5 (the player stands on it), and
+/// to vanish when bumped if `vanishes`.
+fn bump_pillar(a: &mut Adventure, vanishes: bool) {
+    use acs_core::model::{SpellAction, SpellActionKind, ThingKind};
+    let t = &mut a.things[PILLAR as usize - 1];
+    t.kind = ThingKind::Obstacle {
+        picture: 7,
+        bump_invokes_spell: true,
+        action: SpellAction {
+            kind: SpellActionKind::ChangeLifeForce,
+            parameter: 0x85, // -5, permanent
+        },
+    };
+    t.raw = [if vanishes { 0x0A | 0x10 } else { 0x0A }, 0, 0, 0];
+}
+
+/// A slinker friend of Speed `speed` (it seeks the player, 6.3) in slot 1.
+fn seeker(a: &mut Adventure, x: u8, y: u8, speed: u8) {
+    let mut s = spec(0, x, y, Alignment::Friend, false);
+    s.speed = speed;
+    put(a, 1, s);
+    let c = &mut a.regions[0].residents[1];
+    c.constitution = 30;
+    c.life_force = 30;
+}
+
+fn bumps(ev: &[Event]) -> usize {
+    ev.iter()
+        .filter(|e| matches!(e, Event::CreatureBumped { slot: 1, .. }))
+        .count()
+}
+
+#[test]
+fn a_creature_bumps_the_obstacle_its_goal_stands_on() {
+    // 5.1 (engine choice, capture.md 10.41 item 3): the goal's square,
+    // its top an obstacle, is open to a creature that does not strike, at
+    // cost 1 when not stood on; picking it is a bump: it stays put, the
+    // bump spell acts on it, the move is spent and the turn goes on.
+    both(|p| {
+        let mut a = adventure(p);
+        bump_pillar(&mut a, false);
+        item(&mut a, 0, 5, 3, PILLAR, 0);
+        seeker(&mut a, 6, 3, 2);
+        let mut g = start(a, 0, 5, 3);
+        let ev = wait(&mut g);
+        assert_eq!(turns_of(&ev, 1), vec![2]);
+        // Scored 5 + 4 x roll against at least 16 elsewhere: both moves.
+        assert_eq!(bumps(&ev), 2, "{ev:?}");
+        assert!(ev.contains(&Event::CreatureBumped {
+            region: 1,
+            slot: 1,
+            at: at(0, 5, 3),
+            thing: PILLAR,
+        }));
+        assert_eq!(xy(&g, 1), (0, 6, 3));
+        assert_eq!(g.creature(1, 1).expect("alive").life_force, 20);
+        assert_eq!(top(&g, 0, 5, 3), Some(PILLAR));
+        assert_eq!(g.current_player().at, at(0, 5, 3));
+    });
+}
+
+#[test]
+fn a_disappearing_obstacle_vanishes_at_a_creature_bump() {
+    // 5.1, movement 5.9: the first bump removes it; the player's square is
+    // then closed to the creature again.
+    both(|p| {
+        let mut a = adventure(p);
+        bump_pillar(&mut a, true);
+        item(&mut a, 0, 5, 3, PILLAR, 0);
+        seeker(&mut a, 6, 3, 2);
+        let mut g = start(a, 0, 5, 3);
+        let ev = wait(&mut g);
+        assert_eq!(bumps(&ev), 1, "{ev:?}");
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::ObstacleVanished { thing: PILLAR, .. })));
+        assert_eq!(top(&g, 0, 5, 3), None);
+        assert_eq!(g.creature(1, 1).expect("alive").life_force, 25);
+        assert_ne!(xy(&g, 1), (0, 6, 3), "its second move is a step");
+    });
+}
+
+#[test]
+fn the_goal_obstacle_costs_4_once_stood_on_and_strikers_never_bump() {
+    // 5.1: a creature that shared the goal's square and stepped off scores
+    // it as stood on (cost 4), so it seldom picks it; with cost 1 it always
+    // would.
+    both(|p| {
+        let mut bumped = 0;
+        for seed in 0..32 {
+            let mut a = adventure(p);
+            bump_pillar(&mut a, false);
+            item(&mut a, 0, 5, 3, PILLAR, 0);
+            seeker(&mut a, 5, 3, 2);
+            let mut g = start_seeded(a, seed, 0, 5, 3);
+            bumped += usize::from(bumps(&wait(&mut g)) > 0);
+        }
+        assert!(bumped < 8, "{bumped} of 32");
+        // A fighter owning a melee weapon strikes instead (combat 2.3).
+        let mut a = adventure(p);
+        bump_pillar(&mut a, false);
+        item(&mut a, 0, 5, 3, PILLAR, 0);
+        put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
+        armed(&mut a, 1);
+        let mut g = start(a, 0, 5, 3);
+        let ev = wait(&mut g);
+        assert_eq!(bumps(&ev), 0);
+        assert!(ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
     });
 }

@@ -416,13 +416,11 @@ impl Game {
         };
         let me = Who::Player { player: p };
         // Magic 2.1: the spell acts on the one who set it off, at this
-        // square; a summons goes to that one's square (3.2): the picker's
-        // and the bumper's own, a door's destination, the space stepped on.
-        let destination = match item.destination {
-            Some(Destination::WorldMap { x, y }) => Some(Location::World { x, y }),
-            Some(Destination::Room { region, room, x, y }) => Some(Location::Room { region, room, x, y }),
-            None => None,
-        };
+        // square; a summons or an Add to Room (3.2, 3.13) takes effect on
+        // the setting-off thing's square: the space, the obstacle, the
+        // portal in this room, the item; for an obstacle or portal on the
+        // wall line, the bumper's own square.
+        let on = if edge { from } else { to };
         let spell = |source, action, stack| Spell {
             by: me,
             target: me,
@@ -432,8 +430,7 @@ impl Game {
             message: spell_message.clone(),
             at: to,
             on: match source {
-                SpellSource::PickedUp | SpellSource::Obstacle | SpellSource::CustomObstacle => from,
-                SpellSource::Portal => destination.unwrap_or(to),
+                SpellSource::Obstacle | SpellSource::CustomObstacle | SpellSource::Portal => on,
                 _ => to,
             },
             stack,
@@ -474,16 +471,24 @@ impl Game {
                 // Inventory 3.5: judged on the capacity at the take.
                 let heavy = self.heavy_take(p, inventory::weight(&self.adv, item.thing));
                 self.remove_item(region, room, index);
-                self.players[p].possessions.push(item.thing);
+                // Inventory 2.7: the take adds the placed parameter, capped
+                // at the limit; a 0 is taken off the floor but owns nothing.
+                let n = inventory::take_count(self.players[p].count(item.thing), item.parameter, item.thing);
+                for _ in 0..n {
+                    self.players[p].possessions.push(item.thing);
+                }
                 ev.push(Event::PickedUp {
                     player: p,
                     thing: item.thing,
                 });
-                // Inventory 2.4: picking up a weapon readies it.
-                if matches!(
-                    thing.kind,
-                    ThingKind::MeleeWeapon { .. } | ThingKind::MissileWeapon { .. }
-                ) {
+                // Inventory 2.4: picking up a weapon readies it (not one
+                // taken with nothing owned, 2.7).
+                if n > 0
+                    && matches!(
+                        thing.kind,
+                        ThingKind::MeleeWeapon { .. } | ThingKind::MissileWeapon { .. }
+                    )
+                {
                     self.players[p].weapon = Some(item.thing);
                     ev.push(Event::Readied {
                         player: p,

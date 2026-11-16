@@ -937,6 +937,29 @@ pub fn item_once(img: &mut Image) {
     img.data[at] |= 0x10;
 }
 
+/// Sets when our magic item acts (docs/capture.md 10.42): `spec` is
+/// `use`, `pickup` and `drop` joined by `+`. Its extended record (record 0
+/// of the magic part) holds them: byte 0 bit 7 when used, byte 1 bit 7
+/// when picked up, bit 6 when dropped; the action, picture and parameter
+/// are kept.
+pub fn item_when(img: &mut Image, spec: &str) -> Result<(), String> {
+    use acs_core::layout::{things, C64};
+    let (mut used, mut picked, mut dropped) = (false, false, false);
+    for w in spec.split('+').map(str::trim) {
+        match w {
+            "use" => used = true,
+            "pickup" => picked = true,
+            "drop" => dropped = true,
+            _ => return Err(format!("{w}: use, pickup or drop")),
+        }
+    }
+    let at = C64.things + things::EXTENDED + img.data[C64.things + things::MAGIC_ITEM_OFFSET] as usize;
+    img.data[at] = (img.data[at] & 0x7F) | if used { 0x80 } else { 0 };
+    img.data[at + 1] =
+        (img.data[at + 1] & 0x3F) | if picked { 0x80 } else { 0 } | if dropped { 0x40 } else { 0 };
+    Ok(())
+}
+
 /// Sets a thing's "ACS may add" count (docs/capture.md 10.38): `spec` is
 /// `THING:N`, thing 1..128, N 0..15, the high nibble of the thing block's
 /// byte at + 0x800 + (thing - 1); the low nibble is kept.
@@ -2223,6 +2246,32 @@ mod tests {
                 on_use,
                 ..
             } => assert!(*disappears_after_use && *on_use),
+            k => panic!("{k:?}"),
+        }
+    }
+
+    #[test]
+    fn item_when_sets_the_triggers() {
+        let s = MoveBasic {
+            player: Some(Player::default()),
+            item: Some((LONG_MESSAGE, 2)),
+            ..MoveBasic::default()
+        };
+        let mut img = move_basic(&s, None);
+        item_when(&mut img, "pickup+drop").unwrap();
+        assert!(item_when(&mut img.clone(), "bump").is_err());
+        let adv = acs_core::decode(&img).expect("decodes").adventure;
+        match &adv.things[ITEM as usize - 1].kind {
+            acs_core::model::ThingKind::MagicItem {
+                on_use,
+                on_pickup,
+                on_drop,
+                picture,
+                ..
+            } => {
+                assert!(!*on_use && *on_pickup && *on_drop);
+                assert_eq!(*picture as usize, PIC_DOOR);
+            }
             k => panic!("{k:?}"),
         }
     }

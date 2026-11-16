@@ -285,6 +285,12 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 place(game, to)
             )
         }
+        Event::CreatureBumped {
+            region,
+            slot,
+            thing: t,
+            ..
+        } => format!("{} bumps into {}.", creature(game, *region, *slot), thing(*t)),
         Event::CreaturePickedUp {
             region,
             slot,

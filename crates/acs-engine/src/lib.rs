@@ -639,6 +639,14 @@ pub enum Event {
         from: Location,
         to: Location,
     },
+    /// Bumped the obstacle under its goal and stayed put (creatures 5.1);
+    /// `at` is the obstacle's square.
+    CreatureBumped {
+        region: u8,
+        slot: usize,
+        at: Location,
+        thing: ThingId,
+    },
     CreaturePickedUp {
         region: u8,
         slot: usize,

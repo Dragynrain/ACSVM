@@ -26,7 +26,11 @@ beside a square of `--hinder` (2.6).
 
 Candidates are KIND:X,Y:RANK, KIND `exit`, `player` (the first player,
 followed by `$F5AC`/`$F5AD` with `--player-track`, gone once it has stood
-on an exit) or `ind` (another individual standing still). `--rule first`
+on an exit), `ind` (another individual standing still) or `gold` (a pile
+it takes from beside: its square costs RANK / 32, 1 as the goal,
+`--gold-first` on the turn's first step if given; picking it ends the
+turn, never cancelled at Speed 0; seen as a change of the slot's wealth
+byte, record +0x12, which the run must watch; capture.md 10.41). `--rule first`
 always takes the first candidate, `--rule ind` always the first `ind`
 (to compare with the spec's choice).
 """
@@ -36,6 +40,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from adjcheck import Timeline  # noqa: E402
 
 
 def raws(draws):
@@ -85,6 +90,7 @@ def main():
     ap.add_argument("--cand", action="append", default=[])
     ap.add_argument("--exit-cost", type=int, default=1)
     ap.add_argument("--exit-first", type=int, default=None, help="an exit's cost on the turn's first step")
+    ap.add_argument("--gold-first", type=int, default=None, help="a gold pile's cost on the turn's first step")
     ap.add_argument("--pre", type=int, default=0)
     ap.add_argument("--rule", default="spec")
     ap.add_argument("--hinder", default="", help="squares that halve its moves, X,Y/X,Y; 'player' for the player")
@@ -106,6 +112,8 @@ def main():
     hinder = [s for s in a.hinder.split("/") if s]
     ax = f"{0xE1A3 + 37 * a.slot + 13:04X}"
     ay = f"{0xE1A3 + 37 * a.slot + 14:04X}"
+    aw = f"{0xE1A3 + 37 * a.slot + 0x12:04X}"
+    took = 0
     right = wrong = turns = through = steps = 0
     goals = {}
     for line in open(a.runs, encoding="utf-8"):
@@ -115,7 +123,9 @@ def main():
         me = (st[ax], st[ay])
         tpos = [st.get("F5AC"), st.get("F5AD")]
         t_gone = False
+        golds = {at for k, at, _ in cands if k == "gold"}
         ch = v["changes"]
+        tl = Timeline(v)  # flicker-free values, for the wealth byte
         bounds = [(0, st["71FA"])] + [(c["t"], c["to"]) for c in ch if c["addr"] == "71FA"]
         log, ok, n = [], True, 0
         for k, (t0, w) in enumerate(bounds):
@@ -142,8 +152,11 @@ def main():
                         if player is None:
                             continue
                         at = player
+                if kind == "gold" and at not in golds:
+                    continue
                 live.append((kind, at, rank))
-            shut = set(closed) | {at for kind, at, _ in live if kind != "exit"}
+            shut = set(closed) | {at for kind, at, _ in live if kind not in ("exit", "gold")}
+            gold_at = {at: rank for kind, at, rank in live if kind == "gold"}
             # The goal.
             if a.rule == "spec":
                 order = sorted(range(len(live)), key=lambda i: (live[i][2] + dist(me, live[i][1]), i))
@@ -172,6 +185,10 @@ def main():
                         roll = ro.take(3)
                         if s in exits:
                             cost = a.exit_first if step == 0 and a.exit_first is not None else a.exit_cost
+                        elif s in gold_at and step == 0 and a.gold_first is not None:
+                            cost = a.gold_first
+                        elif s in gold_at and not (gi is not None and s == goal):
+                            cost = gold_at[s] // 32
                         elif gi is not None and s == goal:
                             cost = 1
                         elif s in stood:
@@ -184,6 +201,9 @@ def main():
                     if best is None:
                         break
                     s = best[1]
+                    if s in gold_at:
+                        pred.append(("take", s))
+                        break
                     if moves == 0 and s not in exits:
                         break  # cancelled (2.7)
                     pred.append(s)
@@ -201,6 +221,12 @@ def main():
                     s = tuple(pos)
                     if inside(s) and s != (obs[-1] if obs else me) and not (obs and obs[-1] in exits):
                         obs.append(s)
+            if aw in tl.start and tl.at(aw, t1 - 1) != tl.at(aw, t0):
+                here = obs[-1] if obs else me
+                pile = next((g for g in sorted(golds) if dist(g, here) == 1), None)
+                obs.append(("take", pile))
+                golds.discard(pile)
+                took += 1
             good = fail is None and obs == pred
             turns += 1
             steps += len(obs)
@@ -211,14 +237,15 @@ def main():
             if pred and pred[-1] in exits and good:
                 through += 1
                 break
-            if obs:
-                me = obs[-1]
+            sqs = [o for o in obs if o[0] != "take"]
+            if sqs:
+                me = sqs[-1]
         right += ok
         wrong += not ok
         if a.v or not ok:
             print(f"run {v['run']}: {'ok' if ok else 'WRONG'}")
             print("\n".join(log))
-    print(f"{right} runs right, {wrong} wrong; {turns} turns, {steps} steps, through an exit {through}; goals {goals}")
+    print(f"{right} runs right, {wrong} wrong; {turns} turns, {steps} steps, through an exit {through}, gold taken {took}; goals {goals}")
 
 
 if __name__ == "__main__":

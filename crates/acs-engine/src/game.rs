@@ -228,7 +228,9 @@ pub struct Game {
     seed: u64,
     first: Newcomer,
     log: Vec<Command>,
-    /// Region slots holding random creatures (creatures 2.4, 3.3).
+    /// Region slots carrying the random mark (creatures 2.4, 3.3): set by
+    /// a random room creature or a map-encounter copy put there, cleared
+    /// by a summons, kept when the slot's creature goes.
     #[serde(default)]
     pub(crate) random: Vec<(u8, usize)>,
     /// Rooms any player has been in this round (creatures 2.2): the rooms
@@ -273,6 +275,11 @@ pub struct Game {
     /// (creatures 2.2.4, movement 2.3).
     #[serde(default)]
     pub(crate) carried: Vec<(usize, u8)>,
+    /// Moves a creature had left after a door's step, for the start of
+    /// its next turn (creatures 5.4). Left out when empty, so saves made
+    /// before it keep their fingerprints.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) creature_carried: Vec<CarriedMoves>,
     /// The "Add Someone" request waiting for the round's end: at most one
     /// a round, the first asked (characters 6.2, 6.4).
     #[serde(default)]
@@ -300,6 +307,17 @@ pub struct Game {
     /// itself. The replay makes it, so it is not in the fingerprint.
     #[serde(skip)]
     snapshot: Option<Box<Game>>,
+}
+
+/// A creature's moves carried through a door (creatures 5.4): the moves
+/// left after the door's step and the door turn's full moves, which its
+/// idle healing rolls keep (magic 5.3.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct CarriedMoves {
+    pub region: u8,
+    pub slot: usize,
+    pub moves: u8,
+    pub full: u8,
 }
 
 /// The region the scheduler holds after the button (creatures 2.2.6:
@@ -387,6 +405,7 @@ impl Game {
             map,
             entrances: Default::default(),
             carried: Vec::new(),
+            creature_carried: Vec::new(),
             adds: Vec::new(),
             retire: None,
             save_asked: false,
@@ -1107,7 +1126,8 @@ impl Game {
         self.region(region).map_or(0, |r| r.residents.len())
     }
 
-    /// Whether a region slot holds a random creature (creatures 3.3).
+    /// Whether a region slot carries the random mark (creatures 2.4, 3.3);
+    /// an empty slot may.
     pub fn is_random(&self, region: u8, slot: usize) -> bool {
         self.random.contains(&(region, slot))
     }

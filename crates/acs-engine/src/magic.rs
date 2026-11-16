@@ -71,10 +71,12 @@ pub(crate) struct Spell {
     pub message: Option<String>,
     /// Where it takes effect (room spells, stacks).
     pub at: Location,
-    /// The square of the individual it acts on, where a summons (3.2) and
-    /// a cast's or a door's Add to Room (3.13) take effect: a cast's target
-    /// square (2.4), the space stepped on, the bumper's own square, a
-    /// door's destination, the picker's square, the drop square.
+    /// Where a summons (3.2) and Add to Room (3.13) take effect: a cast's
+    /// or use's target square (2.4); with no target press, the square of
+    /// the thing that set it off: the space stepped on, the obstacle's own
+    /// square (the bumper's own for one on the wall line), a portal's own
+    /// square in the room left (the traveller's own for one on the wall
+    /// line), the item's square for a pick-up, the drop square.
     pub on: Location,
     /// The holding thing's index in the room's item list, when it lies in a
     /// stack at `at` (for Activate All, 3.14).
@@ -460,26 +462,17 @@ impl Game {
                 }
             }
             AddToRoom => {
-                // 3.13: a cast's target square, a door's destination,
-                // otherwise where the spell takes effect; a wall square
-                // gives the nearest free inside one.
-                let place = match s.source {
-                    SpellSource::Cast | SpellSource::Used | SpellSource::Portal => s.on,
-                    _ => s.at,
-                };
-                if let Location::Room { region, room, x, y } = place {
-                    let spot = if self.inside(region, room, x, y) {
-                        Some((x, y))
-                    } else {
-                        self.nearest_free(region, room, x, y)
-                    };
-                    if let Some((x, y)) = spot {
-                        self.put_on_top(region, room, x, y, p, 1);
-                        ev.push(Event::ThingAdded {
-                            thing: p,
-                            at: Location::Room { region, room, x, y },
-                        });
-                    }
+                // 3.13: on top of the square it takes effect on (`on`): a
+                // cast's target, the space's or obstacle's own square, the
+                // bumper's for a thing on the wall line, a portal's own
+                // square in the room left, the item's square for a pick-up,
+                // the drop square. Nothing on the world map.
+                if let Location::Room { region, room, x, y } = s.on {
+                    self.put_on_top(region, room, x, y, p, 1);
+                    ev.push(Event::ThingAdded {
+                        thing: p,
+                        at: Location::Room { region, room, x, y },
+                    });
                 }
             }
             ActivateAll => self.activate_all(&s, ev),
@@ -552,12 +545,7 @@ impl Game {
         let slot = self
             .region(region)
             .and_then(|r| r.residents.iter().position(|c| !c.in_use));
-        let spot = if self.inside(region, room, x, y) {
-            Some((x, y))
-        } else {
-            self.nearest_free(region, room, x, y)
-        };
-        let (Some(mut c), Some(slot), Some((x, y))) = (record, slot, spot) else {
+        let (Some(mut c), Some(slot)) = (record, slot) else {
             ev.push(Event::SummonUnanswered { creature });
             return;
         };
@@ -572,7 +560,8 @@ impl Game {
             reg.residents[slot] = c;
         }
         let who = Who::Creature { region, slot };
-        self.forget_vitals(who);
+        // Creatures 2.4: a summons clears the slot's random mark.
+        self.fill_slot(region, slot, false);
         // No turn in this round: a dead creature's slot may still be
         // listed further on.
         let pos = self.sched.pos.min(self.sched.list.len());
@@ -687,34 +676,9 @@ impl Game {
 
     // ---- places --------------------------------------------------------------
 
-    fn inside(&self, region: u8, room: u8, x: u8, y: u8) -> bool {
+    pub(crate) fn inside(&self, region: u8, room: u8, x: u8, y: u8) -> bool {
         self.room(region, room)
             .is_some_and(|r| x > 0 && y > 0 && x + 1 < r.width && y + 1 < r.height)
-    }
-
-    /// The nearest inside square with no individual and no thing, in rings
-    /// of growing distance, top row first (creatures 5.4).
-    pub(crate) fn nearest_free(&self, region: u8, room: u8, x: u8, y: u8) -> Option<(u8, u8)> {
-        let r = self.room(region, room)?;
-        let (w, h) = (r.width as i16, r.height as i16);
-        for d in 1..w.max(h) {
-            for ny in (y as i16 - d)..=(y as i16 + d) {
-                for nx in (x as i16 - d)..=(x as i16 + d) {
-                    if (nx - x as i16).abs().max((ny - y as i16).abs()) != d {
-                        continue;
-                    }
-                    if nx <= 0 || ny <= 0 || nx >= w - 1 || ny >= h - 1 {
-                        continue;
-                    }
-                    let (nx, ny) = (nx as u8, ny as u8);
-                    let has_item = r.items.iter().any(|it| it.x == nx && it.y == ny);
-                    if !has_item && !self.occupied(region, room, nx, ny) {
-                        return Some((nx, ny));
-                    }
-                }
-            }
-        }
-        None
     }
 
     /// Long message 1..=255 as one line (lines are split by position).
@@ -782,8 +746,9 @@ impl Game {
     }
 
     /// Casts `thing` (a magic spell `by` owns) at `aim`; true if it worked
-    /// (4.1). A summons into a full region fails before anything is spent
-    /// or rolled (3.2).
+    /// (4.1). A summons into a full region spends and rolls as any cast,
+    /// then fails whatever the roll (3.2); at cost 0 nothing is spent or
+    /// drawn.
     pub(crate) fn cast(&mut self, by: Who, thing: ThingId, aim: Aim, ev: &mut Vec<Event>) -> bool {
         let Some(t) = self.thing(thing).cloned() else {
             return false;
@@ -796,20 +761,20 @@ impl Game {
         else {
             return false;
         };
-        if action.kind == SpellActionKind::SummonOrBanish && action.parameter != 0 {
-            if let Some(Location::Room { region, .. }) = self.location(by) {
-                if !self.has_free_slot(region) {
-                    ev.push(Event::SummonUnanswered {
-                        creature: action.parameter,
-                    });
-                    return false;
-                }
-            }
+        let full = action.kind == SpellActionKind::SummonOrBanish
+            && action.parameter != 0
+            && matches!(self.location(by), Some(Location::Room { region, .. }) if !self.has_free_slot(region));
+        let unanswered = Event::SummonUnanswered {
+            creature: action.parameter,
+        };
+        if full && cost == 0 {
+            ev.push(unanswered);
+            return false;
         }
         let target = aim.who.unwrap_or(by);
         let power = self.stat(by, Stat::Power).unwrap_or(0);
         let chance = cast_chance(power, cost);
-        let success = cast_roll(&mut self.rng, power, cost);
+        let success = cast_roll(&mut self.rng, power, cost) && !full;
         self.set_stat(by, Stat::Power, power - cast_spend(power, cost));
         ev.push(Event::SpellCast {
             by,
@@ -819,6 +784,9 @@ impl Game {
             cost,
             success,
         });
+        if full {
+            ev.push(unanswered);
+        }
         if !success {
             return false;
         }
@@ -1150,7 +1118,10 @@ impl Game {
                     c.possessions.clear();
                     c.wealth = 0;
                 }
-                self.random.retain(|&r| r != (region, slot));
+                // Creatures 2.4 (engine choice): a death keeps the slot's
+                // random mark; its carried moves (5.4) go.
+                self.creature_carried
+                    .retain(|c| (c.region, c.slot) != (region, slot));
             }
         }
         self.forget_vitals(who);

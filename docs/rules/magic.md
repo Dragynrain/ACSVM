@@ -39,23 +39,46 @@ researcher's plain-language findings (CONTRIBUTING.md 3;
    dropped on a square with a creature, which it then acts on. [manual]
    **Engine:** a drop on the owner's own square also acts on the owner.
 4. When a spell is cast, or a magic item used, the caster picks the target.
-   [manual] On the C64 a player's cast always asks for a target, room
-   spells included: a cursor starts on the caster's square, the stick
-   moves it a square at a time, and the button picks the square under it.
-   [capture: rr36, every cast of capture.md 10.40; ours, no research pass,
-   2026-11-16] How far the cursor reaches, and whether a use of a magic
-   item asks the same way, was not tried. [unknown] **Engine:** the target
-   is a square of the caster's room (on the world map only the caster's
-   own); a spell that acts on an individual acts on the one standing there,
-   the caster itself when it is the caster's square. A wall square, or a
-   square with no individual for a spell that needs one, refuses the
-   command at no cost (`CastRefused`). A creature's target is the square of
-   the goal it casts at (6.3).
+   [manual] On the C64 a player's cast asks for a target, Kill All, a
+   summons and Add to Room included (Activate All does not, 2.5): a cursor
+   starts on the caster's square, the stick moves it a square at a time,
+   and the button picks the square under it. [capture: rr36, the casts of
+   capture.md 10.40; ours, no research pass, 2026-11-16]
+   - **Reach**: the cursor goes to any inside square of the caster's room,
+     however far (9 squares away in a 15 x 10 room), and stops at the
+     inside edge: pushed past it, it stays on the last inside square, so
+     it never reaches a wall square. [capture: rr38 `tc-e9`, `tc-e12`,
+     `tc-s4`, `tc-s6`, `tc-n4`, `tc-n6`, `tc-w4`, `tc-w6`, capture.md 10.42
+     item 1; ours, no research pass, 2026-11-16]
+   - **Use Object** asks for its target the same way ("move cursor to
+     target"), the cursor starting on the user: a magic item doing Add to
+     Room put its thing on the user's square with no tap, two squares
+     east with two. [capture: rr38 `ta-use`, `ta-use2`, capture.md 10.42
+     item 1]
+
+   **Engine:** the target is a square of the caster's room (on the world
+   map only the caster's own), for a cast and a use alike; a spell that
+   acts on an individual acts on the one standing there, the caster itself
+   when it is the caster's square. A wall square, or a square with no
+   individual for a spell that needs one, refuses the command at no cost
+   (`CastRefused`); the C64's cursor never offers a wall square, so that
+   refusal only guards commands a front end should not send. A creature's
+   target is the square of the goal it casts at (6.3).
 5. Spells that act on the room (Rid Room, Activate All, banishing) ignore
    the target. [manual] Three of the manual's room spells do not: on the
    C64 Kill All acts on the target alone, and a summons and Add to Room
    take effect on the target square (3.1, 3.2, 3.13). [capture: rr36,
    capture.md 10.40 items 1 to 3; ours, no research pass, 2026-11-16]
+   Activate All cast by a player asks for no target at all: choosing the
+   spell and pressing runs it at once on the **caster's own square**, the
+   stack there run as in 3.14 even when the caster had arrived on it
+   without setting it off (a space giving a thing and one changing Power
+   by +5: the thing given, Power 13 to 17, the turn over); on an empty
+   square nothing happens. [capture: rr38 `ta-sel`, `ta-actc`, `tb-c`,
+   capture.md 10.42 item 1; ours, no research pass, 2026-11-16]
+   **Engine:** so: a cast Activate All ignores the target and runs the
+   caster's square. Whether Rid Room and banishing ask for a target is
+   [unknown]; they ignore it either way.
 
 ## 3. The 15 actions
 
@@ -98,12 +121,27 @@ The parameter layout is the format draft's; numbers below are corpus counts.
      that creatures step onto a space where a summons is due to arrive
      [designer] does not fit this: the C64 showed no such wait.
      **Engine:** the target square, shared with whoever stands there.
-     A summons with no target press (a space, an obstacle, a door, a
-     magic item picked up or dropped) was not tried. [unknown]
-     **Engine:** the square of the individual it acts on (2.1 to 2.3): the
-     space it stepped on, the bumper's own square, the door's destination,
-     the picker's square, the drop square. (Superseded: the engine's
-     earlier choice of the caster's square or the nearest free one.)
+     With no target press the creature lands on **the square of the thing
+     that set it off**, not the setter's: a space stepped onto, on the
+     space (the stepper's square too); an obstacle bumped, on the
+     obstacle's own square, the bumper staying beside it; a portal passed,
+     on the portal's own square in the room left, not with the traveller
+     at the destination; a magic item picked up, on the square where the
+     item lay, the picker staying beside it (inventory 2.1); a magic item
+     dropped, on the drop square (the dropper's own or one beside it).
+     Each time a copy in the lowest free slot, made at once. [capture: rr38
+     `sn-sp`, `sn-ob`, `sn-po`, `sn-pk2`, `sn-dro`, `sn-drs`, capture.md
+     10.42 item 1; ours, no research pass, 2026-11-16] A creature passing
+     that portal set it off too (6.6): a second copy appeared in the first
+     room. [capture: rr38 `sn-dro`] **Engine:** so: the space's square, the
+     obstacle's square, the portal's square in the room the traveller
+     left, the item's square for a pick-up, the drop square for a drop. An
+     obstacle or portal on the wall line was not tried with a summons;
+     **Engine:** as Add to Room's (3.13), the bumper's own square, on the
+     C64 observed for a wall obstacle only [unknown for a wall portal].
+     (Superseded: the engine's earlier choices of the bumper's square for
+     an obstacle inside the room, the door's destination and the picker's
+     square.)
    - A note on the prompt: once, a first press with the cursor on the
      caster's own square left the prompt up, and a second press there
      placed the creature; in another run the cursor moved after such a
@@ -121,11 +159,23 @@ The parameter layout is the format draft's; numbers below are corpus counts.
    - **A full region**: with all 16 slots in use the spell fails as a
      failed cast does ("a few sparks fizzle", 4.1), even at cost 0, with
      no target prompt and no slot changed. [capture: rr36 `sb16-c`,
-     capture.md 10.40 item 2] Whether a cost above 0 is spent and rolled
-     for first is [unknown]. **Engine:** the slots are checked before
-     anything else: nothing is spent, no roll is drawn, the cast counts as
-     failed (`SummonUnanswered`) and ends the turn as any cast does (4.3);
-     from a space or an item, nothing happens.
+     capture.md 10.40 item 2] At a cost above 0 the cast goes through 4.1
+     first: the Power is spent and the roll drawn, and only then does the
+     full region turn the cast into the same fizzle, a successful roll
+     included. With all 16 slots in use and Power 31 against cost 20,
+     three random states gave the fizzle and Power 11 each time; the same
+     states with 15 in use gave two successes (the creature in slot 15)
+     and one failed roll, and the random state moved alike in both
+     regions. [capture: rr38 `sf-r0`, `sf-r85`, `sf-r170`, `sg-r0`,
+     `sg-r85`, `sg-r170`, capture.md 10.42 item 1; ours, no research pass,
+     2026-11-16] **Engine:** a cast summons in a full region spends and
+     rolls as any cast (4.1; at cost 0 nothing is spent and nothing
+     drawn), then fails whatever the roll (`SummonUnanswered`), with no
+     target chosen and no slot changed, and ends the turn as any cast does
+     (4.3). From a space, an obstacle, a door or an item, nothing happens
+     [unknown: not tried full]. (Superseded: the engine's earlier choice
+     of checking the slots first, spending nothing and drawing no roll at
+     any cost.)
    - 30 named summons and 17 banish-alls among master things; 82 of 83
      custom placements name a creature. [data]
 3. **Increase magic defense, but not above** (0..3: none, non-magic weapons
@@ -171,11 +221,23 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     capture.md 10.40 item 3; ours, no research pass, 2026-11-16] So a
     space that adds a key puts the key on top of itself, and stepping off
     and on again picks it up without setting the space off again
-    (movement 5.3). **Engine:** so; for a door, its destination square, and
-    a wall square (an obstacle or door on the wall) gives the nearest
-    inside square with no thing and no individual [unknown]. Nothing on
-    the world map. (Superseded: the engine's earlier choice of the caster's
-    square for every cast.)
+    (movement 5.3). Set off by a thing on the wall line or with no target
+    press: an obstacle on the wall line, bumped from the inside square
+    beside it, put the thing on **the bumper's own square**, under the
+    player standing there; a portal inside the room put it on **the
+    portal's own square** in the room the player left, not at the
+    destination; a magic item picked up put it on **the square where the
+    item lay**, the picker staying beside it. [capture: rr38 `ar-wall`,
+    `ar-po`, `ar-pk2`, capture.md 10.42 item 4; ours, no research pass,
+    2026-11-16] **Engine:** so: a cast's target square, the space's or
+    inside obstacle's own square, the bumper's own square for an obstacle
+    on the wall line, the portal's own square in the room left, the
+    item's square for a pick-up and the drop square for a drop. A portal
+    on the wall line was not tried [unknown]; **Engine:** the bumper's own
+    square, as for a wall obstacle. Nothing on the world map.
+    (Superseded: the engine's earlier choices of the caster's square for
+    every cast, a door's destination, and the nearest free inside square
+    for a thing on the wall.)
 14. **Activate all things at this place** runs, top to bottom, every spell in
     the stack below the thing that holds it, and only those. [manual]
     **Engine:**
@@ -189,7 +251,10 @@ The parameter layout is the format draft's; numbers below are corpus counts.
       here" spaces do not run;
     - another Activate All lower down is skipped, so a stack runs once;
     - cast, used or picked up away from a stack, it runs the whole stack on
-      the square where it takes effect [unknown].
+      the square where it takes effect: for a cast, the caster's own square
+      (2.5) [capture: rr38 `tb-c`, `ta-sel`, capture.md 10.42 item 1]; for
+      a use or a pick-up [unknown], the user's own square and the item's
+      square.
 
     On the C64, a player stepping onto a stack of (top first) an Activate
     All space, a "when moved onto" custom space, one open to owners of a
@@ -201,8 +266,8 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     the last space a Power +5, Power rose by 5 once, not twice: the
     nested Activate All did not run the rest again. [capture: rr36 `acto`,
     `actn`, `actp`, capture.md 10.40 item 4; ours, no research pass,
-    2026-11-16] The three choices above agree. An Activate All away from
-    a stack was not tried.
+    2026-11-16] The three choices above agree. Cast away from a stack:
+    above, and 2.5.
 15. **Do nothing**: only the message. [manual] A spell with an action code
     outside 0..14 (one corpus key spell holds 15) does nothing too. [data]
 
@@ -313,9 +378,14 @@ magic item after it is used. [unknown]
    +10 runs was 1 to 6 turns of a lone player (one turn a round), and an
    eleventh fall of 1 showed in every run long enough; it was hidden in
    3 of 13 when the next turn's healing (5.3) put it back first.
-   [capture: drift and drift --walk] Not settled: an individual out of
-   play when its reversal falls due (the researcher read a 10-round
-   delay), a temporary fall of Life Force (by the rule it ends 1 above
+   [capture: drift and drift --walk] A player destroyed on Retire with a
+   reversal waiting is never stepped back: its entry stays first in the
+   queue, unchanged, and is never taken, though its round passes
+   ([characters](characters.md) 7.5). [capture: rr38 `rv-a`, `rv-b`,
+   capture.md 10.42 item 5; ours, no research pass, 2026-11-16] Not
+   settled: whether such a left entry holds back reversals behind it, an
+   individual out of play in other ways when its reversal falls due (the
+   researcher read a 10-round delay), a temporary fall of Life Force (by the rule it ends 1 above
    where it started), other stats. **Engine:** the rule above: a queue of
    up to 30 reversals per game, each with its individual, its step (1
    toward undoing the change) and its count; at the end of each round
@@ -497,8 +567,10 @@ magic item after it is used. [unknown]
    (other than the forbidden Activate All, Rid Room and Add to Room,
    creatures 5.3) sets it off, acting on itself; a creature that drops a
    magic item with a drop spell (the overburdened drop, a friend's drop)
-   sets that off under 2.3. [manual] Creatures never step on spaces or pick
-   up magic items, so those never fire for them.
+   sets that off under 2.3. [manual] On the C64 a summoned creature that
+   walked through a portal summoning it brought a second copy into the
+   room. [capture: rr38 `sn-dro`, capture.md 10.42 item 1] Creatures never
+   step on spaces or pick up magic items, so those never fire for them.
 7. Corpus: 1,762 placed residents carry a magic spell, nearly all Life
    Force changes; 1,163 of them are smart and 1,617 start with Power at
    least Wisdom. [data] So in most adventures smart enemies will cast at
@@ -524,7 +596,14 @@ Combat will reuse this; spells are the first thing that can kill.
    there ([encounters](encounters.md) 4.4). Both times the player's push
    onto the square met the blade first ("cannot carry more blades", the
    player owning one). [capture: rr33 `dk` and rr32's `kill/k2`, capture.md
-   10.37 item 2; ours, no research pass, 2026-11-15] **Engine:** so, on
+   10.37 item 2; ours, no research pass, 2026-11-15] A magic item goes
+   down by its thing number like the rest, a magic spell is lost and the
+   gold lies under all: a creature with the blade, treasures 50 and 51, a
+   magic item 70, a spell and 50 gold left (top first) 70, the blade, 51,
+   50, the gold; a player killed by its own cast, with the blade,
+   treasures 13 and 14, item 70, a spell and 50 gold, left 70, the blade,
+   14, 13, the gold. [capture: rr38 `dd-aa`, `dd-t`, capture.md 10.42 item
+   2; ours, no research pass, 2026-11-16] **Engine:** so, on
    the death square; treasures that vanish when dropped vanish; magic
    spells and owner-only weapons and armor are lost. (Superseded: the
    engine's earlier choice of the gold on top.) Drop spells do not go off.
@@ -591,21 +670,30 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    confirmed (5.1-5.3); creatures catching up by the record's byte, also
    across a real absence from the region (5.5, capture.md 10.30); a Speed
    0 creature's extra point of healing is the top-of-turn die (5.3.2,
-   5.5, capture.md 10.33). Still open: creatures' healing, a temporary fall,
-   an individual out of play when its reversal is due. The idle roll's
+   5.5, capture.md 10.33); a destroyed player's reversal never comes due
+   (5.2, capture.md 10.42). Still open: creatures' healing, a temporary
+   fall, whether a left entry holds back later reversals, an individual
+   otherwise out of play when its reversal is due. The idle roll's
    range on a turn that starts with carried moves: captured (5.3.1,
    capture.md 10.29).
 3. Kill All: captured (3.1: the target only, unless it owns the thing;
    the caster not spared; capture.md 10.40).
 4. Summons: captured for a cast (3.2: made at the cast in the lowest free
-   slot, on the target square; a full region fizzles). Still open: a
-   summons from a space, an obstacle, a door or a magic item; a cost
-   above 0 with the region full; the first press on the caster's square
-   that left the prompt up.
+   slot, on the target square; a full region fizzles, after the cost is
+   spent and the roll drawn) and with no target press (the setting-off
+   thing's square: space, obstacle, portal in the room left, item's
+   square, drop square; capture.md 10.42). Still open: the first press on
+   the caster's square that left the prompt up; a summons from a thing on
+   the wall line; a summons from a space or item with the region full.
 5. Add to Room: captured (3.13: on top of the square where it takes
-   effect, a cast's target square).
+   effect, a cast's target square; a wall obstacle the bumper's square, a
+   portal its own square, a pick-up the item's square, capture.md 10.42).
+   Still open: a portal on the wall line.
 6. Activate All with conditional spaces, "when dropped here" spaces and a
-   nested Activate All: captured (3.14). Still open: an Activate All away
-   from a stack; the target cursor's reach and a magic item's use (2.4).
+   nested Activate All: captured (3.14); cast away from a stack (no
+   target, the caster's square), the cursor's reach and a magic item's
+   use (2.4, 2.5, capture.md 10.42). Still open: Activate All from a used
+   or picked-up item away from a stack; whether Rid Room and banishing
+   ask for a target.
 7. How often a mid-Wisdom creature acts smart; what "half power" is.
 8. What casting costs in moves: captured (4.3: the rest of the turn).
