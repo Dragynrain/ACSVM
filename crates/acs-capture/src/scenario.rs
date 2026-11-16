@@ -621,6 +621,10 @@ pub struct MoveBasic {
     pub area_lists: Vec<AreaList>,
     /// Fixed things of other types on room 0 squares (`room_things`).
     pub room_things: Vec<RoomThing>,
+    /// Things of ours byte for byte, on top of the rest (`Put`).
+    pub puts: Vec<Put>,
+    /// Master creatures of ours (`master`).
+    pub masters: Vec<(u8, Resident)>,
 }
 
 /// Where the world map block's five room item lists start (room 0 the
@@ -830,6 +834,101 @@ fn room_things(f: &mut Fixture, things: &[RoomThing], items: &mut Vec<(u8, u8, u
     }
 }
 
+/// A thing of ours written byte for byte (docs/capture.md 10.40): a master
+/// slot, optionally its four property bytes (name `PUT..`, messages
+/// cleared; `PUT` and two letters), and the squares it lies on, room 0's or (`s`) the side
+/// room's, each with its placement parameter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Put {
+    pub slot: u8,
+    pub props: Option<[u8; 4]>,
+    /// (room, x, y, parameter)
+    pub at: Vec<(u8, u8, u8, u8)>,
+}
+
+impl Put {
+    /// `SLOT[=HEX8][@SQ/SQ..]`, a square `[s]X,Y[,P]` (P default 0):
+    /// `104=48460E3C@6,4` writes thing 104 as 48 46 0E 3C and puts it on
+    /// 6,4; `81@9,4,35/15,14,0` places thing 81 twice without defining it.
+    pub fn parse(spec: &str) -> Result<Self, String> {
+        let (head, squares) = match spec.split_once('@') {
+            Some((h, s)) => (h, s),
+            None => (spec, ""),
+        };
+        let (slot, hex) = match head.split_once('=') {
+            Some((s, h)) => (s, Some(h)),
+            None => (head, None),
+        };
+        let slot: u8 = slot.trim().parse().map_err(|_| format!("{spec}: bad slot"))?;
+        if !(1..=127).contains(&slot) {
+            return Err(format!("{spec}: slot 1..127"));
+        }
+        let props = match hex.map(str::trim) {
+            Some(h) if h.len() == 8 => {
+                let mut b = [0u8; 4];
+                for (i, x) in b.iter_mut().enumerate() {
+                    *x = u8::from_str_radix(&h[2 * i..2 * i + 2], 16)
+                        .map_err(|_| format!("{spec}: bad hex"))?;
+                }
+                Some(b)
+            }
+            Some(_) => return Err(format!("{spec}: want 8 hex digits")),
+            None => None,
+        };
+        let mut at = Vec::new();
+        for sq in squares.split('/').map(str::trim).filter(|s| !s.is_empty()) {
+            let (room, sq) = match sq.strip_prefix('s') {
+                Some(r) => (1, r),
+                None => (0, sq),
+            };
+            let v: Vec<u8> = sq
+                .split(',')
+                .map(|n| {
+                    n.trim()
+                        .parse::<u8>()
+                        .map_err(|_| format!("{spec}: bad square {sq}"))
+                })
+                .collect::<Result<_, _>>()?;
+            match v.as_slice() {
+                [x, y] => at.push((room, *x, *y, 0)),
+                [x, y, p] => at.push((room, *x, *y, *p)),
+                _ => return Err(format!("{spec}: a square is X,Y or X,Y,P")),
+            }
+        }
+        Ok(Put { slot, props, at })
+    }
+}
+
+/// Writes the puts' things and returns their placements, room by room, in
+/// the order given (put first, so on top of the room's other things).
+fn puts(f: &mut Fixture, puts: &[Put]) -> [Vec<(u8, u8, u8, u8)>; 2] {
+    let mut out = [Vec::new(), Vec::new()];
+    for p in puts {
+        if let Some(b) = p.props {
+            // Lettered (PUTAA, PUTEA, ..): names pack few digits.
+            let l = |n: u8| char::from(b'A' + n % 26);
+            f.thing(p.slot as usize, &format!("PUT{}{}", l(p.slot / 26), l(p.slot)), b);
+            no_messages(f, p.slot as usize);
+        }
+        for &(room, x, y, param) in &p.at {
+            out[room as usize].push((x, y, p.slot, param));
+        }
+    }
+    out
+}
+
+/// A master creature of ours (docs/capture.md 10.40), for summons:
+/// `N:SPEC`, master creature N (1..128) as a `Resident` (its square and
+/// room unused), picture 74 (solid), the template's class kept.
+pub fn master(spec: &str) -> Result<(u8, Resident), String> {
+    let (n, rest) = spec.split_once(':').ok_or_else(|| format!("{spec}: N:SPEC"))?;
+    let n: u8 = n.trim().parse().map_err(|_| format!("{spec}: bad number"))?;
+    if !(1..=128).contains(&n) {
+        return Err(format!("{spec}: master creature 1..128"));
+    }
+    Ok((n, Resident::parse(rest)?))
+}
+
 /// Sets our magic item's "disappears after use" bit (bit 4 of thing
 /// `ITEM`'s first property byte) on a written scenario disk, to watch a
 /// used-up item and a store's stock (docs/capture.md 10.31).
@@ -959,6 +1058,8 @@ impl Default for MoveBasic {
             patch: None,
             area_lists: Vec::new(),
             room_things: Vec::new(),
+            puts: Vec::new(),
+            masters: Vec::new(),
         }
     }
 }
@@ -1407,6 +1508,14 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
         items.push((at.0, at.1, SIDE, 3));
     }
     room_things(&mut f, &s.room_things, &mut items);
+    let [mut put0, put1] = puts(&mut f, &s.puts);
+    put0.append(&mut items);
+    let items = put0;
+    for (n, c) in &s.masters {
+        let c_base = l.creatures;
+        let class = f.data[c_base + cr::CLASSES + *n as usize - 1] & 0x07;
+        f.creature(*n as usize, &c.stats.name, class, c.record(74, CARRY));
+    }
     // Residents: pictures 65, 66, .. (the players' is 64).
     let residents = s
         .residents
@@ -1443,6 +1552,7 @@ pub fn move_basic(s: &MoveBasic, template: Option<&[u8]>) -> Image {
             h: 8,
             wall: PIC_WALL as u8,
             random: s.side_chance & 0x0F,
+            items: put1,
             ..RoomSpec::default()
         });
     }
@@ -1529,6 +1639,37 @@ mod tests {
         assert_eq!(m.tiles[14][27], 3);
         assert_eq!(m.tiles[14][9], 4);
         assert!(adv.retired_players.is_empty());
+    }
+
+    #[test]
+    fn puts_and_masters_decode() {
+        let s = MoveBasic {
+            side: Some(((7, 4), (2, 4))),
+            puts: vec![
+                Put::parse("104=48460E3C@6,4").unwrap(),
+                Put::parse("60=01010101").unwrap(),
+                Put::parse("60@6,4,0/s3,3,7").unwrap(),
+            ],
+            masters: vec![master("5:name=ZED,spd=4,align=enemy").unwrap()],
+            ..MoveBasic::default()
+        };
+        assert!(Put::parse("104=4846@1,1").is_err());
+        let img = move_basic(&s, None);
+        let adv = acs_core::decode(&img).expect("decodes").adventure;
+        let t = &adv.things[103];
+        assert_eq!(t.raw, [0x48, 0x46, 0x0E, 0x3C]);
+        assert!(matches!(t.kind, acs_core::model::ThingKind::Space { .. }));
+        let r0: Vec<(u16, u8, u8)> = adv.regions[0].rooms[0]
+            .items
+            .iter()
+            .map(|i| (i.thing, i.x, i.y))
+            .collect();
+        assert_eq!(&r0[..2], &[(104, 6, 4), (60, 6, 4)]);
+        let r1 = &adv.regions[0].rooms[1].items;
+        assert_eq!((r1[0].thing, r1[0].x, r1[0].y, r1[0].parameter), (60, 3, 3, 7));
+        let c = &adv.creatures[4];
+        assert_eq!(c.name, "ZED");
+        assert_eq!(c.speed, 4);
     }
 
     #[test]

@@ -479,6 +479,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         assert_eq!(
             refused(&g.apply(Command::Cast {
                 thing: GEM,
+                at: None,
                 target: None
             })),
             Some(CastRefusal::NotASpell)
@@ -486,6 +487,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         assert_eq!(
             refused(&g.apply(Command::Cast {
                 thing: CALL,
+                at: None,
                 target: None
             })),
             Some(CastRefusal::NotCarried)
@@ -493,6 +495,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         assert_eq!(
             refused(&g.apply(Command::Use {
                 thing: STONE,
+                at: None,
                 target: None
             })),
             Some(CastRefusal::NotUsable)
@@ -500,6 +503,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         assert_eq!(
             refused(&g.apply(Command::Cast {
                 thing: BOLT,
+                at: None,
                 target: Some(cr(9))
             })),
             Some(CastRefusal::BadTarget)
@@ -510,6 +514,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         // time (4.1; this seed's roll works), and costs 7.
         let ev = g.apply(Command::Cast {
             thing: BOLT,
+            at: None,
             target: Some(cr(1)),
         });
         let Some(Event::SpellCast {
@@ -538,6 +543,7 @@ fn casting_pays_power_ends_the_turn_and_can_disappear() {
         // A free heal on yourself always works and then is gone.
         let ev = g.apply(Command::Cast {
             thing: HEAL,
+            at: None,
             target: None,
         });
         assert!(ev.contains(&Event::SpellGone { who: ME, thing: HEAL }));
@@ -569,6 +575,7 @@ fn using_items_needs_no_power() {
         );
         let ev = g.apply(Command::Use {
             thing: POTION,
+            at: None,
             target: None,
         });
         assert_eq!(
@@ -583,6 +590,7 @@ fn using_items_needs_no_power() {
         assert!(!g.current_player().owns(POTION));
         g.apply(Command::Use {
             thing: ROD,
+            at: None,
             target: Some(cr(1)),
         });
         assert_eq!(lf(&g, cr(1)), 7);
@@ -611,6 +619,7 @@ fn a_use_costs_two_power_and_two_steps_and_the_turn_goes_on() {
         for (power, moves) in [(18, 13), (16, 11)] {
             let ev = g.apply(Command::Use {
                 thing: ROD,
+                at: None,
                 target: None,
             });
             assert!(!ev.iter().any(|e| matches!(e, Event::TurnEnded { .. })));
@@ -658,8 +667,10 @@ fn kill_all_spares_owners_and_the_dead_leave_their_things() {
                 ..setup()
             },
         );
+        // 3.1: cast at the square of creature 1, which owns no amulet.
         let ev = g.apply(Command::Cast {
             thing: DOOM,
+            at: Some((5, 3)),
             target: None,
         });
         let died: Vec<_> = ev
@@ -716,7 +727,8 @@ fn the_dead_put_their_gold_down_first_then_their_things_lowest_number_up() {
         );
         let ev = g.apply(Command::Cast {
             thing: DOOM,
-            target: None,
+            at: None,
+            target: Some(cr(1)),
         });
         assert!(ev.contains(&Event::Died {
             who: cr(1),
@@ -776,8 +788,47 @@ fn a_player_who_dies_ends_their_turn_and_the_last_one_ends_the_game() {
     });
 }
 
+const CALL10: u16 = 38; // magic spell: summon creature 5, cost 10
+const MAKE: u16 = 39; // magic spell: Add to Room GEM, cost 0
+const BECKON: u16 = 99; // space: summon creature 5
+const BELL: u16 = 100; // obstacle, bump: summon creature 5
+
+/// The extra things the target-square tests use.
+fn more(a: &mut Adventure) {
+    let mut set = |n: u16, name: &str, kind: ThingKind| {
+        let t = &mut a.things[n as usize - 1];
+        t.name = name.into();
+        t.kind = kind;
+        t.raw = [0; 4];
+    };
+    set(CALL10, "CALL10", spell(10, act(K::SummonOrBanish, IMP), false));
+    set(MAKE, "MAKE", spell(0, act(K::AddToRoom, GEM), false));
+    set(BECKON, "BECKON", space(act(K::SummonOrBanish, IMP)));
+    set(
+        BELL,
+        "BELL",
+        ThingKind::Obstacle {
+            picture: 7,
+            bump_invokes_spell: true,
+            action: act(K::SummonOrBanish, IMP),
+        },
+    );
+}
+
+fn summoned(ev: &[Event]) -> Option<(usize, u16, Location)> {
+    ev.iter().find_map(|e| match e {
+        Event::CreatureSummoned {
+            slot, creature, at, ..
+        } => Some((*slot, *creature, *at)),
+        _ => None,
+    })
+}
+
 #[test]
-fn summons_arrive_next_turn_and_banish_spares_players_and_casters() {
+fn summons_are_made_at_once_on_the_target_square() {
+    // 3.2 (capture.md 10.40 item 2): made as the spell takes effect, in
+    // the lowest free slot, on the target square, shared with whoever
+    // stands there.
     both(|p| {
         let mut a = adventure(p);
         put_creature(&mut a, 1, 6, 4, |_| {});
@@ -790,36 +841,46 @@ fn summons_arrive_next_turn_and_banish_spares_players_and_casters() {
                 ..setup()
             },
         );
+        // No target: the caster's own square, before the turn ends.
         let ev = g.apply(Command::Cast {
             thing: CALL,
+            at: None,
             target: None,
         });
-        // Cast, turn over, and at the start of the next turn the imp is on
-        // the nearest free square to the caster.
-        let arrived = ev.iter().find_map(|e| match e {
-            Event::CreatureSummoned {
-                slot, creature, at, ..
-            } => Some((*slot, *creature, *at)),
-            _ => None,
-        });
-        let turn_started = ev
-            .iter()
-            .position(|e| matches!(e, Event::TurnStarted { .. }))
-            .expect("next turn");
-        let summoned = ev
+        assert_eq!(summoned(&ev), Some((0, IMP, hall(2, 2))));
+        let made = ev
             .iter()
             .position(|e| matches!(e, Event::CreatureSummoned { .. }))
             .expect("summoned");
-        assert!(summoned < turn_started);
-        assert_eq!(arrived, Some((0, IMP, hall(1, 1))));
+        let ended = ev
+            .iter()
+            .position(|e| matches!(e, Event::TurnEnded { .. }))
+            .expect("turn ended");
+        assert!(made < ended);
         assert_eq!(
             g.creature(1, 0).map(|c| c.name.trim().to_string()).as_deref(),
             Some("IMP")
         );
         assert!(!g.is_random(1, 0));
+        // At a creature (the old form of the command): its square, shared.
+        let ev = g.apply(Command::Cast {
+            thing: CALL,
+            at: None,
+            target: Some(cr(1)),
+        });
+        assert_eq!(summoned(&ev), Some((2, IMP, hall(6, 4))));
+        // At an empty square.
+        let ev = g.apply(Command::Cast {
+            thing: CALL,
+            at: Some((4, 5)),
+            target: None,
+        });
+        assert_eq!(summoned(&ev), Some((3, IMP, hall(4, 5))));
 
+        // Banishing takes every creature in the room, not the player.
         let ev = g.apply(Command::Cast {
             thing: BANISH,
+            at: None,
             target: None,
         });
         let gone: Vec<_> = ev
@@ -833,16 +894,269 @@ fn summons_arrive_next_turn_and_banish_spares_players_and_casters() {
                 _ => None,
             })
             .collect();
-        assert_eq!(gone, vec![0, 1]);
+        assert_eq!(gone, vec![0, 1, 2, 3]);
         assert!(g.current_player().alive);
 
         // On the world map nobody answers.
         g.place(0, Location::World { x: 20, y: 20 });
         let ev = g.apply(Command::Cast {
             thing: CALL,
+            at: None,
             target: None,
         });
         assert!(ev.contains(&Event::SummonUnanswered { creature: IMP }));
+    });
+}
+
+#[test]
+fn a_summons_takes_no_turn_in_its_round() {
+    // 3.2: even in the slot of a creature that died earlier in the round
+    // and is still on the round's list.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 0, 5, 3, |c| {
+            c.constitution = 3;
+            c.life_force = 3;
+        });
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                wisdom: 20,
+                possessions: vec![ROD, CALL],
+                ..setup()
+            },
+        );
+        // A round whose list holds slot 0 after the player.
+        let ev = g.apply(Command::Wait);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::CreatureTurn { slot: 0, .. })));
+        // The rod, used at its square, kills it; the turn goes on (4.2).
+        let ev = g.apply(Command::Use {
+            thing: ROD,
+            at: Some((5, 3)),
+            target: None,
+        });
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::Died { who, .. } if *who == cr(0))));
+        let ev = g.apply(Command::Cast {
+            thing: CALL,
+            at: Some((4, 4)),
+            target: None,
+        });
+        assert_eq!(summoned(&ev), Some((0, IMP, hall(4, 4))));
+        assert!(
+            !ev.iter()
+                .any(|e| matches!(e, Event::CreatureTurn { slot: 0, .. })),
+            "{ev:?}"
+        );
+        // Its first turn comes in the next round.
+        let ev = g.apply(Command::Wait);
+        assert!(ev
+            .iter()
+            .any(|e| matches!(e, Event::CreatureTurn { slot: 0, .. })));
+    });
+}
+
+#[test]
+fn a_summons_into_a_full_region_spends_nothing_and_ends_the_turn() {
+    // 3.2: the slots are checked first: no Power spent, no roll, the
+    // cast fails and the turn ends.
+    both(|p| {
+        let mut a = adventure(p);
+        more(&mut a);
+        for slot in 0..16 {
+            put_creature(&mut a, slot, 1 + (slot % 8) as u8, 4 + (slot / 8) as u8, |_| {});
+        }
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                wisdom: 20,
+                possessions: vec![CALL10],
+                ..setup()
+            },
+        );
+        let ev = g.apply(Command::Cast {
+            thing: CALL10,
+            at: None,
+            target: None,
+        });
+        assert_eq!(ev[0], Event::SummonUnanswered { creature: IMP });
+        assert!(!ev.iter().any(|e| matches!(e, Event::SpellCast { .. })));
+        assert!(ev.contains(&Event::TurnEnded { player: 0 }));
+        assert_eq!(g.stat(ME, Stat::Power), Some(20));
+    });
+}
+
+#[test]
+fn summons_from_a_space_and_a_bump_go_to_the_setter_offs_square() {
+    // 3.2 Engine: the space stepped on; the bumper's own square.
+    both(|p| {
+        let mut a = adventure(p);
+        more(&mut a);
+        put_item(&mut a, 0, 3, 2, BECKON, 0);
+        put_item(&mut a, 0, 3, 4, BELL, 0);
+        let mut g = start(a, 2, 2, setup());
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(summoned(&ev), Some((0, IMP, hall(3, 2))));
+        g.place(0, hall(2, 4));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(summoned(&ev), Some((1, IMP, hall(2, 4))));
+    });
+}
+
+#[test]
+fn kill_all_acts_on_its_target_alone_and_spares_no_caster() {
+    // 3.1 (capture.md 10.40 item 1).
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 5, 3, |_| {});
+        put_creature(&mut a, 2, 6, 4, |c| {
+            c.possessions = vec![Possession {
+                thing: AMULET,
+                count: 1,
+            }];
+        });
+        put_creature(&mut a, 3, 7, 4, |_| {});
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                possessions: vec![DOOM],
+                ..setup()
+            },
+        );
+        let deaths = |ev: &[Event]| {
+            ev.iter()
+                .filter_map(|e| match e {
+                    Event::Died { who, .. } => Some(*who),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        // At an owner: nobody dies.
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: Some((6, 4)),
+            target: None,
+        });
+        assert_eq!(deaths(&ev), vec![]);
+        // At a non-owner: it alone dies, the other non-owners live.
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: Some((5, 3)),
+            target: None,
+        });
+        assert_eq!(deaths(&ev), vec![cr(1)]);
+        assert!(g.creature(1, 3).is_some());
+        // At an empty square: refused, at no cost (2.4).
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: Some((4, 4)),
+            target: None,
+        });
+        assert_eq!(
+            ev,
+            vec![Event::CastRefused {
+                player: 0,
+                thing: DOOM,
+                reason: CastRefusal::NoOneThere
+            }]
+        );
+        // At itself, owning no amulet: the caster dies.
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: None,
+            target: None,
+        });
+        assert_eq!(deaths(&ev), vec![ME]);
+        assert!(!g.players()[0].alive);
+        assert!(g.creature(1, 2).is_some() && g.creature(1, 3).is_some());
+    });
+}
+
+#[test]
+fn a_cast_is_aimed_at_a_square_and_add_to_room_lands_there() {
+    // 2.4: a square inside the caster's room; walls and squares beyond
+    // refuse at no cost. 3.13: Add to Room lands on top of the target.
+    both(|p| {
+        let mut a = adventure(p);
+        more(&mut a);
+        put_item(&mut a, 0, 2, 2, TUNE, 0); // a space under the caster
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                wisdom: 20,
+                possessions: vec![BOLT, MAKE],
+                ..setup()
+            },
+        );
+        let refused = |ev: &[Event]| match ev {
+            [Event::CastRefused { reason, .. }] => Some(*reason),
+            _ => None,
+        };
+        for square in [(0, 0), (9, 3), (2, 6), (30, 2)] {
+            assert_eq!(
+                refused(&g.apply(Command::Cast {
+                    thing: MAKE,
+                    at: Some(square),
+                    target: None,
+                })),
+                Some(CastRefusal::BadTarget),
+                "{square:?}"
+            );
+        }
+        assert_eq!(
+            refused(&g.apply(Command::Cast {
+                thing: BOLT,
+                at: Some((5, 3)),
+                target: None,
+            })),
+            Some(CastRefusal::NoOneThere)
+        );
+        assert_eq!(g.current_player().moves_left, 15);
+        assert_eq!(g.stat(ME, Stat::Power), Some(20));
+
+        let ev = g.apply(Command::Cast {
+            thing: MAKE,
+            at: Some((6, 2)),
+            target: None,
+        });
+        assert!(ev.contains(&Event::ThingAdded {
+            thing: GEM,
+            at: hall(6, 2)
+        }));
+        assert_eq!(stack(&g, 0, 6, 2), vec![GEM]);
+        // The caster's own square: on top of the space there.
+        let ev = g.apply(Command::Cast {
+            thing: MAKE,
+            at: None,
+            target: None,
+        });
+        assert!(ev.contains(&Event::ThingAdded {
+            thing: GEM,
+            at: hall(2, 2)
+        }));
+        assert_eq!(stack(&g, 0, 2, 2), vec![GEM, TUNE]);
+
+        // On the world map only the caster's own square.
+        g.place(0, Location::World { x: 20, y: 20 });
+        assert_eq!(
+            refused(&g.apply(Command::Cast {
+                thing: BOLT,
+                at: Some((21, 20)),
+                target: None,
+            })),
+            Some(CastRefusal::BadTarget)
+        );
     });
 }
 
@@ -864,6 +1178,7 @@ fn summons_go_unanswered_in_a_full_region() {
         );
         let ev = g.apply(Command::Cast {
             thing: CALL,
+            at: None,
             target: None,
         });
         assert!(ev.contains(&Event::SummonUnanswered { creature: IMP }));
@@ -1144,8 +1459,11 @@ fn creatures_set_off_door_and_drop_spells() {
     both(|p| {
         let mut a = adventure(p);
         // A friend fighter that wants the player, who has just left by the
-        // music door; and an overburdened one with a bomb.
-        put_creature(&mut a, 1, 8, 5, |c| {
+        // music door; and an overburdened one with a bomb. The friend
+        // starts two squares from the door: beside it, the door's cost of 4
+        // on the turn's first step choice (creatures 6.5) would mostly keep
+        // it there.
+        put_creature(&mut a, 1, 7, 5, |c| {
             c.speed = 3;
             c.strategy.alignment = Alignment::Friend;
             c.strategy.aggressive = false; // a slinker friend: it seeks the player
@@ -1246,11 +1564,13 @@ fn magic_is_deterministic() {
             for c in [
                 Command::Cast {
                     thing: BOLT,
+                    at: None,
                     target: Some(cr(1)),
                 },
                 Command::Wait,
                 Command::Cast {
                     thing: CALL,
+                    at: None,
                     target: None,
                 },
                 Command::Wait,

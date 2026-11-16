@@ -75,8 +75,7 @@ pub fn load(adv: &Adventure, c: &Creature) -> i32 {
 
 /// Inventory 3.2 with the creature's traits.
 pub fn capacity(c: &Creature) -> i32 {
-    let wound = (c.constitution as i32 - c.life_force as i32) / 2;
-    (c.strength as i32 - wound) * 100
+    inventory::capacity(c.strength, c.constitution, c.life_force)
 }
 
 /// Where a creature's bar starts (2.5).

@@ -121,10 +121,12 @@ fn scripts() -> Vec<Script> {
             commands: [
                 Command::Cast {
                     thing: MEND,
+                    at: None,
                     target: None,
                 },
                 Command::Cast {
                     thing: HURT,
+                    at: None,
                     target: Some(slot(1)),
                 },
             ]
@@ -135,6 +137,7 @@ fn scripts() -> Vec<Script> {
             .chain(std::iter::repeat_n(Command::Idle, 18))
             .chain([Command::Cast {
                 thing: HURT,
+                at: None,
                 target: Some(slot(1)),
             }])
             .chain(waits(6))

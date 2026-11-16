@@ -352,8 +352,31 @@ fn capacity_follows_the_manual_formula() {
         life_force: 20,
         ..setup()
     };
-    let (g, _) = Game::new(a, 1, Rules { diagonals: true }, hale);
+    let (g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, hale);
     assert_eq!(g.current_player().capacity(), 1600); // 11 + 10/2
+
+    // 3.2 on the C64: the wound term halved rounding down, toward minus
+    // infinity, and not held at 0. Strength 9, Constitution 20: 900 at
+    // Life Force 20, 1,000 at 21 (-1 halves to -1) and 22, and by the
+    // formula 1,200 at 25 (-5 halves to -3) and 1,400 at 30.
+    for (lf, cap) in [(20, 900), (21, 1000), (22, 1000), (25, 1200), (30, 1400)] {
+        assert_eq!(inventory::capacity(9, 20, lf), cap, "Life Force {lf}");
+    }
+    // An odd wound counts as the even one below it: 13 and 12 alike.
+    assert_eq!(inventory::capacity(12, 40, 27), 600);
+    assert_eq!(inventory::capacity(12, 40, 28), 600);
+    assert_eq!(inventory::capacity(12, 40, 29), 700);
+    // Not held at 0: a deep wound gives a negative capacity.
+    assert_eq!(inventory::capacity(1, 40, 0), -1900);
+    // The player's capacity uses the same rule.
+    let odd = PlayerSetup {
+        strength: 9,
+        constitution: 20,
+        life_force: 21,
+        ..setup()
+    };
+    let (g, _) = Game::new(a.clone(), 1, Rules { diagonals: true }, odd);
+    assert_eq!(g.current_player().capacity(), 1000);
 
     // A straight line from half the capacity (full Speed) to the capacity
     // (0), rounding down: the points captured on the C64 (inventory 3.3).
@@ -431,11 +454,18 @@ fn drops_land_on_top_beside_or_under_the_player() {
         );
         assert_eq!(g.current_player().count(ROCK), 1);
         assert_eq!(g.current_player().moves_left, left, "dropping is free");
-        // Onto the dust: the rock is now on top.
-        drop(&mut g, ROCK, Some(Dir::NW));
+        // 5.1: not on a diagonal square (refused at no cost).
+        assert_eq!(
+            refused(&drop(&mut g, ROCK, Some(Dir::NW))),
+            Some(DropRefusal::NotBeside)
+        );
+        assert_eq!(g.current_player().count(ROCK), 1);
+        // Onto the dust beside it: the rock is now on top.
+        g.place(0, hall(4, 3));
+        drop(&mut g, ROCK, Some(Dir::N));
         assert_eq!(stack(&g, 4, 2), vec![(ROCK, 1), (DUST, 1)]);
         // Walking onto it picks the rock up, not the dust.
-        let ev = mv(&mut g, Dir::NW);
+        let ev = mv(&mut g, Dir::N);
         assert_eq!(
             ev[0],
             Event::PickedUp {
@@ -444,6 +474,88 @@ fn drops_land_on_top_beside_or_under_the_player() {
             }
         );
         assert_eq!(stack(&g, 4, 2), vec![(DUST, 1)]);
+    });
+}
+
+#[test]
+fn drops_land_on_portals_stores_and_creatures_but_not_obstacles_or_walls() {
+    // 5.4 (capture.md 10.40 item 6): a portal's, a store's and a
+    // creature's square take a drop, on top; an obstacle, a custom
+    // obstacle and a wall (a portal on the wall line included) refuse.
+    use acs_core::model::{Access, RoomItem, SpellAction, ThingKind};
+    const DOOR: u16 = 85;
+    const SHOP: u16 = 86;
+    const IDOL: u16 = 87;
+    both(|p| {
+        let mut a = adventure(p);
+        let kind = |a: &mut Adventure, n: u16, kind: ThingKind| a.things[n as usize - 1].kind = kind;
+        kind(
+            &mut a,
+            DOOR,
+            ThingKind::Portal {
+                picture: 5,
+                two_way: false,
+                access: Access::Anyone,
+                destroy_needed_thing: false,
+            },
+        );
+        kind(&mut a, SHOP, ThingKind::Store { picture: 5 });
+        kind(
+            &mut a,
+            IDOL,
+            ThingKind::CustomObstacle {
+                picture: 5,
+                action: SpellAction {
+                    kind: SpellActionKind::Nothing,
+                    parameter: 0,
+                },
+            },
+        );
+        let put = |a: &mut Adventure, x, y, thing| {
+            a.regions[0].rooms[0].items.insert(
+                0,
+                RoomItem {
+                    x,
+                    y,
+                    thing,
+                    parameter: 0,
+                    flag: false,
+                    destination: None,
+                    gold: None,
+                },
+            )
+        };
+        put(&mut a, 5, 3, DOOR);
+        put(&mut a, 7, 4, SHOP);
+        put(&mut a, 6, 2, IDOL);
+        put(&mut a, 9, 4, DOOR); // on the east wall line
+        let (mut g, _) = Game::new(a, 1, Rules { diagonals: true }, setup());
+        for _ in 0..3 {
+            g.give(0, ROCK);
+        }
+        g.place(0, hall(6, 3));
+        let left = g.current_player().moves_left;
+        let ev = drop(&mut g, ROCK, Some(Dir::W));
+        assert!(ev.contains(&Event::Dropped {
+            player: 0,
+            thing: ROCK,
+            at: hall(5, 3)
+        }));
+        assert_eq!(stack(&g, 5, 3), vec![(ROCK, 1), (DOOR, 0)]);
+        assert_eq!(
+            refused(&drop(&mut g, ROCK, Some(Dir::N))),
+            Some(DropRefusal::Thing { thing: IDOL })
+        );
+        g.place(0, hall(7, 3));
+        drop(&mut g, ROCK, Some(Dir::S));
+        assert_eq!(stack(&g, 7, 4), vec![(ROCK, 1), (SHOP, 0)]);
+        g.place(0, hall(8, 4));
+        assert_eq!(
+            refused(&drop(&mut g, ROCK, Some(Dir::E))),
+            Some(DropRefusal::Wall)
+        );
+        assert_eq!(g.current_player().count(ROCK), 1);
+        assert_eq!(g.current_player().moves_left, left, "refusals and drops are free");
     });
 }
 

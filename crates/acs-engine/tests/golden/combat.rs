@@ -2648,7 +2648,6 @@ fn a_friends_gift_lands_around_the_giver() {
 /// (creatures 2.7: the Speed 0 step is not cancelled onto a thing it takes
 /// or an exit). Many rolls a run: samples.
 #[test]
-#[ignore = "engine disagrees with capture.md 10.37 item 7: a peaceful neutral of Speed 0 beside the portal went through in 1 of 16 four-turn runs, the engine in every run"]
 fn a_speed_0_creature_takes_a_thing_or_an_exit_beside_it() {
     let mut a = kit(5);
     ours(&mut a, 0, 8, 4, |c| {
@@ -2749,4 +2748,114 @@ fn blows_from_the_moves_left() {
     assert_eq!(combat::blows(3, 3, 13), 4);
     assert_eq!(combat::blows(2, 3, 13), 2);
     assert_eq!(combat::blows(1, 3, 13), 1);
+}
+
+/// 4.2 by the spec: a damaging blow of `d` on Power `p`, Life Force `l`
+/// (the share from `l_share`), the new Power and Life Force.
+fn share_losses(d: u8, p: u8, l: u8, l_share: u8) -> (u8, u8) {
+    let (d, pw, lf) = (i32::from(d), i32::from(p), i32::from(l_share));
+    let share = if pw + lf == 0 {
+        0
+    } else {
+        (d * pw / (pw + lf)).min((pw + 1) / 2)
+    };
+    let p = (i32::from(p) - 2 * share).max(0) as u8;
+    let l = (i32::from(l) - (d - share)).max(0) as u8;
+    (p, l)
+}
+
+/// capture.md 10.39 item 3 (rr35 `d-20` .. `d-60`, 32 states each,
+/// `blowcheck.py --cls 1 --con 20`; combat 4.2, 4.3): rr33's `pb` room, T
+/// (Dexterity 31, holding our blade) pushing east into FF on 5,4, a
+/// peaceful neutral of Speed 0, Wisdom 10, Constitution 20, its Life Force
+/// set to 20, 26, 40 or 60. Every damaging blow's Life Force and Power loss
+/// fitted 4.2 with the share from the Life Force as it stands, 32 of 32 at
+/// each level (33, 33, 33 and 32 damaging blows); a share from the Life
+/// Force capped at the Constitution fitted 32 of 32 at 20 and 26 but 6 of
+/// 32 at 40 and at 60. FF's Power is the harness's 13. A second player U,
+/// far off in the room, takes the turn after T's, so FF is read before its
+/// own turn (drift, healing) changes it. The share is exact; the damaging
+/// blows and the capped reading's fits are samples.
+#[test]
+fn life_force_above_constitution_enters_the_share_as_it_stands() {
+    const RUNS: u64 = SEEDS / 8;
+    let a = pb(CLASSES[1], 10, 20);
+    for (name, lf, cap_hits, cap_fits) in [
+        ("d-20", 20u8, 33, 32),
+        ("d-26", 26, 33, 32),
+        ("d-40", 40, 33, 6),
+        ("d-60", 60, 32, 6),
+    ] {
+        let (mut blows, mut hits, mut fits) = (0, 0, 0);
+        for seed in 0..RUNS {
+            let me = PlayerSetup {
+                dexterity: 31,
+                ..t(6, 40, vec![BLADE])
+            };
+            let (mut g, _) = Game::new(a.clone(), seed, Default::default(), me);
+            let mut u = t(4, 40, vec![]);
+            u.name = "U".into();
+            g.apply(Command::AddPlayer { setup: u });
+            g.apply(Command::Wait);
+            g.place(0, room(4, 4));
+            g.place(1, room(12, 8));
+            for _ in 0..8 {
+                if g.current() == 0 {
+                    break;
+                }
+                g.apply(Command::Wait);
+            }
+            assert_eq!((g.current(), moves(&g)), (0, 6), "{name} seed {seed}");
+            let ff = g.creature_mut(1, 0).expect("FF");
+            (ff.x, ff.y) = (5, 4);
+            ff.constitution = 20;
+            ff.life_force = lf;
+            ff.power = 13;
+            ready(&mut g, BLADE);
+            let ev = g.apply(Command::Move { dir: Dir::E });
+            assert_eq!(attacks(&ev, ME), [(slot(0), 5)], "{name} seed {seed}: {ev:?}");
+            assert_eq!(g.current(), 1, "{name} seed {seed}: U's turn next");
+            // Blow by blow, both readings.
+            let (mut p, mut l) = (13, lf);
+            let (mut cp, mut cl) = (13, lf);
+            for e in &ev {
+                if let Event::Blow { by: ME, outcome, .. } = e {
+                    blows += 1;
+                    if let BlowOutcome::Hit { damage, .. } = *outcome {
+                        if damage > 0 {
+                            hits += 1;
+                            (p, l) = share_losses(damage, p, l, l);
+                            (cp, cl) = share_losses(damage, cp, cl, cl.min(20));
+                        }
+                    }
+                }
+            }
+            let now = g
+                .creature(1, 0)
+                .filter(|c| c.in_use)
+                .map_or((0, 0), |c| (c.power, c.life_force));
+            if now.1 == 0 {
+                assert_eq!(l, 0, "{name} seed {seed}: died by the spec too");
+            } else {
+                assert_eq!(now, (p, l), "{name} seed {seed}: {ev:?}");
+            }
+            fits += u64::from((cp, cl) == (p, l) || (l == 0 && cl == 0));
+        }
+        same_rate(
+            &format!("{name}: damaging blows a blow"),
+            Sweep::Sample,
+            cap_hits,
+            5 * 32,
+            hits,
+            blows,
+        );
+        same_rate(
+            &format!("{name}: runs the capped share fits"),
+            Sweep::Sample,
+            cap_fits,
+            32,
+            fits,
+            RUNS,
+        );
+    }
 }

@@ -423,18 +423,71 @@ fn slinker_neutrals_head_for_the_nearest_exit_they_may_take() {
 #[test]
 fn nearer_beats_better_by_rank_and_steps() {
     both(|p| {
-        // 6.2-6.4: a slinker friend scores the player 26 + 9 steps = 35 and
-        // the east door 32 + 1 = 33: it takes the door.
+        // 6.2-6.4: a slinker friend on (8,4) scores the player 26 + 10
+        // steps = 36 and the east door (9,3) 32 + 2 = 34: it heads for the
+        // door and takes it. (Started beside the door, it would rarely take
+        // it at once: 6.5's exit cost of 4 on the turn's first step choice;
+        // here the door is beside it from its second, cost 1.)
         let mut a = adventure(p);
-        put(&mut a, 1, spec(0, 8, 3, Alignment::Friend, false));
+        put(&mut a, 1, spec(0, 8, 4, Alignment::Friend, false));
         let mut g = start(a, 0, 1, 1);
-        let ev = wait(&mut g);
+        let mut ev = Vec::new();
+        for _ in 0..4 {
+            ev.extend(wait(&mut g));
+        }
         assert!(
             ev.iter()
                 .any(|e| matches!(e, Event::CreatureTookDoor { slot: 1, .. })),
             "{ev:?}"
         );
     });
+}
+
+/// 6.5: an exit costs 4 on the turn's first step choice, goal or not; 1
+/// for a slinker on every later one. A Speed 0 slinker neutral beside the
+/// east door (9,3), its goal, takes it only on the rare rolls (2 in 81:
+/// the door's 0, south's and north's 2, west's at least 1), standing
+/// otherwise (2.7.3: the ordinary step is cancelled). Started at (8,4) with
+/// Speed 15, the door comes beside it at its second step choice, cost 1,
+/// and it nearly always goes through in its first turn.
+#[test]
+fn an_exit_costs_4_on_the_turns_first_step_choice() {
+    let went = |speed: u8, x: u8, y: u8, seeds: u64| {
+        let mut n = 0;
+        for seed in 0..seeds {
+            let mut a = adventure(Platform::C64);
+            put(
+                &mut a,
+                1,
+                Spec {
+                    speed,
+                    ..spec(0, x, y, Alignment::Neutral, false)
+                },
+            );
+            let mut g = start_seeded(a, seed, 0, 1, 1);
+            let ev = wait(&mut g);
+            let took = ev
+                .iter()
+                .any(|e| matches!(e, Event::CreatureTookDoor { slot: 1, .. }));
+            if speed == 0 && !took {
+                assert!(
+                    !ev.iter()
+                        .any(|e| matches!(e, Event::CreatureMoved { slot: 1, .. })),
+                    "seed {seed}: a Speed 0 creature walked: {ev:?}"
+                );
+            }
+            n += took as u32;
+        }
+        n
+    };
+    // 256 x 2 / 81 is about 6.
+    let still = went(0, 8, 3, 256);
+    assert!(
+        (1..=16).contains(&still),
+        "Speed 0 beside the door: {still} of 256"
+    );
+    let walking = went(15, 8, 4, 64);
+    assert!(walking >= 48, "Speed 15 from (8,4): {walking} of 64");
 }
 
 #[test]
@@ -2130,5 +2183,24 @@ fn a_foe_beside_it_keeps_an_overburdened_creature_from_dropping() {
         let ev = wait(&mut g);
         assert!(turns_of_1(&ev)[0].1.iter().all(|a| *a != Some(GOLD)), "{ev:?}");
         assert_eq!(g.creature(1, 1).unwrap().wealth, 150);
+    });
+}
+
+#[test]
+fn a_creatures_moves_come_from_the_life_force_its_turn_top_left() {
+    // Inventory 3.4 (engine): catch-up, drift and the die, then the moves.
+    // Strength 2, Constitution 20, Life Force 17 (wound 3): capacity 100,
+    // so a load of 100 gold leaves Speed 0 (the die's heal to 18 keeps it).
+    // A catch-up of many rounds heals it to 20 first: capacity 200, the
+    // load at half, the full 6 moves on that same turn.
+    both(|p| {
+        for (byte, moves) in [(0u8, 0u8), (128, 6)] {
+            let mut g = burdened(p, 6, 100);
+            let c = g.creature_mut(1, 1).unwrap();
+            c.life_force = 17;
+            c.last_turn_round = byte;
+            let turns = turns_of_1(&wait(&mut g));
+            assert_eq!(turns[0].0, moves, "byte {byte}");
+        }
     });
 }

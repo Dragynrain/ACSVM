@@ -232,6 +232,7 @@ impl Game {
                             action,
                             message,
                             at: to,
+                            on: to,
                             stack: None,
                         },
                         ev,
@@ -414,7 +415,14 @@ impl Game {
             message: blocked_message.clone(),
         };
         let me = Who::Player { player: p };
-        // Magic 2.1: the spell acts on the one who set it off, at this square.
+        // Magic 2.1: the spell acts on the one who set it off, at this
+        // square; a summons goes to that one's square (3.2): the picker's
+        // and the bumper's own, a door's destination, the space stepped on.
+        let destination = match item.destination {
+            Some(Destination::WorldMap { x, y }) => Some(Location::World { x, y }),
+            Some(Destination::Room { region, room, x, y }) => Some(Location::Room { region, room, x, y }),
+            None => None,
+        };
         let spell = |source, action, stack| Spell {
             by: me,
             target: me,
@@ -423,6 +431,11 @@ impl Game {
             action,
             message: spell_message.clone(),
             at: to,
+            on: match source {
+                SpellSource::PickedUp | SpellSource::Obstacle | SpellSource::CustomObstacle => from,
+                SpellSource::Portal => destination.unwrap_or(to),
+                _ => to,
+            },
             stack,
         };
 

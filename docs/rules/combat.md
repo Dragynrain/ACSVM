@@ -27,7 +27,8 @@ pass), whose `combatcheck.py` checks also hold every melee attack's blow
 count against the value the attack's blows-left byte is first written
 with. The player's blows and section 7's roll after them (capture.md
 10.37, run rr33, 2026-11-15, no research pass) were checked draw by draw
-with `scripts/blowcheck.py`.
+with `scripts/blowcheck.py`, and so was the share with Life Force above
+Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
 
 ## 1. Terms
 
@@ -230,17 +231,24 @@ with `scripts/blowcheck.py`.
    15 as a heavy blow; the player at Life Force 40, Power 13 lost 8 Life
    Force and 4 Power for a 10, Life Force read after every hit and
    healing. [capture: armed, 25 hits in 32 runs]
-3. So Life Force above Constitution plays no part in a blow, nor does
-   Strength. A wounded individual fights worse through the wound penalty
-   (3.4, 3.5); Power counts in to-hit, parry and the share. [research]
-   **Open: Life Force above Constitution in the share.** A creature of
-   Constitution 40 with its Life Force poked to 100 took the player's
-   blows with a split between Life Force and Power that fitted neither
-   4.2's share as written (from the Life Force) nor a share with the Life
-   Force capped at the Constitution. [capture: rr33, a first `b-` sweep of
-   capture.md 10.37 item 1, dropped and not looked at further] [unknown]
-   how the share is taken there. **Engine:** 4.2 as written, from the
-   Life Force as it stands. Life Force above Constitution comes from
+3. So Life Force above Constitution plays no part in to-hit or parry
+   (the wound penalty is 0 there, 1.2), nor does Strength. A wounded
+   individual fights worse through the wound penalty (3.4, 3.5); Power
+   counts in to-hit, parry and the share. [research] **Life Force above
+   Constitution in the share** (4.2): the share is taken from the Life
+   Force **as it stands**, not capped at the Constitution. A peaceful
+   neutral of Constitution 20, Wisdom 10, its Life Force set to 20, 26, 40
+   or 60, took the player's blows from our blade (Dexterity 31): every
+   damaging blow's Life Force and Power loss fitted 4.2 from the Life
+   Force as it stands in 32 of 32 runs at each level (33, 33, 33 and 32
+   damaging blows); a share capped at the Constitution fitted 32 of 32 at
+   20 and 26, where the two agree, but 6 of 32 at 40 and at 60. [capture:
+   rr35 `d-20` to `d-60`, `scripts/blowcheck.py --share`, capture.md 10.39
+   item 3; ours, no research pass, 2026-11-16] **Engine:** so, 4.2 as
+   written. (Superseded: the [unknown] left by a first sweep of capture.md
+   10.37 item 1, a creature of Constitution 40 whose Life Force was poked
+   to 100, which fitted neither reading: a Life Force has 6 bits, so the
+   poke most likely stored 36.) Life Force above Constitution comes from
    temporary Life Force ([magic](magic.md) 5.2) and from pokes.
 4. A blow whose damage the armor takes entirely is a hit that does no
    damage: it uses one blow, as a miss, and is not a "damaging blow" (6.4,
@@ -321,8 +329,10 @@ with `scripts/blowcheck.py`.
    from NEW WEAPON's menu or from FIRE's (8.8.4) took one move at the
    moment it was chosen, whatever was held before, and with no move left
    it was readied all the same. [capture: rr28 `nw-bow`, `nw-bow-blade`,
-   `rdy`, `rdy-m1`, `rdy-m2`, capture.md 10.32; ours, 2026-11-14] Armor's
-   turn end is [research, unconfirmed]. **Engine:** so, for players'
+   `rdy`, `rdy-m1`, `rdy-m2`, capture.md 10.32; ours, 2026-11-14] A
+   player's NEW ARMOR ended the turn as the armor was chosen. [capture:
+   rr36 `dk2-armor`, capture.md 10.40 item 6; ours, 2026-11-16]
+   **Engine:** so, for players'
    `Ready` and creatures alike; with no move left it still readies.
 2. **A creature's readying**, after its smartness checks and before its
    first step: with an aggressive individual or a player that is its
@@ -755,7 +765,6 @@ misses a player that came into the room after the firer (8.8.2).
   attacks once a turn, captured; a Speed 0 thief beside gold and a Speed
   0 neutral beside a portal took them, capture.md 10.37, but no fighter
   with a weapon was run).
-- Life Force above Constitution in the damage share (4.3).
 
 ## Captures needed
 
@@ -779,9 +788,10 @@ misses a player that came into the room after the firer (8.8.2).
    choosing the weapon or NONE from it (2.8): captured (capture.md 10.35).
    A player's blow on an aggressive thief or enemy (Wisdom 3, 10, 20), on
    another player (Wisdom 10), and a killing blow, drawing the smartness
-   roll as an arrow does (7): captured (capture.md 10.37). Still open: a
-   player of Wisdom below 6 or above 14 struck by a blow (7), and how the
-   damage share is taken with Life Force above Constitution (4.3).
+   roll as an arrow does (7): captured (capture.md 10.37). The damage
+   share with Life Force above Constitution (4.3: from the Life Force as
+   it stands): captured (capture.md 10.39). Still open: a player of Wisdom
+   below 6 or above 14 struck by a blow (7).
 4. Readying before stepping (6.2): a missile weapon captured
    (`bow-ready`), a melee weapon too (`ready-melee`, capture.md 10.35).
 5. Firing (section 8): captured but for its "Not run" list; a foe truly

@@ -158,18 +158,25 @@ pub enum Command {
     },
     /// "New Weapon" / "New Armor": readies a carried weapon or armor.
     Ready { thing: ThingId },
-    /// "Use Power": casts a carried magic spell at `target` (the caster
-    /// when `None`) (magic 4.1). Ends the turn.
+    /// "Use Power": casts a carried magic spell (magic 4.1). Ends the turn.
+    /// The target (magic 2.4) is the square `at` of the caster's room when
+    /// given; else the square `target` stands on now; else the caster's
+    /// own.
     Cast {
         thing: ThingId,
         #[serde(default)]
         target: Option<Who>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        at: Option<(u8, u8)>,
     },
-    /// "Use Object": uses a carried magic item (magic 4.2). Ends the turn.
+    /// "Use Object": uses a carried magic item (magic 4.2), aimed as
+    /// `Cast` is.
     Use {
         thing: ThingId,
         #[serde(default)]
         target: Option<Who>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        at: Option<(u8, u8)>,
     },
     /// The menu's FIRE (combat 8.8), in a room. `target` is the cursor's
     /// square (`None`: left on the player's own square), `weapon` the owned
@@ -264,10 +271,15 @@ pub enum DropRefusal {
     MagicSpell,
     /// A weapon or armor usable only by its owner.
     OwnerOnly,
-    /// The target is a wall or outside the room.
+    /// The target is a wall (a portal on the wall line included) or
+    /// outside the room.
     Wall,
-    /// The target's top thing does not take drops (portal, obstacle, store).
+    /// The target's top thing does not take drops (an obstacle or a custom
+    /// obstacle, inventory 5.4).
     Thing { thing: ThingId },
+    /// A diagonal square: a drop goes on the own square or one of the four
+    /// beside it (inventory 5.1).
+    NotBeside,
     /// A gold amount of 0 or more than one pile holds (255).
     BadAmount,
 }
@@ -320,8 +332,13 @@ pub enum CastRefusal {
     NotASpell,
     /// `Use` needs a magic item that acts when used.
     NotUsable,
-    /// The target is not an individual in the caster's room.
+    /// The target is not a square inside the caster's room (a wall, or
+    /// another square on the world map), or the individual named is not
+    /// there (magic 2.4).
     BadTarget,
+    /// The target square has no individual, for a spell that acts on one
+    /// (magic 2.4).
+    NoOneThere,
 }
 
 /// Why FIRE did nothing (combat 8.8.2, 8.8.5); no move is used.
@@ -859,7 +876,8 @@ pub enum Event {
         creature: u16,
         at: Location,
     },
-    /// A summons found no free slot or square, or was made on the map.
+    /// A summons found no free slot (a cast into a full region fails
+    /// before anything is spent, magic 3.2), or was made on the map.
     SummonUnanswered {
         creature: u16,
     },

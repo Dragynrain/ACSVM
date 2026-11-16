@@ -325,7 +325,7 @@ fn carriable_things_and_creature_loads_match_the_spec() {
                 .map(|p| inventory::weight(a, p.thing) * p.count as i32)
                 .sum::<i32>()
                 + c.wealth as i32 * inventory::weight(a, GOLD);
-            let capacity = (c.strength as i32 - (c.constitution as i32 - c.life_force as i32) / 2) * 100;
+            let capacity = inventory::capacity(c.strength, c.constitution, c.life_force);
             if load > capacity {
                 over += 1;
             } else if load * 2 > capacity {
@@ -501,10 +501,13 @@ fn creatures_in_every_room_follow_the_rules() {
                         .iter()
                         .any(|e| matches!(e, Event::TookDoor { to, .. } if *to == pl_now));
                     // Creatures 5.4: a creature that came through a door
-                    // may share the player's square until it moves.
+                    // may share the player's square until it moves; so may a
+                    // summons, put on the target square whoever is there
+                    // (magic 3.2: a space's is the square stepped on).
                     for e in &evs {
                         match e {
-                            Event::CreatureTookDoor { region, slot, .. } => {
+                            Event::CreatureTookDoor { region, slot, .. }
+                            | Event::CreatureSummoned { region, slot, .. } => {
                                 arrived.insert((*region, *slot));
                             }
                             Event::CreatureMoved { region, slot, .. } => {

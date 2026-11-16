@@ -65,8 +65,14 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    worth 0" too), and its gold ended at the sums, 45 and 684 [capture:
    capture.md 10.14.8]; before our disks wrote the record, it read the
    two bytes after the pile, whatever they were (5 gave 512). The pile's
-   own placement parameter is something else ([unknown]; 0, 1 or 35 in
-   the corpus). **Engine:** the decoder folds the size record into the
+   own placement parameter (0, 1 or 35 in the corpus) changes nothing a
+   player sees: a player took a pile with parameter 35 and size record 10
+   and got exactly 10, and one whose size bytes were 81 and 10 got 2,641
+   (81 + 10 x 256), the parameter 35 again. [capture: rr36 `gp2`, `gp`,
+   capture.md 10.40; ours, no research pass, 2026-11-16] What else it may
+   mean is [unknown]. A taken pile and its size record stay in the room's
+   list, moved to square 15,15, as other taken things are. [capture:
+   rr36] **Engine:** the decoder folds the size record into the
    pile (`RoomItem::gold`); the pile holds that many pieces (a pile the
    data gives no size: its parameter, and 0 counts as 1); a size of 0 is
    worth nothing. A pile that
@@ -91,8 +97,25 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    from Strength and multiply by 100. [manual] So wounds lower capacity and it
    comes back with healing. [manual] Life Force is above Constitution in 1,333
    of 1,693 master creatures, where the formula *adds* capacity. [data]
-   **Engine:** the formula as written, halving toward zero; whether the
-   original clamps the wound term at 0 or rounds the other way is [unknown].
+   On the C64 the wound term is not held at 0 and its halving **rounds
+   down**, toward minus infinity: capacity = (Strength - floor((Constitution
+   - Life Force) / 2)) x 100. An odd wound counts as the even one below it
+   (wounds 13 and 12 alike), and Life Force above Constitution adds to the
+   capacity, 1 over adding 100 (-1 halves to -1). Strength 9, Constitution
+   20: capacity 900 at Life Force 20, 1,000 at 21 and 22, 1,200 at 25 and
+   1,400 at 30. Read from a player's moves at each turn's start (the moves
+   refill there, with the Life Force the top-of-turn die left, 3.4) while it carried 500,
+   above half of every capacity below 1,000, so the slowdown (3.3) told
+   those capacities to the nearest 50 (900: 13 moves of 15); from 1,000 up
+   the load is at most half and the moves are full (15), which the
+   formula's 1,000, 1,200 and 1,400 all give: rounding down fitted 169 of 169 turn starts, halving toward
+   zero 160 (it misses Life Force 21 of 20), rounding up or not rounding
+   111, any reading holding the wound term at 0 at most 133. [capture: rr35
+   `c-s9l20` to `c-s9l30`, `c-s12c40`, `c-s12c41`, `scripts/capcheck.py`,
+   capture.md 10.39 item 4; ours, no research pass, 2026-11-16]
+   **Engine:** so: the wound term halved rounding down, unclamped.
+   (Superseded: the engine's earlier halving toward zero, which gave 900,
+   not 1,000, for Life Force 21 of Constitution 20.)
 3. **Slowdown.** Carrying more than half the capacity slows the character
    down: the movement bar shrinks. [manual] On the C64 the slowed Speed
    falls in a straight line from the full Speed at half the capacity to 0
@@ -107,6 +130,32 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 4. **When it applies.** The next turn's bar starts from the slowed Speed:
    a load change does not shorten the turn under way. [capture: weight]
    **Engine:** a load change counts from the next turn.
+   **The Life Force a turn's bar uses** is the one after the top of the
+   turn's healing die ([magic](magic.md) 5.3.2): at a player's turn start
+   the die (heal 1 on a 2) comes first, and only then are the moves set:
+   Speed, halved when hindered ([creatures](creatures.md) 2.6), then this
+   slowdown against the capacity of 3.2 worked out from the Life Force as
+   the die left it. So a player whose die heals it from an odd wound to an
+   even one starts that very turn with the bar of the smaller wound.
+   Read from the moves byte at each turn's start against the Life Force:
+   taking the Life Force after the die fitted all 169 turn starts of the
+   healing runs; taking it when the turn byte changes, before the die's
+   heal, fitted 12 of 63. [capture: rr35 `c-s12c40`, `c-s12c41`,
+   `scripts/capcheck.py`, capture.md 10.39 item 4; ours, no research pass,
+   2026-11-16] The halving takes no Life Force, so its place against the
+   die cannot be seen; nor can drift's (magic 5.1), which changes Power
+   only. Nothing else captured disagrees: the healing sweep (capture.md
+   10.12) carried nothing, the idle-roll range (magic 5.3.1, capture.md
+   10.29) is the moves this refill gave and so already the after-die bar,
+   and the creatures' die (capture.md 10.33, 10.39 item 1) is drawn before
+   their turn byte, as here. A creature's turn start in the same order is
+   [unknown]: no wounded, loaded creature was watched at its refill (and
+   the creature's slowdown itself is [unknown], creatures 2.5).
+   **Engine:** at every turn start, player or creature: catch-up
+   (creatures only, magic 5.5), drift, the healing die, then the moves
+   (Speed, the halving, this slowdown from the capacity at the Life Force
+   the die left), which are also the turn's full moves of magic 5.3.1.
+   (Superseded: the engine set the moves before the die.)
 5. **A heavy take ends the turn.** When the thing taken weighs more than
    a quarter of the taker's capacity (3.2), the take ends the turn under
    way, whatever steps are left; a thing of exactly a quarter, or less,
@@ -147,8 +196,12 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 3. Readying armor uses up the rest of the turn's moves. [designer] On the
    C64 readying a weapon costs one move and readying armor ends the turn,
    each only when the thing in hand or worn changes ([combat](combat.md)
-   6.1). [research, unconfirmed] **Engine:** so. A weapon readied by
-   picking it up costs only the pick-up's step. [unknown]
+   6.1). [research] A player's NEW ARMOR took the moves from 5 to 0 as the
+   armor was chosen, set the worn armor and passed the turn to the next
+   mover at once; the weapon's one move was captured before (combat 6.1,
+   capture.md 10.32). [capture: rr36 `dk2-armor`, capture.md 10.40 item
+   6; ours, no research pass, 2026-11-16] **Engine:** so. A weapon readied
+   by picking it up costs only the pick-up's step. [unknown]
 4. When the last copy of a readied thing leaves the character (dropped, or
    used up by a door), nothing is readied in that slot. [unknown] **Engine:**
    so.
@@ -159,9 +212,15 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
 
 1. *Drop Object* puts a possession down on a square next to the character, or
    just gets rid of it; dropping is also how some magic items work. [manual]
-   **Engine:** `Drop { thing, dir }`, where `dir` is the adjacent square or
-   none for the character's own square. Whether the original lets you drop
-   on your own square is [unknown].
+   On the C64 a player's DROP OBJECT asks for the thing, then shows a
+   cursor on the player's square ("move cursor to drop spot"); the stick
+   moves it only to the four squares beside the player, not further and
+   not onto an obstacle (a push that way leaves it where it is), and the
+   button drops the thing on the square under it, the player's own square
+   included. [capture: rr36 `dh-own`, `dh-e`, `dh-ee`, `dh-es`, `dk2-e`,
+   capture.md 10.40 item 6; ours, no research pass, 2026-11-16]
+   **Engine:** `Drop { thing, dir }`, where `dir` is one of the four
+   squares beside the character or none for its own square.
 2. **Cannot be dropped:** magic spells [manual], and weapons or armor usable
    only by their owner (claws, fists) [manual]; 279 corpus weapons and armors
    are owner-only. [data] **Engine:** refused (`DropRefused`) at no cost.
@@ -169,11 +228,20 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    [manual] **Engine:** `dir` is ignored; the thing is gone (`LostOnMap`).
    A drop spell still goes off. [unknown]
 4. **In a room** the thing lands on top of the target square's stack (movement
-   5.3). Which squares accept a drop is [unknown]. **Engine:** an inside
-   square whose top is nothing, a carriable thing, a floor, a space or a
-   custom space; walls, portals, obstacles, custom obstacles and stores
-   refuse (`DropRefused`). A square with a creature on it accepts the thing,
-   which lies under the creature.
+   5.3). On the C64 the player's own square, a portal's square, a store's
+   square and a square a creature stands on all took a drop, on top each
+   time; walls and obstacles are out of the cursor's reach (5.1).
+   [capture: rr36 `dk2`, capture.md 10.40 item 6; ours, no research pass,
+   2026-11-16] A thing dropped on a portal or a store then lies on top
+   and is what the next step there meets (movement 5.3). A custom
+   obstacle was not tried with a player's drop; a creature's drop finds
+   one refusing ([creatures](creatures.md) 8.1.1), and the portal tried
+   was inside the room, not on its wall. [unknown] **Engine:** an inside
+   square whose top is anything but an obstacle or a custom obstacle; a
+   wall square (a portal on the wall line included), an obstacle and a
+   custom obstacle refuse (`DropRefused`) at no cost. A square with a
+   creature on it accepts the thing, which lies under the creature.
+   (Superseded: the engine's earlier refusal of portals and stores.)
 5. **Treasures that disappear when dropped** vanish instead of landing
    (`VanishedWhenDropped`). [manual] 19 corpus treasures do this. [data]
 6. **Magic items with a drop spell** cast it (`SpellTriggered`, source
@@ -185,14 +253,24 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    `custom_space`; the needed thing and parameter are resolved as in movement
    5.8). [manual] This makes vending machines: drop a coin, get a candy bar.
    20 corpus spaces use this trigger, 19 with "destroy needed thing" set.
-   [data] **Engine:** with that flag the dropped thing is consumed
-   (`ThingUsedUp`); without it, it lands on top of the space. Dropping
-   anything else there just lands on top. [unknown]
+   [data] On the C64, with that flag the space's spell ran and the dropped
+   thing was gone; without it the spell ran and the thing lay on top of
+   the space. [capture: rr36 `dhd-e`, `dh-e`, capture.md 10.40 item 6;
+   ours, no research pass, 2026-11-16] **Engine:** so: with the flag the
+   dropped thing is consumed (`ThingUsedUp`); without it, it lands on top
+   of the space. Such a space does not run under Activate All
+   ([magic](magic.md) 3.14). Dropping anything else there just lands on
+   top. [unknown]
 8. **Dropping gold.** **Engine:** `DropGold { amount, dir }` puts down one
    pile of 1..25,000 pieces (a pile's size is two bytes, 5). How the
    original asks for the amount is [unknown]. A pile dropped on a matching
    "when dropped here" space casts the spell once.
-9. Dropping costs no moves. [unknown] **Engine:** free.
+9. Dropping costs no moves. On the C64 a player's moves fell by one as
+   the thing was chosen and were back once the drop spot was pressed: no
+   net cost, on the own square or beside it. [capture: rr36 `dh-own`,
+   `dh-e`, the moves read around every press, capture.md 10.40 item 6;
+   ours, no research pass, 2026-11-16] A drop on the world map, with no
+   spot to press, was not tried. [unknown] **Engine:** free, everywhere.
 
 ## 6. Characters
 
@@ -222,9 +300,18 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    (more than a quarter of the capacity): captured (3.3, 2.1, 3.5;
    capture.md 10.38). Still open: a heavy take with the capacity lowered
    by wounds, a gold pile, and a creature's take (3.5).
-2. Capacity with Life Force above Constitution, and rounding of odd wounds.
-3. Gold pile size: captured (2.5, the size record). Still open: what the
-   pile's own parameter means.
+2. Capacity with Life Force above Constitution, and rounding of odd
+   wounds: captured (3.2: rounded down, unclamped; capture.md 10.39). A
+   player's bar comes from the Life Force after the top-of-turn die
+   (3.4). Still open: the same order at a creature's turn start (a
+   wounded creature carrying more than half its capacity, its moves read
+   at the refill against its die).
+3. Gold pile size: captured (2.5, the size record alone; the pile's own
+   parameter changes nothing seen, capture.md 10.40). Still open: what
+   that parameter is for.
 4. Which squares accept a drop, dropping on one's own square, and the cost
-   of dropping and of readying a weapon.
-5. Whether a non-destroying "when dropped here" space leaves the thing.
+   of dropping and of readying: captured (5.1, 5.4, 5.9, 4.3; capture.md
+   10.32, 10.40). Still open: a custom obstacle or a wall portal as a
+   player's drop spot, and a drop on the map.
+5. Whether a non-destroying "when dropped here" space leaves the thing:
+   captured (5.7: it does, on top).

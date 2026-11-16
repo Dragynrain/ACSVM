@@ -242,7 +242,8 @@ pub struct Game {
     /// Temporary Life Force and turn counts per individual (magic 5).
     #[serde(default)]
     pub(crate) vitals: Vec<Vitals>,
-    /// Summonses waiting for the next player turn (magic 3.2).
+    /// Always empty: summonses are made at once now (magic 3.2); kept so
+    /// fingerprints stay as they were (saves 3).
     #[serde(default)]
     pub(crate) summons: Vec<PendingSummon>,
     /// Every player is dead (magic 7.4).
@@ -486,8 +487,8 @@ impl Game {
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
             Command::Ready { thing } => self.ready(thing, &mut ev),
-            Command::Cast { thing, target } => self.cast_command(thing, target, &mut ev),
-            Command::Use { thing, target } => self.use_command(thing, target, &mut ev),
+            Command::Cast { thing, target, at } => self.cast_command(thing, at, target, &mut ev),
+            Command::Use { thing, target, at } => self.use_command(thing, at, target, &mut ev),
             Command::Fire { target, weapon } => self.fire_command(target, weapon, &mut ev),
             Command::Retire { save } => self.request_retire(save, &mut ev),
             Command::SaveGame => self.request_save(&mut ev),
@@ -1056,16 +1057,17 @@ impl Game {
         self.next_turn(ev);
     }
 
-    /// Fills the current player's bar from Speed, halved (rounding up) next
-    /// to an aggressive unfriendly creature (creatures 2.6), then the
-    /// weight slowdown (inventory 3.3, 3.4).
+    /// The top of the current player's turn: drift and the healing die
+    /// (magic 5.1, 5.3.2), then the bar from Speed, halved (rounding up)
+    /// next to an aggressive unfriendly creature (creatures 2.6), then the
+    /// weight slowdown from the Life Force the die left (inventory 3.3,
+    /// 3.4).
     fn start_turn(&mut self, ev: &mut Vec<Event>) {
-        // Magic 3.2: summonses are answered on the following turn.
-        self.answer_summons(ev);
+        let me = self.current;
+        self.turn_top(Who::Player { player: me }, ev);
         // Creatures 2.2.4: the first turn after a door into another room
         // starts with the moves left at the door. The bar is not refilled,
         // so it keeps its full size from the door turn.
-        let me = self.current;
         let carried = self
             .carried
             .iter()
@@ -1093,8 +1095,6 @@ impl Game {
             moves,
             hindered,
         });
-        // Magic 5.1, 5.3: drift and the healing die at the top of the turn.
-        self.turn_top(Who::Player { player: self.current }, ev);
     }
 
     /// Test and tool hook: the live creature in a region slot.

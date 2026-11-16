@@ -59,8 +59,12 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    was and the player in place: no step is spent. [capture: refuse, 20 runs
    each] A room door open only to owners of a thing refuses a non-owner
    the same way: no step, and nothing drains while the stick is held into
-   it. [capture: acts, table lock, 5 runs] Spaces that bar passage are not
-   captured yet. [unknown] **Engine:** no cost, as for obstacles.
+   it. [capture: acts, table lock, 5 runs] A space open only to owners of
+   a thing refuses a non-owner the same way: the player stays where it
+   was, no step is spent, and the bar does not drain while the push is
+   answered. [capture: rr36 `bar-p` against the idle control `bar-c`,
+   capture.md 10.40 item 5; ours, no research pass, 2026-11-16]
+   **Engine:** no cost, as for obstacles.
 3. Taking a door costs the one step onto the door square, and the turn goes
    on in the new place. [capture: refuse, 20 runs: a Speed 15 player that
    walks 3 squares and through the map door arrives on the room's entry
@@ -138,7 +142,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 7. Effective Speed is lowered by carrying too much and by standing next to an
    aggressive, unfriendly individual. [manual] By how much is not given.
    [unknown] **Engine:** the bar starts at Speed after the weight slowdown
-   ([inventory](inventory.md) 3.3); adjacency halves the moves as in
+   ([inventory](inventory.md) 3.3), set after the top-of-turn healing die
+   from the Life Force it leaves (inventory 3.4; [capture: capture.md
+   10.39 item 4]); adjacency halves the moves as in
    [creatures](creatures.md) 2.6, except moves carried through a door
    into another room (2.3, creatures 2.2.4), which are not halved, as on
    the C64. [capture: mem, rr25, capture.md 10.29]
@@ -222,6 +228,14 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    | store | moves (one step); the store opens with the player on its square ([stores](stores.md) 3.2) | the store screen | [research; capture] |
    | floor / undefined / unknown type | moves | nothing | [data] (never placed) |
 
+   On the C64 these trigger only for a step or a bump: a space that gives
+   a thing gave it when the player stepped off it and back on, and an
+   obstacle that gives a thing when bumped gave it at a push into it, the
+   player staying put; a space barring a non-owner refused it at no cost
+   (2.2). Arriving on them by a door triggers nothing (6.3). [capture:
+   rr36 `arsp-ew`, `arob-ew`, `bar`, capture.md 10.40 item 5; ours, no
+   research pass, 2026-11-16] Not tried: a creature's step onto a space.
+
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
    passes and the spell runs); open only to owners of a thing; open only to
    non-owners of a thing. When passage is refused, the thing's blocked
@@ -262,8 +276,16 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    inside (non-wall) square. 2,600 are empty; the rest hold a space (255),
    an obstacle (54), a custom space (49), a portal (14, all from one-way
    doors) or another thing. [data] Whether arriving on such a square triggers
-   it is not stated. [unknown] **Engine:** arriving triggers nothing and
-   never chains to another door; the character just stands there. If an
+   it is not stated. On the C64 it does not: a player arriving by the map
+   door onto a space that gives a thing, an obstacle that gives one when
+   bumped, a portal, or a custom space open only to owners of a thing it
+   did not own stood on the square each time, was given nothing and took
+   no door; stepping off and back, or bumping from beside, then set them
+   off as usual (5.5). [capture: rr36 `arsp`, `arob`, `ardo`, `arcs`,
+   capture.md 10.40 item 5; ours, no research pass, 2026-11-16] Not
+   tried: arriving by a room door. **Engine:** arriving triggers nothing
+   and never chains to another door, by any door; the character just
+   stands there, on an obstacle's square too. If an
    individual already stands on the destination square, the character
    arrives there all the same, sharing it, as creatures do: on the C64 a
    player came through a portal onto a creature of ours standing on its
@@ -307,8 +329,10 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 2. **Rooms.** On entering a room there is one roll against the room's chance
    (0..75%) for its random creature. It is placed only on a square with no
    thing on it. [manual]
-   - Which empty square: [unknown] **Engine:** roll only (`RoomEncounter`
-     event); placement waits for the AI session.
+   - Which empty square: a random one of the room's inside, never a
+     player's square ([creatures](creatures.md) 3.2). [research; capture:
+     rr36 `rc-sw`, capture.md 10.40] **Engine:** creatures 3.2 (the
+     `RoomEncounter` event gives the slot and square).
    - No more than 16 creatures in a region at once; then no random creatures
      appear. [manual] **Engine:** counts in-use residents; when every slot
      is in use (16 in Classic) the roll is skipped. Extended adventures
@@ -339,7 +363,8 @@ These need the AI and are listed so the movement code leaves room for them.
 - **Magic:** done in [magic.md](magic.md): every spell found here (terrain,
   portals, spaces, custom spaces, obstacles, picked-up items) now takes
   effect, including *Activate All Things* running the rest of the stack top
-  to bottom, messages before effects, and summons arriving next turn.
+  to bottom, messages before effects, and summons made at once on the
+  square where they take effect.
 - **Inventory:** done in [inventory.md](inventory.md): pick-up limits,
   weight and capacity slowing the bar, dropping (also onto "when dropped
   here" custom spaces and on the map).
@@ -356,13 +381,17 @@ In priority order, for the behaviour-capture harness:
 
 1. Diagonal moves allowed? No, on the map and in rooms (captured).
 2. Bar cost of a refused door/space (captured: walls, obstacles and a
-   locked door cost nothing; taking a door, map or room, costs one step).
-   Still open: a space that bars passage.
-3. Arriving on a space, obstacle or door: does it trigger?
+   locked door cost nothing; taking a door, map or room, costs one step;
+   a space that bars passage costs nothing, capture.md 10.40).
+3. Arriving on a space, obstacle or door: captured by the map door (6.3:
+   nothing triggers; capture.md 10.40). Still open: by a room door, and a
+   creature's step onto a space.
 4. Map encounter roll and area: researched and captured
    ([encounters](encounters.md), capture.md 10.20, 10.26, 10.34, 10.36);
    its open points are listed there (section 8).
-5. Room random creature: square choice.
+5. Room random creature: square choice researched and swept (creatures
+   3.2, capture.md 10.40: random over the inside, never the player's).
+   Still open: the square of each random state, draw by draw.
 6. Real-time drain rate of the bar (captured: about 354 frames per point of
    Speed); extra turns for players in other regions.
 7. Stores: bump or step on.

@@ -89,6 +89,14 @@ dropped file is recognised by its `format` field, not its name.
   commands mean the same, and a game resumed under version 3 replays as
   it was played then (the saved visit going on). Saving again writes
   version 4.
+  Added within version 4 (magic 2.4, capture.md 10.40): `cast` and `use`
+  take an optional target square, `"at":[x,y]`, written only when given.
+  Without it the command means what it always did: `target` names an
+  individual (the spell acts on it, at the square it stands on then), and
+  neither means the caster's own square. Earlier saves have no `at`, so
+  they load, and their logs and fingerprints, as before; only the rules
+  that changed with it (Kill All, summonses, Add to Room, a player's drop
+  spots) can replay differently.
 - **3** (creatures 2.2.7): `save_game` (`{"command":"save_game"}`, the
   menu's SAVE GAME) is new, and `autosave` is the point of 1.4: a visit
   to another region beginning, or the end of a round with SAVE GAME or a

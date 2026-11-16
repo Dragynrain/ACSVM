@@ -39,20 +39,41 @@ researcher's plain-language findings (CONTRIBUTING.md 3;
    dropped on a square with a creature, which it then acts on. [manual]
    **Engine:** a drop on the owner's own square also acts on the owner.
 4. When a spell is cast, or a magic item used, the caster picks the target.
-   [manual] **Engine:** the caster itself or any individual in the same room
-   (players and creatures); on the world map only the caster. A target that
-   is not there refuses the command at no cost (`CastRefused`).
-5. Spells that act on the room (Kill All, Summon or Banish, Rid Room, Add to
-   Room, Activate All) ignore the target. [manual]
+   [manual] On the C64 a player's cast always asks for a target, room
+   spells included: a cursor starts on the caster's square, the stick
+   moves it a square at a time, and the button picks the square under it.
+   [capture: rr36, every cast of capture.md 10.40; ours, no research pass,
+   2026-11-16] How far the cursor reaches, and whether a use of a magic
+   item asks the same way, was not tried. [unknown] **Engine:** the target
+   is a square of the caster's room (on the world map only the caster's
+   own); a spell that acts on an individual acts on the one standing there,
+   the caster itself when it is the caster's square. A wall square, or a
+   square with no individual for a spell that needs one, refuses the
+   command at no cost (`CastRefused`). A creature's target is the square of
+   the goal it casts at (6.3).
+5. Spells that act on the room (Rid Room, Activate All, banishing) ignore
+   the target. [manual] Three of the manual's room spells do not: on the
+   C64 Kill All acts on the target alone, and a summons and Add to Room
+   take effect on the target square (3.1, 3.2, 3.13). [capture: rr36,
+   capture.md 10.40 items 1 to 3; ours, no research pass, 2026-11-16]
 
 ## 3. The 15 actions
 
 The parameter layout is the format draft's; numbers below are corpus counts.
 
 1. **Kill all but an owner of** (thing). Everyone who does not own the thing
-   dies. [manual] Who "everyone" is: [unknown] **Engine:** every individual
-   in the room where the spell takes effect, the caster included unless it
-   owns the thing; on the world map only the individual it acts on. 6 uses.
+   dies. [manual] On the C64 the spell kills only the individual it acts
+   on (the target of a cast, 2.4), and only when that individual does not
+   own the thing; nobody else dies, in the room, another room or the
+   region. Being the caster spares no one: a player not owning the thing
+   who cast it at itself died, its Life Force 0; cast at a creature not
+   owning it, the creature died and everyone else lived; cast at an owner,
+   or by an owner at itself, nobody died. [capture: rr36 `ka-c`, `ka-bb`,
+   `ka-aa`, `kb-c`, capture.md 10.40 item 1; ours, no research pass,
+   2026-11-16] **Engine:** so: the individual the spell acts on dies
+   (section 7) unless it owns the thing. The same on the world map and for a space, obstacle or door
+   (2.1: the one who set it off). (Superseded: the engine's earlier choice
+   of everyone in the room but owners.) 6 uses.
 2. **Summon or banish** (creature number, 0 = all). [data: draft] 0 banishes
    every creature in the room at once, and banished creatures take what they
    carry with them. [manual] A creature that casts it banishes everyone but
@@ -60,20 +81,51 @@ The parameter layout is the format draft's; numbers below are corpus counts.
    that master creature to the room; summons are answered on the following
    turn, never on the world map, and not while the region holds 16 creatures.
    [manual]
-   - When "the following turn" is: [unknown] **Engine:** at the start of the
-     next player turn after the spell, whoever's turn it is.
-   - Where it appears: Baber notes that creatures will step onto a space where
-     a summoned creature is due to arrive, so arrival has a square.
-     [designer] **Engine:** the square where the spell took effect (for a
-     cast or a used item, the caster's square), or if someone stands there,
-     the nearest inside square with no individual and no thing (creatures
-     5.4). With none free, or no free slot, the summons goes unanswered
-     (`SummonUnanswered`).
-   - What arrives: a copy of the master creature, as a resident in the
-     lowest free slot (not a random creature, so it is never removed for
-     being left behind). [unknown] Baber reports that summoning a creature
-     from outside the region's own list can corrupt names or crash the
-     original; that is a bug the engine does not copy. [designer]
+   - When: on the C64 the creature is made **at the cast**, not later: by
+     the time the target prompt shows (or at the first press) it already
+     holds its slot, and the press puts it in the room in the same round.
+     Its first turn comes in the next round; that is the manual's
+     "following turn". There is no wait for a later turn and no reserved
+     square. [capture: rr36 `sa`, `sb15`, capture.md 10.40 item 2; ours,
+     no research pass, 2026-11-16] **Engine:** so: the creature is made
+     and placed as the spell takes effect, and takes no turn in that
+     round. (Superseded: the engine's earlier choice of an arrival at the
+     next player turn.)
+   - Where: a cast puts it **on the target square** (2.4), whatever is
+     there: an empty square, a square a creature stands on (the two share
+     it), or the caster's own square. [capture: rr36 `sa-p66`, `sb15-c`,
+     `sb15-27`, `sa-p2`, `sa-p3`, capture.md 10.40 item 2] Baber's note
+     that creatures step onto a space where a summons is due to arrive
+     [designer] does not fit this: the C64 showed no such wait.
+     **Engine:** the target square, shared with whoever stands there.
+     A summons with no target press (a space, an obstacle, a door, a
+     magic item picked up or dropped) was not tried. [unknown]
+     **Engine:** the square of the individual it acts on (2.1 to 2.3): the
+     space it stepped on, the bumper's own square, the door's destination,
+     the picker's square, the drop square. (Superseded: the engine's
+     earlier choice of the caster's square or the nearest free one.)
+   - A note on the prompt: once, a first press with the cursor on the
+     caster's own square left the prompt up, and a second press there
+     placed the creature; in another run the cursor moved after such a
+     press and the creature went where it was pressed next. [capture:
+     rr36 `sa-p2`, `sa-p3`] Not explained. **Engine:** one press, one
+     square.
+   - What arrives: a copy of the master creature's record, alignment,
+     Speed, Constitution and all, as a resident in the **lowest free
+     slot** (not a random creature, so it is never removed for being left
+     behind). With slots 0 to 14 in use it took slot 15. [capture: rr36
+     `sa`, `sb15`, capture.md 10.40 item 2] Baber reports that summoning a
+     creature from outside the region's own list can corrupt names or
+     crash the original; that is a bug the engine does not copy.
+     [designer]
+   - **A full region**: with all 16 slots in use the spell fails as a
+     failed cast does ("a few sparks fizzle", 4.1), even at cost 0, with
+     no target prompt and no slot changed. [capture: rr36 `sb16-c`,
+     capture.md 10.40 item 2] Whether a cost above 0 is spent and rolled
+     for first is [unknown]. **Engine:** the slots are checked before
+     anything else: nothing is spent, no roll is drawn, the cast counts as
+     failed (`SummonUnanswered`) and ends the turn as any cast does (4.3);
+     from a space or an item, nothing happens.
    - 30 named summons and 17 banish-alls among master things; 82 of 83
      custom placements name a creature. [data]
 3. **Increase magic defense, but not above** (0..3: none, non-magic weapons
@@ -109,12 +161,21 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     the most common custom placement.
 12. **Rid room of every uncarried** (thing). Every copy lying in the room
     goes, in stacks too. [manual] On the world map: nothing. [unknown]
-13. **Add to room one** (thing). Takes effect at once. [manual] Where it
-    lands: [unknown] **Engine:** on top of the stack where the spell took
-    effect if that is an inside square, else on the nearest inside square
-    with no thing and no individual. So a space that adds a key puts the key
-    on top of itself, and stepping off and on again picks it up without
-    setting the space off again (movement 5.3). Nothing on the world map.
+13. **Add to room one** (thing). Takes effect at once. [manual] On the C64
+    one of the thing lands on top of the square where the spell takes
+    effect: for a cast the target square (2.4), the caster's own or an
+    empty one, on top of whatever lies there (a space under the caster
+    included); for a space, on top of the space itself; for an obstacle
+    bumped, on top of the obstacle's square, the bumper staying where it
+    was. [capture: rr36 `aa-c`, `ab-c`, `aa-66`, `ac-s2`, `ad-s`,
+    capture.md 10.40 item 3; ours, no research pass, 2026-11-16] So a
+    space that adds a key puts the key on top of itself, and stepping off
+    and on again picks it up without setting the space off again
+    (movement 5.3). **Engine:** so; for a door, its destination square, and
+    a wall square (an obstacle or door on the wall) gives the nearest
+    inside square with no thing and no individual [unknown]. Nothing on
+    the world map. (Superseded: the engine's earlier choice of the caster's
+    square for every cast.)
 14. **Activate all things at this place** runs, top to bottom, every spell in
     the stack below the thing that holds it, and only those. [manual]
     **Engine:**
@@ -125,10 +186,23 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     - custom spaces open to owners (or non-owners) of a thing run only when
       the individual meets the condition, which is how "Let There be Light"
       works [manual]; their needed thing is not used up here; "when dropped
-      here" spaces do not run [unknown];
+      here" spaces do not run;
     - another Activate All lower down is skipped, so a stack runs once;
     - cast, used or picked up away from a stack, it runs the whole stack on
-      the square where it takes effect.
+      the square where it takes effect [unknown].
+
+    On the C64, a player stepping onto a stack of (top first) an Activate
+    All space, a "when moved onto" custom space, one open to owners of a
+    thing, a "when dropped here" space, a second Activate All and a plain
+    spell space (each but the Activate Alls giving a thing) was given the
+    "when moved onto", the owners' and the plain space's things when owning
+    the thing, only the "when moved onto" and the plain space's when not,
+    and never the "when dropped here" one's; the top space let it pass either way. With
+    the last space a Power +5, Power rose by 5 once, not twice: the
+    nested Activate All did not run the rest again. [capture: rr36 `acto`,
+    `actn`, `actp`, capture.md 10.40 item 4; ours, no research pass,
+    2026-11-16] The three choices above agree. An Activate All away from
+    a stack was not tried.
 15. **Do nothing**: only the message. [manual] A spell with an action code
     outside 0..14 (one corpus key spell holds 15) does nothing too. [data]
 
@@ -207,8 +281,11 @@ magic item after it is used. [unknown]
    up or down, stopping at Wisdom, every time. [capture: drift, Power 10
    and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
    reached 20 after 10 turn ends in every run] It takes no roll, and
-   comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] **Engine:** the
-   same, at the top of each turn. A player joining an adventure keeps its
+   comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] The moves themselves
+   are set from the Life Force after the healing die (5.3.2,
+   [inventory](inventory.md) 3.4). [capture: capture.md 10.39 item 4]
+   **Engine:** the same, at the top of each turn, before the die and the
+   moves. A player joining an adventure keeps its
    saved Power and Life Force; drift and healing then move them as for
    anyone. [research; capture: rr13, [characters](characters.md) 3.1]
    (capture.md 8.4 read the profile after several rounds had passed, and
@@ -286,6 +363,15 @@ magic item after it is used. [unknown]
       a 2: 1 in 6, needed or not. A Speed 0 creature's die is the same
       one, and it is what gives such a creature its occasional second
       point on a turn (5.5). [capture: rr29, 768 runs, capture.md 10.33]
+      A player's moves for the turn are set after this die, from the Life
+      Force it leaves (the capacity and slowdown of
+      [inventory](inventory.md) 3.2-3.4): a heal here can lengthen the very
+      turn it starts. [capture: rr35 `c-s12c40`, `c-s12c41`, capture.md
+      10.39 item 4; ours, no research pass, 2026-11-16] (5.1's "just after
+      the bar is refilled" is the researcher's reading; the moves byte as
+      captured comes from the Life Force after the die.) For a creature
+      the same order is [unknown]. **Engine:** for everyone, drift and
+      this die first, then the moves (inventory 3.4).
    [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
    its 256 values one idle move before a Speed 15 turn's end (Life Force
    6, Constitution 20), the idle move's roll and the next turn's die
@@ -509,10 +595,17 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    an individual out of play when its reversal is due. The idle roll's
    range on a turn that starts with carried moves: captured (5.3.1,
    capture.md 10.29).
-3. Kill All: room or everyone; is the caster spared.
-4. Summons: when and where it arrives, and as what.
-5. Add to Room: where the thing lands.
+3. Kill All: captured (3.1: the target only, unless it owns the thing;
+   the caster not spared; capture.md 10.40).
+4. Summons: captured for a cast (3.2: made at the cast in the lowest free
+   slot, on the target square; a full region fizzles). Still open: a
+   summons from a space, an obstacle, a door or a magic item; a cost
+   above 0 with the region full; the first press on the caster's square
+   that left the prompt up.
+5. Add to Room: captured (3.13: on top of the square where it takes
+   effect, a cast's target square).
 6. Activate All with conditional spaces, "when dropped here" spaces and a
-   nested Activate All.
+   nested Activate All: captured (3.14). Still open: an Activate All away
+   from a stack; the target cursor's reach and a magic item's use (2.4).
 7. How often a mid-Wisdom creature acts smart; what "half power" is.
 8. What casting costs in moves: captured (4.3: the rest of the turn).

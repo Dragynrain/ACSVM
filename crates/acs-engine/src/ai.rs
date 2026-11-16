@@ -120,13 +120,14 @@ impl Game {
     /// is always taken, even with no move (Speed 0).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
         let me = Who::Creature { region, slot };
+        // Inventory 3.4: catch-up, drift and the healing die first, then
+        // the moves from the Life Force they left.
+        self.turn_top(me, ev);
         let c = self.creature(region, slot)?.clone();
         // Creatures 2.6: halved, rounding up, with a foe beside it.
         let hindered = self.threatened(&c, me);
         let moves = creatures::turn_speed(&self.adv, &c, hindered);
         ev.push(Event::CreatureTurn { region, slot, moves });
-        self.turn_top(me, ev);
-        self.creature(region, slot)?;
         let mut left = moves;
         // Magic 6.3: casting (or using an item) takes the whole turn.
         if self.creature_magic(region, slot, ev) {
@@ -257,10 +258,14 @@ impl Game {
         if !smart {
             return false;
         }
+        // Magic 2.4: a creature aims at the square of its goal.
+        let Some(aim) = self.aim_at(goal.who) else {
+            return false;
+        };
         if is_spell {
-            self.cast(me, thing, goal.who, ev);
+            self.cast(me, thing, aim, ev);
         } else {
-            self.use_item(me, thing, goal.who, ev);
+            self.use_item(me, thing, aim, ev);
         }
         true
     }
@@ -303,6 +308,7 @@ impl Game {
                     action,
                     message: self.message(&t.spell_message),
                     at,
+                    on: at,
                     stack: None,
                 },
                 ev,
@@ -495,7 +501,18 @@ impl Game {
             }
         }
         let target = goal.map_or(start, |g| g.at);
-        let (exit_cost, ..) = if is_fighter(&c) { (3u16, 0, 0) } else { (1, 0, 0) };
+        // 6.5: an exit costs 4 on the turn's first step choice (scored from
+        // the square the turn began on, no step taken yet), goal or not;
+        // after that 1 for a slinker, 3 for a fighter. Speed 0 makes only
+        // the first.
+        let first_choice = stood.len() == 1;
+        let exit_cost: u16 = if first_choice {
+            4
+        } else if is_fighter(&c) {
+            3
+        } else {
+            1
+        };
         let (_, gold_rank, treasure_rank) = rank_things(&c);
         let r = self.room(region, c.room).cloned();
         let mut best: Option<(u16, u8, u8, Sq)> = None;
@@ -511,7 +528,9 @@ impl Game {
                 continue;
             }
             let roll = self.rng.below(3) as u16;
-            let cost = if goal.is_some_and(|g| g.at == (nx, ny)) {
+            let cost = if first_choice && matches!(sq, Sq::Door(_)) {
+                exit_cost
+            } else if goal.is_some_and(|g| g.at == (nx, ny)) {
                 1
             } else {
                 match sq {
@@ -700,6 +719,12 @@ impl Game {
                         action,
                         message: self.message(&t.spell_message),
                         at: door,
+                        on: Location::Room {
+                            region,
+                            room,
+                            x: lx,
+                            y: ly,
+                        },
                         stack: Some(index),
                     },
                     ev,

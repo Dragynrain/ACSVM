@@ -1179,6 +1179,7 @@ fn power_drifts_back_to_wisdom_one_a_turn() {
         );
         let ev = g.apply(Command::Cast {
             thing: SPELL,
+            at: None,
             target: None,
         });
         assert!(ev
@@ -1344,4 +1345,263 @@ fn idle_healing_roll_range() {
         s3 += idle_heals(&mut g, 2);
     }
     heal_range("adjside s3", s3, 2 * SEEDS, 6, &[12, 8, 3]);
+}
+
+// ---- goals and exits (creatures 6.2-6.5, 2.7) -------------------------------
+
+/// Each turn of the creature in slot `n`: from its `CreatureTurn` to the
+/// next individual's turn.
+fn turns_of(ev: &[Event], n: usize) -> Vec<&[Event]> {
+    ev.iter()
+        .enumerate()
+        .filter(|(_, e)| matches!(e, Event::CreatureTurn { region: 1, slot, .. } if *slot == n))
+        .map(|(s, _)| {
+            let end = ev[s + 1..]
+                .iter()
+                .position(|e| matches!(e, Event::CreatureTurn { .. } | Event::TurnStarted { .. }))
+                .map_or(ev.len(), |k| s + 1 + k);
+            &ev[s..end]
+        })
+        .collect()
+}
+
+fn through(turn: &[Event]) -> bool {
+    turn.iter()
+        .any(|e| matches!(e, Event::CreatureTookDoor { slot: 0, .. }))
+}
+
+/// rr33's `s0x-turn-end` room (10.39 item 1): the side portal on 7,4, T on
+/// 4,4, and NN, a creature of ours of Wisdom 3 and `speed`, in slot 0 on
+/// (x, y), its class byte set to `class` (alignment, aggressive).
+fn nn(x: u8, y: u8, speed: u8, class: (Alignment, bool)) -> Adventure {
+    let mut a = with_portal(DOOR, to_side());
+    ours(&mut a, 0, "NN", x, y, |c| {
+        c.speed = speed;
+        c.wisdom = 3;
+        c.strategy.alignment = class.0;
+        c.strategy.aggressive = class.1;
+    });
+    a
+}
+
+/// NN's first `turns` turns with T waiting on 4,4, up to the one that takes
+/// it through the portal: (turns seen, 1 if it went through). A Speed 0
+/// creature that stays never walks (2.7.3).
+fn exit_turns(a: &Adventure, seed: u64, turns: usize) -> (u64, u64) {
+    let mut g = game(a, seed, tee(6), room(4, 4));
+    let mut ev = Vec::new();
+    for _ in 0..4 * turns + 4 {
+        let seen = turns_of(&ev, 0);
+        if seen.len() > turns || seen.iter().any(|t| through(t)) {
+            break;
+        }
+        ev.extend(wait(&mut g));
+    }
+    let speed = a.regions[0].residents[0].speed;
+    let mut n = 0;
+    for turn in turns_of(&ev, 0).into_iter().take(turns) {
+        n += 1;
+        if through(turn) {
+            return (n, 1);
+        }
+        if speed == 0 {
+            assert!(
+                !turn
+                    .iter()
+                    .any(|e| matches!(e, Event::CreatureMoved { slot: 0, .. })),
+                "seed {seed}: a Speed 0 creature walked: {turn:?}"
+            );
+        }
+    }
+    assert_eq!(n, turns as u64, "seed {seed}: NN's turns");
+    (n, 0)
+}
+
+/// capture.md 10.39 item 1 (rr35, `goalcheck.py`; creatures 6.5's exit
+/// cost of 4 on the turn's first step choice, 1 or 3 after): NN beside the
+/// portal on 6,4 with T on 4,4. `s0x-long` and `x-pn0` (a peaceful neutral,
+/// Speed 0, its goal the exit): 48 runs, 188 turns, through in 3; `x-pf0`,
+/// `x-pf2` (a peaceful friend, Speed 0 and 2, its goal the player): 64
+/// runs, 224 turns, never; `x-an0` (an aggressive neutral, a fighter,
+/// Speed 0, its goal the player): 16 runs, 64 turns, never. `ta-pn0`,
+/// `ta-pf0` (NN on 7,5 below the portal, T gone through it: NN's one turn
+/// with no player in the room, its goal the exit): 96 turns, through in 3;
+/// `ta-an0` 48, through in 1. `s26-pn2` (Speed 2 from 7,6, two squares
+/// off: the exit beside it at the second step, cost 1): 32 turns, through
+/// in 23; `s26-an2` (its goal the player): 32, through in 2. Many rolls a
+/// turn: samples, compared per turn.
+#[test]
+fn an_exit_costs_4_at_a_turns_first_step_choice() {
+    use Alignment::{Friend, Neutral};
+    const RUNS: u64 = SEEDS / 4;
+    let pn = (Neutral, false);
+    let check = |name: &str, cap: (u64, u64), eng: (u64, u64)| {
+        same_rate(
+            &format!("{name}: turns through the portal"),
+            Sweep::Sample,
+            cap.0,
+            cap.1,
+            eng.1,
+            eng.0,
+        )
+    };
+    let sum = |a: &Adventure, turns: usize| {
+        (0..RUNS).fold((0, 0), |acc, seed| {
+            let (n, k) = exit_turns(a, seed, turns);
+            (acc.0 + n, acc.1 + k)
+        })
+    };
+
+    check("s0x-long, x-pn0", (3, 188), sum(&nn(6, 4, 0, pn), 4));
+    let pf = [0, 2].map(|speed| sum(&nn(6, 4, speed, (Friend, false)), 4));
+    check("x-pf0, x-pf2", (0, 224), (pf[0].0 + pf[1].0, pf[0].1 + pf[1].1));
+    check("x-an0", (0, 64), sum(&nn(6, 4, 0, (Neutral, true)), 4));
+
+    // `ta-*`: T walks east through the portal; NN's next turn.
+    let ta = |class: (Alignment, bool)| {
+        let a = nn(7, 5, 0, class);
+        let k = count(RUNS, |seed| {
+            let mut g = game(&a, seed, tee(6), room(4, 4));
+            let mut ev = Vec::new();
+            for _ in 0..3 {
+                ev.extend(g.apply(Command::Move { dir: Dir::E }));
+            }
+            assert!(took_door(&ev, side(2, 4)), "seed {seed}: {ev:?}");
+            for _ in 0..4 {
+                if !turns_of(&ev, 0).is_empty() {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let turns = turns_of(&ev, 0);
+            let turn = turns
+                .first()
+                .unwrap_or_else(|| panic!("seed {seed}: NN took no turn: {ev:?}"));
+            through(turn)
+        });
+        (RUNS, k)
+    };
+    let (n1, k1) = ta(pn);
+    let (n2, k2) = ta((Friend, false));
+    check("ta-pn0, ta-pf0", (3, 96), (n1 + n2, k1 + k2));
+    check("ta-an0", (1, 48), ta((Neutral, true)));
+
+    check("s26-pn2", (23, 32), sum(&nn(7, 6, 2, pn), 1));
+    check("s26-an2", (2, 32), sum(&nn(7, 6, 2, (Neutral, true)), 1));
+}
+
+/// capture.md 10.39 item 2 (creatures 6.2, 6.3; 32 states each, two or
+/// three of EE's turns): EE, an aggressive enemy of Speed 3 owning no
+/// weapon, Wisdom 3, with T on 4,4 and FF, a friend of Speed 0, Wisdom 3.
+/// `g-f`: EE on 12,4, FF peaceful on 12,5 (FF scores 6 + 1 = 7, T 0 + 8):
+/// 64 turns, FF the goal in 60; `g-t`: EE on 11,4, FF on 11,5 (7 against
+/// 7, the tie to the player): 70 turns, FF in 1; `g-a`: EE on 12,4, FF
+/// aggressive on 12,6 (4 + 2 against 8): 91 turns, FF in 89. The goal is
+/// read as `goalcheck.py` reads it: 6.2's score (rank + steps) from the
+/// squares at each of EE's turn starts, with those ranks; where EE has
+/// wandered to is the engine's. Samples, per turn.
+#[test]
+fn a_fighters_goal_among_other_individuals() {
+    const RUNS: u64 = SEEDS / 4;
+    // (name, EE's square, FF's square, FF aggressive, FF's rank, EE's turns
+    // a run, capture: turns with FF the goal, turns)
+    type Case = (&'static str, (u8, u8), (u8, u8), bool, u16, usize, u64, u64);
+    let cases: [Case; 3] = [
+        ("g-f", (12, 4), (12, 5), false, 6, 2, 60, 64),
+        ("g-t", (11, 4), (11, 5), false, 6, 2, 1, 70),
+        ("g-a", (12, 4), (12, 6), true, 4, 3, 89, 91),
+    ];
+    let steps = |a: (u8, u8), b: (u8, u8)| u16::from(a.0.abs_diff(b.0) + a.1.abs_diff(b.1));
+    for (name, ee_at, ff_at, aggressive, rank, turns, cap_ff, cap_n) in cases {
+        let mut a = with_portal(DOOR, to_side());
+        ours(&mut a, 0, "EE", ee_at.0, ee_at.1, |c| {
+            c.speed = 3;
+            c.wisdom = 3;
+            c.strategy.alignment = Alignment::Enemy;
+            c.strategy.aggressive = true;
+        });
+        ours(&mut a, 1, "FF", ff_at.0, ff_at.1, |c| {
+            c.speed = 0;
+            c.wisdom = 3;
+            c.strategy.aggressive = aggressive;
+        });
+        let (mut n, mut ff) = (0, 0);
+        for seed in 0..RUNS {
+            let mut g = game(&a, seed, tee(6), room(4, 4));
+            let (mut ee, mut f, mut k) = (ee_at, ff_at, 0);
+            'run: for _ in 0..4 * turns {
+                for e in wait(&mut g) {
+                    match e {
+                        Event::CreatureTurn {
+                            region: 1, slot: 0, ..
+                        } => {
+                            n += 1;
+                            ff += u64::from(rank + steps(ee, f) < steps(ee, (4, 4)));
+                            k += 1;
+                            if k == turns {
+                                break 'run;
+                            }
+                        }
+                        Event::CreatureMoved {
+                            region: 1, slot, to, ..
+                        } => match slot {
+                            0 => ee = to.xy(),
+                            1 => f = to.xy(),
+                            _ => {}
+                        },
+                        Event::CreatureTookDoor {
+                            region: 1, slot: 0, ..
+                        } => break 'run,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        same_rate(
+            &format!("{name}: turns with FF the goal"),
+            Sweep::Sample,
+            cap_ff,
+            cap_n,
+            ff,
+            n,
+        );
+    }
+}
+
+/// capture.md 10.40 (`rc-sw`, 32 runs from the map start, the random state
+/// set to 0, 8, .., 248 before the walk in; movement 7.2, creatures 3.2):
+/// RR, a random creature of Speed 0 at room chance 15 (75 %), appeared as
+/// T came in by the map door in 21 of 32, always in slot 0 with the random
+/// mark, on 19 different squares among the 21, all over the inside, never
+/// T's 4,4; the room held no things. A sample; the engine's squares must
+/// cover the inside but T's.
+#[test]
+fn the_room_random_creature_lands_anywhere_inside_but_the_players_square() {
+    let mut a = closed();
+    random_creature(&mut a, ROOM, 75);
+    let mut squares = std::collections::BTreeSet::new();
+    let eng = count(SEEDS, |seed| {
+        let mut g = start(&a, seed, tee(12));
+        let ev = walk_in(&mut g);
+        let Some(at) = ev.iter().find_map(|e| match *e {
+            Event::RoomEncounter { at, slot, .. } => {
+                assert_eq!(slot, Some(0), "seed {seed}");
+                at
+            }
+            _ => None,
+        }) else {
+            return false;
+        };
+        assert!(g.is_random(1, 0), "seed {seed}");
+        let (x, y) = at.xy();
+        assert!(
+            (1..=13).contains(&x) && (1..=8).contains(&y),
+            "seed {seed}: {at:?}"
+        );
+        assert_ne!((x, y), (4, 4), "seed {seed}: on T's square");
+        squares.insert((x, y));
+        true
+    });
+    same_rate("rc-sw: runs with RR", Sweep::Sample, 21, 32, eng, SEEDS);
+    assert_eq!(squares.len(), 13 * 8 - 1, "{squares:?}");
 }

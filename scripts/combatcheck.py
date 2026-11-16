@@ -56,6 +56,9 @@ INSIDE = (1, 13, 1, 8)
 T_START = (4, 4)
 BLADE, BOW, MAIL = 59, 41, 40
 SAMPLE = 20000  # instructions between watch reads
+# The Life Force the damage share is taken from (combat 4.2): "life" as it
+# stands, or "con" capped at the Constitution (blowcheck.py --share, 10.39).
+SHARE = "life"
 BUILD_ROUND = {"trunc": False}  # combat 4.1.2: Build x P / 30 toward 0, not down
 
 
@@ -355,7 +358,8 @@ class Sim:
             self.record()
             return "stopped", 0
         if dmg > 0:
-            share = min(dmg * d["power"] // (d["power"] + d["life"]), (d["power"] + 1) // 2)
+            life = min(d["life"], d["con"]) if SHARE == "con" else d["life"]
+            share = min(dmg * d["power"] // (d["power"] + life), (d["power"] + 1) // 2)
             d["power"] = max(0, d["power"] - 2 * share)
             d["life"] = max(0, d["life"] - (dmg - share))
             self.counts["damaging"] += 1

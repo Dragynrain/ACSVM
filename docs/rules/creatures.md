@@ -443,7 +443,11 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    C64 it shows on the left as a player's does, 8 pixels a point of Speed
    (24, 40 and 32 pixels for Speeds 3, 5 and 4, carrying nothing), and
    drains as the creature walks. [capture: turns] The slowdown part is
-   [unknown].
+   [unknown]. A player's bar is set after the top-of-turn healing die,
+   from the Life Force it leaves ([inventory](inventory.md) 3.4;
+   [capture: rr35, capture.md 10.39 item 4]); whether a creature's is too
+   is [unknown]. **Engine:** the same order for creatures (catch-up,
+   drift, the die, then the bar).
    **Engine:** so. A creature with Speed 0 has a bar of 0 but still takes
    one action a turn (2.7); the manual adds that it does not show its name
    on its turn. [manual]
@@ -460,7 +464,7 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    turn, as the bar is refilled, its moves are **halved, rounding up**,
    if an aggressive individual or a player not on its side stands beside
    it (Speed 3 gives 2, 6 gives 3); the weight slowdown comes after the
-   halving. [research: combat third pass, every turn start of about 1,500
+   halving, and both after the healing die (inventory 3.4). [research: combat third pass, every turn start of about 1,500
    in its replays; the slowdown's order traced] An enemy of Speed 3 had 2
    moves on every turn it began beside the player, 3 otherwise, and the
    player 3 of 6 beside it. [capture: every pass 2 and 3 combat run,
@@ -528,7 +532,15 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    through in 2 of 16 and wandered). How often an exit is picked is the
    goal and step choice's (6). [capture: rr33 `s0g`, `s0x-long`,
    `s2x-long`, capture.md 10.37 item 7; ours, no research pass,
-   2026-11-15] A Speed 0 fighter owning a weapon beside one was not run.
+   2026-11-15] Its one step choice is a turn's first, where an exit costs
+   4 (6.5), so the exit wins only on a lucky set of rolls: the exit's 0,
+   south's and north's 2, west's at least 1 (the exit then scoring 20
+   against 24, 24 and at least 20, east looked at before west): 1 turn in
+   63 seen; when it does win, the step onto
+   it stands and the creature goes through. [capture: rr33 `s0x-long`,
+   rr35 `ta-pn0`, `ta-pf0`, `ta-an0`, capture.md 10.39 item 1; ours, no
+   research pass, 2026-11-16] A Speed 0 fighter owning a weapon beside one
+   was not run.
    **Engine:** 2.7 as
    written, the smartness checks as 6.6's
    engine choice says, with these two readings settled by capture:
@@ -592,7 +604,16 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    up to 5 tries: a random column and a random row of the room's inside;
    a square with an individual or a thing is rejected; after 5 rejections
    nothing appears. [research] The squares seen were spread over the
-   room's inside. [capture] **Engine:** the same.
+   room's inside. [capture] A sweep of 32 walks into an empty room (chance
+   15) with the random state set to 32 spread values beforehand: the
+   creature appeared in 21 (75% expected), on 19 different inside squares
+   from one side of the room to the other, two of them twice, never the
+   player's square. [capture: rr36 `rc-sw`, capture.md 10.40; ours, no
+   research pass, 2026-11-16] That fits the tries above; which square
+   each random state gives was not checked draw by draw, so the order of
+   the column and row rolls is [research, unconfirmed]. **Engine:** the
+   same: up to 5 tries of a random inside column, then row, each rejected
+   when an individual or a thing is on the square.
 3. It is a copy of the region's random creature record named by the room
    (one of 8), with the random mark, put in the lowest free slot, and it
    takes its turns in the room's list like any creature. [research;
@@ -692,7 +713,17 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    draw logged, the goal and step rules predicted every step of a
    peaceful friend (the player against a portal) and a peaceful neutral
    (the portal, or no goal) in all 64 runs from each of two rooms, 1,367
-   steps. [capture: mem --draws, capture.md 10.14]
+   steps. [capture: mem --draws, capture.md 10.14] So too for a fighter
+   choosing between individuals: an aggressive enemy of Speed 3 with no
+   weapon, the player and a friend both in reach, went for the lower rank
+   plus steps every turn, the player on a tie: a peaceful friend at 7
+   against the player's 8 was the goal in 60 of 64 turns (the player in
+   the other 4, once it had wandered off), a tie at 7 went to the player
+   in 69 of 70 turns, an aggressive friend at 6 against 8 was the goal in
+   89 of 91; 6.2's rule fitted 32 of 32 runs in each case, "always the
+   player" 3, 32 and 2, "always the friend" 28, 1 and 30. [capture: rr35
+   `g-f`, `g-t`, `g-a`, `scripts/goalcheck.py`, capture.md 10.39 item 2;
+   ours, no research pass, 2026-11-16] **Engine:** so.
 3. **Ranks of individuals** by the creature's type (rows) and the other's
    alignment and setting (columns; A aggressive, P peaceful); lower is more
    wanted, "-" never: [research]
@@ -730,7 +761,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    from it to the goal + 5 x its cost + 4 x its roll** (a tie to the first
    looked at). With no goal it steers by the square it started the turn
    on, so it wanders about there. The cost: 1 for the goal's own square;
-   an exit 1 for a slinker, 3 for a fighter; gold or a treasure it would
+   an exit 4 on the turn's first step (see below), else 1 for a slinker,
+   3 for a fighter; gold or a treasure it would
    take, its thing rank / 32; 4 for a square it has stood on this turn
    (its starting square too); 2 for any other. One step nearer saves 6
    and the roll adds 0, 4 or 8, so it often steps sideways or back: that
@@ -745,8 +777,34 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    gold, two treasures at the same score going to the first in the room's
    order, every step and take of 64 runs, 598 steps. [capture: mem
    --draws, case thief, capture.md 10.14.4]
-   Not settled: on a turn's first step some squares holding a thing cost
-   4; one more case in which the step choice gives up. [unknown]
+   **An exit on the turn's first step costs 4**, for a slinker and a
+   fighter alike, whether the exit is its goal or not (so 4 replaces the
+   goal's own square's 1 there too). The turn's first step is its first
+   step choice: the one scored from the square the turn began on, before
+   any step has been taken that turn. Every later step choice of the turn
+   scores an exit 1 (slinker) or 3 (fighter) as above. A Speed 0 creature
+   makes only that first step choice (2.7), so for it an exit always
+   costs 4. Read draw by draw, a creature by a portal fitted this rule in
+   every run (Speed 0 and 2; peaceful neutral, peaceful friend and
+   aggressive neutral; the player in the room or gone, the goal the exit
+   or the player), 352 runs and 730 turns, where the cost 1 or 3 on every
+   step fitted 144 of 352 (none of 48 for the Speed 0 peaceful neutral
+   going for the exit, which went through in 3 of 188 turns, not every
+   turn). Started two squares off, the portal beside it only at its second
+   step, its choices there fitted the cost 1 or 3 in 64 of 64 runs (the
+   slinker took the portal in 23 of 32), a cost of 4 on every step 43 of
+   64. A slinker friend following the player onto a portal,
+   never at a first step, fitted the cost 1 in 64 of 64 runs (4 in 24).
+   [capture: rr35 `x-pf0`, `x-pf2`, `x-an0`, `ta-pn0`, `ta-pf0`,
+   `ta-an0`, `s26-pn2`, `s26-an2` and rr33 `s0x-long`, `x-pn0`,
+   `s2x-long`, `scripts/goalcheck.py --exit-first`; rr3 `follow`;
+   capture.md 10.39 item 1; ours, no research pass, 2026-11-16]
+   **Engine:** so. (Superseded: the engine's cost 1 or 3 on every step,
+   with which a Speed 0 slinker beside an exit always went through on its
+   first turn.)
+   Not settled: whether a square holding gold or a treasure it would take
+   also costs 4 on the first step (not tried); one more case in which the
+   step choice gives up. [unknown]
 6. **Engine:** 6.2 to 6.5 as written. Before the goal, a smartness roll
    decides whether a creature acts smart (magic 6.1). On the C64 that roll
    is taken at the top of the turn by friends, enemies and every fighter
@@ -992,16 +1050,23 @@ creatures replay exactly.
    Still open: a Retire with Save, an add and a SAVE GAME in one round; a
    roster add's effect on the visit order (10.38 used a created player).
 2. Random creatures: appearing and falling away captured and researched
-   (3, 2.4). Still open: two random creatures left at once.
+   (3, 2.4); the square swept over 32 random states (3.2, capture.md
+   10.40). Still open (not run in capture.md 10.39 either): two random
+   creatures left at once; the square of each random state, draw by draw.
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend), and a turn that starts with carried moves beside an
-   enemy (not halved, capture.md 10.29). Still open: mid-turn, odd Speeds.
+   enemy (not halved, capture.md 10.29). Still open (not run in capture.md
+   10.39): mid-turn, odd Speeds.
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5), and for a fighter enemy going for the player
-   (combat 2). Still open: fighters' goals among other individuals.
-5. Paths: researched and captured (6.5: 4 squares, scored with a roll).
-   Still open: the first step's cost of some things.
+   (combat 2), and for a fighter enemy choosing between the player and a
+   friend in reach (6.2: rank plus steps, a tie to the player; capture.md
+   10.39). Still open: other fighter types' goals among individuals.
+5. Paths: researched and captured (6.5: 4 squares, scored with a roll),
+   and an exit's cost of 4 on the turn's first step (6.5, capture.md
+   10.39). Still open: the first step's cost of a square holding gold or
+   a treasure.
 6. A creature following through a door: captured (5.4: the step ends its
    turn; it lands on the destination square, sharing it with a player or a
    creature standing there). Seen in the same runs:
@@ -1026,5 +1091,8 @@ creatures replay exactly.
    captured (2.7, capture.md 10.33). A creature slowed to 0 moves by its
    load readying and stopping, and a Speed 0 thief taking gold beside it
    and a Speed 0 neutral taking a portal beside it (2.7): captured
-   (capture.md 10.37). Still open: a Speed 0 fighter owning a melee
-   weapon beside an exit or a thing it takes.
+   (capture.md 10.37). How often a Speed 0 creature beside an exit takes
+   it (its one step choice a first step, the exit costing 4, 6.5), a
+   Speed 0 aggressive neutral with no weapon included: captured (capture.md
+   10.39). Still open: a Speed 0 fighter owning a melee weapon beside an
+   exit or a thing it takes.

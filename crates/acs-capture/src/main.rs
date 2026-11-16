@@ -209,6 +209,15 @@ enum Cmd {
         /// the thing block's + 0x800 high nibble (docs/capture.md 10.38).
         #[arg(long)]
         may_add: Vec<String>,
+        /// A thing of ours byte for byte (repeatable; docs/capture.md
+        /// 10.40): `SLOT[=HEX8][@SQ/SQ..]`, the four property bytes in hex,
+        /// squares `[s]X,Y[,P]` (s: the side room), on top of the rest.
+        #[arg(long)]
+        put: Vec<String>,
+        /// A master creature of ours (repeatable): `N:SPEC`, the --creature
+        /// keys (docs/capture.md 10.40).
+        #[arg(long)]
+        master: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -450,7 +459,17 @@ fn main() {
             room_thing,
             map_bytes,
             may_add,
+            put,
+            master,
         } => {
+            let puts: Vec<scenario::Put> = put
+                .iter()
+                .map(|t| scenario::Put::parse(t).unwrap_or_else(|e| fail(&e)))
+                .collect();
+            let masters: Vec<(u8, scenario::Resident)> = master
+                .iter()
+                .map(|t| scenario::master(t).unwrap_or_else(|e| fail(&e)))
+                .collect();
             let kit = |k: scenario::Kit, t: Option<String>| {
                 t.map(|t| scenario::KitSpec::parse(k, &t).unwrap_or_else(|e| fail(&e)))
             };
@@ -578,6 +597,8 @@ fn main() {
                         patch,
                         area_lists: area_lists.clone(),
                         room_things: room_things.clone(),
+                        puts: puts.clone(),
+                        masters: masters.clone(),
                         ..scenario::MoveBasic::default()
                     };
                     scenario::move_basic(&s, template.as_deref())
@@ -598,6 +619,7 @@ fn main() {
                     if no_item {
                         s.item = None;
                     }
+                    (s.puts, s.masters) = (puts.clone(), masters.clone());
                     s.take_weights = take_weights
                         .iter()
                         .map(|w| scenario::take_weight(w).unwrap_or_else(|e| fail(&e)))

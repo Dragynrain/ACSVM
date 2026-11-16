@@ -164,6 +164,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 DropRefusal::Wall => "there is a wall there".to_string(),
                 DropRefusal::Thing { thing: o } => format!("{} is in the way", thing(o)),
                 DropRefusal::BadAmount => "one pile holds 1 to 255".to_string(),
+                DropRefusal::NotBeside => "only the own square or one beside it".to_string(),
             };
             format!("{} can't drop {}: {why}.", who(player), thing(*t))
         }
@@ -549,6 +550,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 CastRefusal::NotASpell => "not a magic spell",
                 CastRefusal::NotUsable => "it does nothing when used",
                 CastRefusal::BadTarget => "that target is not here",
+                CastRefusal::NoOneThere => "no one stands there",
             };
             format!("{} can't use {}: {why}.", who(player), thing(*t))
         }

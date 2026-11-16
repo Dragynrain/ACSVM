@@ -56,6 +56,14 @@ pub fn weight(adv: &Adventure, thing: ThingId) -> i32 {
     }
 }
 
+/// 3.2: (Strength - floor((Constitution - Life Force) / 2)) x 100. The
+/// wound term is halved rounding down (toward minus infinity) and not held
+/// at 0, so Life Force above Constitution adds to it (21 of 20 adds 100).
+pub fn capacity(strength: u8, constitution: u8, life_force: u8) -> i32 {
+    let wound = (constitution as i32 - life_force as i32).div_euclid(2);
+    (strength as i32 - wound) * 100
+}
+
 /// Load against capacity, for the slowdown (3.3, captured on the C64): no
 /// slowdown up to half the capacity, then a straight line down to 0 at the
 /// full capacity, rounding down.
@@ -87,10 +95,9 @@ impl Player {
         items + self.gold as i32 * weight(adv, GOLD)
     }
 
-    /// (Strength - (Constitution - Life Force) / 2) x 100 (3.2).
+    /// (Strength - floor((Constitution - Life Force) / 2)) x 100 (3.2).
     pub fn capacity(&self) -> i32 {
-        let wound = (self.constitution as i32 - self.life_force as i32) / 2;
-        (self.strength as i32 - wound) * 100
+        capacity(self.strength, self.constitution, self.life_force)
     }
 
     /// Speed after the weight slowdown: where the bar starts (3.3).
@@ -189,7 +196,9 @@ impl Game {
         }
     }
 
-    /// Resolves the square a drop goes to (5.1, 5.3, 5.4).
+    /// Resolves the square a drop goes to (5.1, 5.3, 5.4): the own square
+    /// or one of the four beside it, inside the walls, whose top is not an
+    /// obstacle or a custom obstacle (portals and stores take it, on top).
     fn drop_target(&self, dir: Option<Dir>) -> Result<Target, DropRefusal> {
         let at = self.players[self.current].at;
         let Location::Room { region, room, x, y } = at else {
@@ -197,6 +206,10 @@ impl Game {
         };
         let r = self.room(region, room).ok_or(DropRefusal::Wall)?;
         let (dx, dy) = dir.map(Dir::delta).unwrap_or((0, 0));
+        // 5.1: the own square or one of the four beside it.
+        if dx != 0 && dy != 0 {
+            return Err(DropRefusal::NotBeside);
+        }
         let (nx, ny) = (x as i16 + dx as i16, y as i16 + dy as i16);
         let (w, h) = (r.width as i16, r.height as i16);
         if nx <= 0 || ny <= 0 || nx >= w - 1 || ny >= h - 1 {
@@ -207,12 +220,7 @@ impl Game {
         if let Some(it) = &top {
             let refuses = matches!(
                 self.thing(it.thing).map(|t| &t.kind),
-                Some(
-                    ThingKind::Portal { .. }
-                        | ThingKind::Obstacle { .. }
-                        | ThingKind::CustomObstacle { .. }
-                        | ThingKind::Store { .. }
-                )
+                Some(ThingKind::Obstacle { .. } | ThingKind::CustomObstacle { .. })
             );
             if refuses {
                 return Err(DropRefusal::Thing { thing: it.thing });
@@ -268,6 +276,7 @@ impl Game {
                 action,
                 message: self.message(&t.spell_message),
                 at: Location::Room { region, room, x, y },
+                on: Location::Room { region, room, x, y },
                 stack,
             },
             ev,
@@ -400,6 +409,7 @@ impl Game {
                     action,
                     message: self.message(&t.spell_message),
                     at,
+                    on: at,
                     stack: None,
                 })
             }

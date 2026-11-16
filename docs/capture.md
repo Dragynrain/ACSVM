@@ -639,6 +639,7 @@ screen offers next to "create new player".
 | `$719A` | The moves left in the current turn | Researcher, stores first pass, 2026-11-13; seen 5, 4, 1 in `rr11` |
 | `$E1A3` + 4 | A creature slot's class: bits 4 to 6 the alignment (0 thief .. 3 friend) plus 4 if aggressive; read and set by `rr8/push.sh` (10.14.10). Slot 0's Wisdom (+17, `$E1B4`) is set there too, from the stored record layout | Researcher, combat second pass, 2026-11-13 |
 | `$7161` | The add-player menu's cursor: 0 another adventure, 1 create new player, 2 don't add, 3 on the listed retired players; set to 1 by `rr13/create.sh` (10.18) | Researcher, characters first pass, 2026-11-14 (`docs/research/characters.md`) |
+| `$F59F` | The first player's Constitution (low 6 bits, the record's +0; the top 2 bits its magic defense), poked by `rr35` with `$F5A0` and `$F5A2` (10.39 item 4); a creature slot's +4 low 4 bits its Speed (`$E1A7`, set with the class in 10.37 and 10.39) | Researcher, combat first pass (the stored record layout), 2026-11-13 |
 | `$F59F` + 1 | The first player's Strength (low 5 bits); the top 2 bits the joystick port (bit 6 the second port: the "unknown" bit of 8.3). `$F5A4` (+5) its Power. Player slot k's record is at `$F59F` + 37 x (k - 1), its name (10 bytes) at `$F633` + 10 x (k - 1) | Researcher, characters first pass, 2026-11-14 |
 | `$F5AF` | The first player's place (record +16): 1 to 4 while it is in encounter area n, 0 on the open map | Researcher, encounters first pass, 2026-11-14 (`docs/research/encounters.md`) |
 | `$E7F2` + 5 x (n - 1) | Encounter area n's room record (n 1..4): +0 the wall picture, +1 the size (233 while open, 0 when free) | Researcher, encounters first pass, 2026-11-14 |
@@ -3254,3 +3255,273 @@ In this order (planned November 2026):
      on (rr26). It is not raised: 10.30's 11 was healing.
    Not run: a reversal waiting across a destroy; a roster add's effect on
    the visit order (item 1 used a created player).
+39. **Goals and exits, wounds and capacity, the 2026-11-16 batch** (ours,
+   no research pass: [creatures](rules/creatures.md) 2.7, 6.2 to 6.5 and
+   "Captures needed" 4 to 6, [combat](rules/combat.md) 4.3,
+   [inventory](rules/inventory.md) 3.2 and "Captures needed" 2, the golden
+   test `a_speed_0_creature_takes_a_thing_or_an_exit_beside_it`).
+   `ACSVM-research/capture/runs/rr35/` (the harness binary in `bin/`,
+   `env.sh`; `case.sh` and `build.sh` build the cases of `cases.txt`, as
+   rr33's; `qa.sh` to `qd.sh` the sweeps, `run mem --set-random-state`, at
+   most three VICE; `turnraws.py`, `nnturns.py`, `timeline.py` print a
+   run's draws cut by the turn byte). No harness changes. New
+   `scripts/goalcheck.py` checks one creature's goal and steps turn by
+   turn, draw by draw (6.2 to 6.5, 2.7's Speed 0 step), with the goal
+   rule, the exit's cost (`--exit-cost`, and `--exit-first` on the turn's
+   first step), smartness rolls (`--pre`), halving (`--hinder`) and the
+   player followed through a portal (`--player-track`) as options. New
+   `scripts/capcheck.py` reads the first player's moves at each turn's
+   start against the slowdown under eight readings of the wound term.
+   `blowcheck.py` gains `--share life|con` (combat 4.2's share from the
+   Life Force as it stands, or capped at the Constitution). Every creature
+   below has Wisdom 3: no smartness roll was drawn (`--pre 0` fits, 1 or
+   2 fit nothing).
+   - **Item 1, a creature beside an exit** (the golden test; 10.37 item
+     7). Read draw by draw, a Speed 0 turn of rr33's `s0x-long` draws the
+     top-of-turn die just before the turn byte names the creature, then
+     **four** step rolls of 0 to 2 (south, north, east, west: the portal
+     on 7,4 is one of them), then the round's end (the slot roll and the
+     percentile). The spec's step score (6.5) with the slinker's exit cost
+     1 makes the exit (3 x 0 + 5 x 1 + 4 x roll = 5 to 13) beat every
+     other square (16 to 24) on every turn, so the creature would always
+     go through; it went in 1 of 63 turns. The runs fit **one rule**: **on
+     the turn's first step an exit costs 4**; on later steps the spec's
+     cost (1 for a slinker, 3 for a fighter). The Speed 0 step onto an
+     exit is not cancelled (2.7), as traced. Each case below from 6,4
+     beside the portal with T on 4,4 is rr33's `s0x-turn-end.vsf` with the
+     class byte `$E1A7` (16 x class + Speed) and Wisdom `$E1B4` set;
+     `ta-*` puts NN on 7,5 below the portal (`x-ta-room.vsf`, T's first
+     room turn) and walks T through it (`--push e:300k`), so NN's one turn
+     (a creature in a room no player is in took no further turn in 30M)
+     has no player in the room; `s26-*` puts NN two squares off, on 7,6
+     (`x-26-turn-end.vsf`).
+
+     | Runs (`goalcheck.py`) | Creature, goal (6.2) | Runs, turns | Through | First step 4, then 1 or 3 | The spec (1 or 3 always) | 4 always |
+     | --- | --- | --- | --- | --- | --- | --- |
+     | rr33 `s0x-long`, `x-pn0` (states 16-47) | peaceful neutral, Speed 0, the exit | 48, 188 | 3 | **48/48** | 0/48 | 48/48 |
+     | rr33 `s2x-long` | the same at Speed 2 | 16, 46 | 2 | **16/16** | 0/16 | 16/16 |
+     | `x-pf0`, `x-pf2` | peaceful friend, Speed 0, 2: the player (28 against 33) | 64, 224 | 0 | **64/64** | 31/64 | 64/64 |
+     | `x-an0` | aggressive neutral (fighter), Speed 0: the player (rank 1) | 16, 64 | 0 | **16/16** | 16/16 (3) | 16/16 |
+     | `ta-pn0`, `ta-pf0` | peaceful neutral, friend, Speed 0, the player gone: the exit | 96, 96 | 3 | **96/96** | 3/96 | 96/96 |
+     | `ta-an0` | aggressive neutral, Speed 0, the player gone: the exit (rank 96) | 48, 48 | 1 | **48/48** | 30/48 (3) | 48/48 |
+     | `s26-pn2` | peaceful neutral, Speed 2, from 7,6: the exit, beside it at the second step | 32, 32 | 23 (all at the second step) | **32/32** | 32/32 (the exit never beside at a first step) | 13/32 |
+     | `s26-an2` | aggressive neutral, Speed 2, from 7,6: the player; the exit beside at the second step | 32, 32 | 2 | **32/32** (3 later) | 32/32 | 30/32 (1 later: 12/32) |
+
+     rr3's `follow` runs (10.14.1: a slinker friend stepping onto the
+     portal 41 times, never at a first step) fit `creaturecheck.py`'s exit
+     cost 1 in 64 of 64 runs, 2 in 58, 3 in 45, 4 in 24: the later steps'
+     cost is the spec's. So in the 64-turn `s0x` series the creature went
+     through only when its exit roll was 0, those of south and north 2
+     and of west at least 1 (the exit then scores 20, the others 24, 24 and
+     20 or more, a tie going to east before west): 1 turn in 27 by the
+     rolls, 1 of 63 seen. Engine (creatures 6.5, 2.7): the exit costs 1
+     (slinker) or 3 (fighter) on every step, so its Speed 0 neutral goes
+     through on its first turn every time; disagrees. This is likely 6.5's
+     open case ("on a turn's first step some squares holding a thing cost
+     4") for exits; gold and treasures were not tried here.
+   - **Item 2, fighters' goals among other individuals** (creatures
+     "Captures needed" 4). EE, an aggressive enemy of Speed 3 owning no
+     weapon, Wisdom 3, with T on 4,4 and FF, a friend of Speed 0, in
+     reach; 32 states each, 30M (two or three of EE's turns):
+     `g-f` (EE on 12,4, FF peaceful on 12,5: FF scores 6 + 1 = 7, T 0 + 8
+     = 8), `g-t` (EE on 11,4, FF on 11,5: 7 against 7, a tie), `g-a` (EE on
+     12,4, FF aggressive on 12,6: 4 + 2 = 6 against 8). `goalcheck.py`
+     with 6.2's rule (rank + steps from the turn's first square, the
+     lowest, a tie to the player looked at first), individuals' squares
+     closed, halving beside T or the aggressive FF: **g-f 32/32** (64
+     turns: FF the goal in 60, T in 4 once EE had wandered off), **g-t
+     32/32** (70 turns, T in 69, FF in 1), **g-a 32/32** (91 turns, FF in
+     89). "Always the player" fits 3, 32 and 2 of 32; "always the friend"
+     28, 1 and 30. Engine (6.2, 6.3): the same.
+   - **Item 3, the damage share with Life Force above Constitution**
+     (combat 4.3). From rr33's `pb-room.vsf` (T, Dexterity 31, holding our
+     blade, pushing east into FF on 5,4): FF a peaceful neutral (`$E1A7`
+     16), Wisdom 10, its Constitution `$E1A3` set to 20 and its Life Force
+     `$E1A6` to 20, 26, 40 or 60 (`d-20` .. `d-60`, 32 states each,
+     1.8M). `blowcheck.py --cls 1 --con 20`, every blow and every Life
+     Force and Power value: the share **from the Life Force as it stands**
+     32/32 at each level (33, 33, 33, 32 damaging blows); capped at the
+     Constitution 32/32 at 20 and 26 (the two agree there) but **6/32** at
+     40 and at 60. So Life Force above Constitution enters the share as it
+     is, as 4.2 is written and the engine does. 10.37's misfit most likely
+     came from the poke: 100 does not fit the 6 bits a Life Force has (100
+     is 36 in the low six).
+   - **Item 4, capacity with Life Force above Constitution, and odd
+     wounds** (inventory 3.2, "Captures needed" 2). `c4`: T of Speed 15 in
+     the room (`c4-room.vsf`), owning thing 71 of weight 500 by its
+     possession bit (`$F5C2` = 2, the row thing on 5,4 left there), its
+     Strength `$F5A0` (the port bit 64 kept), Constitution `$F59F` and
+     Life Force `$F5A2` poked; `capcheck.py` reads the moves byte at each
+     turn's refill with the Life Force at that moment (at the turn byte's
+     change instead, before the top-of-turn die's heal, fits 12 of 63). A
+     load of 500 is above half of every capacity below 1,000, so the moves
+     (Speed x 2 x (capacity - 500) / capacity) tell capacities 50 apart.
+     `c-s9l20` .. `c-s9l30` (Strength 9, Constitution 20, Life Force 20,
+     21, 22, 25, 30; 3 runs of 90M each; the Life Force never moved):
+     moves 13, **15**, 15, 15, 15. `c-s12c40`, `c-s12c41` (Strength 12,
+     Constitution 40 or 41, Life Force 27 or 28, healing over 240M, 6 runs
+     each): wounds 13 down to 0, moves 5, 5, 8, 8, 11, 11, 13, 13, 15 ...
+     (each odd wound as the even one below it). Of 169 turn starts the
+     wound term **halved rounding down** (toward minus infinity, so -1 adds
+     100) fits **169**; halved toward zero 160 (it misses Life Force 21);
+     rounding up or no rounding 111; any reading that counts no wound below
+     0 at most 133. So capacity = (Strength - floor((Constitution - Life
+     Force) / 2)) x 100, Life Force above Constitution adding to it.
+     Engine (3.2): halving toward zero, unclamped; it differs only at an
+     odd negative wound (Life Force 21 of 20: 900 against the original's
+     1,000).
+   Not run: item 5 (two random creatures left at once; the adjacency
+   slowdown mid-turn and with odd Speeds). `ta-an2`, `ta-pn2` (Speed 2
+   with the player gone) ran too short to finish a turn (2 turns of 96).
+40. **Magic actions, spaces and winning, the 2026-11-16 batch** (ours, no
+   research pass: [magic](rules/magic.md) 3.1, 3.2, 3.13, 3.14 and
+   "Captures needed" 3 to 6, [movement](rules/movement.md) 5.5, 6.3, 7.2
+   and "Captures needed" 2, 3 and 5, [inventory](rules/inventory.md) 2.5,
+   4.3, 5.1, 5.4, 5.7, 5.9 and "Captures needed" 3 to 5,
+   [winning](rules/winning.md) "Captures needed" 1).
+   `ACSVM-research/capture/runs/rr36/` (the harness binary in `bin/`,
+   `env.sh` with `sc`; `case.sh` and `build.sh` build the cases of
+   `cases1.txt` and `cases.txt` to T's first room turn under way on 4,4,
+   `room.vsf`; `cast.txt` and `gen.py` cast spell 1 at cost 0 (no roll)
+   with cursor taps, `drop.txt` drops, `armor.txt` NEW ARMOR,
+   `py/steps.py` writes push scripts, `peek.txt` reads the arrival;
+   `py/look.py` reads T's record, the 16 creature slots and the room's list
+   from a log, `py/poll.py` a slot's timeline, `py/rc.py` the sweep
+   `rc-sw`). At most three VICE of ours. New scenario options: `--put
+   SLOT[=HEX8][@SQ/SQ..]` (repeatable; `scenario::Put`) writes a master
+   thing's four property bytes (named `PUT` and two letters, messages
+   cleared) and places it on room 0 squares `X,Y[,P]` (or the side room's,
+   `sX,Y[,P]`), before the room's other things, so on top, earlier puts
+   above later ones; `--master N:SPEC` (`scenario::master`) writes master
+   creature N from the `--creature` keys (picture 74, the template's class
+   kept). The menu (room or map): MOVE, USE OBJECT, NEW WEAPON, ADD
+   SOMEONE on the first row; REST, DROP OBJECT, NEW ARMOR, RETIRE on the
+   second; FIRE, USE POWER, PROFILE, SAVE GAME on the third. The SELECT
+   SPELL and drop lists run left to right after NONE (a tap east, not
+   south). Every cast here asked "move cursor to target and press button",
+   room spells included; the cursor starts on the caster. Each case is
+   one deterministic run (no roll is involved), read from RAM and the
+   screenshots.
+   - **Item 1, Kill All** (spell 0:1:59, "kill all but owners of" our
+     blade; `ka`: T owning only the spell, AA (owning the blade) on 8,2,
+     BB on 10,6, CC in the side room, all Speed 0 friends; `kb` the same
+     with T owning the blade). Cast at T (`ka-c`): **"T dies"**, T's Life
+     Force 0 and its record cleared; AA, BB and CC untouched. Cast at BB
+     (`ka-bb`): **BB's Life Force 0**; T, AA and CC untouched. Cast at AA
+     (`ka-aa`), or by T owning the blade at itself (`kb-c`): **nobody
+     dies**. So the spell kills **its target only, unless the target owns
+     the thing**: no one else in the room, the side room or the region.
+     The engine's choice (everyone in the room, the caster spared only as
+     an owner) disagrees.
+   - **Item 2, Summons** (spell 0:2:5; master creature 5 ours, ZED, an
+     enemy, Speed 3, Constitution 12; `sa`, the room empty). The creature
+     is made **at the cast**: while the target prompt shows (`sb15-c`), or
+     at the first press (`sa-p2`), the **lowest free slot** holds a copy
+     of the master record (class byte 35: the master's enemy alignment and
+     Speed; Constitution 12; room byte 16), its square still the master
+     record's 8,2. The press puts it **on the target square**, in the same
+     round 14: an empty square (`sa-p66`: 5,6; `sb15-c`: 6,6), a square
+     with a creature on it (`sb15-27`: SB's 2,7, shared) or, after a first
+     press there that left the prompt up, T's own square (`sa-p2`: 4,4;
+     `sa-p3`: the cursor moved after that press gave 6,4). It took its
+     first turn in round 15 (`$71FA` 16, slot 0) and walked off. With
+     slots 0 to 14 in use (`sb15`) it took **slot 15**; with all 16 in use
+     (`sb16-c`): **"A few sparks fizzle but TESTSPELL1 fails"** at cost 0,
+     no prompt, no slot changed. So there is no wait for a later turn and
+     no reserved square to step onto: the creature appears on the chosen
+     square at once. The engine's choices (the next player turn, the
+     caster's square or the nearest free one) disagree on the time and the
+     square; the lowest free slot, the master's alignment and a full
+     region refusing agree.
+   - **Item 3, Add to Room** (spell 0:13:60, our treasure 60). Cast at T
+     on 4,4 (`aa-c`): the room's list became `4,4:60/1`, **on the
+     target's square**; T standing on a space there (`ab-c`): **on top of
+     the space**; cast at the empty 6,6 (`aa-66`): **on 6,6**. A space that
+     adds when moved onto (`ac-s2`, on 5,4): T stepped onto it and the
+     thing went on top there (`5,4:60/1 5,4:104/0`). An obstacle that adds
+     when bumped (`ad-s`, on 5,4): T stayed on 4,4 and the thing went **on
+     top of the obstacle's square**. The count is 1. So the thing lands on
+     top of the square where the spell takes effect, a cast's target
+     square; the engine's choice agrees for spaces, obstacles and a cast
+     at the caster, not for a cast at another square (it takes the
+     caster's).
+   - **Item 4, Activate All** (`acto`, T owning the blade, and `actn`, T
+     not; on 5,4, top first: a space running Activate All; a custom space
+     "when moved onto" giving 61; one "open to owners of" the blade giving
+     62; one "when dropped here" (the blade) giving 63; a second Activate
+     All space; a space giving 64; things 61 to 64 ours). T stepped onto
+     5,4 from 4,4: owning, **61, 62 and 64** given; not owning, **61 and
+     64**; 63 never; T stood on 5,4 either way (the top space lets anyone
+     pass). `actp` (the last space changing Power by +5 instead): **Power
+     13 to 17**, the +5 once (with the turn's drift), not twice: the
+     nested Activate All does not run the rest again. The engine's choices
+     (a condition met runs, "when dropped here" skipped, a nested Activate
+     All skipped) agree. Not tried: an Activate All cast away from a stack.
+   - **"When dropped here" without "destroy needed thing"** (inventory
+     5.7; `dh`: such a custom space on 5,4 for the blade, giving 61, T
+     owning the blade; `dhd` the same with the destroy bit). DROP OBJECT,
+     the blade, the cursor east ("move cursor to drop spot"): `dh-e`:
+     **61 given and the blade on top of the space** (`5,4:59/1
+     5,4:107/59`); `dhd-e`: **61 given and the blade gone**. The engine
+     agrees.
+   - **Item 5, arriving and barring.** The map door leads to 4,4; on it
+     (`peek.txt` at T's first room turn) a space giving 61 (`arsp`), an
+     obstacle giving 61 when bumped (`arob`), a portal (`ardo`, a copy of
+     the side room's door) or a custom space open only to owners of the
+     blade, T not one (`arcs`): T **stood on 4,4 each time, nothing
+     given, no door taken**. Stepping off and back (`arsp-ew`) gave 61;
+     from 5,4 a push west into the obstacle (`arob-ew`) gave 61, T staying
+     on 5,4. A space open only to owners of the blade on 5,4, T not one
+     (`bar`): the push east left T on 4,4 and took no move (`bar-p`
+     against an idle control `bar-c`, `$719A` read every 300,000
+     instructions: the first fall came about 1.2 million instructions
+     later than the control's, the drain held while the push was
+     answered, then both fell alike; the next step south cost one move in
+     both). So arriving by a door triggers nothing and chains to nothing
+     (movement 6.3's choice), and a barring space costs nothing, like
+     other refused moves. Not tried: a creature's step onto a space,
+     arriving by a room door.
+   - **Item 6, drops and readying.** The drop cursor starts on the
+     dropper and moves only to the four squares beside it: a second tap
+     (`dh-ee`, `dh-es`) or a tap toward an obstacle (`dk2-e`) left it
+     where it was. **The own square takes a drop** (`dh-own`: the blade
+     on 4,4 under T). `dk2` (T owning the blade and mail, on 4,4; our
+     obstacle on 5,4, a copy of the side door on 3,4, the store on 4,5,
+     AA on 4,3; the list's first entry is the mail): the mail landed **on
+     T's own square** when the cursor was pushed toward the obstacle (it
+     stayed), **on the portal** (3,4), **on the store** (4,5) and **on
+     AA's square** (4,3), on top each time. Cost (`drop.txt`, `$719A`
+     around every tap): the moves fell 5 to 4 at the press that chose the
+     thing and were **back at 5 after the drop spot was pressed**
+     (`dh-own`, `dh-e`): no net move. NEW ARMOR, the mail (`dk2-armor`):
+     the moves went **5 to 0 at the choice**, the worn byte (record +21)
+     40 and the next mover at once (`$71FA` 16): readying armor ends the
+     turn, as inventory 4.3 has it; readying a weapon costs one move at
+     the choice (10.33). Engine (inventory 5.1, 5.4, 5.9): a drop on the
+     own square is allowed and free (agrees); portals and stores refuse
+     (they did not here; walls and obstacles are out of the cursor's
+     reach).
+   - **The gold pile's own parameter** (inventory 2.5; `gp2`: a pile of
+     ours on 5,4 with parameter 35 and size record 10): T took it, gold 0
+     to **10**; `gp` (by a slip of ours the size record's bytes were 81
+     and 10) gave **2,641** (81 + 10 x 256), its pile's parameter 35 too.
+     So the amount is the size record's alone; parameter 35 changed
+     nothing seen. The taken pile and its size record were both left in
+     the list on square 15,15.
+   - **Item 7, winning** (`win`: on 6,4, top first, our treasure 60, a
+     space running Activate All, music 13, long message 1, music 1). T
+     stepped to 5,4, took the treasure ("T takes PUTCI"; its list entry
+     moved to 15,15, though no possession bit of T's record was seen set),
+     then stepped onto 6,4 (`win-4`, `win-5`): **the long message filled
+     the screen**; after the button **play went on** (T walked back west,
+     rounds 17 to 19). No win screen and no end: the engine's choice
+     (winning 3.1) agrees for a stack of ours; a goal the program itself
+     generated was not tried.
+   - **The room random creature's square** (movement 7.2; `rc`: random
+     creature RR, Speed 0, room chance code 15; `rc-sw`, 32 runs from the
+     map start with the random state `$1CC9` set to 0, 8, .., 248 before
+     the walk in): it appeared in **21 of 32** (75 % expected), always in
+     slot 0 with the random mark, on **squares all over the inside** (19
+     different among the 21: 1,2 1,4 1,7 3,3 3,5 3,8 4,1 4,5 5,3 5,5 6,5
+     6,8 7,1 7,5 8,6 9,7 10,1 11,6 13,8; 1,4 and 5,5 twice), never T's;
+     the room held no things. The engine places it too (creatures 3.2, `place_random`; an earlier note here said it placed none, which was out of date).

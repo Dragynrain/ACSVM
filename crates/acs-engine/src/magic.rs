@@ -37,7 +37,9 @@ pub(crate) struct Reversal {
 /// Reversals queued at most (5.2).
 pub const REVERSALS: usize = 30;
 
-/// A summons waiting for the next player turn (3.2).
+/// Never filled any more: summonses are made at once (3.2). The field that
+/// held them stays, always empty, so a game's fingerprint (saves 3) is the
+/// same as before for every game without a summons.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PendingSummon {
     pub region: u8,
@@ -45,6 +47,14 @@ pub(crate) struct PendingSummon {
     pub x: u8,
     pub y: u8,
     pub creature: u16,
+}
+
+/// What a cast or a use acts on (2.4): the individual on the target
+/// square (none on an empty one) and the square.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Aim {
+    pub who: Option<Who>,
+    pub at: Location,
 }
 
 /// One spell going off.
@@ -59,19 +69,25 @@ pub(crate) struct Spell {
     pub thing: ThingId,
     pub action: SpellAction,
     pub message: Option<String>,
-    /// Where it takes effect.
+    /// Where it takes effect (room spells, stacks).
     pub at: Location,
+    /// The square of the individual it acts on, where a summons (3.2) and
+    /// a cast's or a door's Add to Room (3.13) take effect: a cast's target
+    /// square (2.4), the space stepped on, the bumper's own square, a
+    /// door's destination, the picker's square, the drop square.
+    pub on: Location,
     /// The holding thing's index in the room's item list, when it lies in a
     /// stack at `at` (for Activate All, 3.14).
     pub stack: Option<usize>,
 }
 
-/// Whether an action acts on one individual (2.5).
+/// Whether an action acts on one individual (2.5; Kill All, 3.1).
 pub fn acts_on_individual(kind: SpellActionKind) -> bool {
     use SpellActionKind::*;
     matches!(
         kind,
-        IncreaseMagicDefense
+        KillAllButOwnerOf
+            | IncreaseMagicDefense
             | DecreaseMagicDefense
             | IncreaseStat
             | DecreaseStat
@@ -369,7 +385,12 @@ impl Game {
         }
         let p = s.action.parameter;
         match s.action.kind {
-            KillAllButOwnerOf => self.kill_all_but(&s, p, ev),
+            // 3.1: only the individual it acts on, unless it owns the thing.
+            KillAllButOwnerOf => {
+                if self.owned(s.target, p) == 0 {
+                    self.kill(s.target, ev);
+                }
+            }
             SummonOrBanish if p == 0 => self.banish_all(&s, ev),
             SummonOrBanish => self.summon(&s, p, ev),
             IncreaseMagicDefense | DecreaseMagicDefense => {
@@ -439,7 +460,14 @@ impl Game {
                 }
             }
             AddToRoom => {
-                if let Location::Room { region, room, x, y } = s.at {
+                // 3.13: a cast's target square, a door's destination,
+                // otherwise where the spell takes effect; a wall square
+                // gives the nearest free inside one.
+                let place = match s.source {
+                    SpellSource::Cast | SpellSource::Used | SpellSource::Portal => s.on,
+                    _ => s.at,
+                };
+                if let Location::Room { region, room, x, y } = place {
                     let spot = if self.inside(region, room, x, y) {
                         Some((x, y))
                     } else {
@@ -488,18 +516,6 @@ impl Game {
         }
     }
 
-    fn kill_all_but(&mut self, s: &Spell, thing: ThingId, ev: &mut Vec<Event>) {
-        let victims = match s.at {
-            Location::Room { region, room, .. } => self.individuals_in_room(region, room),
-            Location::World { .. } => vec![s.target],
-        };
-        for who in victims {
-            if self.alive(who) && self.owned(who, thing) == 0 {
-                self.kill(who, ev);
-            }
-        }
-    }
-
     fn banish_all(&mut self, s: &Spell, ev: &mut Vec<Event>) {
         let Location::Room { region, room, .. } = s.at else {
             return;
@@ -513,67 +529,62 @@ impl Game {
         }
     }
 
-    fn summon(&mut self, s: &Spell, creature: u16, ev: &mut Vec<Event>) {
-        match s.at {
-            Location::Room { region, room, x, y } => self.summons.push(PendingSummon {
-                region,
-                room,
-                x,
-                y,
-                creature,
-            }),
-            Location::World { .. } => ev.push(Event::SummonUnanswered { creature }),
-        }
+    /// Whether the region has a free resident slot (3.2).
+    pub(crate) fn has_free_slot(&self, region: u8) -> bool {
+        self.region(region)
+            .is_some_and(|r| r.residents.iter().any(|c| !c.in_use))
     }
 
-    /// 3.2: called at the start of each player turn.
-    pub(crate) fn answer_summons(&mut self, ev: &mut Vec<Event>) {
-        for s in std::mem::take(&mut self.summons) {
-            let record = self
-                .adv
-                .creatures
-                .get((s.creature as usize).wrapping_sub(1))
-                .filter(|c| c.in_use)
-                .cloned();
-            let slot = self
-                .region(s.region)
-                .and_then(|r| r.residents.iter().position(|c| !c.in_use));
-            let spot =
-                if self.inside(s.region, s.room, s.x, s.y) && !self.occupied(s.region, s.room, s.x, s.y) {
-                    Some((s.x, s.y))
-                } else {
-                    self.nearest_free(s.region, s.room, s.x, s.y)
-                };
-            let (Some(mut c), Some(slot), Some((x, y))) = (record, slot, spot) else {
-                ev.push(Event::SummonUnanswered { creature: s.creature });
-                continue;
-            };
-            c.in_use = true;
-            c.number = slot as u16 + 1;
-            c.region = s.region;
-            c.room = s.room;
-            c.x = x;
-            c.y = y;
-            c.class = None;
-            if let Some(reg) = self.region_mut(s.region) {
-                reg.residents[slot] = c;
-            }
-            self.forget_vitals(Who::Creature {
-                region: s.region,
-                slot,
-            });
-            ev.push(Event::CreatureSummoned {
-                region: s.region,
-                slot,
-                creature: s.creature,
-                at: Location::Room {
-                    region: s.region,
-                    room: s.room,
-                    x,
-                    y,
-                },
-            });
+    /// 3.2: a copy of master creature `creature`, made at once in the
+    /// region's lowest free slot on the square the spell takes effect on,
+    /// shared with whoever stands there; it takes no turn this round.
+    fn summon(&mut self, s: &Spell, creature: u16, ev: &mut Vec<Event>) {
+        let Location::Room { region, room, x, y } = s.on else {
+            ev.push(Event::SummonUnanswered { creature });
+            return;
+        };
+        let record = self
+            .adv
+            .creatures
+            .get((creature as usize).wrapping_sub(1))
+            .filter(|c| c.in_use)
+            .cloned();
+        let slot = self
+            .region(region)
+            .and_then(|r| r.residents.iter().position(|c| !c.in_use));
+        let spot = if self.inside(region, room, x, y) {
+            Some((x, y))
+        } else {
+            self.nearest_free(region, room, x, y)
+        };
+        let (Some(mut c), Some(slot), Some((x, y))) = (record, slot, spot) else {
+            ev.push(Event::SummonUnanswered { creature });
+            return;
+        };
+        c.in_use = true;
+        c.number = slot as u16 + 1;
+        c.region = region;
+        c.room = room;
+        c.x = x;
+        c.y = y;
+        c.class = None;
+        if let Some(reg) = self.region_mut(region) {
+            reg.residents[slot] = c;
         }
+        let who = Who::Creature { region, slot };
+        self.forget_vitals(who);
+        // No turn in this round: a dead creature's slot may still be
+        // listed further on.
+        let pos = self.sched.pos.min(self.sched.list.len());
+        let mut rest = self.sched.list.split_off(pos);
+        rest.retain(|&w| w != who);
+        self.sched.list.extend(rest);
+        ev.push(Event::CreatureSummoned {
+            region,
+            slot,
+            creature,
+            at: Location::Room { region, room, x, y },
+        });
     }
 
     fn rid_room(&mut self, region: u8, room: u8, thing: ThingId) -> u16 {
@@ -666,6 +677,7 @@ impl Game {
                     action,
                     message,
                     at: s.at,
+                    on: s.at,
                     stack: Some(index),
                 },
                 ev,
@@ -715,22 +727,64 @@ impl Game {
 
     // ---- casting and using (section 4) ---------------------------------------
 
-    /// 2.4: the caster, or a living individual in the caster's room.
-    pub(crate) fn valid_target(&self, by: Who, target: Who) -> bool {
-        if target == by {
-            return true;
-        }
-        if !self.alive(target) {
-            return false;
-        }
-        match (self.location(by), self.location(target)) {
-            (Some(a), Some(b)) => a.room().is_some() && a.room() == b.room(),
-            _ => false,
+    /// 2.4: what a cast or use aimed at `target` (an individual) acts on.
+    pub(crate) fn aim_at(&self, target: Who) -> Option<Aim> {
+        Some(Aim {
+            who: Some(target),
+            at: self.location(target)?,
+        })
+    }
+
+    /// 2.4: the player's target, a square of the caster's room (`at`), or
+    /// the square an individual stands on now (`target`), or the caster's
+    /// own when neither is given. On the world map only the caster's own.
+    fn aim(&self, by: Who, at: Option<(u8, u8)>, target: Option<Who>) -> Result<Aim, CastRefusal> {
+        let here = self.location(by).ok_or(CastRefusal::BadTarget)?;
+        let (hx, hy) = match here {
+            Location::World { x, y } | Location::Room { x, y, .. } => (x, y),
+        };
+        match (at, target) {
+            (Some((x, y)), _) => match here {
+                Location::World { .. } if (x, y) == (hx, hy) => Ok(Aim {
+                    who: Some(by),
+                    at: here,
+                }),
+                Location::World { .. } => Err(CastRefusal::BadTarget),
+                Location::Room { region, room, .. } => {
+                    if !self.inside(region, room, x, y) {
+                        return Err(CastRefusal::BadTarget);
+                    }
+                    let who = if (x, y) == (hx, hy) {
+                        Some(by)
+                    } else {
+                        self.others_in_room(region, room, Some(by))
+                            .into_iter()
+                            .find(|o| (o.x, o.y) == (x, y))
+                            .map(|o| o.who)
+                    };
+                    Ok(Aim {
+                        who,
+                        at: Location::Room { region, room, x, y },
+                    })
+                }
+            },
+            (None, Some(t)) if t != by => match self.location(t).filter(|_| self.alive(t)) {
+                Some(l) if here.room().is_some() && l.room() == here.room() => {
+                    Ok(Aim { who: Some(t), at: l })
+                }
+                _ => Err(CastRefusal::BadTarget),
+            },
+            _ => Ok(Aim {
+                who: Some(by),
+                at: here,
+            }),
         }
     }
 
-    /// Casts `thing` (a magic spell `by` owns); true if it worked (4.1).
-    pub(crate) fn cast(&mut self, by: Who, thing: ThingId, target: Who, ev: &mut Vec<Event>) -> bool {
+    /// Casts `thing` (a magic spell `by` owns) at `aim`; true if it worked
+    /// (4.1). A summons into a full region fails before anything is spent
+    /// or rolled (3.2).
+    pub(crate) fn cast(&mut self, by: Who, thing: ThingId, aim: Aim, ev: &mut Vec<Event>) -> bool {
         let Some(t) = self.thing(thing).cloned() else {
             return false;
         };
@@ -742,6 +796,17 @@ impl Game {
         else {
             return false;
         };
+        if action.kind == SpellActionKind::SummonOrBanish && action.parameter != 0 {
+            if let Some(Location::Room { region, .. }) = self.location(by) {
+                if !self.has_free_slot(region) {
+                    ev.push(Event::SummonUnanswered {
+                        creature: action.parameter,
+                    });
+                    return false;
+                }
+            }
+        }
+        let target = aim.who.unwrap_or(by);
         let power = self.stat(by, Stat::Power).unwrap_or(0);
         let chance = cast_chance(power, cost);
         let success = cast_roll(&mut self.rng, power, cost);
@@ -772,6 +837,7 @@ impl Game {
                 action,
                 message: self.message(&t.spell_message),
                 at,
+                on: aim.at,
                 stack: None,
             },
             ev,
@@ -779,9 +845,9 @@ impl Game {
         true
     }
 
-    /// Uses `thing` (a magic item `by` owns that acts when used) (4.2): 2
-    /// Power, then the item's spell.
-    pub(crate) fn use_item(&mut self, by: Who, thing: ThingId, target: Who, ev: &mut Vec<Event>) {
+    /// Uses `thing` (a magic item `by` owns that acts when used) at `aim`
+    /// (4.2): 2 Power, then the item's spell.
+    pub(crate) fn use_item(&mut self, by: Who, thing: ThingId, aim: Aim, ev: &mut Vec<Event>) {
         let Some(t) = self.thing(thing).cloned() else {
             return;
         };
@@ -796,6 +862,7 @@ impl Game {
         let Some(at) = self.location(by) else {
             return;
         };
+        let target = aim.who.unwrap_or(by);
         ev.push(Event::ItemUsed { by, thing, target });
         // 4.2: a use costs 2 Power, not below 0.
         let power = self.stat(by, Stat::Power).unwrap_or(0);
@@ -812,48 +879,61 @@ impl Game {
                 action,
                 message: self.message(&t.spell_message),
                 at,
+                on: aim.at,
                 stack: None,
             },
             ev,
         );
     }
 
-    fn check_cast(&self, thing: ThingId, target: Option<Who>, usable: bool) -> Result<Who, CastRefusal> {
+    fn check_cast(
+        &self,
+        thing: ThingId,
+        at: Option<(u8, u8)>,
+        target: Option<Who>,
+        usable: bool,
+    ) -> Result<Aim, CastRefusal> {
         let p = self.current;
         let by = Who::Player { player: p };
         if thing == GOLD || !self.players[p].owns(thing) {
             return Err(CastRefusal::NotCarried);
         }
-        let ok = match self.thing(thing).map(|t| &t.kind) {
-            Some(ThingKind::MagicSpell { .. }) => !usable,
-            Some(ThingKind::MagicItem { on_use, .. }) => usable && *on_use,
-            _ => false,
+        let action = match self.thing(thing).map(|t| &t.kind) {
+            Some(ThingKind::MagicSpell { action, .. }) if !usable => *action,
+            Some(ThingKind::MagicItem { on_use, action, .. }) if usable && *on_use => *action,
+            _ => {
+                return Err(if usable {
+                    CastRefusal::NotUsable
+                } else {
+                    CastRefusal::NotASpell
+                })
+            }
         };
-        if !ok {
-            return Err(if usable {
-                CastRefusal::NotUsable
-            } else {
-                CastRefusal::NotASpell
-            });
+        let aim = self.aim(by, at, target)?;
+        // 2.4: a spell that acts on an individual needs one there.
+        if aim.who.is_none() && acts_on_individual(action.kind) {
+            return Err(CastRefusal::NoOneThere);
         }
-        let target = target.unwrap_or(by);
-        if !self.valid_target(by, target) {
-            return Err(CastRefusal::BadTarget);
-        }
-        Ok(target)
+        Ok(aim)
     }
 
-    /// `Cast { thing, target }`: 4.1, 4.3.
-    pub(crate) fn cast_command(&mut self, thing: ThingId, target: Option<Who>, ev: &mut Vec<Event>) {
+    /// `Cast { thing, at, target }`: 2.4, 4.1, 4.3.
+    pub(crate) fn cast_command(
+        &mut self,
+        thing: ThingId,
+        at: Option<(u8, u8)>,
+        target: Option<Who>,
+        ev: &mut Vec<Event>,
+    ) {
         let p = self.current;
-        match self.check_cast(thing, target, false) {
+        match self.check_cast(thing, at, target, false) {
             Err(reason) => ev.push(Event::CastRefused {
                 player: p,
                 thing,
                 reason,
             }),
-            Ok(target) => {
-                self.cast(Who::Player { player: p }, thing, target, ev);
+            Ok(aim) => {
+                self.cast(Who::Player { player: p }, thing, aim, ev);
                 if self.players[p].alive {
                     self.end_turn(ev);
                 }
@@ -861,17 +941,23 @@ impl Game {
         }
     }
 
-    /// `Use { thing, target }`: 4.2, 4.3.
-    pub(crate) fn use_command(&mut self, thing: ThingId, target: Option<Who>, ev: &mut Vec<Event>) {
+    /// `Use { thing, at, target }`: 2.4, 4.2, 4.3.
+    pub(crate) fn use_command(
+        &mut self,
+        thing: ThingId,
+        at: Option<(u8, u8)>,
+        target: Option<Who>,
+        ev: &mut Vec<Event>,
+    ) {
         let p = self.current;
-        match self.check_cast(thing, target, true) {
+        match self.check_cast(thing, at, target, true) {
             Err(reason) => ev.push(Event::CastRefused {
                 player: p,
                 thing,
                 reason,
             }),
-            Ok(target) => {
-                self.use_item(Who::Player { player: p }, thing, target, ev);
+            Ok(aim) => {
+                self.use_item(Who::Player { player: p }, thing, aim, ev);
                 // 4.2, 4.3: using spends two steps (ending the turn when
                 // fewer are left); otherwise the turn goes on.
                 if self.players[p].alive && !self.over {

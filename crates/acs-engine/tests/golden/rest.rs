@@ -513,6 +513,7 @@ mod stores {
         g.apply(Command::Wait);
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)));
@@ -538,6 +539,7 @@ mod stores {
         assert_eq!(saved.len(), 1, "{saved:?}");
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         let r = restore(&g, &a);
@@ -554,6 +556,7 @@ mod stores {
         let mut g = game(&a, 1, t, room(4, 4));
         let ev = g.apply(Command::Use {
             thing: ITEM,
+            at: None,
             target: None,
         });
         assert!(
@@ -1105,6 +1108,7 @@ mod characters {
         let mut g = t_and_u(&a, named("T", 6, &[KILL]));
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::Died { .. })), "{ev:?}");
@@ -1216,6 +1220,7 @@ mod characters {
         assert_eq!(g.current(), 1);
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
@@ -2529,6 +2534,7 @@ mod saves {
         g.apply(Command::Move { dir: Dir::E });
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: Some(U),
         });
         assert!(
@@ -2575,6 +2581,7 @@ mod saves {
         g.apply(Command::Move { dir: Dir::E });
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: Some(U),
         });
         let r = restore(&g, &a);
@@ -2611,6 +2618,7 @@ mod saves {
         assert_eq!(saves(&ev), []);
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         let r = restore(&g, &a);
@@ -2650,6 +2658,7 @@ mod saves {
         }
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })));
@@ -2692,6 +2701,7 @@ mod saves {
         let (mut g, _) = alone_in(&a);
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)));
@@ -2719,6 +2729,7 @@ mod saves {
         g.apply(Command::SaveGame);
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)));
@@ -2740,6 +2751,7 @@ mod saves {
         g.apply(Command::Move { dir: Dir::E });
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         let r = restore(&g, &a);
@@ -2767,6 +2779,7 @@ mod saves {
             g.apply(Command::SaveGame);
             let ev = g.apply(Command::Cast {
                 thing: KILL,
+                at: None,
                 target: None,
             });
             assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
@@ -2793,6 +2806,7 @@ mod saves {
             g.give(0, KILL);
             let ev = g.apply(Command::Cast {
                 thing: KILL,
+                at: None,
                 target: None,
             });
             assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)), "{ev:?}");
@@ -2866,6 +2880,7 @@ mod saves {
         assert_eq!((killed.round(), killed.current()), (r0 + 3, 0));
         let ev = killed.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
@@ -2886,6 +2901,7 @@ mod saves {
         until_turn_of(&mut g, 0);
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         let r = restore(&g, &a);
@@ -2933,6 +2949,7 @@ mod saves {
                 until_turn_of(&mut g, 0);
                 g.apply(Command::Cast {
                     thing: KILL,
+                    at: None,
                     target: None,
                 });
                 let r = restore(&g, &a);
@@ -2994,6 +3011,7 @@ mod saves {
             until_turn_of(&mut g, 1);
             let ev = g.apply(Command::Cast {
                 thing: KILL,
+                at: None,
                 target: None,
             });
             assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
@@ -3051,6 +3069,7 @@ mod saves {
             g.give(3, KILL);
             let ev = g.apply(Command::Cast {
                 thing: KILL,
+                at: None,
                 target: None,
             });
             assert!(has(&ev, |e| matches!(e, Event::LivingChanged { .. })), "{ev:?}");
@@ -3079,6 +3098,7 @@ mod saves {
         g.apply(Command::Wait);
         let ev = g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         assert!(has(&ev, |e| matches!(e, Event::AllPlayersDead)));
@@ -3107,6 +3127,7 @@ mod saves {
         g.apply(Command::Wait);
         g.apply(Command::Cast {
             thing: KILL,
+            at: None,
             target: None,
         });
         let r = restore(&g, &a);

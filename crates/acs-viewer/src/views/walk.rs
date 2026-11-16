@@ -431,12 +431,13 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
         .map(|t| {
             let t = t.to_ascii_lowercase();
             let bad =
-                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS], use:T[:me|pN|cS], fire[:X:Y[:T]], retire[:save|destroy], save, buy:T, sell:T, leave, add[:NAME])");
+                || format!("unknown walk step {t:?} (n, ne, ..., wait, drop:T[:dir], gold:N[:dir], ready:T, cast:T[:me|pN|cS|X:Y], use:T[:me|pN|cS|X:Y], fire[:X:Y[:T]], retire[:save|destroy], save, buy:T, sell:T, leave, add[:NAME])");
             let mut parts = t.split(':');
             let head = parts.next().unwrap_or_default();
             let num = |p: Option<&str>| p.and_then(|n| n.parse::<u16>().ok()).ok_or_else(bad);
             let dir = |p: Option<&str>| p.map(|d| parse_dir(d).ok_or_else(bad)).transpose();
-            // me, pN (player N) or cS (creature slot S in the player's region).
+            // me, pN (player N) or cS (creature slot S in the player's
+            // region); for a cast or use, X:Y is a square instead.
             let target = |p: Option<&str>| -> Result<Option<Who>, String> {
                 let Some(p) = p else { return Ok(None) };
                 let n = |s: &str| s.parse::<usize>().ok().filter(|&n| n > 0).ok_or_else(bad);
@@ -464,14 +465,24 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                 "ready" => Command::Ready {
                     thing: num(parts.next())?,
                 },
-                "cast" => Command::Cast {
-                    thing: num(parts.next())?,
-                    target: target(parts.next())?,
-                },
-                "use" => Command::Use {
-                    thing: num(parts.next())?,
-                    target: target(parts.next())?,
-                },
+                "cast" | "use" => {
+                    let thing = num(parts.next())?;
+                    let rest: Vec<&str> = parts.by_ref().collect();
+                    let (at, target) = match rest.as_slice() {
+                        [x, y] => {
+                            let n = |v: &str| v.parse::<u8>().map_err(|_| bad());
+                            (Some((n(x)?, n(y)?)), None)
+                        }
+                        [] => (None, None),
+                        [w] => (None, target(Some(w))?),
+                        _ => return Err(bad()),
+                    };
+                    if head == "cast" {
+                        Command::Cast { thing, at, target }
+                    } else {
+                        Command::Use { thing, at, target }
+                    }
+                }
                 "buy" => Command::Buy {
                     thing: num(parts.next())?,
                 },
@@ -1068,11 +1079,13 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
 
 /// "Cast" / "Use" with a menu of targets: the caster and everyone in the
 /// room (magic 2.4).
+/// The cast or use goes at the square of the one picked (magic 2.4);
+/// "yourself" leaves it on the caster's own.
 fn target_menu(
     ui: &mut egui::Ui,
     g: &Game,
     label: &str,
-    make: impl Fn(Option<Who>) -> Command,
+    make: impl Fn(Option<(u8, u8)>) -> Command,
     click: &mut Option<Command>,
 ) {
     let me = Who::Player { player: g.current() };
@@ -1086,8 +1099,11 @@ fn target_menu(
         };
         for (i, p) in g.players().iter().enumerate() {
             let who = Who::Player { player: i };
+            let Location::Room { x, y, .. } = p.at else {
+                continue;
+            };
             if who != me && p.alive && p.at.room() == Some((region, room)) && ui.button(&p.name).clicked() {
-                *click = Some(make(Some(who)));
+                *click = Some(make(Some((x, y))));
                 ui.close();
             }
         }
@@ -1095,7 +1111,7 @@ fn target_menu(
             if let Some(c) = g.creature(region, slot).filter(|c| c.room == room) {
                 let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
                 if ui.button(name).clicked() {
-                    *click = Some(make(Some(Who::Creature { region, slot })));
+                    *click = Some(make(Some((c.x, c.y))));
                     ui.close();
                 }
             }
@@ -1188,10 +1204,30 @@ fn inventory_panel(
                 Some(ThingKind::MagicSpell { power, .. }) => {
                     let chance = acs_engine::magic::cast_chance(p.power, *power);
                     ui.label(RichText::new(format!("cost {power}, {chance}%")).weak());
-                    target_menu(ui, g, "Cast", |target| Command::Cast { thing: t, target }, click);
+                    target_menu(
+                        ui,
+                        g,
+                        "Cast",
+                        |at| Command::Cast {
+                            thing: t,
+                            at,
+                            target: None,
+                        },
+                        click,
+                    );
                 }
                 Some(ThingKind::MagicItem { on_use: true, .. }) => {
-                    target_menu(ui, g, "Use", |target| Command::Use { thing: t, target }, click);
+                    target_menu(
+                        ui,
+                        g,
+                        "Use",
+                        |at| Command::Use {
+                            thing: t,
+                            at,
+                            target: None,
+                        },
+                        click,
+                    );
                 }
                 _ => {}
             }
@@ -1579,5 +1615,31 @@ mod tests {
         let (_, text) = w.save_file(&a);
         assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
+    }
+
+    #[test]
+    fn casts_parse_a_target_or_a_square() {
+        let cast = |at, target| Command::Cast {
+            thing: 33,
+            at,
+            target,
+        };
+        assert_eq!(
+            parse_commands("cast:33,cast:33:c2,cast:33:4:5").unwrap(),
+            [
+                cast(None, None),
+                cast(None, Some(Who::Creature { region: 0, slot: 1 })),
+                cast(Some((4, 5)), None),
+            ]
+        );
+        assert_eq!(
+            parse_commands("use:40:2:3").unwrap(),
+            [Command::Use {
+                thing: 40,
+                at: Some((2, 3)),
+                target: None
+            }]
+        );
+        assert!(parse_commands("cast:33:4").is_err());
     }
 }

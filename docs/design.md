@@ -105,7 +105,7 @@ Carried weights add up, and negative weights (a magic bag, a horse) raise effect
 
 - Spell success depends on the caster's Power against the spell's cost (0-127). No formula is given.
 - Trait spells change a trait by 1 and a skill by 5. Power and Life Force spells change by -63 to +63. Every Power change is effectively temporary.
-- Summons arrive the next turn and don't work on the world map. Banished creatures take their possessions with them.
+- Summons don't work on the world map. (The manual says they arrive the next turn; on the C64 the creature appears at once, on the square the caster chose: `docs/rules/magic.md` 3.2, captured November 2026.) Banished creatures take their possessions with them.
 - Play Music offers 30 choices: 1-12 are sound effects, 13-30 are themes, and 14-17 loop until other music plays.
 - Short messages run to 3 lines and appear before their spell takes effect. Long messages run to 8 lines of 32 characters.
 - On a stacked square the top thing runs first. Activate All triggers only the spells in that stack.

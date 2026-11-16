@@ -38,6 +38,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from combatcheck import SAMPLE, T_START, Out, Sim, arrow_class, banked_times, blade, draw_times, fighter  # noqa: E402
 from creaturecheck import Draws  # noqa: E402
+import combatcheck  # noqa: E402
 
 TARGETS = {
     # name, square, Life Force, Power, class byte (None for a player)
@@ -179,8 +180,11 @@ def main():
     ap.add_argument("--speed", type=int, default=6, help="T's Speed")
     ap.add_argument("--moves", type=int, default=None, help="T's moves at the push, when $719A is not watched")
     ap.add_argument("--skip", default="E1A3", help="a byte that never changes, to drop banked reads")
+    ap.add_argument("--share", default="life", choices=["life", "con"],
+                    help="the share from the Life Force as it stands, or capped at the Constitution")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
+    combatcheck.SHARE = a.share
     right = wrong = 0
     totals = {}
     for text in open(a.runs, encoding="utf-8"):

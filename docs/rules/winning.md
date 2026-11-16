@@ -29,7 +29,17 @@ adventures.
 4. **No win check is described.** The manual names no score, no win screen
    and no rule that ends the game when the goal is found. The success stack
    is made of ordinary things, and the congratulations is an ordinary long
-   message. [manual: absent]
+   message. [manual: absent] On the C64 a success stack of ours (a
+   treasure on top, then an Activate All space, a theme, a long message
+   and a fanfare) played so: the player took the treasure, stepped onto
+   the space, the long message filled the screen, and after the button
+   play went on, the player walking about for rounds afterwards; no win
+   screen and no end. [capture: rr36 `win-4`, `win-5`, capture.md 10.40
+   item 7; ours, no research pass, 2026-11-16] An oddity of that run:
+   taking the treasure moved its room entry away as any take does, but no
+   possession bit was seen set in the player's record; it is not
+   explained, and nothing else seen depended on it. A goal the program
+   itself generated was not tried.
 5. **No stored goal has been found.** The decoder reads no goal field, and
    nothing in the known layout holds one (format notes). [data] Whether the
    goal setting is saved with the adventure, in one of the header bytes not
@@ -53,7 +63,9 @@ adventures.
 1. **Engine:** Classic adventures have no win state. A goal or success stack
    plays out as ordinary things; the engine emits the usual events (pick-up,
    spell, music, message) and play goes on. A player can keep walking around
-   after the congratulations, as far as the rules here know. [unknown]
+   after the congratulations, as on the C64 for a stack built by hand
+   (1.4). [capture: rr36, capture.md 10.40 item 7] Whether a generated
+   goal behaves the same is [unknown]; the engine treats it the same.
 2. The front end may treat a long message as the ending only when the
    adventure says so (section 4). It doesn't guess from the message text.
 3. Saving, retiring and resuming work as before ([magic](magic.md) 7.4,
@@ -84,5 +96,8 @@ when it is implemented.
 ## Captures needed
 
 1. Whether picking up the generated goal, or running the success stack, ends
-   the game, shows a win screen or changes anything saved.
+   the game, shows a win screen or changes anything saved: for a stack of
+   ours, captured (1.4: the message, then play goes on; capture.md 10.40).
+   Still open: a goal ACS generated, what a save holds afterwards, and the
+   possession bit not seen set at the take.
 2. Where the "Let ACS Write" goal setting is stored, if anywhere.
