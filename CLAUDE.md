@@ -63,6 +63,7 @@ scripts/web.sh serve                                    # trunk dev server, :808
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
+cargo run -p acs-cli -- build SRC_DIR -o OUT.advx          # an adventure source folder to a bundle (content.md 3)
 cargo run -p acs-cli -- bundle MODEL.json -o OUT.advx [--art ATLAS.png --tile 64]   # Extended bundle from model JSON (content.md 2)
 cargo run -p acs-cli --release -- play FILE --script S.txt --seed N [--players 2] --save s.json [--trace t.jsonl]   # scripted playthrough (docs/play.md)
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
@@ -117,6 +118,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `crates/acs-bundle`: Extended bundles (`.advx`, content.md 2): read,
   check and write; Rust 1.88 for the zip library, so it stays out of
   acs-core. The engine sees only the `Adventure` in a bundle.
+- `crates/acs-build`: `acs build`, a source folder of TOML to a bundle
+  (content.md 3): keys to numbers, every reference and limit checked;
+  `acs_core::encode` writes things' property bytes.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives
   VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary

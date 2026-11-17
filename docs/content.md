@@ -104,14 +104,309 @@ sources (3), and `.zip`-type files stay out of it (design.md,
 
 ## 3. Writing adventures
 
-To be specified before its code. Until the editor (after 1.0), an
-adventure is a folder of text the CLI builds into a bundle
-(`acs build DIR -o OUT.advx`): things, creatures, regions and rooms by
-name rather than number, room maps drawn as text grids with a legend,
-messages in their own file, and the art as the kit's packed atlas plus a
-picture list. The build checks every reference and limit and reports
-them with the file and line. The folder is what's committed (art as the
-kit's PNGs, under CC BY-SA 4.0).
+Until the editor (after 1.0), an adventure is a folder of TOML that
+`acs build DIR -o OUT.advx` turns into a bundle. Everything is named by a
+**key** (lowercase letters, digits and `_`), never by number: the build
+gives out the numbers, keeping the conventions the engine and the rules
+assume (below), and checks every reference, range and limit. A problem
+is reported with its file and what it is in; the build writes nothing
+if there is any. The folder is what's committed (art as PNG, under
+CC BY-SA 4.0); the bundle is build output. Code: `crates/acs-build`.
+
+### 3.1 Files
+
+| File | Holds |
+| --- | --- |
+| `adventure.toml` | The adventure: name, byline, licence, credits, intro, theme, palette, creature classes, limits, and the built-in things' looks |
+| `pictures.toml` | The art atlas and the picture list |
+| `things.toml` | The master thing list |
+| `creatures.toml` | The master creature list |
+| `messages.toml` | Long and short messages |
+| `world.toml` | Terrain, the map, its doors and its encounters |
+| `regions/*.toml` | One region each, in file-name order (`01-port.toml`, ...) |
+
+A key is unique within its kind (two things can't share one; a thing
+and a creature can). Rooms are named `region.room`. Unknown fields are
+errors, so a misspelt field is caught.
+
+### 3.2 `adventure.toml`
+
+```toml
+name = "THE KING'S PARDON"        # the model's name, shown in play
+byline = "ACSVM contributors"
+license = "CC BY-SA 4.0"
+credits = ["Pirate kit art: ..."]
+intro = """..."""                 # the intro text
+theme = "fantasy"                 # fantasy | spy_mystery | sci_fi: the endless music
+palette = ["black", "brown", "light cyan", "white"]   # PC colour names, Classic pixels only
+classes = ["PIRATE", "NAVY", "ISLANDER"]              # creature classes, in order
+
+[limits]                          # caps above Classic's; the rest stay Classic's
+pictures = 160
+
+[gold]                            # thing 81
+name = "GOLD"
+picture = "gold_pile"
+weight = 1
+
+[area_door]                       # thing 82, the encounter areas' exit door
+name = "EXIT"
+picture = "cave_passage"
+
+[floor]                           # thing 127, and the wall rooms default to
+picture = "sand_floor"            # default: the blank picture
+wall = "plank_wall"
+```
+
+The model's `limits` are `Limits::CLASSIC` with `[limits]` laid over it
+(field names as in `Limits`), each value within `Limits::EXTENDED`; its
+profile is Extended and its platform PC. [choice: Classic sizes unless
+an adventure asks, so our adventures play inside the sizes the golden
+tests cover.]
+
+### 3.3 Pictures
+
+```toml
+atlas = "art/kit.png"   # RGBA, square tiles left to right, then down
+tile = 64
+
+[pictures]              # in order; the value is the atlas place
+sand_floor = 0
+plank_wall = 1
+cutlass = 14
+```
+
+Picture 0 is the build's own blank picture (no key; floors and slots
+with nothing to show); the list follows from 1, in file order. Each
+listed picture gets its atlas tile as Native HD art and **Classic
+pixels** made from it: the tile is box-averaged to 16 x 16 (transparent
+pixels count as colour 0, the background), and each pixel takes the
+nearest palette colour (squared RGB distance, the lower index on a
+tie). [choice]
+
+### 3.4 Things
+
+```toml
+[[thing]]
+key = "cutlass"
+name = "CUTLASS"
+type = "melee_weapon"
+picture = "cutlass"
+weight = 4
+value = 30
+power = 6
+break = 2               # break chance, percent, 0..15
+attack = 10             # attack adjustment, a multiple of 5
+anyone = true           # usable by anyone
+magic = false
+once = false            # disappears after use
+may_add = 0             # how many ACS may add (15 = many)
+```
+
+`type` is one of `treasure`, `magic_item`, `missile_weapon`,
+`melee_weapon`, `armor`, `magic_spell`, `portal`, `space`,
+`custom_space`, `obstacle`, `custom_obstacle` and `store` (room floors
+are the built-in floor and border only). Each takes the model's fields
+for its kind (`ThingKind`), by these names; a field its kind doesn't
+take is an error:
+
+| Field | Kinds | Values |
+| --- | --- | --- |
+| `picture` | all but magic spells | a picture key |
+| `weight`, `value` | carriable | weight -255..255, or a multiple of 20 to ±5,100; value 0..255 or a multiple of 20 to 5,100 |
+| `once` | carriable, space, custom space, obstacle, custom obstacle | disappears after use (when dropped, for a treasure); for the last four, once set off (movement 5.9) |
+| `power`, `range`, `break`, `attack`, `anyone`, `magic` | weapons, armor | power 0..31 (missile 0..15); range 2..9, missile only; attack -35..+40 (armor -65..+10), a multiple of 5 |
+| `power` | magic spell | 0..127 |
+| `spell` | magic item, magic spell, obstacle, custom obstacle, custom space | a spell (3.5) |
+| `on_use`, `on_drop`, `on_pickup` | magic item | when it runs |
+| `two_way`, `access` | portal | `access`: `"anyone"`, `{ owners_of = KEY }`, `{ non_owners_of = KEY }` or `{ spell = SPELL }` |
+| `access` | space | as for a portal |
+| `destroy_needed` | portal, custom space | |
+| `trigger`, `choice` | custom space | `dropped_here`, `moved_onto`, `owners_of`, `non_owners_of`; `thing` or `spell_parameter` |
+| `bump` | obstacle, custom obstacle | the bump runs the spell (5.5) |
+| `placed_parameter` | custom obstacle | the placement's parameter replaces the spell's (5.8) |
+| `blocked`, `spell_message` | as the kind has the model's two message slots | a short message key, or `{ key = K, shown = false }` to keep it but not show it |
+
+**Numbers** follow the original's lists: carriable things (treasure to
+magic spell) take 1..80 in file order, and only 1..32 can be owned up
+to three at a time (inventory 1), so list stackable things first; 81 is
+gold, 82 the area door (an open two-way portal), the fixtures (portal to
+store) 83..126 in file order, 127 the floor and 128 the room border
+(both room floors, with the `[floor]` pictures); fixtures past 44 go on
+from 129 if `limits.things` allows. Unused numbers are empty slots.
+
+The four property bytes (`Thing::raw`) are written from the fields as
+the decoder reads them (`acs_core::encode::thing_props`), so what the
+engine reads from them (movement 5.5, 5.8, 5.9) matches the fields. A
+picture number past 63 keeps only its low six bits there; the model's
+field is the number. A weapon's or magic item's byte 3 (its index in a
+table the model doesn't keep) is its order among such things. [choice]
+
+### 3.5 Spells
+
+A spell is a table, `{ action = NAME, ... }`, with the parameter named
+for what it means (magic 3):
+
+| `action` | Parameter |
+| --- | --- |
+| `nothing`, `activate_all` | none |
+| `kill_all_but_owner_of`, `give`, `rid_room_of`, `add_to_room` | `thing = KEY` |
+| `summon_or_banish` | `creature = KEY`, or none to banish all |
+| `increase_magic_defense`, `decrease_magic_defense` | `level =` `none`, `non_magic_half`, `only_magic` or `magic_half` |
+| `increase_stat`, `decrease_stat` | `stat =` `constitution`, `strength`, `dexterity`, `speed`, `wisdom`, `dodge`, `parry`, `armor`, `melee` or `missile` |
+| `change_power`, `change_life_force` | `by = -63..63`, `temporary = true` or `false` (default) |
+| `long_message` | `message = KEY` |
+| `play_music` | `music = 1..30` |
+
+`give` must name its thing (parameter 0 gives thing 80, magic 3.9:
+name thing 80 instead).
+
+### 3.6 Creatures
+
+```toml
+[[creature]]
+key = "harrow"
+name = "MEG HARROW"
+class = "PIRATE"
+picture = "meg_harrow"
+constitution = 30      # 0..63
+strength = 14          # 0..31
+dexterity = 15         # 0..31
+speed = 8              # 0..15
+wisdom = 12            # 0..31
+size = 10              # 0..31
+power = 12             # 0..127; default: wisdom
+life_force = 30        # 0..63; default: constitution
+dodge = 20             # skills 0..127: dodge, parry, armor_skill, melee, missile
+alignment = "enemy"    # thief | neutral (default) | enemy | friend
+aggressive = true
+brave = true
+magic_defense = "none" # as a spell's level
+mimic = false
+wealth = 200           # 0..3,100
+weapon = "cutlass"     # readied; it must also be carried
+armor = "buff_coat"
+carries = [{ thing = "cutlass" }, { thing = "pistol_ball", count = 3 }]
+```
+
+Fields left out are 0 (or as stated). Masters are numbered from 1 in
+file order. A carried thing must be carriable; `count` is 1 to 3 for
+things 1..32, 1 above (default 1).
+
+### 3.7 Messages
+
+```toml
+[long]
+welcome = """THE GOVERNOR'S LETTER..."""
+
+[short]
+locked = "THE GATE IS BARRED."
+```
+
+Long and short messages are numbered from 1 in file order. Text is
+UTF-8 up to 4,000 characters (design.md, "Limits"); the client wraps it.
+
+### 3.8 The world
+
+```toml
+name = "THE SPANISH MAIN"
+wraps = false
+start = [4, 6]
+map = """
+~~~~~~
+~..P.~
+~~~~~~
+"""
+
+[legend]
+"~" = "deep_sea"
+"." = "beach"
+"P" = "port"
+
+[[terrain]]
+key = "deep_sea"
+name = "DEEP SEA"
+picture = "deep_sea"
+pass = "impassable"    # impassable | open | { owners_of = KEY } | { spell = KEY }
+
+[[terrain]]
+key = "port"
+name = "PORT"
+picture = "port_town"
+pass = "open"
+door = true            # a door terrain (movement 4.4)
+
+[[door]]
+at = [3, 1]
+to = "port.dock"       # a room, or "map"
+square = [1, 2]        # the arrival square, in that room or on the map
+
+[[encounter]]
+creature = "reef_shark"
+terrain = "deep_sea"
+chance = 5             # percent per move, 0..60
+```
+
+The map's rows must all be one length; its size is the world's. Door
+terrains take numbers 12..15 (at most four), the others 0..11 and then
+16 on (movement 4.4 makes 12..15 the doors). Every cell of door terrain
+needs a `[[door]]`, and a door must stand on door terrain. Doors are
+numbered in file order. `{ spell = KEY }` names a thing whose spell
+runs. The four encounter areas keep the model's stock lists and door
+table.
+
+### 3.9 Regions
+
+```toml
+key = "port"
+name = "PORT ROYAL"
+store = [{ thing = "cutlass", count = 2 }]
+random = ["deckhand", "gull"]     # its random creatures, in order
+
+[[room]]
+key = "tavern"
+name = "TAVERN"
+at = [0, 0]                        # its corner on the region grid
+wall = "plank_wall"                # default: [floor] wall
+random = { creature = "deckhand", chance = 20 }   # one of the region's; chance 0..75
+map = """
+#####
+#.t.D
+#.H.#
+#####
+"""
+
+[room.legend]
+"#" = "wall"
+"." = "floor"
+"t" = "tavern_table"
+"H" = { creature = "harrow" }
+"D" = { thing = "wooden_door", to = "port.street" }
+```
+
+The map draws the room with its walls; its size is the room's (3..16
+a side in Classic). A legend value is `"wall"`, `"floor"`, a thing key,
+a table, or a list of thing keys and tables (top first) stacked on one
+square. A table is one of:
+
+- `{ thing = KEY, ... }` with what its kind needs: a portal's `to` (a
+  room, `region.room`, or `"map"`) and `square` (the arrival square; for
+  a room it may be left out when the two rooms share the wall the door
+  is in, and then it is the square one step through that wall on the
+  region grid); a custom space's or custom obstacle's `parameter`
+  (`thing = KEY` for a custom space whose choice is `thing`, else a
+  number 0..255).
+- `{ gold = N }`, a gold pile of N (1..25,000).
+- `{ creature = KEY }`, a resident with the master's record, standing on
+  that square; `things = [...]` lists what lies under it.
+
+Only portals, obstacles and custom obstacles may replace a wall square
+(movement 5.2), and a resident must stand inside. Rooms are numbered
+from 0 in file order. Portals' door table entries are numbered from 1
+(the C64 editor's way), written where they fit the 2-byte format, and
+each portal item carries its destination, which is what the engine
+reads. Residents take slots from 0 in room order, then row by row; the
+rest of `limits.residents_per_region` are free slots for arrivals.
 
 ## 4. Starter kits
 
@@ -151,7 +446,12 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    for a bundle with art (`--render native`). `acs bundle MODEL.json -o
    OUT.advx [--art ATLAS.png --tile N]` wraps an Extended model, place N
    of the atlas holding picture N: a stopgap until `acs build`.
-2. The source format and `acs build` (3).
+2. The source format and `acs build` (3). Done November 2026:
+   `crates/acs-build` (`tests/build.rs` builds a two-room adventure
+   written in the test, loads its bundle and walks it in the engine),
+   `acs build DIR -o OUT.advx`, and `acs_core::encode` for the property
+   bytes, checked against every corpus thing (the corpus test
+   `thing_props_encode_back`).
 3. The pirate kit as data (4), and a test adventure built from it.
 4. The tutorial (6), with its replay test.
 5. The 30 cues (5).

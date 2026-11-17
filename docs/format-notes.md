@@ -321,6 +321,14 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   for custom obstacles types neither bit 6 nor bit 7; those, and bit 4
   of spaces, custom spaces and obstacles, are read from `raw`. Bit 4 on
   a portal is not known to mean anything.
+- **What the decoder leaves out of a thing's property bytes** (the corpus
+  test `thing_props_encode_back`, November 2026: 1,824 corpus things
+  encode back byte for byte from their kind and the flags above). The
+  rest differ only in bytes no kind reads: `0F` fillers in room floors'
+  and stores' bytes 2-3 and in empty slots, leftovers in the access bytes
+  of portals and spaces whose rule doesn't use them, bit 4 of two
+  portals, and **bit 7 of byte 2 on seven spaces**, meaning unknown (a
+  custom space's "destroy needed thing" bit sits there).
 - **Change Power / Change Life Force parameter: bits 0-5 the amount, bit 7
   negative, bit 6 temporary**, as the draft says. Confirmed on the C64
   (docs/capture.md section 7, experiment `drift`): Life Force +10 with bit

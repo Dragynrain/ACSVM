@@ -14,6 +14,7 @@
 pub mod bits;
 pub mod decode;
 pub mod disk;
+pub mod encode;
 pub mod error;
 pub mod graphics;
 pub mod layout;

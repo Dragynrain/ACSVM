@@ -229,3 +229,74 @@ fn pc_corpus_decodes_cleanly() {
     }
     eprintln!("{} PC adventures decoded", files.len());
 }
+
+/// docs/content.md 3.4: every corpus thing's property bytes come back from
+/// its kind and the flags the engine reads, apart from bits the decoder
+/// doesn't keep (counted and printed, so a new one shows).
+#[test]
+fn thing_props_encode_back() {
+    use acs_core::encode::{thing_props, PropFlags};
+    let mut files = adventures("c64").unwrap_or_default();
+    files.extend(adventures("pc").unwrap_or_default());
+    if files.is_empty() {
+        eprintln!("skipped: ACSVM_CORPUS not set");
+        return;
+    }
+    let (mut same, mut differ) = (0, std::collections::BTreeMap::<String, usize>::new());
+    for path in &files {
+        let file = path.file_name().unwrap().to_string_lossy();
+        let d = decode(&Image::open(path, None).unwrap()).unwrap();
+        for t in &d.adventure.things {
+            let Ok(raw) = thing_props(&t.kind, PropFlags::from_raw(&t.raw)) else {
+                *differ
+                    .entry(format!("{} unencodable", t.kind.type_name()))
+                    .or_default() += 1;
+                continue;
+            };
+            if raw == t.raw {
+                same += 1;
+                continue;
+            }
+            for (i, (a, b)) in raw.iter().zip(&t.raw).enumerate() {
+                let x = a ^ b;
+                if x != 0 {
+                    *differ
+                        .entry(format!("{} byte {i} bits {x:02X}", t.kind.type_name()))
+                        .or_default() += 1;
+                }
+            }
+            if differ.len() < 40 {
+                eprintln!(
+                    "{file}: thing {} {:?}: {:02X?} vs {:02X?}",
+                    t.number, t.name, raw, t.raw
+                );
+            }
+        }
+    }
+    eprintln!("{same} things encode back; differences: {differ:#?}");
+    // Bytes the decoder doesn't keep: fillers in floors, stores and empty
+    // slots, leftovers in an open portal's or space's access bytes, bit 4
+    // of a portal (ignored, movement 5.9) and bit 7 of a space's byte 2
+    // (format-notes, Things). None is a bit the engine reads.
+    let allowed = |k: &str| {
+        let unused_bytes = [
+            "room floor byte 2",
+            "room floor byte 3",
+            "store byte 2",
+            "store byte 3",
+        ];
+        k.starts_with("undefined byte")
+            || unused_bytes.iter().any(|u| k.starts_with(u))
+            || k.starts_with("portal byte 2")
+            || k.starts_with("portal byte 3")
+            || k == "portal byte 0 bits 10"
+            || k.starts_with("space byte 2")
+            || k.starts_with("space byte 3")
+    };
+    let other: Vec<_> = differ.keys().filter(|k| !allowed(k)).collect();
+    assert!(
+        other.is_empty(),
+        "property bits that don't encode back: {other:?}"
+    );
+    assert!(same > 1500, "only {same} things encode back");
+}

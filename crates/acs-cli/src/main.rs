@@ -80,6 +80,14 @@ enum Command {
         #[arg(long, default_value_t = 64)]
         tile: u32,
     },
+    /// Build an adventure's source folder into a bundle (docs/content.md 3).
+    Build {
+        /// The source folder (adventure.toml, things.toml, ...).
+        dir: PathBuf,
+        /// The bundle to write.
+        #[arg(short, long)]
+        output: PathBuf,
+    },
     /// Play an adventure with a scripted walkthrough (docs/play.md).
     Play {
         /// Adventure file, as for dump.
@@ -213,6 +221,34 @@ fn run(cli: Cli) -> AnyResult<ExitCode> {
             acs_bundle::read(&bytes)?;
             std::fs::write(&output, bytes)?;
             eprintln!("wrote {}", output.display());
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Build { dir, output } => {
+            let folder = acs_build::Folder::read(&dir)?;
+            let bundle = match acs_build::build(&folder) {
+                Ok(b) => b,
+                Err(problems) => {
+                    for p in &problems {
+                        eprintln!("{p}");
+                    }
+                    return Err(format!("{} problems; nothing written", problems.len()).into());
+                }
+            };
+            let bytes = acs_bundle::write(&bundle)?;
+            acs_bundle::read(&bytes)?;
+            std::fs::write(&output, bytes)?;
+            let a = &bundle.adventure;
+            eprintln!(
+                "wrote {}: {} regions, {} things, {} creatures, {} pictures",
+                output.display(),
+                a.regions.len(),
+                a.things
+                    .iter()
+                    .filter(|t| !matches!(t.kind, ThingKind::Undefined))
+                    .count(),
+                a.creatures.len(),
+                a.pictures.len()
+            );
             Ok(ExitCode::SUCCESS)
         }
         Command::Play {
