@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#![cfg_attr(
+    all(feature = "windows-gui", target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 //! The adventure viewer: browse an adventure you own, natively or in a
 //! browser. The file is read locally and never sent anywhere.

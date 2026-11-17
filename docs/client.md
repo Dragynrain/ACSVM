@@ -239,9 +239,30 @@ build has no screen reader support yet.
 
 ## 8. Builds
 
-The web build stays on Pages (`scripts/web.sh build`). Desktop builds for
-Windows, macOS and Linux come from CI as release artifacts. None bundle
-an adventure: files are opened or dropped on the window.
+The web build stays on Pages (`scripts/web.sh build`). Desktop builds come
+from the **Release** workflow (`.github/workflows/release.yml`): pushing a
+`v*` tag builds all three and opens a *draft* GitHub release with them,
+for the maintainer to read over and publish; running the workflow by hand
+builds them as workflow artifacts only.
+
+| Platform | Runner | Build | Package |
+| --- | --- | --- | --- |
+| Windows | `windows-latest` | `x86_64-pc-windows-msvc`, with the `windows-gui` feature: no console window | `acs-viewer-VERSION-windows-x64.zip` |
+| macOS | `macos-14` | `aarch64-apple-darwin` and `x86_64-apple-darwin`, joined with `lipo` | `acs-viewer-VERSION-macos-universal.zip`, holding `acs-viewer.app` |
+| Linux | `ubuntu-22.04` (an older glibc, so it runs on more systems) | `x86_64-unknown-linux-gnu` | `acs-viewer-VERSION-linux-x64.tar.gz` |
+
+- They build with the `dist` profile: the release profile plus full LTO,
+  one codegen unit and stripped symbols. A local `cargo build --release` stays as it is,
+  console and all, for the screenshot and test tools.
+- `scripts/package.py` makes each package: the program, `LICENSE`,
+  `LICENSES/`, and a `README.txt` naming the project (from the
+  workspace's description), how to start it, that no adventure comes
+  with it, and the platform's notes: macOS builds are unsigned (open the
+  app with right-click, Open, the first time); Linux needs X11 or
+  Wayland, OpenGL and ALSA.
+- None bundle an adventure or any EA material; files are opened or
+  dropped on the window. The forbidden-file check runs on the tree the
+  release is built from.
 
 ## 9. Order of work
 
@@ -273,7 +294,8 @@ an adventure: files are opened or dropped on the window.
 7. Accessibility options (7). Done November 2026 (`access.rs`,
    `live.rs`). Known: at large text sizes a bar's caption (Life Force,
    Power) can run past a narrow info column, since captions don't wrap.
-8. Desktop builds (8).
+8. Desktop builds (8). The workflow and packaging are in place
+   (November 2026); the first tagged run is the maintainer's.
 
 ## 10. Gate
 

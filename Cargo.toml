@@ -26,3 +26,11 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+
+# Desktop release packages (docs/client.md 8): the release profile with
+# full LTO, one codegen unit and no symbols. `cargo build --release` is left as it is.
+[profile.dist]
+inherits = "release"
+lto = true
+codegen-units = 1
+strip = true

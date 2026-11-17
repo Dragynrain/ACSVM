@@ -1,0 +1,103 @@
+# Desktop builds of the viewer (docs/client.md 8). A pushed v* tag builds
+# Windows, macOS and Linux packages and opens a draft release with them for
+# the maintainer to publish; running the workflow by hand only builds them
+# as artifacts.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  forbidden-files:
+    name: Forbidden-file check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-forbidden-files.sh --all
+
+  build:
+    name: build (${{ matrix.platform }})
+    needs: forbidden-files
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+            targets: x86_64-pc-windows-msvc
+          - platform: macos
+            os: macos-14
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: linux
+            # An older glibc, so the binary runs on more systems.
+            os: ubuntu-22.04
+            targets: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+      # eframe's native (winit/glow) backend and cpal link these on Linux.
+      - run: sudo apt-get update && sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libgl1-mesa-dev libasound2-dev
+        if: runner.os == 'Linux'
+      - name: Version
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then v="${GITHUB_REF_NAME#v}"; else v="$(git rev-parse --short HEAD)"; fi
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - name: Build (Windows)
+        if: matrix.platform == 'windows'
+        run: cargo build -p acs-viewer --profile dist --target x86_64-pc-windows-msvc --features windows-gui
+      - name: Build (Linux)
+        if: matrix.platform == 'linux'
+        run: cargo build -p acs-viewer --profile dist --target x86_64-unknown-linux-gnu
+      - name: Build (macOS, both architectures, joined)
+        if: matrix.platform == 'macos'
+        run: |
+          cargo build -p acs-viewer --profile dist --target aarch64-apple-darwin
+          cargo build -p acs-viewer --profile dist --target x86_64-apple-darwin
+          mkdir -p target/universal
+          lipo -create -output target/universal/acs-viewer \
+            target/aarch64-apple-darwin/dist/acs-viewer \
+            target/x86_64-apple-darwin/dist/acs-viewer
+      - name: Package
+        shell: bash
+        run: |
+          case "${{ matrix.platform }}" in
+            windows) bin=target/x86_64-pc-windows-msvc/dist/acs-viewer.exe ;;
+            macos)   bin=target/universal/acs-viewer ;;
+            linux)   bin=target/x86_64-unknown-linux-gnu/dist/acs-viewer ;;
+          esac
+          python3 scripts/package.py "$bin" dist --platform ${{ matrix.platform }} --version "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: dist
+          merge-multiple: true
+      - name: Draft a release with the packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" --draft --title "$GITHUB_REF_NAME" \
+            --notes "Desktop builds of the viewer. No adventure comes with them: open one you own. See README.txt in each package."

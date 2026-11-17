@@ -46,6 +46,11 @@ cargo build --release
 The binaries are `target/release/acs` (inspector) and
 `target/release/acs-viewer` (viewer).
 
+Packaged desktop builds of the viewer for Windows, macOS and Linux come
+from the Release workflow (`.github/workflows/release.yml`) when a `v*`
+tag is pushed; `scripts/package.py` makes them
+([docs/client.md](docs/client.md) 8).
+
 ## Using the viewer
 
 ```bash

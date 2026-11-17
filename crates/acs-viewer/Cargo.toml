@@ -8,6 +8,11 @@ license.workspace = true
 description.workspace = true
 publish.workspace = true
 
+[features]
+# Packaged Windows builds: no console window (docs/client.md 8). Local
+# builds keep the console for --screenshot and --help output.
+windows-gui = []
+
 [[bin]]
 name = "acs-viewer"
 path = "src/main.rs"
