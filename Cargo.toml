@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/acs-core", "crates/acs-engine", "crates/acs-cli", "crates/acs-viewer", "crates/acs-capture"]
+members = ["crates/acs-core", "crates/acs-engine", "crates/acs-bundle", "crates/acs-cli", "crates/acs-viewer", "crates/acs-capture"]
 
 # The project's working name lives here (description) and in README.md only.
 # Code reads it through CARGO_PKG_DESCRIPTION, so a rename touches these two places.
@@ -15,6 +15,7 @@ publish = false
 [workspace.dependencies]
 acs-core = { path = "crates/acs-core" }
 acs-engine = { path = "crates/acs-engine" }
+acs-bundle = { path = "crates/acs-bundle" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

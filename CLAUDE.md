@@ -9,8 +9,8 @@ capture, hot-seat) are done: the Phase 4 gate is two players finishing
 corpus test `two_players_finish_rivers_of_light`), November 2026. Phase 5
 (modern client and audio) is done too: its gate (no layout breaks at the
 checked sizes, HD packs with a coverage report) was met November 2026;
-the client's spec is `docs/client.md`. Next is Phase 6 (original content
-and 1.0). Rules [unknown]s left in `docs/rules/`
+the client's spec is `docs/client.md`. Phase 6 (original content and 1.0)
+is under way; its plan and the bundle spec are `docs/content.md`. Rules [unknown]s left in `docs/rules/`
 each carry the engine's choice; capture them as they matter.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
@@ -56,7 +56,7 @@ ACSVM_PLAYTHROUGH='D:\projects\ACSVM-research\playthrough\runs\final.save.json' 
 cargo test -p acs-engine --test golden                  # golden tests: the engine vs capture.md's counts; ACSVM_BLESS=1 rewrites traces/
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
-cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
+cargo build -p acs-core -p acs-engine -p acs-bundle --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
 cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed|hd] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot out.png]   # docs/client.md 2
 scripts/web.sh serve                                    # trunk dev server, :8080
@@ -113,6 +113,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   `save.rs` save files, a replay of the command log
   (`docs/saves.md`); `describe` turns
   events into log lines. Live creatures are the region's 16 resident slots, edited in place. Tests reuse acs-core's fixture builder via `#[path]`.
+- `crates/acs-bundle`: Extended bundles (`.advx`, content.md 2): read,
+  check and write; Rust 1.88 for the zip library, so it stays out of
+  acs-core. The engine sees only the `Adventure` in a bundle.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives
   VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary

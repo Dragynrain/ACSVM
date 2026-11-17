@@ -555,6 +555,8 @@ Starting combat before the harness would mean writing formulas twice, once as a 
 
 **Phase 5 gate met (November 2026).** Every view lays out at the checked laptop, 4K and tablet sizes, with the touch pad, an HD pack and large text; HD packs load with a coverage report, checked on a test adventure of our own. The client's spec, the order of work and what the sweeps found are in [client.md](client.md).
 
+**Phase 6 begun (November 2026).** Its plan, the order of work and the spec of the Extended bundle (`.advx`, which settles the open question under "Engine work") and of the source format our adventures are written in are in [content.md](content.md).
+
 ## Risks and open questions
 
 | Risk | Effect | Mitigation |
