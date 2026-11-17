@@ -234,13 +234,36 @@ magenta background.
 | Abel's key | Magic and tools, new | Opens Cass's cabin; a ship's brass cabin key on a cord |
 | Vail, the *Sovereign* | Creatures, named, new | In the table above |
 
+**Added with the story's feature pass (17 November 2026).** The story now
+uses every Classic rule the sample should show, which adds five KP pictures
+and reuses kit ones for the rest:
+
+| Picture | Group | Why |
+| --- | --- | --- |
+| Hob's whistle | Magic and tools, new | Clears the drowned from a room; a small carved bone whistle on a frayed cord, yellowed, unlike any kit item |
+| Bottle of rum | Treasures, new | Paid to a tavern regular, who keeps it; a squat dark-green glass bottle with a cork, so it reads apart from the kit's rum flask (which heals) |
+| Kraken-ink pool | Floor spaces, new | Lowers magic defense in the Hollow; a black pool with a purple-black sheen and a few ink tendrils, flat on the floor like the kit's lava vent |
+| Meg's key | Magic and tools, recolour | Opens the parrot's cage; Abel's key recoloured to blackened iron (section 17) |
+| Guardroom key | Magic and tools, recolour | Opens the diver's cell in Pardon Cove; Abel's key recoloured to dull steel on a ring (section 17) |
+
+Reused, no new picture: Meg's parrot as a carried thing uses the kit's
+parrot; Kesi's freed diver the kit diver; the healing chant the second
+round's conch shell; the Constance's random creature the second round's
+moray eel; the sea encounters the house guard (revenue man, tithe
+collector), a crew captain (privateer), the navy marine (lieutenant), the
+smuggler and the drowned crew; Vail's strongbox the kit chest; the bar
+stool and the firing step the kit's boardwalk and flagstone spaces. The
+three keys must still read apart at a glance, which the recolours do.
+
 The three gate documents are now the letter of passage (the mansion; also
 what Fort Teal and Ama Reef turn away), the governor's seal (the vault) and
 the ledger (both endings), and with the pilot chart all four must read apart
 at a glance. The pardon receipt is in no gate: the clerk's message mentions
 one, so it can be the thing handed over with the reward purse, or be dropped.
-The KP count goes from 25 to 29 (134 to 138 in all), still under the
-declared 160.
+The KP count goes from 25 to 29 (134 to 138 in all), and the feature pass
+above takes it to 34 (143). With the four second-round kit pictures the
+adventure uses (conch shell, moray eel, both ships) it needs 147, still
+under the declared 160.
 
 **Re-brief round made (17 November 2026)**, research `kp2/` (`_scripts/kp2.ps1`,
 LoRA v5-s2200, three seeds each; edits with `qedit.ps1`, two seeds each).
