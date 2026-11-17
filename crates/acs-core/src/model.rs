@@ -218,7 +218,10 @@ pub enum ThingKind {
     },
     CustomObstacle {
         picture: PictureId,
-        /// The action; its parameter is chosen per placement (the room item parameter).
+        /// The action, its parameter the master's (fourth property byte).
+        /// `Thing::raw` decides the rest (rules/movement 5.5): a bump runs
+        /// the spell only with bit 6 of byte 1, and the room item's
+        /// parameter replaces this one only with bit 7 of byte 0.
         action: SpellAction,
     },
     Store {

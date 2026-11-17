@@ -2579,3 +2579,49 @@ fn the_goal_obstacle_costs_4_once_stood_on_and_strikers_never_bump() {
         assert!(ev.iter().any(|e| matches!(e, Event::Attacked { .. })), "{ev:?}");
     });
 }
+
+/// PILLAR as a custom obstacle: Life Force -5 in its master byte, the
+/// placement's parameter 0, property bytes `raw`.
+fn bump_idol(a: &mut Adventure, raw: [u8; 4]) {
+    use acs_core::model::{SpellAction, SpellActionKind, ThingKind};
+    let t = &mut a.things[PILLAR as usize - 1];
+    t.kind = ThingKind::CustomObstacle {
+        picture: 7,
+        action: SpellAction {
+            kind: SpellActionKind::ChangeLifeForce,
+            parameter: 0x85, // -5, permanent
+        },
+    };
+    t.raw = raw;
+}
+
+#[test]
+fn a_creatures_bump_of_a_custom_obstacle_follows_its_bits() {
+    // 5.1, movement 5.5, 5.9: the spell only with bit 6 of byte 1, the
+    // master's parameter without bit 7 of byte 0; with bit 4 it goes,
+    // the spell run or not.
+    both(|p| {
+        for (raw, hurt, goes) in [
+            ([0x0B, 0x40, 0, 0], true, false),
+            ([0x0B | 0x10, 0, 0, 0], false, true),
+            ([0x0B | 0x10, 0x40, 0, 0], true, true),
+        ] {
+            let mut a = adventure(p);
+            bump_idol(&mut a, raw);
+            item(&mut a, 0, 5, 3, PILLAR, 0);
+            seeker(&mut a, 5, 3, 2);
+            let (g, ev) = first_bump(&a);
+            assert_eq!(bumps(&ev), 1, "{raw:?}: {ev:?}");
+            let life = if hurt { 25 } else { 30 };
+            assert_eq!(g.creature(1, 1).expect("alive").life_force, life, "{raw:?}");
+            assert_eq!(
+                ev.iter()
+                    .any(|e| matches!(e, Event::ObstacleVanished { thing: PILLAR, .. })),
+                goes,
+                "{raw:?}"
+            );
+            let left = if goes { None } else { Some(PILLAR) };
+            assert_eq!(top(&g, 0, 5, 3), left, "{raw:?}");
+        }
+    });
+}

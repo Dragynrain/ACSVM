@@ -224,6 +224,11 @@ enum Cmd {
         /// keys (docs/capture.md 10.40).
         #[arg(long)]
         master: Vec<String>,
+        /// A long message of ours (repeatable): `N:TEXT`, message N
+        /// (1..), the text stored as is, 256 characters padded with
+        /// spaces (docs/capture.md 10.45).
+        #[arg(long)]
+        long_message: Vec<String>,
     },
     /// Run an experiment from a scenario snapshot (docs/capture.md 4).
     Run {
@@ -468,6 +473,7 @@ fn main() {
             may_add,
             put,
             master,
+            long_message,
         } => {
             let puts: Vec<scenario::Put> = put
                 .iter()
@@ -646,6 +652,9 @@ fn main() {
             }
             for m in &may_add {
                 scenario::may_add(&mut img, m).unwrap_or_else(|e| fail(&e));
+            }
+            for m in &long_message {
+                scenario::long_message(&mut img, m).unwrap_or_else(|e| fail(&e));
             }
             std::fs::write(&out, &img.data).unwrap_or_else(|e| fail(&e.to_string()));
             println!("wrote {} ({} bytes)", out.display(), img.data.len());

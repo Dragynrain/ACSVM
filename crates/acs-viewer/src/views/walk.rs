@@ -740,7 +740,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             Kind::Message => t.italics().color(Color32::from_rgb(255, 240, 200)),
                             Kind::Note => t,
                         };
-                        ui.label(t);
+                        if *kind == Kind::Message {
+                            // A long message keeps its stored lines (magic
+                            // 3.10): shown as they are, never rewrapped.
+                            ui.add(egui::Label::new(t.monospace()).extend());
+                        } else {
+                            ui.label(t);
+                        }
                     }
                 });
         });

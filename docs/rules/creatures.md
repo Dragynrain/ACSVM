@@ -780,8 +780,10 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
      closed, as any individual's square is to a creature that does not
      strike. Picking it is a bump: the creature stays put, the obstacle's
      bump spell, if it has one, goes off acting on the creature, as a
-     door's spell does ([magic](magic.md) 6.6), a disappearing obstacle
-     vanishes (movement 5.9), and the move is spent, the turn going on.
+     door's spell does ([magic](magic.md) 6.6; a custom obstacle's only
+     with its spell bit set, movement 5.5), an obstacle or custom
+     obstacle with the disappearing bit vanishes (movement 5.9), and the
+     move is spent, the turn going on.
      Whether cost 4 gives the original's rate (about 3.5% of such turns
      bumping) is for the golden test to check against rr40's count. (The
      custom obstacle and the move spent are the engine's choices, not

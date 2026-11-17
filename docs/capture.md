@@ -4249,3 +4249,107 @@ In this order (planned November 2026):
    No new addresses: the turn byte, the moves, the slots' bytes, `$B799`,
    `$F5B4` (record +21), the possession bytes and the room list are
    section 9's.
+45. **Things that vanish after use, needed things used up, a creature's
+   choice of spell, a long message's lines: for the Rivers of Light
+   playthrough, 2026-11-17** (ours, no research pass: [movement](rules/movement.md)
+   5.5 and 5.9, [magic](rules/magic.md) 3.10, 3.14 and 6.3).
+   `ACSVM-research/capture/runs/rr41/` (the harness binary in `bin/`,
+   `env.sh` with `sc`, `st` and `en`; `cases.txt`, `case.sh` and
+   `build.sh` build the cases as rr39's; `enter2.txt` (`en`) enters the
+   room again from `start.vsf` and lets the stick go as the region
+   becomes 1 (`$397C`), so a Speed 15 T stops on 4,4 with 15 moves
+   (`room2.vsf`; `enter-room.txt`'s 9 million instructions of stick walk
+   a fast player on, over 4,5); `py/steps.py` writes the push scripts
+   `st-DIRS.txt` (`st CASE DIRS` runs one from `CASE/room2.vsf` into
+   `CASE-DIRS/`), `py/look.py` reads T's record and the room's list from
+   their logs; `mem.sh` and `csruns.sh` the spell sweep, `py/cs.py` its
+   reading). At most three VICE of ours. Harness: `scenario
+   --long-message N:TEXT` (`scenario::long_message`) writes long message
+   N of ours. Things are `--put`s of ours (bytes as 10.40); every gift is
+   one of our treasures 21 to 29, which a player holds up to three of, so
+   a second gift shows. A thing that goes leaves the room's list for
+   square 15,15, as a take does (10.40). Each case is one deterministic
+   run.
+   - **Item 1, bit 4 of the first property byte** (`v1`, `v1b`, `v2`,
+     `v2b`, `v2d`, `v3`, `v4`; T Speed 15 on 4,4, each thing over a
+     spell space giving the next treasure, so what lies below shows
+     itself). *Spaces*: a spell space with the bit (`v1-eew`, 5,4) gave
+     21 and **went at the step onto it**: the list read after that step
+     had it on 15,15, T standing on 5,4; off and back on, the space below
+     gave 22. A plain space open to anyone, no spell (`v1-nsn`, 4,3): the
+     same, gone at the first step, the space below working at the second.
+     *Custom spaces*: "when moved onto" (`v1-sns`, 4,5) and "open to
+     owners of" the blade with T owning it (`v1b-wew`, 3,4): spell, then
+     gone at the step onto, the space below working next time; with the
+     bit 7 choice (`v1b-ewe`, 5,4) the placement's 24 given and gone
+     alike. "Open to owners of" a thing T lacks (`v1-ww`, 3,4): **refused
+     twice and kept**. *Obstacles*: the plain obstacle with the bit
+     (`v2-nn`, 4,3) gave 25 and went at the first bump (movement 5.9
+     confirmed); custom obstacles with the bit **went at the first bump
+     whether or not a spell ran** (`v2-ee`, `v2-ss`, `v2b-nn`), and a
+     custom obstacle without it stayed through two bumps (`v2-ww`,
+     `v2b-ww`). The square then shows the thing below (screenshot
+     `v2-ee/a00e`: the space's picture beside T), which acts at the next
+     step (22, 24, 26 given). *A custom obstacle's spell*: bumped, it ran
+     only with **bit 6 of the second byte set** (as an obstacle's "bump
+     invokes"; `v2b`: `1B41..` gave, `1B01..` gave nothing, `v2`, `v2b-nn`),
+     and its parameter came from the **placement when bit 7 of the first
+     byte is set** (`v2d-e`, `9B41` placed with 21: 21), else from the
+     master's fourth byte (`v2b-ss`, `v2d-n`: 23, 25 whatever the
+     placement), the custom space's choice (movement 5.8). A Give with
+     parameter 0 gave **thing 80** (`v2b-ee`, `v2b-ww`, `v2c`, `v3`).
+     *Under Activate All* (`v3-ewe`: on 5,4, top first, an Activate All
+     space, then with the bit a spell space, a "when moved onto" custom
+     space, an "owners of" one, an obstacle and a custom obstacle, then a
+     spell space without it; T owning the blade): one step gave 21 to 24,
+     80 (the custom obstacle `1B01`, parameter 0) and 26, and **all five
+     with the bit went**; the next step ran only the last (26 twice).
+     Under Activate All a custom obstacle runs its spell even with bit 6
+     clear (`v2c-e`, `v2c-s`: `0B01` and `0B41`, both gave 80, neither
+     went, having no bit 4). *Re-added* (`v4`): a spell space with the bit
+     over a space doing Add to Room of it (5,4; `v4-ewewew`): step 1 gave
+     21, the space went; step 2 put it **back on top, placed with 1**;
+     step 3 gave 21 again (21x2) and it went again. The same through an
+     Activate All between them (4,5; `v4-snsnsn`: 22, back, 22x2, gone).
+     So a re-added thing works again and goes again.
+     Engine (movement 5.9): only a plain obstacle goes, when bumped;
+     **disagrees** for spaces, custom spaces and custom obstacles with the
+     bit (they go at the step or bump that sets them off, or under
+     Activate All; a refused step keeps them). Engine (5.5): a custom
+     obstacle's spell always runs on a bump, its parameter from the
+     placement; **disagrees** for bit 6 clear and for bit 7 clear.
+   - **Item 2, needed things under Activate All** (magic 3.14; `n1`: T
+     owning the blade; on 5,4 an Activate All space over two custom
+     spaces "open to owners of" the blade with "destroy needed thing",
+     giving 21 and 22, then a spell space giving 23; on 4,5 one such
+     custom space alone, giving 24). `n1-ew`: T stepped onto 5,4 and
+     stood there: **21 and 23 given, the blade gone**, 22 not given: the
+     first used up the blade and the second's condition then failed.
+     `n1-s` (the custom space alone): 24 given, the blade gone. So a
+     needed thing is used up under Activate All as on a direct step.
+     Engine (3.14): never used up there; **disagrees** (one run each).
+   - **Item 3, a creature's choice of spell** (magic 6.3; `cs`: EE in
+     slot 0, an aggressive enemy, Wisdom 20, Power 40, Speed 3, six
+     squares from T; our spells 9 and 79 Life Force -2 cost 0, 73 and 78
+     the same, 10, 74, 77 and 80 Life Force -6 cost 3, 75 -6 cost 0, 76 -2
+     cost 3; what EE owns set by `--set` (`$E1BC`, `$E1C7`); `run mem`, 8
+     random states, 40M, three EE turns each; `py/cs.py` reads T's Life
+     Force falls and EE's Power on each turn). Pairs: `cs-p1` 79 and 80,
+     `cs-p2` 77 and 78, `cs-p3` 75 and 76, `cs-p4` 9 and 74, `cs-p5` 10
+     and 73. **Every turn cast the lower-numbered spell** (24 of 24
+     each, 120 in all, by its cost in Power and its harm): the cheaper
+     and the dearer, the weaker and the stronger, across the counted
+     things (1 to 32) and the others. Two turns (`cs-p2`, `cs-p5`, state
+     6) spent 3 Power with no harm, a failed cast of the same spell.
+     Engine (6.3): the lowest-numbered fitting spell; **confirmed**.
+   - **Item 4, a long message's lines** (magic 3.10; `lm`: a space on
+     5,4 showing our long message 3, its eight stored lines of 32
+     characters, a word split across lines 4 and 5). `lm-e..`
+     (screenshot `a00e`): **eight screen lines, one per stored line**,
+     exactly as stored: the last word of line 1 and the first of line 2
+     on separate lines, the split word split. Engine: the text joined
+     with nothing between lines; **disagrees** (a front end should break
+     after every 32 characters).
+
+   No new addresses: `$397C` (the region visited), T's record and
+   possession bytes, the slot's bytes and the room list are section 9's.

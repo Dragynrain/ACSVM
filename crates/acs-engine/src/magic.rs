@@ -99,6 +99,9 @@ pub fn acts_on_individual(kind: SpellActionKind) -> bool {
     )
 }
 
+/// What a Give with parameter 0 gives (3.9).
+pub const GIVE_ZERO: ThingId = 80;
+
 /// Power a magic item's use costs (4.2).
 pub const USE_POWER: u8 = 2;
 /// The top-of-turn healing die heals on this face (5.3).
@@ -446,10 +449,12 @@ impl Game {
                 self.change_life(s.target, n, temporary, ev);
             }
             Give => {
-                let kept = self.give_to(s.target, p);
+                // 3.9: parameter 0 gives thing 80.
+                let thing = if p == 0 { GIVE_ZERO } else { p };
+                let kept = self.give_to(s.target, thing);
                 ev.push(Event::Given {
                     who: s.target,
-                    thing: p,
+                    thing,
                     kept,
                 });
             }
@@ -600,7 +605,10 @@ impl Game {
         (before - r.items.len()) as u16
     }
 
-    /// 3.14: the spells lower in the stack, top to bottom.
+    /// 3.14: the spells lower in the stack, top to bottom. Each one's
+    /// condition is judged as it is reached, so a needed thing used up
+    /// above (movement 5.7) fails a space lower down; a thing with the
+    /// disappearing bit whose spell runs goes (movement 5.9).
     fn activate_all(&mut self, s: &Spell, ev: &mut Vec<Event>) {
         let Location::Room { region, room, x, y } = s.at else {
             return;
@@ -608,17 +616,28 @@ impl Game {
         let Some(r) = self.room(region, room) else {
             return;
         };
-        let below: Vec<(usize, ThingId, u8)> = r
+        let square: Vec<(usize, ThingId, u8)> = r
             .items
             .iter()
             .enumerate()
-            .filter(|(i, it)| it.x == x && it.y == y && s.stack.is_none_or(|top| *i > top))
+            .filter(|(_, it)| it.x == x && it.y == y)
             .map(|(i, it)| (i, it.thing, it.parameter))
             .collect();
-        let mut spells = Vec::new();
-        for (index, thing, parameter) in below {
-            let Some(t) = self.thing(thing) else { continue };
+        let n = square.len();
+        // With each one's depth from the bottom of the stack, which the
+        // spells above it leave alone.
+        let below: Vec<(usize, ThingId, u8, usize)> = square
+            .into_iter()
+            .enumerate()
+            .filter(|(_, (i, ..))| s.stack.is_none_or(|top| *i > top))
+            .map(|(k, (i, thing, parameter))| (i, thing, parameter, n - 1 - k))
+            .collect();
+        for (index, thing, parameter, depth) in below {
+            let Some(t) = self.thing(thing).cloned() else {
+                continue;
+            };
             let message = self.message(&t.spell_message);
+            let mut used_up = None;
             let found = match t.kind {
                 ThingKind::Space {
                     access: acs_core::model::Access::InvokeSpell { action },
@@ -633,17 +652,16 @@ impl Game {
                     action,
                     ..
                 } => Some((SpellSource::Obstacle, action)),
+                // Movement 5.5: whatever its bump bit says.
                 ThingKind::CustomObstacle { action, .. } => Some((
                     SpellSource::CustomObstacle,
-                    SpellAction {
-                        kind: action.kind,
-                        parameter: parameter.into(),
-                    },
+                    crate::step::custom_obstacle_action(&t, action, parameter),
                 )),
                 ThingKind::CustomSpace {
                     placement_choice,
                     trigger,
                     action,
+                    destroy_needed_thing,
                     ..
                 } => {
                     let (needed, action) =
@@ -652,7 +670,12 @@ impl Game {
                     let fires = match trigger {
                         CustomTrigger::WhenMovedOnto => true,
                         CustomTrigger::WhenDroppedHere => false,
-                        CustomTrigger::OpenToOwnersOf => owns,
+                        CustomTrigger::OpenToOwnersOf => {
+                            if owns && destroy_needed_thing {
+                                used_up = Some(needed);
+                            }
+                            owns
+                        }
                         CustomTrigger::OpenToNonOwnersOf => !owns,
                     };
                     fires.then_some((SpellSource::CustomSpace, action))
@@ -662,13 +685,10 @@ impl Game {
                 }
                 _ => None,
             };
-            if let Some((source, action)) = found {
-                if action.kind != SpellActionKind::ActivateAll {
-                    spells.push((index, thing, source, action, message));
-                }
+            let Some((source, action)) = found else { continue };
+            if action.kind == SpellActionKind::ActivateAll {
+                continue;
             }
-        }
-        for (index, thing, source, action, message) in spells {
             self.run_spell(
                 Spell {
                     by: s.by,
@@ -683,6 +703,20 @@ impl Game {
                 },
                 ev,
             );
+            // Movement 5.7: as on a direct step, after the spell.
+            if let Some(needed) = used_up {
+                if self.take_from(s.target, needed) {
+                    if let Who::Player { player } = s.target {
+                        ev.push(Event::ThingUsedUp {
+                            player,
+                            thing: needed,
+                        });
+                    }
+                }
+            }
+            if crate::step::disappears(&t) {
+                self.vanish(region, room, (x, y), thing, depth, ev);
+            }
         }
     }
 
@@ -693,12 +727,14 @@ impl Game {
             .is_some_and(|r| x > 0 && y > 0 && x + 1 < r.width && y + 1 < r.height)
     }
 
-    /// Long message 1..=255 as one line (lines are split by position).
+    /// Long message 1..=255 (3.10): its stored lines of 32 characters as
+    /// they are, one per line, a word split at a line end left split;
+    /// `None` when it is blank.
     fn long_message(&self, number: u16) -> Option<String> {
         let s = self.adv.long_messages.get((number as usize).checked_sub(1)?)?;
-        let joined: String = s.lines().collect();
-        let t = joined.split_whitespace().collect::<Vec<_>>().join(" ");
-        (!t.is_empty()).then_some(t)
+        let lines: Vec<&str> = s.lines().map(str::trim_end).collect();
+        let last = lines.iter().rposition(|l| !l.is_empty())?;
+        Some(lines[..=last].join("\n"))
     }
 
     // ---- casting and using (section 4) ---------------------------------------

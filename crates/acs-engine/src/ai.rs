@@ -11,6 +11,7 @@ use crate::creatures::{self, is_fighter, is_foe, Other};
 use crate::game::{CarriedMoves, Game};
 use crate::inventory::{self, GOLD, GOLD_LIMIT};
 use crate::magic::{self, add_possession, take_possession, Spell};
+use crate::step;
 use crate::{Dir, Event, Location, RemovalReason, SpellSource, Who};
 use acs_core::model::{Access, Alignment, Creature, Destination, SpellAction, SpellActionKind, ThingKind};
 
@@ -739,8 +740,9 @@ impl Game {
 
     /// 5.1: a creature bumps the obstacle at `at` (room item `index`),
     /// staying where it is: the bump spell, if any, acts on it, as a
-    /// door's does (magic 6.6), and a disappearing obstacle vanishes
-    /// (movement 5.9), as for a player's bump.
+    /// door's does (magic 6.6; a custom obstacle's only with its spell bit,
+    /// movement 5.5), and an obstacle or custom obstacle with the
+    /// disappearing bit vanishes (movement 5.9), as for a player's bump.
     fn creature_bump(&mut self, region: u8, slot: usize, at: (u8, u8), index: usize, ev: &mut Vec<Event>) {
         let Some(c) = self.creature(region, slot).cloned() else {
             return;
@@ -755,6 +757,7 @@ impl Game {
         let Some(t) = self.thing(item.thing).cloned() else {
             return;
         };
+        let depth = self.depth_of(region, c.room, index);
         let me = Who::Creature { region, slot };
         let to = Location::Room {
             region,
@@ -801,26 +804,19 @@ impl Game {
                 if bump_invokes_spell {
                     self.run_spell(spell(SpellSource::Obstacle, action), ev);
                 }
-                // Movement 5.9: bit 4 of the first property byte.
-                if t.raw[0] & 0x10 != 0 {
-                    self.remove_thing_at(region, c.room, at.0, at.1, item.thing);
-                    ev.push(Event::ObstacleVanished {
-                        at: to,
-                        thing: item.thing,
-                    });
-                }
             }
-            ThingKind::CustomObstacle { action, .. } => {
-                let s = spell(
-                    SpellSource::CustomObstacle,
-                    SpellAction {
-                        kind: action.kind,
-                        parameter: item.parameter.into(),
-                    },
-                );
-                self.run_spell(s, ev);
+            // Movement 5.5: the spell only with its bump bit, the
+            // parameter by the placement choice.
+            ThingKind::CustomObstacle { action, .. } if step::bump_runs_spell(&t) => {
+                let action = step::custom_obstacle_action(&t, action, item.parameter);
+                self.run_spell(spell(SpellSource::CustomObstacle, action), ev);
             }
             _ => {}
+        }
+        // Movement 5.9: bit 4 of the first property byte, the spell run
+        // or not.
+        if step::disappears(&t) {
+            self.vanish(region, c.room, at, item.thing, depth, ev);
         }
     }
 

@@ -25,7 +25,9 @@ researcher's plain-language findings (CONTRIBUTING.md 3;
    39 give, 13 summon), and 535 on doors, spaces and obstacles, mostly music
    (143), give (47), Activate All (46) and messages (36). [data]
 3. Movement and inventory already find each spell and resolve its parameter
-   (custom spaces and custom obstacles take it from the placement):
+   (custom spaces and custom obstacles take it from the placement when
+   bit 7 of the first property byte says so, else from the master,
+   movement 5.5 and 5.8):
    [movement](movement.md) 5.5, 9; [inventory](inventory.md) 2.6, 5.6, 5.7.
    This spec says what happens next.
 
@@ -210,9 +212,26 @@ The parameter layout is the format draft's; numbers below are corpus counts.
    player was owned and not held, and one given to a player holding a
    missile weapon left the missile weapon in hand. [capture: rr39 `gv-c`,
    `gv-cb`, capture.md 10.43 item 3; ours, no research pass, 2026-11-16]
-   94 uses.
-10. **Display long message** (message 1..255). [manual] **Engine:** a
-    `LongMessage` event with the text; 0 shows nothing.
+   **Parameter 0 gives thing 80**: a Give with parameter 0 (from a custom
+   obstacle's master byte, bumped or under Activate All) gave the player
+   thing 80, in every case tried. [capture: rr41 `v2b-ee`, `v2b-ww`,
+   `v2c`, `v3`, capture.md 10.45 item 1; ours, no research pass,
+   2026-11-17] **Engine:** so: parameter 0 gives thing 80, any other
+   parameter that thing. 94 uses.
+10. **Display long message** (message 1..255). [manual] A long message is
+    stored as 8 lines of 32 characters (format notes, Text). On the C64 it
+    is shown as **8 screen lines, one per stored line, exactly as
+    stored**: the program does not rewrap, so a word that runs across a
+    line end in the data shows split across two screen lines, and two
+    words either side of a line end show on separate lines with no space
+    added. [capture: rr41 `lm`, screenshot `a00e`, capture.md 10.45 item
+    4; ours, no research pass, 2026-11-17] **Engine:** a `LongMessage`
+    event whose text keeps the 8 stored lines, separated by line breaks
+    (trailing blanks of a line may be trimmed, nothing else changed); 0
+    shows nothing. A front end shows each line as its own screen line
+    and does not rewrap them.
+    (Superseded: the engine's earlier choice of joining the lines with
+    nothing between them and squeezing the spaces.)
 11. **Play music** (one of 30). Choices 1-12 are effects, 13-30 themes, and
     14-17 loop until other music plays. [manual] Placed parameters run 0..29,
     so the byte is the choice minus one. [data] **Engine:** a `Music` event
@@ -258,12 +277,26 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     **Engine:**
     - a stack's spells are those of spaces that invoke a spell, custom spaces
       set to "when moved onto", obstacles that invoke a spell when bumped,
-      custom obstacles, portals that invoke a spell, and magic items and
-      magic spells lying there;
+      custom obstacles (whether or not their spell bit is set, movement
+      5.5 [capture: rr41 `v2c-e`, `v2c-s`, capture.md 10.45 item 1]), portals that invoke a spell, and magic items and magic spells
+      lying there;
     - custom spaces open to owners (or non-owners) of a thing run only when
       the individual meets the condition, which is how "Let There be Light"
-      works [manual]; their needed thing is not used up here; "when dropped
-      here" spaces do not run;
+      works [manual]; "when dropped here" spaces do not run;
+    - an "owners of" custom space set to destroy its needed thing takes the
+      thing here as on a direct step (movement 5.7), so a second such space
+      lower in the same stack, needing the same thing, then fails its
+      condition if that was the last one. On the C64 a player owning the
+      blade stepped onto an Activate All space over two such spaces (giving
+      21 and 22) and a spell space (giving 23): 21 and 23 were given, the
+      blade was gone and 22 was not given; one such space alone took the
+      blade and gave its thing the same way. [capture: rr41 `n1-ew`,
+      `n1-s`, capture.md 10.45 item 2; ours, no research pass, 2026-11-17;
+      one run each] (Superseded: the engine's earlier choice of never
+      using the needed thing up under Activate All.);
+    - every thing in the stack with the disappearing bit whose spell runs
+      goes as the stack runs (movement 5.9) [capture: rr41 `v3-ewe`,
+      capture.md 10.45 item 1];
     - another Activate All lower down is skipped, so a stack runs once;
     - cast, used or picked up away from a stack, it runs the whole stack on
       the square where it takes effect: for a cast, the caster's own square
@@ -281,7 +314,8 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     the last space a Power +5, Power rose by 5 once, not twice: the
     nested Activate All did not run the rest again. [capture: rr36 `acto`,
     `actn`, `actp`, capture.md 10.40 item 4; ours, no research pass,
-    2026-11-16] The three choices above agree. Cast away from a stack:
+    2026-11-16] The choices above on conditions, "when dropped here" and a nested
+    Activate All agree. Cast away from a stack:
     above, and 2.5.
 15. **Do nothing**: only the message. [manual] A spell with an action code
     outside 0..14 (one corpus key spell holds 15) does nothing too. [data]
@@ -599,7 +633,15 @@ after it is used (items always work, 4.2).
    the creature walked toward the player instead. [capture: mem, rr39
    `cc-s5`, `cc-p19`, `cc-p10`, `cc-p15`, capture.md 10.43 item 7; ours,
    no research pass, 2026-11-16] **Engine:** so, Power after drift at
-   least the Wisdom. Where the cast falls against the overburdened drop
+   least the Wisdom. **Lowest-numbered** holds whatever the spells cost
+   or do: an enemy of Wisdom 20 and Power 40 owning two fitting Life
+   Force spells, in five pairs that set the cheaper against the dearer
+   (cost 0 against 3) and the weaker against the stronger (-2 against
+   -6), among things 1 to 32 and above, cast the lower-numbered one on
+   every turn, 120 turns of 120 (two of them a failed cast of it, the
+   Power spent and no harm). [capture: mem, rr41 `cs-p1` to `cs-p5`,
+   capture.md 10.45 item 3; ours, no research pass, 2026-11-17]
+   **Engine:** the lowest-numbered fitting spell: confirmed. Where the cast falls against the overburdened drop
    and readying was not seen (the caster carried neither) [unknown].
 4. **Fitting.** Hurtful spells only on foes, helpful ones only on friends.
    [manual] A peaceful friend of Wisdom 20 owning only a Life Force +5
@@ -794,7 +836,8 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
 6. Activate All with conditional spaces, "when dropped here" spaces and a
    nested Activate All: captured (3.14); cast away from a stack (no
    target, the caster's square), the cursor's reach and a magic item's
-   use (2.4, 2.5, capture.md 10.42). Still open, reachable but not run
+   use (2.4, 2.5, capture.md 10.42); a needed thing used up under it and
+   disappearing things going with it (3.14, capture.md 10.45). Still open, reachable but not run
    (capture.md 10.43): Activate All from a used or picked-up item away
    from a stack; whether Rid Room and banishing ask for a target; the
    reversals going by the visited region's rounds (5.4).
@@ -802,7 +845,8 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    Wisdom, anywhere in the room, the turn ending; 6.4: a summons at a foe
    and at a friend; 6.5: "half power" is Power above half the Wisdom, a
    use costing two moves, the turn going on; 6.2: a peaceful friend
-   casts; capture.md 10.43). Still open: an odd Wisdom at the "half
+   casts; capture.md 10.43); the lowest-numbered spell whatever its cost
+   or strength (6.3, capture.md 10.45). Still open: an odd Wisdom at the "half
    power" boundary, a creature's summons' square, slinkers other than
    friends casting, a use with two or more moves left. When the 0 to 9
    smartness roll is drawn (6.1) needs a research pass (capture.md 10.43
@@ -814,3 +858,5 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
    drop spells not set off): captured (capture.md 10.43). A creature's
    moves set before its top-of-turn die (5.3.2): captured (capture.md
    10.43). Rid Room on the world map (3.12) is not worth a run.
+10. A long message's screen lines (3.10: as stored, no rewrap) and Give
+    with parameter 0 (3.9: thing 80): captured (capture.md 10.45).

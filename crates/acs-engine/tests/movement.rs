@@ -68,7 +68,7 @@ fn fixture(platform: Platform) -> Fixture {
     f.thing(VEND as usize, "VEND", [0x89, 7 | 1 << 6, 13, 0]);
     f.thing(WALL as usize, "PILLAR", [0x0A, 8, 0, 0]);
     f.thing(CHEST as usize, "CHEST", [0x1A, 8 | 0x40, 13, (KEY as u8)]); // vanishes, add KEY
-    f.thing(ALTAR as usize, "ALTAR", [0x0B, 8, 10, 0]); // long message, per placement
+    f.thing(ALTAR as usize, "ALTAR", [0x0B, 8, 10, 0]); // long message, no bump bit
     f.thing(SHOP as usize, "SHOP", [0x0C, 9, 0, 0]);
     f.thing(CURSE as usize, "CURSE", [0x08, 6 | 3 << 6, 0, (KEY as u8)]);
     f.thing(ONE_WAY as usize, "ONE WAY", [0x07, 5, 0, 0]);
@@ -983,14 +983,12 @@ fn non_owner_space_obstacles_store_and_residents() {
         // The taker stays put (inventory 2.1).
         assert!(!ev.iter().any(|e| matches!(e, Event::Moved { .. })));
 
-        // Altar: custom obstacle with the placement parameter.
+        // Altar: a custom obstacle without its bump bit (5.5): refused,
+        // nothing else happens, and it stays.
         g.place(0, hall(5, 3));
         let ev = mv(&mut g, Dir::S);
-        assert!(matches!(
-            ev[1],
-            Event::SpellTriggered { source: SpellSource::CustomObstacle, action, .. }
-                if action.parameter == 42
-        ));
+        assert_eq!(blocked(&ev), Some(BlockReason::Obstacle { thing: ALTAR }));
+        assert_eq!(ev.len(), 1, "{ev:?}");
 
         // The guard at (6,4).
         g.place(0, hall(6, 3));

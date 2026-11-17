@@ -91,7 +91,9 @@ harness doesn't need to know (docs/capture.md 1.4).
   message contains a byte of 0x80 or above; unused short-message slots do.
 - Long messages and the intro are 8 lines of 32 characters; short messages are
   3 lines of 40. Words run straight across line ends, so lines must be split
-  by position, not by spaces.
+  by position, not by spaces. The C64 shows a long message the same way,
+  one screen line per stored line with no rewrapping, a split word left
+  split (docs/capture.md 10.45 item 4; rules/magic 3.10).
 - Two short messages share each 256-byte page (at +0 and +0x78). 80 slots fit
   before the creature block. Things refer to slots 1-127 (0 = none); slots
   above 80 would run into the creature data and are flagged.
@@ -302,6 +304,23 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   named for lightness (LIGHTFOOT, HOVERING PACE) come out negative only with
   AcsLib's order.
 - Picture fields are 6 bits (0-63); things never use creature pictures.
+- **Property bits for doors, spaces and obstacles** (the four property
+  bytes; `Thing::raw` keeps them as stored). Byte 0: bits 0-3 the type,
+  **bit 4 "disappears"**, bit 5 a two-way portal, **bit 7 the placement
+  choice** (set: the room item's parameter is the spell's parameter).
+  Byte 1: bits 0-5 the picture, **bit 6 "bump invokes spell"** for
+  obstacles and custom obstacles, bits 6-7 a custom space's trigger.
+  Byte 2: bits 0-3 the action, bit 7 "destroy needed thing". Byte 3: the
+  master's spell parameter. Confirmed on the C64 for spaces, custom
+  spaces, obstacles and custom obstacles (docs/capture.md 10.45 item 1;
+  rules/movement 5.5, 5.8, 5.9): bit 4 makes each of them go after it is
+  set off, not only obstacles; a custom obstacle runs its spell on a bump
+  only with byte 1 bit 6, and takes its parameter from the placement
+  only with byte 0 bit 7, else from byte 3, as a custom space does. The
+  decoder types bit 4 for carriable things and magic spells only, and
+  for custom obstacles types neither bit 6 nor bit 7; those, and bit 4
+  of spaces, custom spaces and obstacles, are read from `raw`. Bit 4 on
+  a portal is not known to mean anything.
 - **Change Power / Change Life Force parameter: bits 0-5 the amount, bit 7
   negative, bit 6 temporary**, as the draft says. Confirmed on the C64
   (docs/capture.md section 7, experiment `drift`): Life Force +10 with bit

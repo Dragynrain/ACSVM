@@ -244,7 +244,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    | custom space, "open to (non-)owners of" | moves if the condition holds, else refused | its spell when the character passes | [manual] ("Let There be Light") |
    | custom space, "when dropped here" | moves | nothing on entry | [manual] |
    | obstacle | refused | its spell if "bump invokes spell" | [manual] |
-   | custom obstacle | refused | its spell, parameter from the placement | [manual] |
+   | custom obstacle | refused | its spell only if bit 6 of its second property byte is set; the parameter from the placement or the master (below) | [manual]; [capture] |
    | store | moves (one step); the store opens with the player on its square ([stores](stores.md) 3.2) | the store screen | [research; capture] |
    | floor / undefined / unknown type | moves | nothing | [data] (never placed) |
 
@@ -265,6 +265,26 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    none of 586 others, capture.md 10.44 item 1; rr37 `ad-ob-m`, 10.41
    item 3]
 
+   **A custom obstacle's spell and parameter.** The manual has a custom
+   obstacle run its spell on every bump with the parameter chosen at
+   placement. On the C64 two bits decide instead (format notes, Things):
+   - a bump runs the spell only when **bit 6 of the second property
+     byte** is set, the same bit that makes a plain obstacle's bump invoke
+     its spell; with it clear a bump is refused and nothing else happens.
+     Under *Activate All* the spell runs either way ([magic](magic.md)
+     3.14);
+   - the parameter is the **placement's** when bit 7 of the first property
+     byte is set, and otherwise the **master's fourth property byte**,
+     whatever the placement holds: the choice a custom space makes (5.8).
+     A placement of 21 with bit 7 set gave thing 21; with bit 7 clear,
+     masters holding 23 and 25 gave 23 and 25 whatever was placed.
+
+   [capture: rr41 `v2`, `v2b`, `v2c`, `v2d`, capture.md 10.45 item 1;
+   ours, no research pass, 2026-11-17] **Engine:** so, for a bump by a
+   player or a creature; under Activate All the parameter is chosen the
+   same way. (Superseded: the engine's earlier choice of a spell on every
+   bump with the placement's parameter.)
+
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
    passes and the spell runs); open only to owners of a thing; open only to
    non-owners of a thing. When passage is refused, the thing's blocked
@@ -275,17 +295,65 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    time; without the setting it passed again. [capture: acts, table lock,
    5 runs each] Only "owners of" makes sense here. [unknown] **Engine:**
    applied only to "owners of" access. (Reachable, not yet run: a portal
-   of ours set so with non-owners access; capture.md 10.44.)
+   of ours set so with non-owners access; capture.md 10.44.) An "owners
+   of" custom space set so takes the thing when an *Activate All* above
+   it runs it too, exactly as on a direct step onto it ([magic](magic.md)
+   3.14). [capture: rr41 `n1`, capture.md 10.45 item 2; ours, no research
+   pass, 2026-11-17]
 8. **Custom spaces** choose one of two values at placement: either the needed
    thing (then the spell's parameter is fixed in the master list) or the
    spell's parameter (then the needed thing is fixed). Reading the placement
    parameter that way, every needed thing in the corpus (120 placements with
-   an owner or drop trigger) is a carriable thing. [data]
-9. **Disappearing obstacles.** An obstacle can be set to vanish the first time
-   it is bumped. [manual] Bit 4 of the first property byte is the usual
+   an owner or drop trigger) is a carriable thing. [data] Bit 7 of the
+   first property byte makes the choice: set, the placement holds the
+   parameter. Custom obstacles read the same bit the same way (5.5).
+   [capture: rr41 `v1b-ewe`, `v2d`, capture.md 10.45 item 1]
+9. **Things that disappear.** An obstacle can be set to vanish the first
+   time it is bumped. [manual] Bit 4 of the first property byte is the usual
    "disappears" flag; 85 of 171 corpus obstacles set it, 84 of those also
-   invoke a spell on bump. [data] **Engine:** a bumped obstacle with the bit
-   set is removed from the square.
+   invoke a spell on bump. [data] On the C64 the bit works on spaces,
+   custom spaces and custom obstacles too. [capture: rr41 `v1`, `v1b`,
+   `v2`, `v2b`, `v2d`, `v3`, `v4`, capture.md 10.45 item 1; ours, no
+   research pass, 2026-11-17]
+   - A **space** with the bit (a spell space, or a plain one open to
+     anyone with no spell) goes at the step onto it, after its spell; the
+     player stands on its square.
+   - A **custom space** with the bit goes at the step onto it, after its
+     spell: a "when moved onto" one, and an "open to owners of" one when
+     the stepper owns the thing (with either placement choice, 5.8). One
+     whose condition fails refuses the step (5.6) and **stays**, however
+     often it is tried.
+   - A plain **obstacle** with the bit goes at the first bump, after its
+     spell if it has one.
+   - A **custom obstacle** with the bit goes at the first bump **whether
+     or not its spell ran** (5.5). Without the bit it stays, bump after
+     bump.
+   - Once it is gone the square shows the thing below, and that thing acts
+     at the next step or bump in the usual way (the player stepping off
+     and back on, or stepping onto a square that is now open).
+   - Under *Activate All* every thing with the bit whose spell the stack
+     runs goes in the same step: a spell space, a "when moved onto" and an
+     "owners of" custom space, an obstacle and a custom obstacle all went
+     at once, and the next step ran only what was left ([magic](magic.md)
+     3.14).
+   - A thing that went and is put back by *Add to Room* ([magic](magic.md)
+     3.13) works again and goes again: a spell space with the bit over a
+     space adding it gave its thing, went, came back on top at the next
+     step, gave its thing again at the third and went again; the same
+     with an *Activate All* between them.
+
+   A thing that goes leaves the room's list as a take does. **Engine:**
+   so: after its spell, a space or custom space with the bit is removed
+   from the square at the step onto it, a custom space only when its
+   condition held; an obstacle or custom obstacle with the bit at the
+   bump, the spell run or not; under Activate All each thing with the bit
+   whose spell runs is removed (`ObstacleVanished`, or an event of the
+   same kind for spaces). Not tried [unknown]: a portal with the bit, an
+   *Activate All* space with the bit itself, and an "owners of" space in
+   an Activate All stack whose condition fails; **Engine:** a portal
+   ignores the bit, an Activate All thing with the bit goes as a spell
+   space does, and a space whose condition failed stays. (Superseded: the
+   engine's earlier choice of plain obstacles only.)
 10. **Picking up** happens by moving onto the thing. A character who cannot
     carry more of a thing gets a message instead, and the move is refused.
     [manual] On the C64 the character takes the thing but stays on its own
@@ -448,3 +516,8 @@ In priority order, for the behaviour-capture harness:
    captured (capture.md 10.44). Still open: destroy needed thing with
    non-owners access (5.7; reachable, not yet run); terrain that
    triggers a spell, before or after the move (4.3; needs the editor).
+10. Things that disappear (5.9), a custom obstacle's spell bit and
+    parameter (5.5) and a needed thing used up under Activate All (5.7):
+    captured (capture.md 10.45). Still open: a portal or an Activate All
+    thing with bit 4, and a failing conditional space with it under
+    Activate All.

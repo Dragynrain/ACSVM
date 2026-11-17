@@ -980,6 +980,23 @@ pub fn may_add(img: &mut Image, spec: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Writes long message N of ours (docs/capture.md 10.45): `spec` is
+/// `N:TEXT`, the text stored as is (the eight lines of 32 characters run
+/// on, padded with spaces to 256).
+pub fn long_message(img: &mut Image, spec: &str) -> Result<(), String> {
+    use acs_core::layout::{C64, LONG_MESSAGE_COUNT, LONG_MESSAGE_LEN};
+    let (n, text) = spec.split_once(':').ok_or_else(|| format!("{spec}: N:TEXT"))?;
+    let n: usize = n.trim().parse().map_err(|_| format!("{spec}: bad number"))?;
+    if !(1..=LONG_MESSAGE_COUNT).contains(&n) {
+        return Err(format!("{spec}: message 1..{LONG_MESSAGE_COUNT}"));
+    }
+    let b = acs_core::text::encode_ascii(text, LONG_MESSAGE_LEN)
+        .ok_or_else(|| format!("{spec}: text not ASCII or over {LONG_MESSAGE_LEN}"))?;
+    let at = C64.long_message(n - 1);
+    img.data[at..at + LONG_MESSAGE_LEN].copy_from_slice(&b);
+    Ok(())
+}
+
 /// Writes bytes into the world map block (docs/capture.md 10.34): `spec`
 /// is `OFF:HEX..`, the offset from the block's start and the bytes, both
 /// in hex (`806:0042` puts 00 42 at + 0x806).
@@ -2233,6 +2250,18 @@ mod tests {
         assert_eq!(adv.things[1].acs_may_add, 0);
         assert!(may_add(&mut img, "0:1").is_err());
         assert!(may_add(&mut img, "5:16").is_err());
+    }
+
+    #[test]
+    fn long_message_writes_the_text() {
+        let mut img = move_basic(&MoveBasic::default(), None);
+        long_message(&mut img, "3:ONE LINE").unwrap();
+        let at = acs_core::layout::C64.long_message(2);
+        assert_eq!(img.data[at], b'O' - 64);
+        assert_eq!(img.data[at + 3], b' ');
+        assert_eq!(img.data[at + 255], b' ');
+        assert!(long_message(&mut img, "0:X").is_err());
+        assert!(long_message(&mut img, "3").is_err());
     }
 
     #[test]

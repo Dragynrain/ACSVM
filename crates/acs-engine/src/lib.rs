@@ -523,7 +523,9 @@ pub enum Event {
         player: usize,
         thing: ThingId,
     },
-    /// A disappearing obstacle was bumped and is gone.
+    /// A thing with the disappearing bit (an obstacle or custom obstacle
+    /// at a bump, a space or custom space at a step, any of them under
+    /// Activate All) was set off and is gone (movement 5.9).
     ObstacleVanished {
         at: Location,
         thing: ThingId,
@@ -857,6 +859,8 @@ pub enum Event {
         thing: ThingId,
         kept: bool,
     },
+    /// Display long message (magic 3.10): `text` is its stored lines, one
+    /// per line, separated by line breaks, not to be rewrapped.
     LongMessage {
         number: u16,
         text: String,

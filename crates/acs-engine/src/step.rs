@@ -10,7 +10,7 @@ use crate::magic::Spell;
 use crate::{BlockReason, Dir, Event, Location, Slot, SpellSource, Who};
 use acs_core::model::ThingId;
 use acs_core::model::{
-    Access, CustomTrigger, Destination, Passability, PlacementChoice, SpellAction, ThingKind,
+    Access, CustomTrigger, Destination, Passability, PlacementChoice, SpellAction, Thing, ThingKind,
 };
 
 /// Terrain numbers 12..16 (13-16 in the editor) are doors (4.4).
@@ -46,7 +46,93 @@ pub(crate) fn resolve_custom_space(
     )
 }
 
+/// Movement 5.9: bit 4 of the first property byte makes a space, custom
+/// space, obstacle or custom obstacle go once it is set off. A portal
+/// ignores it (engine choice; carriable things use the bit otherwise).
+pub(crate) fn disappears(t: &Thing) -> bool {
+    matches!(
+        t.kind,
+        ThingKind::Space { .. }
+            | ThingKind::CustomSpace { .. }
+            | ThingKind::Obstacle { .. }
+            | ThingKind::CustomObstacle { .. }
+    ) && t.raw[0] & 0x10 != 0
+}
+
+/// Movement 5.5: a custom obstacle's bump runs its spell only with bit 6
+/// of the second property byte.
+pub(crate) fn bump_runs_spell(t: &Thing) -> bool {
+    t.raw[1] & 0x40 != 0
+}
+
+/// Movement 5.5, 5.8: a custom obstacle's action with its parameter: the
+/// placement's when bit 7 of the first property byte is set, else the
+/// master's (its fourth property byte).
+pub(crate) fn custom_obstacle_action(t: &Thing, action: SpellAction, placement: u8) -> SpellAction {
+    SpellAction {
+        kind: action.kind,
+        parameter: if t.raw[0] & 0x80 != 0 {
+            placement.into()
+        } else {
+            action.parameter
+        },
+    }
+}
+
 impl Game {
+    /// How many things lie below room item `index` on its square: its
+    /// depth from the bottom of the stack, which things put on top (magic
+    /// 3.13) and things taken from above it leave alone.
+    pub(crate) fn depth_of(&self, region: u8, room: u8, index: usize) -> usize {
+        let Some(r) = self.room(region, room) else {
+            return 0;
+        };
+        let Some(it) = r.items.get(index) else {
+            return 0;
+        };
+        r.items
+            .iter()
+            .skip(index + 1)
+            .filter(|o| (o.x, o.y) == (it.x, it.y))
+            .count()
+    }
+
+    /// Movement 5.9: a thing that disappears leaves the square as a take
+    /// does: the highest `thing` on (x, y) at most `depth` from the bottom
+    /// (the one set off, wherever spells since have moved it).
+    pub(crate) fn vanish(
+        &mut self,
+        region: u8,
+        room: u8,
+        (x, y): (u8, u8),
+        thing: ThingId,
+        depth: usize,
+        ev: &mut Vec<Event>,
+    ) {
+        let Some(r) = self.room(region, room) else {
+            return;
+        };
+        let square: Vec<usize> = r
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(_, it)| (it.x, it.y) == (x, y))
+            .map(|(i, _)| i)
+            .collect();
+        let n = square.len();
+        let found = square
+            .iter()
+            .enumerate()
+            .skip(n.saturating_sub(depth + 1))
+            .find(|(_, &i)| r.items[i].thing == thing)
+            .map(|(_, &i)| i);
+        if let Some(i) = found {
+            self.remove_item(region, room, i);
+            let at = Location::Room { region, room, x, y };
+            ev.push(Event::ObstacleVanished { at, thing });
+        }
+    }
+
     /// Inventory 3.5: a player's take ends the turn when 4 x the thing's
     /// weight is more than its capacity (3.2, wounds included); exactly a
     /// quarter or less does not.
@@ -406,6 +492,9 @@ impl Game {
             self.move_to(p, from, to, ev);
             return;
         };
+        // 5.9: the thing set off, should it disappear.
+        let depth = self.depth_of(region, room, index);
+        let goes = disappears(&thing);
         let blocked_message = self.message(&thing.blocked_message);
         let spell_message = self.message(&thing.spell_message);
         let block = |reason| Event::Blocked {
@@ -546,9 +635,13 @@ impl Game {
                     ev.push(Event::Moved { player: p, from, to });
                     if let Some(a) = s {
                         self.run_spell(spell(SpellSource::Space, a, Some(index)), ev);
-                        if !self.players[p].alive {
-                            return;
-                        }
+                    }
+                    // 5.9: after its spell, the space goes.
+                    if goes {
+                        self.vanish(region, room, (nx, ny), item.thing, depth, ev);
+                    }
+                    if !self.players[p].alive {
+                        return;
                     }
                     self.spend(ev);
                 }
@@ -590,6 +683,11 @@ impl Game {
                     }
                 }
                 self.use_up(p, used_up, ev);
+                // 5.9: one set off goes after its spell ("when dropped
+                // here" is not set off by a step).
+                if goes && fires {
+                    self.vanish(region, room, (nx, ny), item.thing, depth, ev);
+                }
                 self.spend(ev);
             }
             ThingKind::Obstacle {
@@ -602,28 +700,21 @@ impl Game {
                     self.run_spell(spell(SpellSource::Obstacle, action, Some(index)), ev);
                 }
                 // 5.9: bit 4 of the first property byte = vanishes when bumped.
-                // (The spell may have changed the list, so look it up again.)
-                if thing.raw[0] & 0x10 != 0 {
-                    self.remove_thing_at(region, room, nx, ny, item.thing);
-                    ev.push(Event::ObstacleVanished {
-                        at: to,
-                        thing: item.thing,
-                    });
+                if goes {
+                    self.vanish(region, room, (nx, ny), item.thing, depth, ev);
                 }
             }
+            // 5.5: the spell only with its bump bit, the parameter by the
+            // placement choice; 5.9: it goes, the spell run or not.
             ThingKind::CustomObstacle { action, .. } => {
                 ev.push(block(BlockReason::Obstacle { thing: item.thing }));
-                self.run_spell(
-                    spell(
-                        SpellSource::CustomObstacle,
-                        SpellAction {
-                            kind: action.kind,
-                            parameter: item.parameter.into(),
-                        },
-                        Some(index),
-                    ),
-                    ev,
-                );
+                if bump_runs_spell(&thing) {
+                    let action = custom_obstacle_action(&thing, action, item.parameter);
+                    self.run_spell(spell(SpellSource::CustomObstacle, action, Some(index)), ev);
+                }
+                if goes {
+                    self.vanish(region, room, (nx, ny), item.thing, depth, ev);
+                }
             }
             // Stores 3.2: an ordinary step onto the store's square (one
             // move, ending no turn: 3.7), and the store opens there.
@@ -693,18 +784,6 @@ impl Game {
             .and_then(|r| r.items.get_mut(index))
         {
             it.gold = Some(amount);
-        }
-    }
-
-    /// Removes the topmost `thing` on a square, if any.
-    pub(crate) fn remove_thing_at(&mut self, region: u8, room: u8, x: u8, y: u8, thing: ThingId) {
-        let i = self.room(region, room).and_then(|r| {
-            r.items
-                .iter()
-                .position(|it| it.x == x && it.y == y && it.thing == thing)
-        });
-        if let Some(i) = i {
-            self.remove_item(region, room, i);
         }
     }
 

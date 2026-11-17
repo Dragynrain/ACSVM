@@ -15,8 +15,8 @@ use acs_core::{decode, Adventure, Platform};
 use acs_engine::inventory::GOLD;
 use acs_engine::magic::{cast_chance, cast_roll, cast_spend};
 use acs_engine::{
-    CastRefusal, Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason, Rules, SpellSource, Stat,
-    Who,
+    describe, BlockReason, CastRefusal, Command, Dir, Event, Game, Location, PlayerSetup, RemovalReason,
+    Rules, SpellSource, Stat, Who,
 };
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
@@ -117,6 +117,7 @@ fn adventure(platform: Platform) -> Adventure {
     f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
     f.thing(128, "ROOM BORDER", [0x00, 12, 0, 0]);
     f.long_message(7, "AN OLD SCROLL");
+    f.long_message(8, &split_message());
     f.creature(IMP as usize, "IMP", 0, creature_record(6, 0x60, 70));
     let mut template = creature_record(10, 0x60, 70);
     template[0x10] = 0x10;
@@ -2535,5 +2536,387 @@ fn at_a_death_the_owner_only_mark_alone_loses_a_weapon() {
             "{ev:?}"
         );
         assert_eq!(stack(&g, 0, 5, 3), vec![OPEN0]);
+    });
+}
+
+// ---- things that disappear, custom obstacles' bits (capture.md 10.45) -----
+
+const VGIFT: u16 = 104; // space, Give GEM, disappears
+const VLIGHT: u16 = 105; // custom space, owners of (placement), Life Force +5, disappears
+const VMOVE: u16 = 106; // custom space, when moved onto, Give (placement), disappears
+const VDROP: u16 = 107; // custom space, when dropped here, Give GEM, disappears
+const VROCK: u16 = 108; // obstacle, no spell, disappears
+const IDOL: u16 = 109; // custom obstacle, Give AMULET (master), bump bit, stays
+const IDOL_P: u16 = 110; // custom obstacle, Give, bump bit, placement parameter
+const IDOL_X: u16 = 111; // custom obstacle, Give AMULET, no bump bit, disappears
+const IDOL_0: u16 = 112; // custom obstacle, Give 0 (master), bump bit, disappears
+const VDOALL: u16 = 113; // space, Activate All, disappears
+const NEED: u16 = 114; // custom space, owners of CLAW (master), destroys it, Give (placement), disappears
+const VSONG: u16 = 115; // portal, invokes Play Music, bit 4 (ignored)
+const ADDER: u16 = 116; // space, Add to Room VGIFT
+
+/// Property byte 0 bit 4: disappears; bit 7: the placement choice.
+const GOES: u8 = 0x10;
+const PLACED: u8 = 0x80;
+/// Property byte 1 bit 6: a bump invokes the spell.
+const BUMPS: u8 = 0x40;
+
+/// Long message 8: a word split across the first line end, two spaces
+/// kept, the second line padded with blanks.
+fn split_message() -> String {
+    format!(
+        "{:>32}{:<32}{}",
+        "TWO  SPACES THEN A WO", "RD SPLIT", "ACROSS LINES"
+    )
+}
+
+fn disappearing(a: &mut Adventure) {
+    let mut set = |n: u16, name: &str, kind: ThingKind, raw: [u8; 4]| {
+        let t = &mut a.things[n as usize - 1];
+        t.name = name.into();
+        t.kind = kind;
+        t.raw = raw;
+    };
+    let idol = |action| ThingKind::CustomObstacle { picture: 7, action };
+    set(VGIFT, "VGIFT", space(act(K::Give, GEM)), [GOES, 0, 0, 0]);
+    set(
+        VLIGHT,
+        "VLIGHT",
+        custom(
+            CustomTrigger::OpenToOwnersOf,
+            PlacementChoice::Thing,
+            act(K::ChangeLifeForce, life(5, false)),
+        ),
+        [GOES, 0, 0, 0],
+    );
+    set(
+        VMOVE,
+        "VMOVE",
+        custom(
+            CustomTrigger::WhenMovedOnto,
+            PlacementChoice::SpellParameter,
+            act(K::Give, 0),
+        ),
+        [GOES | PLACED, 0, 0, 0],
+    );
+    set(
+        VDROP,
+        "VDROP",
+        custom(
+            CustomTrigger::WhenDroppedHere,
+            PlacementChoice::Thing,
+            act(K::Give, GEM),
+        ),
+        [GOES, 0, 0, 0],
+    );
+    set(
+        VROCK,
+        "VROCK",
+        ThingKind::Obstacle {
+            picture: 7,
+            bump_invokes_spell: false,
+            action: act(K::Nothing, 0),
+        },
+        [GOES, 0, 0, 0],
+    );
+    set(IDOL, "IDOL", idol(act(K::Give, AMULET)), [0, BUMPS, 0, 0]);
+    set(
+        IDOL_P,
+        "IDOL_P",
+        idol(act(K::Give, AMULET)),
+        [PLACED, BUMPS, 0, 0],
+    );
+    set(IDOL_X, "IDOL_X", idol(act(K::Give, AMULET)), [GOES, 0, 0, 0]);
+    set(IDOL_0, "IDOL_0", idol(act(K::Give, 0)), [GOES, BUMPS, 0, 0]);
+    set(VDOALL, "VDOALL", space(act(K::ActivateAll, 0)), [GOES, 0, 0, 0]);
+    set(
+        NEED,
+        "NEED",
+        ThingKind::CustomSpace {
+            picture: 4,
+            placement_choice: PlacementChoice::SpellParameter,
+            trigger: CustomTrigger::OpenToOwnersOf,
+            action: act(K::Give, CLAW),
+            destroy_needed_thing: true,
+        },
+        [GOES | PLACED, 0, 0, 0],
+    );
+    set(
+        VSONG,
+        "VSONG",
+        ThingKind::Portal {
+            picture: 5,
+            two_way: false,
+            access: Access::InvokeSpell {
+                action: act(K::PlayMusic, 4),
+            },
+            destroy_needed_thing: false,
+        },
+        [GOES, 0, 0, 0],
+    );
+    set(ADDER, "ADDER", space(act(K::AddToRoom, VGIFT)), [0; 4]);
+}
+
+fn given(ev: &[Event]) -> Vec<u16> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::Given { thing, .. } => Some(*thing),
+            _ => None,
+        })
+        .collect()
+}
+
+fn gone(ev: &[Event]) -> Vec<u16> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::ObstacleVanished { thing, .. } => Some(*thing),
+            _ => None,
+        })
+        .collect()
+}
+
+fn fired(ev: &[Event]) -> Vec<u16> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::SpellTriggered { thing, .. } => Some(*thing),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_space_with_bit_4_goes_after_its_spell_and_what_lies_below_acts_next() {
+    // Movement 5.9: the space goes at the step onto it, after its spell,
+    // the player on its square; the thing below acts at the next step.
+    both(|p| {
+        let mut a = adventure(p);
+        disappearing(&mut a);
+        put_item(&mut a, 0, 3, 1, TUNE, 0);
+        put_item(&mut a, 0, 3, 1, VGIFT, 0);
+        let mut g = start(a, 2, 1, setup());
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(given(&ev), vec![GEM]);
+        assert_eq!(gone(&ev), vec![VGIFT]);
+        let at_given = ev.iter().position(|e| matches!(e, Event::Given { .. }));
+        let at_gone = ev
+            .iter()
+            .position(|e| matches!(e, Event::ObstacleVanished { .. }));
+        assert!(at_given < at_gone, "after its spell: {ev:?}");
+        assert_eq!(g.current_player().at, hall(3, 1));
+        assert_eq!(stack(&g, 0, 3, 1), vec![TUNE]);
+        mv(&mut g, Dir::W);
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.contains(&Event::Music { number: 13 }));
+        assert!(gone(&ev).is_empty());
+        assert_eq!(stack(&g, 0, 3, 1), vec![TUNE]);
+    });
+}
+
+#[test]
+fn a_space_put_back_by_add_to_room_works_and_goes_again() {
+    // Movement 5.9: a spell space with the bit over a space adding it gave
+    // its thing and went, came back at the next step, gave and went again.
+    both(|p| {
+        let mut a = adventure(p);
+        disappearing(&mut a);
+        put_item(&mut a, 0, 3, 1, ADDER, 0);
+        put_item(&mut a, 0, 3, 1, VGIFT, 0);
+        let mut g = start(a, 2, 1, setup());
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!((given(&ev), gone(&ev)), (vec![GEM], vec![VGIFT]));
+        assert_eq!(stack(&g, 0, 3, 1), vec![ADDER]);
+        mv(&mut g, Dir::W);
+        let ev = mv(&mut g, Dir::E);
+        assert!(gone(&ev).is_empty());
+        assert_eq!(stack(&g, 0, 3, 1), vec![VGIFT, ADDER]);
+        mv(&mut g, Dir::W);
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!((given(&ev), gone(&ev)), (vec![GEM], vec![VGIFT]));
+        assert_eq!(stack(&g, 0, 3, 1), vec![ADDER]);
+        assert_eq!(g.current_player().count(GEM), 2);
+    });
+}
+
+#[test]
+fn custom_spaces_with_bit_4_go_when_set_off_and_a_refused_one_stays() {
+    // Movement 5.9: a "when moved onto" and a passed "owners of" space go
+    // after the spell; a refused "owners of" stays however often tried;
+    // a "when dropped here" one is not set off by a step (engine choice).
+    both(|p| {
+        let mut a = adventure(p);
+        disappearing(&mut a);
+        put_item(&mut a, 0, 3, 1, VLIGHT, GEM as u8);
+        put_item(&mut a, 0, 2, 2, VMOVE, GEM as u8);
+        put_item(&mut a, 0, 1, 1, VDROP, 0);
+        let mut g = start(
+            a,
+            2,
+            1,
+            PlayerSetup {
+                life_force: 5,
+                ..setup()
+            },
+        );
+        for _ in 0..2 {
+            let ev = mv(&mut g, Dir::E);
+            assert!(matches!(
+                ev[0],
+                Event::Blocked {
+                    reason: BlockReason::NeedsThing { thing: GEM },
+                    ..
+                }
+            ));
+            assert!(gone(&ev).is_empty());
+            assert_eq!(stack(&g, 0, 3, 1), vec![VLIGHT]);
+        }
+        let ev = mv(&mut g, Dir::W);
+        assert!(given(&ev).is_empty() && gone(&ev).is_empty(), "{ev:?}");
+        assert_eq!(stack(&g, 0, 1, 1), vec![VDROP]);
+        mv(&mut g, Dir::E);
+        // The placement is the spell's parameter: GEM.
+        let ev = mv(&mut g, Dir::S);
+        assert_eq!((given(&ev), gone(&ev)), (vec![GEM], vec![VMOVE]));
+        assert_eq!(stack(&g, 0, 2, 2), Vec::<u16>::new());
+        mv(&mut g, Dir::N);
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(gone(&ev), vec![VLIGHT]);
+        assert_eq!(g.current_player().at, hall(3, 1));
+        assert_eq!(lf(&g, ME), 10);
+        assert_eq!(stack(&g, 0, 3, 1), Vec::<u16>::new());
+    });
+}
+
+#[test]
+fn custom_obstacles_follow_their_bump_bit_and_placement_choice() {
+    // Movement 5.5: the spell only with bit 6 of byte 1; the parameter the
+    // placement's with bit 7 of byte 0, else the master's. 5.9: one with
+    // bit 4 goes at the first bump, its spell run or not. Magic 3.9: a
+    // Give of 0 gives thing 80.
+    both(|p| {
+        let mut a = adventure(p);
+        disappearing(&mut a);
+        put_item(&mut a, 0, 2, 1, IDOL, GEM as u8);
+        put_item(&mut a, 0, 3, 2, IDOL_P, GEM as u8);
+        put_item(&mut a, 0, 1, 3, IDOL_X, GEM as u8);
+        put_item(&mut a, 0, 4, 3, IDOL_0, GEM as u8);
+        put_item(&mut a, 0, 2, 3, VROCK, 0);
+        let mut g = start(a, 2, 2, setup());
+        // IDOL: the master's AMULET, bump after bump; it stays.
+        for _ in 0..2 {
+            let ev = mv(&mut g, Dir::N);
+            assert_eq!((given(&ev), gone(&ev)), (vec![AMULET], vec![]));
+        }
+        assert_eq!(stack(&g, 0, 2, 1), vec![IDOL]);
+        // IDOL_P: the placement's GEM.
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(given(&ev), vec![GEM]);
+        // VROCK: a plain obstacle with the bit and no spell goes; the
+        // square is then open.
+        let ev = mv(&mut g, Dir::S);
+        assert_eq!((fired(&ev), gone(&ev)), (vec![], vec![VROCK]));
+        assert_eq!(g.current_player().at, hall(2, 2));
+        mv(&mut g, Dir::S);
+        assert_eq!(g.current_player().at, hall(2, 3));
+        // IDOL_X: no bump bit: no spell, but it goes.
+        let ev = mv(&mut g, Dir::W);
+        assert!(matches!(
+            ev[0],
+            Event::Blocked {
+                reason: BlockReason::Obstacle { thing: IDOL_X },
+                ..
+            }
+        ));
+        assert_eq!((fired(&ev), gone(&ev)), (vec![], vec![IDOL_X]));
+        assert_eq!(stack(&g, 0, 1, 3), Vec::<u16>::new());
+        // IDOL_0: the master's 0 gives thing 80, then it goes.
+        g.place(0, hall(3, 3));
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!((given(&ev), gone(&ev)), (vec![80], vec![IDOL_0]));
+        assert!(g.current_player().owns(80));
+        assert_eq!(g.current_player().at, hall(3, 3));
+    });
+}
+
+#[test]
+fn activate_all_uses_up_a_needed_thing_and_takes_what_disappears() {
+    // Magic 3.14, movement 5.7, 5.9: top to bottom, VDOALL (bit 4), IDOL_X
+    // (no bump bit: runs anyway, the master's AMULET), NEED for GEM and
+    // NEED for DUST (owners of CLAW, destroying it), VGIFT (GEM), VSONG
+    // (a portal: bit 4 ignored), TUNE. The first NEED takes the CLAW, so
+    // the second fails and stays; every bit-4 thing whose spell ran goes,
+    // the Activate All space on top too.
+    both(|p| {
+        let mut a = adventure(p);
+        disappearing(&mut a);
+        for (t, param) in [
+            (TUNE, 0),
+            (VSONG, 0),
+            (VGIFT, 0),
+            (NEED, DUST),
+            (NEED, GEM),
+            (IDOL_X, 0),
+            (VDOALL, 0),
+        ] {
+            put_item(&mut a, 0, 3, 2, t, param as u8);
+        }
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                possessions: vec![CLAW],
+                ..setup()
+            },
+        );
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(fired(&ev), vec![VDOALL, IDOL_X, NEED, VGIFT, VSONG, TUNE]);
+        assert_eq!(given(&ev), vec![AMULET, GEM, GEM]);
+        assert!(ev.contains(&Event::ThingUsedUp {
+            player: 0,
+            thing: CLAW
+        }));
+        assert!(!g.current_player().owns(CLAW));
+        assert_eq!(gone(&ev), vec![IDOL_X, NEED, VGIFT, VDOALL]);
+        assert_eq!(g.current_player().at, hall(3, 2));
+        assert_eq!(stack(&g, 0, 3, 2), vec![NEED, VSONG, TUNE]);
+        let left = g.adventure().regions[0].rooms[0]
+            .items
+            .iter()
+            .find(|it| (it.x, it.y, it.thing) == (3, 2, NEED))
+            .map(|it| it.parameter);
+        assert_eq!(left, Some(DUST as u8));
+        // The next step runs only what is left: NEED refuses (no CLAW).
+        mv(&mut g, Dir::W);
+        let ev = mv(&mut g, Dir::E);
+        assert!(matches!(
+            ev[0],
+            Event::Blocked {
+                reason: BlockReason::NeedsThing { thing: CLAW },
+                ..
+            }
+        ));
+        assert_eq!(stack(&g, 0, 3, 2), vec![NEED, VSONG, TUNE]);
+    });
+}
+
+#[test]
+fn a_long_message_keeps_its_stored_lines() {
+    // 3.10: the stored lines of 32, one per line, a split word left
+    // split, spaces kept, trailing blanks trimmed.
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 1, SCROLL, 0);
+        a.things[SCROLL as usize - 1].kind = space(act(K::LongMessage, 8));
+        let mut g = start(a, 2, 1, setup());
+        let ev = mv(&mut g, Dir::E);
+        let i = ev
+            .iter()
+            .position(|e| matches!(e, Event::LongMessage { number: 8, .. }))
+            .expect("a long message");
+        let Event::LongMessage { text, .. } = &ev[i] else {
+            unreachable!()
+        };
+        assert_eq!(text, "           TWO  SPACES THEN A WO\nRD SPLIT\nACROSS LINES");
+        assert_eq!(describe(&g, &ev[i]).lines().count(), 3);
     });
 }
