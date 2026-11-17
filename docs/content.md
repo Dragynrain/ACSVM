@@ -144,9 +144,13 @@ player's own disks. Nothing EA's is bundled (client.md 8).
 
 ## 8. Order of work
 
-1. The bundle (2): `crates/acs-bundle` (done November 2026: read,
-   check and write, `tests/bundle.rs`), then opening one in the CLI and
-   the viewer, and Native HD mode.
+1. The bundle (2). Done November 2026: `crates/acs-bundle` reads,
+   checks and writes bundles (`tests/bundle.rs`); every `acs` command
+   and the viewer open them (a drop or the picker, by extension or zip
+   signature); the viewer's Look menu gains **Native HD**, the default
+   for a bundle with art (`--render native`). `acs bundle MODEL.json -o
+   OUT.advx [--art ATLAS.png --tile N]` wraps an Extended model, place N
+   of the atlas holding picture N: a stopgap until `acs build`.
 2. The source format and `acs build` (3).
 3. The pirate kit as data (4), and a test adventure built from it.
 4. The tutorial (6), with its replay test.

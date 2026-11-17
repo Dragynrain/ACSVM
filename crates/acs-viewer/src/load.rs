@@ -24,11 +24,29 @@ pub fn guess_platform(name: &str, len: usize) -> Platform {
     })
 }
 
-/// Decodes `bytes`; the error is a message for the user.
-pub fn load(name: &str, bytes: Vec<u8>) -> Result<Decoded, String> {
+/// An opened adventure, and its Native HD art if it is a bundle with some.
+pub struct Loaded {
+    pub decoded: Decoded,
+    pub art: Option<acs_bundle::Art>,
+}
+
+/// Decodes `bytes`, an original file or an Extended bundle (content 2);
+/// the error is a message for the user.
+pub fn load(name: &str, bytes: Vec<u8>) -> Result<Loaded, String> {
+    if acs_bundle::is_bundle(name, &bytes) {
+        let b = acs_bundle::read(&bytes).map_err(|e| e.to_string())?;
+        return Ok(Loaded {
+            decoded: Decoded {
+                adventure: b.adventure,
+                diagnostics: Vec::new(),
+            },
+            art: b.art,
+        });
+    }
     let platform = guess_platform(name, bytes.len());
     let image = Image::from_bytes(platform, bytes).map_err(|e| e.to_string())?;
-    decode(&image).map_err(|e| e.to_string())
+    let decoded = decode(&image).map_err(|e| e.to_string())?;
+    Ok(Loaded { decoded, art: None })
 }
 
 /// The text of a save file (docs/saves.md 2), or `None` for anything else:
@@ -61,8 +79,52 @@ mod tests {
 
     #[test]
     fn bad_files_give_messages_not_panics() {
-        assert!(load("x.d64", vec![0; 100]).unwrap_err().contains("bytes"));
+        assert!(load("x.d64", vec![0; 100]).err().unwrap().contains("bytes"));
         assert!(load("x.fpy", Vec::new()).is_err());
+        assert!(load("x.advx", b"PK not really".to_vec())
+            .err()
+            .unwrap()
+            .contains("not a bundle"));
+    }
+
+    /// A bundle opens with its art, which Native HD mode draws (content 2).
+    #[test]
+    fn a_bundle_opens_in_native_hd() {
+        use crate::tiles::{RenderMode, Tiles};
+        let mut f = crate::test_fixture::Fixture::new(Platform::Pc);
+        f.header("COVE", "", "");
+        let mut adventure = decode(&f.build()).expect("decodes").adventure;
+        adventure.profile = acs_core::Profile::Extended;
+        adventure.limits = acs_core::Limits::EXTENDED;
+        let art = acs_bundle::Art {
+            tile: 16,
+            width: 16,
+            height: 16,
+            rgba: [9, 8, 7, 255].repeat(256),
+            places: [(1, 0)].into(),
+        };
+        let bundle = acs_bundle::Bundle {
+            manifest: acs_bundle::Manifest::new(&adventure, "CC0"),
+            adventure,
+            art: Some(art),
+        };
+        let bytes = acs_bundle::write(&bundle).unwrap();
+        // By its signature, whatever the name.
+        let loaded = load("upload", bytes).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(loaded.decoded.adventure.name, "COVE");
+        let art = loaded.art.expect("art");
+
+        let ctx = egui::Context::default();
+        let mut tiles = Tiles::new(&ctx, &loaded.decoded.adventure);
+        assert!(!tiles.offers(RenderMode::NativeHd));
+        tiles.set_mode(&ctx, RenderMode::NativeHd);
+        assert_eq!(tiles.mode(), RenderMode::Original, "refused without art");
+        tiles.set_native(&ctx, &art);
+        tiles.set_mode(&ctx, RenderMode::NativeHd);
+        assert_eq!(tiles.mode(), RenderMode::NativeHd);
+        assert_eq!(tiles.get(1).unwrap().size(), [16, 16]);
+        // Picture 0 has no HD art: drawn Smoothed (4x).
+        assert_eq!(tiles.get(0).unwrap().size(), [64, 64]);
     }
 
     #[test]

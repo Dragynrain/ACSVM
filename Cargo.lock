@@ -40,6 +40,7 @@ dependencies = [
 name = "acs-cli"
 version = "0.1.0"
 dependencies = [
+ "acs-bundle",
  "acs-core",
  "acs-engine",
  "clap",
@@ -69,6 +70,7 @@ dependencies = [
 name = "acs-viewer"
 version = "0.1.0"
 dependencies = [
+ "acs-bundle",
  "acs-core",
  "acs-engine",
  "console_error_panic_hook",

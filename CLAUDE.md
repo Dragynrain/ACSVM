@@ -58,11 +58,12 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine -p acs-bundle --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
-cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed|hd] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot out.png]   # docs/client.md 2
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot out.png]   # docs/client.md 2
 scripts/web.sh serve                                    # trunk dev server, :8080
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
+cargo run -p acs-cli -- bundle MODEL.json -o OUT.advx [--art ATLAS.png --tile 64]   # Extended bundle from model JSON (content.md 2)
 cargo run -p acs-cli --release -- play FILE --script S.txt --seed N [--players 2] --save s.json [--trace t.jsonl]   # scripted playthrough (docs/play.md)
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
 python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10, 10.16)

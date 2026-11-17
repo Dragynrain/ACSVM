@@ -28,7 +28,7 @@ pub struct Args {
     /// (`--colour-blind`), client 7.
     pub text_size: Option<f32>,
     pub colour_blind: bool,
-    /// The render mode to start in (`--render original|smoothed`).
+    /// The render mode to start in (`--render original|smoothed|hd|native`).
     pub render: Option<crate::tiles::RenderMode>,
     pub screenshot: Option<PathBuf>,
     /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
@@ -44,7 +44,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics|pack] \
-[--size WxH] [--ppp F] [--pad] [--render original|smoothed|hd] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--pad] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();

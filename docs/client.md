@@ -108,7 +108,7 @@ other way.
 | Original | The adventure's pixels, whole-number scaling (now) |
 | Smoothed | The original tiles upscaled 4x once at load (Scale2x twice), drawn with linear filtering and mipmaps at any scale |
 | HD pack | Replacement art for tiles whose hash a pack lists; the rest Smoothed |
-| Native HD | 128 px art stored in the extended format (Phase 6; a `MODEL_VERSION` bump) |
+| Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art |
 
 **Smoothed.** Every picture, at its display size (16 x 16; a C64
 picture's pixels already doubled in width), goes through Scale2x twice

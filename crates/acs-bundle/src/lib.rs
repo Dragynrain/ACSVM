@@ -135,6 +135,17 @@ fn bad(entry: &'static str, message: impl ToString) -> BundleError {
     }
 }
 
+/// The four bytes every zip file starts with.
+const ZIP_MAGIC: [u8; 4] = *b"PK";
+
+/// Whether a file a user handed over is a bundle: its extension, or for a
+/// name without it (a browser drop, a renamed file) the zip signature. No
+/// original adventure file starts with it.
+pub fn is_bundle(name: &str, bytes: &[u8]) -> bool {
+    let ext = std::path::Path::new(name).extension().and_then(|e| e.to_str());
+    ext.is_some_and(|e| e.eq_ignore_ascii_case(EXTENSION)) || bytes.starts_with(&ZIP_MAGIC)
+}
+
 /// True if an entry's path is one a bundle may hold (no `..`, leading `/`
 /// or backslash).
 fn safe_path(name: &str) -> bool {
@@ -401,6 +412,13 @@ mod tests {
         assert!(!safe_path("art/../../x"));
         assert!(!safe_path("/etc/x"));
         assert!(!safe_path("art\\x"));
+    }
+
+    #[test]
+    fn bundles_are_told_by_extension_or_signature() {
+        assert!(is_bundle("x.ADVX", b""));
+        assert!(is_bundle("upload", b"PKrest"));
+        assert!(!is_bundle("GAME.D64", &[0; 8]));
     }
 
     #[test]

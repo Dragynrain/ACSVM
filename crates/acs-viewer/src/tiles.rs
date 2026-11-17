@@ -24,16 +24,25 @@ pub enum RenderMode {
     Smoothed,
     /// A loaded HD pack's art where it has some, Smoothed elsewhere.
     HdPack,
+    /// An Extended bundle's own art where it has some, Smoothed elsewhere
+    /// (content 2).
+    NativeHd,
 }
 
 impl RenderMode {
-    pub const ALL: [RenderMode; 3] = [RenderMode::Original, RenderMode::Smoothed, RenderMode::HdPack];
+    pub const ALL: [RenderMode; 4] = [
+        RenderMode::Original,
+        RenderMode::Smoothed,
+        RenderMode::HdPack,
+        RenderMode::NativeHd,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             RenderMode::Original => "Original",
             RenderMode::Smoothed => "Smoothed",
             RenderMode::HdPack => "HD pack",
+            RenderMode::NativeHd => "Native HD",
         }
     }
 
@@ -44,6 +53,7 @@ impl RenderMode {
             "original" => Some(RenderMode::Original),
             "smoothed" => Some(RenderMode::Smoothed),
             "hd" | "hd pack" | "hdpack" => Some(RenderMode::HdPack),
+            "native" | "native hd" => Some(RenderMode::NativeHd),
             _ => None,
         }
     }
@@ -55,6 +65,8 @@ pub struct Tiles {
     smoothed: Option<Vec<TextureHandle>>,
     /// HD pack mode's textures by picture; `None` where the pack has none.
     hd: Option<Vec<Option<TextureHandle>>>,
+    /// Native HD mode's textures by picture, from a bundle's art.
+    native: Option<Vec<Option<TextureHandle>>>,
     /// Each picture's pixels at display size, for the smoothed copies.
     pixels: Vec<Vec<[u8; 4]>>,
     mode: RenderMode,
@@ -103,6 +115,7 @@ impl Tiles {
             textures,
             smoothed: None,
             hd: None,
+            native: None,
             pixels,
             mode: RenderMode::Original,
             size,
@@ -118,7 +131,7 @@ impl Tiles {
     /// (HD pack mode draws Smoothed where the pack has nothing). HD pack
     /// mode needs a pack (`set_pack`).
     pub fn set_mode(&mut self, ctx: &Context, mode: RenderMode) {
-        if mode == RenderMode::HdPack && self.hd.is_none() {
+        if !self.offers(mode) {
             return;
         }
         if mode != RenderMode::Original && self.smoothed.is_none() {
@@ -171,8 +184,31 @@ impl Tiles {
         self.hd = Some(hd);
     }
 
-    pub fn has_pack(&self) -> bool {
-        self.hd.is_some()
+    /// Makes Native HD mode's textures from a bundle's art (content 2).
+    pub fn set_native(&mut self, ctx: &Context, art: &acs_bundle::Art) {
+        let options = TextureOptions {
+            mipmap_mode: Some(TextureFilter::Linear),
+            ..TextureOptions::LINEAR
+        };
+        let t = art.tile as usize;
+        let native = (0..self.pixels.len())
+            .map(|i| {
+                let rgba = art.picture(i as u16)?;
+                let image = ColorImage::from_rgba_unmultiplied([t, t], &rgba);
+                Some(ctx.load_texture(format!("native-{i}"), image, options))
+            })
+            .collect();
+        self.native = Some(native);
+    }
+
+    /// Whether `mode` can be chosen: HD pack needs a pack, Native HD a
+    /// bundle's art.
+    pub fn offers(&self, mode: RenderMode) -> bool {
+        match mode {
+            RenderMode::HdPack => self.hd.is_some(),
+            RenderMode::NativeHd => self.native.is_some(),
+            _ => true,
+        }
     }
 
     /// Whether tiles keep to whole-number scales (Original mode).
@@ -186,8 +222,13 @@ impl Tiles {
         match self.mode {
             RenderMode::Original => self.textures.get(i),
             RenderMode::Smoothed => smoothed.or(self.textures.get(i)),
-            RenderMode::HdPack => {
-                let hd = self.hd.as_ref().and_then(|h| h.get(i)).and_then(Option::as_ref);
+            RenderMode::HdPack | RenderMode::NativeHd => {
+                let art = if self.mode == RenderMode::HdPack {
+                    &self.hd
+                } else {
+                    &self.native
+                };
+                let hd = art.as_ref().and_then(|h| h.get(i)).and_then(Option::as_ref);
                 hd.or(smoothed).or(self.textures.get(i))
             }
         }

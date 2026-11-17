@@ -37,7 +37,7 @@ enum PlatformArg {
 enum Command {
     /// Print a summary of an adventure and write it as JSON.
     Dump {
-        /// Adventure file: .d64 (C64) or ADVEN.FPY / ADVEN.HRD (PC).
+        /// Adventure file: .d64 (C64), ADVEN.FPY / ADVEN.HRD (PC) or an .advx bundle.
         file: PathBuf,
         /// JSON output path (default: <file stem>.acs.json next to the input; "-" for stdout).
         #[arg(short, long)]
@@ -61,6 +61,24 @@ enum Command {
         /// Also write a contact sheet of all pictures (sheet.png).
         #[arg(long)]
         sheet: bool,
+    },
+    /// Write an Extended bundle (.advx) from model JSON (docs/content.md 2).
+    /// A stopgap until `acs build`: the model must already be Extended.
+    Bundle {
+        /// The model, as `dump` writes it.
+        model: PathBuf,
+        /// The bundle to write.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Licence named in the manifest.
+        #[arg(long, default_value = "CC BY-SA 4.0")]
+        license: String,
+        /// Native HD art: an atlas whose place N is picture N.
+        #[arg(long)]
+        art: Option<PathBuf>,
+        /// The atlas's tile size in pixels.
+        #[arg(long, default_value_t = 64)]
+        tile: u32,
     },
     /// Play an adventure with a scripted walkthrough (docs/play.md).
     Play {
@@ -100,6 +118,17 @@ fn main() -> ExitCode {
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn load(file: &Path, platform: Option<PlatformArg>) -> AnyResult<Decoded> {
+    let name = file.to_string_lossy();
+    if name
+        .to_ascii_lowercase()
+        .ends_with(&format!(".{}", acs_bundle::EXTENSION))
+    {
+        let bundle = acs_bundle::read(&std::fs::read(file)?)?;
+        return Ok(Decoded {
+            adventure: bundle.adventure,
+            diagnostics: Vec::new(),
+        });
+    }
     let platform = platform.map(|p| match p {
         PlatformArg::Pc => Platform::Pc,
         PlatformArg::C64 => Platform::C64,
@@ -161,6 +190,30 @@ fn run(cli: Cli) -> AnyResult<ExitCode> {
             }
             println!("wrote {} pictures to {}", adv.pictures.len(), outdir.display());
             Ok(exit_for(&decoded))
+        }
+        Command::Bundle {
+            model,
+            output,
+            license,
+            art,
+            tile,
+        } => {
+            let adventure: Adventure = serde_json::from_slice(&std::fs::read(&model)?)?;
+            let art = match art {
+                Some(path) => Some(read_atlas(&path, tile, adventure.pictures.len())?),
+                None => None,
+            };
+            let bundle = acs_bundle::Bundle {
+                manifest: acs_bundle::Manifest::new(&adventure, &license),
+                adventure,
+                art,
+            };
+            let bytes = acs_bundle::write(&bundle)?;
+            // Read it back: the same checks any player's copy gets.
+            acs_bundle::read(&bytes)?;
+            std::fs::write(&output, bytes)?;
+            eprintln!("wrote {}", output.display());
+            Ok(ExitCode::SUCCESS)
         }
         Command::Play {
             file,
@@ -375,4 +428,38 @@ fn print_summary(a: &Adventure, verbose: bool) {
             c.power
         );
     }
+}
+
+/// An RGBA atlas for `acs bundle --art`: place N holds picture N, for every
+/// place up to the adventure's picture count.
+fn read_atlas(path: &Path, tile: u32, pictures: usize) -> AnyResult<acs_bundle::Art> {
+    let mut decoder = png::Decoder::new(std::io::BufReader::new(File::open(path)?));
+    decoder.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
+    let mut reader = decoder.read_info()?;
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let frame = reader.next_frame(&mut buf)?;
+    if frame.color_type != png::ColorType::Rgba {
+        return Err(format!(
+            "{}: colour type {:?}, need RGBA",
+            path.display(),
+            frame.color_type
+        )
+        .into());
+    }
+    if tile == 0 || frame.width % tile != 0 || frame.height % tile != 0 {
+        return Err(format!(
+            "tile {tile} doesn't divide the {} x {} atlas",
+            frame.width, frame.height
+        )
+        .into());
+    }
+    let places = (frame.width / tile) * (frame.height / tile);
+    buf.truncate(frame.buffer_size());
+    Ok(acs_bundle::Art {
+        tile,
+        width: frame.width,
+        height: frame.height,
+        rgba: buf,
+        places: (0..places.min(pictures as u32)).map(|n| (n as u16, n)).collect(),
+    })
 }

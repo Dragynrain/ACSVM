@@ -413,13 +413,18 @@ impl Viewer {
             return;
         }
         match file.bytes.and_then(|b| load::load(&file.name, b)) {
-            Ok(decoded) => {
+            Ok(load::Loaded { decoded, art }) => {
                 for d in &decoded.diagnostics {
                     log::warn!("{}: {d}", file.name);
                 }
                 let mut doc = Doc::new(ctx, file.name, decoded);
                 if let Some(pack) = &self.pack {
                     Self::apply_pack(ctx, pack, &mut doc);
+                }
+                // A bundle's own art is its default look (content 2).
+                if let Some(art) = &art {
+                    doc.tiles.set_native(ctx, art);
+                    doc.tiles.set_mode(ctx, crate::tiles::RenderMode::NativeHd);
                 }
                 self.doc = Some(doc);
                 self.error = None;
@@ -460,8 +465,8 @@ impl Viewer {
             let file = rfd::AsyncFileDialog::new()
                 .set_title("Open an adventure or a save")
                 .add_filter(
-                    "Adventures (.d64, .fpy, .hrd)",
-                    &["d64", "D64", "fpy", "FPY", "hrd", "HRD"],
+                    "Adventures (.d64, .fpy, .hrd, .advx)",
+                    &["d64", "D64", "fpy", "FPY", "hrd", "HRD", "advx", "ADVX"],
                 )
                 .add_filter("Saves (.json)", &["json", "JSON"])
                 .add_filter("HD packs (.png)", &["png", "PNG"])
@@ -555,9 +560,8 @@ impl Viewer {
             // Render mode for every view (client 5).
             let mode = doc.tiles.mode();
             ui.menu_button(format!("Look: {}", mode.label()), |ui| {
-                let has_pack = doc.tiles.has_pack();
                 for m in crate::tiles::RenderMode::ALL {
-                    if m == crate::tiles::RenderMode::HdPack && !has_pack {
+                    if !doc.tiles.offers(m) {
                         continue;
                     }
                     if ui.selectable_label(mode == m, m.label()).clicked() {
