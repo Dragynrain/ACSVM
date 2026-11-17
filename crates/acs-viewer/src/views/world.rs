@@ -6,10 +6,6 @@ use super::*;
 use acs_core::model::{Passability, WorldMap};
 use egui::RichText;
 
-const DOOR: Color32 = Color32::from_rgb(0, 220, 255);
-const EXIT: Color32 = Color32::from_rgb(255, 140, 0);
-const START: Color32 = Color32::from_rgb(80, 255, 80);
-
 pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     let adv = &doc.decoded.adventure;
     let map = &adv.world;
@@ -37,9 +33,11 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     }
                 ));
                 ui.horizontal_wrapped(|ui| {
-                    ui.colored_label(DOOR, "door");
-                    ui.colored_label(EXIT, "exit point");
-                    ui.colored_label(START, "start");
+                    // Each told apart by its outline too (client 7).
+                    let [door, exit, start] = crate::access::Access::get(ui.ctx()).map_colours();
+                    ui.colored_label(door, "door (outline)");
+                    ui.colored_label(exit, "exit point (corners)");
+                    ui.colored_label(start, "start (double)");
                 });
                 ui.separator();
                 match focus {
@@ -87,23 +85,21 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         }
         let on_map = |x: u8, y: u8| (x as u32) < cols && (y as u32) < rows;
         let w = (grid.tile.x / 8.0).clamp(1.0, 3.0);
+        let [door, exit, start] = crate::access::Access::get(ui.ctx()).map_colours();
         for p in map.exit_points.iter().flatten() {
             if on_map(p.x, p.y) {
-                outline(&painter, grid.cell_rect(p.x as u32, p.y as u32), EXIT, w);
+                brackets(&painter, grid.cell_rect(p.x as u32, p.y as u32), exit, w + 1.0);
             }
         }
         for d in &map.doors {
             if on_map(d.at.x, d.at.y) {
-                outline(&painter, grid.cell_rect(d.at.x as u32, d.at.y as u32), DOOR, w);
+                outline(&painter, grid.cell_rect(d.at.x as u32, d.at.y as u32), door, w);
             }
         }
         if on_map(map.start.x, map.start.y) {
-            outline(
-                &painter,
-                grid.cell_rect(map.start.x as u32, map.start.y as u32),
-                START,
-                w,
-            );
+            let cell = grid.cell_rect(map.start.x as u32, map.start.y as u32);
+            outline(&painter, cell, start, w);
+            outline(&painter, cell.shrink(2.0 * w + 1.0), start, w);
         }
         hover = hovered_cell(&resp, &grid).map(|(x, y)| (x as u8, y as u8));
         if let Some((x, y)) = hover {

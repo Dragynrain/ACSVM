@@ -208,11 +208,34 @@ Sound checkbox to mute. Muting stops what plays.
 
 ## 7. Accessibility
 
-A font size option for the panels and the log; a colour-blind palette for
-the log's kinds and the player markers (none of them told apart by
-colour alone); in the browser, the log mirrored into a live region a
-screen reader announces; reduced motion turns off pulses and smooth
-movement.
+The top bar's **Options** menu holds three settings, for every view and
+every adventure in the session (not yet kept between sessions).
+
+- **Text size**, 75% to 200% (default 100%): every font in the panels,
+  lists, menus and the log. The board's tiles keep their own size.
+  `--text-size PCT` starts with it.
+- **Colour-blind palette** (off by default): the Okabe-Ito colours,
+  told apart under the common colour-vision deficiencies, replace the
+  log's kind colours, the player markers', the creatures' alignment
+  marks' and the world map's door, exit and start outlines.
+  `--colour-blind` starts with it.
+- **Reduce motion**: the pulsing outline on a square a door leads to
+  stays still. In the browser it starts on when the system asks for
+  reduced motion (`prefers-reduced-motion`).
+
+**Nothing told apart by colour alone**, whichever palette:
+
+| What | Besides its colour |
+| --- | --- |
+| Log kinds | A symbol before the line: `×` blocked, `»` doors and places, `*` spells, `+` things, `~` creatures, `!` foes and harm, `¶` a long message; turns, steps and notes have none |
+| Player markers | The player's number in the ring |
+| Creature alignment | A shape: enemy a triangle, friend a circle, neutral a square, thief a diamond |
+| World map squares | Door a plain outline, exit point corner brackets, start a double outline |
+
+**Screen readers.** In the browser, every new log line is also put in a
+hidden live region (`role="log"`, `aria-live="polite"`) that keeps the
+last 50 lines, so a screen reader reads play as it happens. The desktop
+build has no screen reader support yet.
 
 ## 8. Builds
 
@@ -247,7 +270,9 @@ an adventure: files are opened or dropped on the window.
    November 2026 (`hdpack.rs`, `views/pack.rs`, `scripts/hdpack.py`);
    the test `a_pack_loads_and_reports_its_coverage` is the gate's pack
    check on a test adventure of our own.
-7. Accessibility options (7).
+7. Accessibility options (7). Done November 2026 (`access.rs`,
+   `live.rs`). Known: at large text sizes a bar's caption (Life Force,
+   Power) can run past a narrow info column, since captions don't wrap.
 8. Desktop builds (8).
 
 ## 10. Gate

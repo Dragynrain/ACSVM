@@ -72,8 +72,30 @@ pub fn outline(painter: &Painter, rect: Rect, color: Color32, width: f32) {
     painter.rect_stroke(rect, 0.0, Stroke::new(width, color), StrokeKind::Inside);
 }
 
+/// Corner brackets instead of a full outline (client 7: exit points).
+pub fn brackets(painter: &Painter, rect: Rect, color: Color32, width: f32) {
+    let r = rect.shrink(width / 2.0);
+    let k = r.width().min(r.height()) * 0.35;
+    let s = Stroke::new(width, color);
+    for (c, dx, dy) in [
+        (r.left_top(), k, k),
+        (r.right_top(), -k, k),
+        (r.left_bottom(), k, -k),
+        (r.right_bottom(), -k, -k),
+    ] {
+        painter.line_segment([c, c + egui::vec2(dx, 0.0)], s);
+        painter.line_segment([c, c + egui::vec2(0.0, dy)], s);
+    }
+}
+
 /// A pulsing marker for the square a followed door leads to.
 pub fn pulse(ui: &egui::Ui, painter: &Painter, rect: Rect) {
+    // Reduce motion: the outline stays still (client 7).
+    if crate::access::Access::get(ui.ctx()).reduce_motion {
+        let c = Color32::from_rgb(255, 230, 0);
+        painter.rect_stroke(rect.expand(2.0), 0.0, Stroke::new(3.0, c), StrokeKind::Outside);
+        return;
+    }
     let t = ui.input(|i| i.time) as f32;
     let a = 0.55 + 0.45 * (t * 5.0).sin();
     let c = Color32::from_rgba_unmultiplied(255, 230, 0, (a * 255.0) as u8);

@@ -6,11 +6,13 @@
 //! Desktop: `acs-viewer [FILE]` (see `cli.rs` for options). Web: `trunk serve` in this crate (see
 //! `scripts/web.sh`).
 
+mod access;
 mod app;
 mod audio;
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
 mod hdpack;
+mod live;
 mod load;
 mod savefile;
 mod smooth;
@@ -47,6 +49,8 @@ fn main() -> eframe::Result {
         pad: args.pad,
         render: args.render,
         pack: args.pack,
+        text_size: args.text_size,
+        colour_blind: args.colour_blind,
         screenshot: args.screenshot,
         place: args.place,
         load: args.load,

@@ -191,6 +191,9 @@ pub struct Startup {
     pub pad: bool,
     /// An HD pack to load first (`--pack`).
     pub pack: Option<std::path::PathBuf>,
+    /// Options to start with (`--text-size`, `--colour-blind`).
+    pub text_size: Option<f32>,
+    pub colour_blind: bool,
     /// The render mode to start in (`--render`).
     pub render: Option<crate::tiles::RenderMode>,
     /// Write a screenshot here after a few frames, then quit.
@@ -223,6 +226,8 @@ pub struct Viewer {
     resize_to: Option<egui::Vec2>,
     /// The HD pack loaded this session, for every adventure opened.
     pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
+    /// The Options menu (client 7).
+    access: crate::access::Access,
 }
 
 impl Viewer {
@@ -243,7 +248,13 @@ impl Viewer {
             capture: start.screenshot.map(|p| (p, 10)),
             resize_to: start.ppp.map(|(_, size)| size.into()),
             pack: None,
+            access: crate::access::Access {
+                text: start.text_size.unwrap_or(1.0),
+                colour_blind: start.colour_blind,
+                reduce_motion: crate::live::system_reduced_motion(),
+            },
         };
+        v.access.set(&cc.egui_ctx);
         // The pack first, so the adventure opens with it.
         if let Some(p) = start.pack {
             let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
@@ -276,8 +287,10 @@ impl Viewer {
             for c in commands {
                 walk.apply(c);
             }
-            // The start-up commands' cues are not played (client 6).
+            // The start-up commands' cues are not played (client 6), nor
+            // their lines read (client 7).
             walk.take_cues();
+            walk.take_unannounced();
             doc.walk = Some(walk);
             doc.view = View::Walk;
         }
@@ -491,6 +504,22 @@ impl Viewer {
             if ui.button("Open…").clicked() {
                 self.pick_file(&ctx);
             }
+            // Accessibility options for every view (client 7).
+            ui.menu_button("Options", |ui| {
+                let a = &mut self.access;
+                let mut pct = (a.text * 100.0).round();
+                ui.add(
+                    egui::Slider::new(&mut pct, 75.0..=200.0)
+                        .step_by(5.0)
+                        .suffix("%")
+                        .text("Text size"),
+                );
+                a.text = pct / 100.0;
+                ui.checkbox(&mut a.colour_blind, "Colour-blind palette")
+                    .on_hover_text("Okabe-Ito colours for the log, the players, the creatures and the map.");
+                ui.checkbox(&mut a.reduce_motion, "Reduce motion")
+                    .on_hover_text("No pulsing outlines.");
+            });
             if let Some(doc) = &mut self.doc {
                 if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
                     doc.go(View::Walk);
@@ -657,6 +686,7 @@ impl eframe::App for Viewer {
             }
         }
 
+        self.access.set(&ctx);
         egui::Panel::top("top").show(ui, |ui| self.top_bar(ui));
 
         if let Some(doc) = &mut self.doc {

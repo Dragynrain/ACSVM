@@ -125,6 +125,10 @@ pub struct Walk {
     pub touch: bool,
     /// Play Music cues not yet played (client 6).
     cues: Vec<u8>,
+    /// Log lines dropped from the front, and lines ever logged that the
+    /// screen reader region has had (client 7).
+    trimmed: usize,
+    announced: usize,
     /// Characters retired with Save (characters 7.3): the engine has no
     /// roster yet, so the front end keeps them.
     retired: Vec<Player>,
@@ -170,6 +174,8 @@ impl Walk {
             pending_aim: None,
             touch: false,
             cues: Vec::new(),
+            trimmed: 0,
+            announced: 0,
             retired: Vec::new(),
             hindered: false,
             new_name: String::new(),
@@ -239,8 +245,9 @@ impl Walk {
         let p = w.game.current_player();
         let line = format!("{}'s turn, {}.", p.name, place_name(&w.game, p.at));
         w.note(line);
-        // A replay's cues are not played (client 6).
+        // A replay's cues are not played (client 6), nor its lines read.
         w.cues.clear();
+        w.take_unannounced();
         Ok(w)
     }
 
@@ -392,6 +399,14 @@ impl Walk {
     fn cancel(&mut self) {
         self.pending_drop = None;
         self.pending_aim = None;
+    }
+
+    /// The log lines since the last call, for the screen reader region
+    /// (client 7).
+    pub fn take_unannounced(&mut self) -> Vec<String> {
+        let start = self.announced.saturating_sub(self.trimmed).min(self.log.len());
+        self.announced = self.trimmed + self.log.len();
+        self.log[start..].iter().map(|(_, l)| l.clone()).collect()
     }
 
     /// The Play Music cues since the last call (client 6).
@@ -557,6 +572,7 @@ impl Walk {
             self.log.push((kind, describe(&self.game, e)));
         }
         if self.log.len() > LOG_MAX {
+            self.trimmed += self.log.len() - LOG_MAX;
             self.log.drain(..self.log.len() - LOG_MAX);
         }
     }
@@ -822,7 +838,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             } else {
                 p.name.clone()
             };
-            ui.heading(RichText::new(heading).color(player_colour(g.current())));
+            ui.heading(RichText::new(heading).color(player_colour(ui.ctx(), g.current())));
             ui.label(place_name(g, p.at));
             if g.is_over() || !p.alive {
                 ui.label(
@@ -963,18 +979,17 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 .stick_to_bottom(true)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
+                    let access = crate::access::Access::get(ui.ctx());
                     for (kind, line) in &walk.log {
-                        let t = RichText::new(line);
+                        // A symbol as well as a colour (client 7).
+                        let t = match kind_mark(*kind, &access) {
+                            Some((sym, colour)) => RichText::new(format!("{sym} {line}")).color(colour),
+                            None => RichText::new(line),
+                        };
                         let t = match kind {
                             Kind::Turn | Kind::Step => t.weak(),
-                            Kind::Block => t.color(Color32::from_rgb(255, 170, 120)),
-                            Kind::Door => t.color(Color32::from_rgb(120, 220, 255)),
-                            Kind::Spell => t.color(Color32::from_rgb(230, 160, 255)),
-                            Kind::Item => t.color(Color32::from_rgb(150, 230, 140)),
-                            Kind::Creature => t.color(Color32::from_rgb(235, 220, 150)),
-                            Kind::Foe => t.color(Color32::from_rgb(255, 110, 110)),
-                            Kind::Message => t.italics().color(Color32::from_rgb(255, 240, 200)),
-                            Kind::Note => t,
+                            Kind::Message => t.italics(),
+                            _ => t,
                         };
                         if *kind == Kind::Message {
                             // A long message keeps its stored lines (magic
@@ -1039,6 +1054,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     for n in walk.take_cues() {
         doc.audio.play(n);
     }
+    // New log lines for a screen reader (client 7).
+    crate::live::announce(&walk.take_unannounced());
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
     }
@@ -1202,15 +1219,27 @@ fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>) -> bool {
     resp.clicked()
 }
 
-/// Marker colour of each of the four players (movement 1.4).
-fn player_colour(player: usize) -> Color32 {
-    const COLOURS: [Color32; 4] = [
-        Color32::from_rgb(255, 215, 0),
-        Color32::from_rgb(80, 200, 255),
-        Color32::from_rgb(255, 120, 220),
-        Color32::from_rgb(140, 240, 110),
-    ];
-    COLOURS[player % COLOURS.len()]
+/// Marker colour of each of the four players (movement 1.4), in the
+/// palette chosen (client 7).
+fn player_colour(ctx: &egui::Context, player: usize) -> Color32 {
+    crate::access::Access::get(ctx).player_colour(player)
+}
+
+/// A log kind's symbol and colour (client 7); turns, steps and notes have
+/// neither.
+fn kind_mark(kind: Kind, a: &crate::access::Access) -> Option<(&'static str, Color32)> {
+    use crate::access::okabe::*;
+    let pick = |plain: Color32, safe: Color32| if a.colour_blind { safe } else { plain };
+    Some(match kind {
+        Kind::Block => ("×", pick(Color32::from_rgb(255, 170, 120), ORANGE)),
+        Kind::Door => ("»", pick(Color32::from_rgb(120, 220, 255), SKY_BLUE)),
+        Kind::Spell => ("*", pick(Color32::from_rgb(230, 160, 255), PURPLE)),
+        Kind::Item => ("+", pick(Color32::from_rgb(150, 230, 140), GREEN)),
+        Kind::Creature => ("~", pick(Color32::from_rgb(235, 220, 150), YELLOW)),
+        Kind::Foe => ("!", pick(Color32::from_rgb(255, 110, 110), VERMILLION)),
+        Kind::Message => ("¶", Color32::from_rgb(255, 240, 200)),
+        Kind::Turn | Kind::Step | Kind::Note => return None,
+    })
 }
 
 /// Everyone playing, whose turn it is, and "Add Someone" (movement 1.4):
@@ -1221,7 +1250,8 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
         for (i, p) in players.iter().enumerate() {
             ui.horizontal(|ui| {
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
-                ui.painter().circle_filled(rect.center(), 5.0, player_colour(i));
+                ui.painter()
+                    .circle_filled(rect.center(), 5.0, player_colour(ui.ctx(), i));
                 let mut name = RichText::new(&p.name);
                 if i == g.current() {
                     name = name.strong();
@@ -1595,13 +1625,10 @@ fn inventory_panel(
 }
 
 /// Colour of a creature's alignment marker.
-fn alignment_colour(a: Alignment) -> Color32 {
-    match a {
-        Alignment::Enemy => Color32::from_rgb(235, 60, 60),
-        Alignment::Friend => Color32::from_rgb(70, 210, 90),
-        Alignment::Neutral => Color32::from_rgb(230, 200, 60),
-        Alignment::Thief => Color32::from_rgb(190, 110, 255),
-    }
+/// An alignment's mark: its shape in the palette's colour (client 7).
+fn alignment_mark(painter: &egui::Painter, c: egui::Pos2, r: f32, a: Alignment) {
+    let colour = crate::access::Access::get(painter.ctx()).alignment_colour(a);
+    crate::access::alignment_mark(painter, c, r, a, colour);
 }
 
 /// "fighter enemy, aggressive, brave" (creatures 4).
@@ -1637,8 +1664,7 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         };
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
-            ui.painter()
-                .circle_filled(rect.center(), 5.0, alignment_colour(c.strategy.alignment));
+            alignment_mark(ui.painter(), rect.center(), 5.0, c.strategy.alignment);
             ui.label(format!("{name}{random} · {},{}", c.x, c.y));
         });
         let weapon = a
@@ -1720,7 +1746,21 @@ fn marker(painter: &egui::Painter, rect: Rect, player: usize, current: bool, nes
         painter.circle_stroke(c, outer, Stroke::new((r * 0.15).max(1.0), Color32::WHITE));
     }
     painter.circle_stroke(c, r, Stroke::new((r * 0.45).max(2.0), Color32::BLACK));
-    painter.circle_stroke(c, r, Stroke::new((r * 0.25).max(1.0), player_colour(player)));
+    let colour = player_colour(painter.ctx(), player);
+    painter.circle_stroke(c, r, Stroke::new((r * 0.25).max(1.0), colour));
+    // The player's number, so colour isn't the only mark (client 7).
+    if r >= 5.0 {
+        let font = egui::FontId::proportional(r * 1.15);
+        let n = (player + 1).to_string();
+        painter.text(
+            c + egui::vec2(1.0, 1.0),
+            egui::Align2::CENTER_CENTER,
+            &n,
+            font.clone(),
+            Color32::BLACK,
+        );
+        painter.text(c, egui::Align2::CENTER_CENTER, &n, font, colour);
+    }
 }
 
 /// Draws every living player for which `cell` gives a square in view.
@@ -1833,13 +1873,12 @@ fn draw_room(
         let pic = square_picture(a, reg, r, sq, door(x as u8, y as u8));
         tiles.paint(&painter, pic, grid.cell_rect(x, y));
     }
-    // A dot in the corner of each creature's square shows its alignment.
+    // A mark in the corner of each creature's square shows its alignment.
     for c in reg.residents.iter().filter(|c| c.in_use && c.room == room) {
         let cell = grid.cell_rect(c.x as u32, c.y as u32);
         let rad = (cell.width().min(cell.height()) * 0.12).max(2.0);
         let at = cell.right_top() + egui::vec2(-rad * 1.4, rad * 1.4);
-        painter.circle_filled(at, rad + 1.0, Color32::BLACK);
-        painter.circle_filled(at, rad, alignment_colour(c.strategy.alignment));
+        alignment_mark(&painter, at, rad, c.strategy.alignment);
     }
     markers(&painter, g, |at| match at {
         Location::Room {
@@ -1994,6 +2033,27 @@ mod tests {
         let (_, text) = w.save_file(&a);
         assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
+    }
+
+    #[test]
+    fn new_log_lines_are_announced_once_even_past_the_trim() {
+        let a = adventure();
+        let mut w = Walk::new(&a, 3, Rules::default());
+        w.take_unannounced();
+        w.note("one".into());
+        w.note("two".into());
+        assert_eq!(w.take_unannounced(), ["one", "two"]);
+        assert!(w.take_unannounced().is_empty());
+        for i in 0..LOG_MAX + 3 {
+            w.note(format!("line {i}"));
+        }
+        w.record(&[]);
+        let got = w.take_unannounced();
+        assert_eq!(
+            got.last().map(String::as_str),
+            Some(format!("line {}", LOG_MAX + 2).as_str())
+        );
+        assert_eq!(got.len(), LOG_MAX);
     }
 
     #[test]
