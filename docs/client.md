@@ -72,10 +72,29 @@ Later in the phase: a filter by kind, and the font size option (7).
 
 - **Keyboard** (now): the original's eight directions and its commands
   (`key_command`, walk.rs).
-- **Mouse**: clicking a square beside the player moves there; while
-  aiming FIRE or a cast, clicking a square picks it.
-- **Touch**: an on-screen eight-way pad and the command buttons, shown
-  when the last input was a touch.
+- **Mouse and taps** on the board (a tap is a click). What a click on a
+  square does depends on what is waiting:
+  - Nothing waiting: a square beside the player (any of the eight,
+    across the map's wraparound) is a step that way. The player's own
+    square and farther squares do nothing: walking a route there would
+    be a rule, and the client holds none.
+  - A drop waiting (Drop, then a direction): the player's own square
+    drops it there, a square beside it drops it that way; other squares
+    do nothing.
+  - A target cursor up (FIRE, or Cast or Use at "a square…"): the
+    cursor follows the mouse over the room's inside squares, and a click
+    on one sends the command at it. Wall squares do nothing.
+  Cast and Use offer "a square…" beside the people in the room when
+  the player is in a room; it raises the same cursor as FIRE, moved by
+  the direction keys, sent with Space or Enter, cancelled with Escape.
+- **Touch**: an on-screen pad in its own strip along the bottom of the
+  window, under the thumbs and never over the board: eight arrows round
+  a Wait key on the left, each 52 points; on the right, while a drop or
+  a cursor waits, a Cancel key, and on the map or holding a missile
+  weapon, a Fire key. It shows when the last input was a touch, and
+  hides on the next key press; the info column's "On-screen pad" option
+  fixes it on or off. The pad's keys are the keyboard's: they go
+  through the same handling, cursor and drop included.
 - **Gamepads**: up to four, one per hot-seat player, each with its own
   bindings (design.md component 11).
 
@@ -137,7 +156,8 @@ an adventure: files are opened or dropped on the window.
    reach (Smoothed, step 5, scales freely); the creature list's
    stats table is a fixed width, so long values wrap; the message list
    is the original's 32-character column.
-3. Mouse targeting and the touch pad (4).
+3. Mouse targeting and the touch pad (4). Done November 2026
+   (`--pad` shows the pad for screenshots).
 4. Audio: the cue player with placeholder cues, then our 30 (6).
 5. Smoothed mode (5).
 6. The HD pack format, loading and the coverage report (5).

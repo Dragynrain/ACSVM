@@ -75,6 +75,9 @@ pub struct Doc {
     pub pick: bool,
     /// Walk mode's bar never drains (design.md, Play options).
     pub turn_based: bool,
+    /// Walk mode's on-screen pad fixed on or off; `None` follows the last
+    /// input (client 4).
+    pub pad: Option<bool>,
 }
 
 impl Doc {
@@ -102,6 +105,7 @@ impl Doc {
             walk: None,
             pick: false,
             turn_based: false,
+            pad: None,
         }
     }
 
@@ -175,6 +179,8 @@ pub struct Startup {
     pub view: Option<View>,
     /// Render at this many pixels per point, the window this many points.
     pub ppp: Option<(f32, [f32; 2])>,
+    /// Walk mode with the on-screen pad on (`--pad`).
+    pub pad: bool,
     /// Write a screenshot here after a few frames, then quit.
     pub screenshot: Option<std::path::PathBuf>,
     /// Walk mode: seed and commands to play before showing it.
@@ -246,6 +252,9 @@ impl Viewer {
             }
             doc.walk = Some(walk);
             doc.view = View::Walk;
+        }
+        if let (true, Some(doc)) = (start.pad, &mut v.doc) {
+            doc.pad = Some(true);
         }
         if let Some(p) = start.load {
             let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));

@@ -47,6 +47,68 @@ enum Kind {
     Message,
 }
 
+/// What a target cursor sends (client 4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Aim {
+    /// FIRE with the weapon chosen from the menu (`None`: the one held).
+    Fire(Option<u16>),
+    Cast(u16),
+    Use(u16),
+}
+
+impl Aim {
+    fn command(self, at: (u8, u8)) -> Command {
+        match self {
+            Aim::Fire(weapon) => Command::Fire {
+                target: Some(at),
+                weapon,
+            },
+            Aim::Cast(thing) => Command::Cast {
+                thing,
+                target: None,
+                at: Some(at),
+            },
+            Aim::Use(thing) => Command::Use {
+                thing,
+                target: None,
+                at: Some(at),
+            },
+        }
+    }
+}
+
+/// Where `to` lies from `from`: in the same room, or both on a map `n`
+/// squares each way (the shorter way round where it wraps).
+fn offset(from: Location, to: Location, n: i16, wraps: bool) -> Option<(i16, i16)> {
+    let near = |d: i16| {
+        if wraps && n > 0 {
+            let d = d.rem_euclid(n);
+            if d > n / 2 {
+                d - n
+            } else {
+                d
+            }
+        } else {
+            d
+        }
+    };
+    match (from, to) {
+        (Location::World { x, y }, Location::World { x: tx, y: ty }) => {
+            Some((near(tx as i16 - x as i16), near(ty as i16 - y as i16)))
+        }
+        (
+            Location::Room { region, room, x, y },
+            Location::Room {
+                region: r2,
+                room: m2,
+                x: tx,
+                y: ty,
+            },
+        ) if (region, room) == (r2, m2) => Some((tx as i16 - x as i16, ty as i16 - y as i16)),
+        _ => None,
+    }
+}
+
 pub struct Walk {
     pub game: Game,
     log: Vec<(Kind, String)>,
@@ -55,10 +117,12 @@ pub struct Walk {
     pending_drop: Option<u16>,
     /// Pieces per gold drop.
     gold_amount: u16,
-    /// FIRE's target cursor (combat 8.8.3): the weapon chosen from the
-    /// menu (`None` when one is held) and the square under the cursor.
-    /// Direction keys move it, Space or Enter fires, Escape cancels.
-    pending_fire: Option<(Option<u16>, (u8, u8))>,
+    /// A target cursor: FIRE's (combat 8.8.3) or a cast's or use's at a
+    /// square (client 4), and the square under it. Direction keys or the
+    /// mouse move it, Space, Enter or a click sends it, Escape cancels.
+    pending_aim: Option<(Aim, (u8, u8))>,
+    /// The last input was a touch: the on-screen pad shows (client 4).
+    pub touch: bool,
     /// Characters retired with Save (characters 7.3): the engine has no
     /// roster yet, so the front end keeps them.
     retired: Vec<Player>,
@@ -101,7 +165,8 @@ impl Walk {
             log: Vec::new(),
             pending_drop: None,
             gold_amount: 1,
-            pending_fire: None,
+            pending_aim: None,
+            touch: false,
             retired: Vec::new(),
             hindered: false,
             new_name: String::new(),
@@ -241,8 +306,7 @@ impl Walk {
     /// The engine's button (`Command::Restore`) on the kept game.
     fn resume(&mut self) {
         self.game = self.restore_target().clone();
-        self.pending_drop = None;
-        self.pending_fire = None;
+        self.cancel();
         self.note("Resumed from the last save.".into());
         let ev = self.game.apply(Command::Restore);
         self.save = self.game.clone();
@@ -254,21 +318,18 @@ impl Walk {
     /// while FIRE's cursor is up, a direction key moves it inside the
     /// room's walls and Wait fires.
     fn key(&mut self, cmd: Command) {
-        if let Some((weapon, (x, y))) = self.pending_fire {
+        if let Some((aim, (x, y))) = self.pending_aim {
             match cmd {
                 Command::Move { dir } => {
                     let (w, h) = self.room_size();
                     let (dx, dy) = dir.delta();
                     let nx = (x as i16 + dx as i16).clamp(1, (w as i16 - 2).max(1)) as u8;
                     let ny = (y as i16 + dy as i16).clamp(1, (h as i16 - 2).max(1)) as u8;
-                    self.pending_fire = Some((weapon, (nx, ny)));
+                    self.pending_aim = Some((aim, (nx, ny)));
                 }
                 _ => {
-                    self.pending_fire = None;
-                    self.apply(Command::Fire {
-                        target: Some((x, y)),
-                        weapon,
-                    });
+                    self.pending_aim = None;
+                    self.apply(aim.command((x, y)));
                 }
             }
             return;
@@ -306,14 +367,95 @@ impl Walk {
     /// from the menu, the cursor comes up on the player's square; on the
     /// map, or with NONE chosen, the command goes at once.
     fn start_fire(&mut self, weapon: Option<u16>, aim: bool) {
-        let p = self.game.current_player();
-        match p.at {
-            Location::Room { x, y, .. } if aim => {
-                self.pending_drop = None;
-                self.pending_fire = Some((weapon, (x, y)));
-            }
-            _ => self.apply(Command::Fire { target: None, weapon }),
+        if !(aim && self.start_aim(Aim::Fire(weapon))) {
+            self.apply(Command::Fire { target: None, weapon });
         }
+    }
+
+    /// Raises the target cursor on the player's square; false on the map,
+    /// where there is no square to aim at.
+    fn start_aim(&mut self, aim: Aim) -> bool {
+        let Location::Room { x, y, .. } = self.game.current_player().at else {
+            return false;
+        };
+        self.pending_drop = None;
+        self.pending_aim = Some((aim, (x, y)));
+        true
+    }
+
+    /// Escape: drops the waiting drop or cursor.
+    fn cancel(&mut self) {
+        self.pending_drop = None;
+        self.pending_aim = None;
+    }
+
+    /// FIRE goes without a menu: on the map, or holding a missile weapon.
+    fn fire_ready(&self) -> bool {
+        let p = self.game.current_player();
+        let missile = p
+            .weapon
+            .and_then(|t| self.game.adventure().things.get((t as usize).wrapping_sub(1)))
+            .is_some_and(|t| matches!(t.kind, ThingKind::MissileWeapon { .. }));
+        missile || matches!(p.at, Location::World { .. })
+    }
+
+    /// Whether a drop or a cursor waits.
+    fn waiting(&self) -> bool {
+        self.pending_drop.is_some() || self.pending_aim.is_some()
+    }
+
+    /// The square `(x, y)` of the current room is inside its walls.
+    fn inside(&self, x: u8, y: u8) -> bool {
+        let (w, h) = self.room_size();
+        (1..w.saturating_sub(1)).contains(&x) && (1..h.saturating_sub(1)).contains(&y)
+    }
+
+    /// The pointer is over `at` with a cursor up: the cursor follows it
+    /// onto inside squares (client 4).
+    fn hover(&mut self, at: Location) {
+        if let (Some((aim, _)), Location::Room { x, y, .. }) = (self.pending_aim, at) {
+            if self.offset(at).is_some() && self.inside(x, y) {
+                self.pending_aim = Some((aim, (x, y)));
+            }
+        }
+    }
+
+    /// A click or tap on the board square `at` (client 4).
+    pub fn click(&mut self, at: Location) {
+        let Some((dx, dy)) = self.offset(at) else {
+            return;
+        };
+        if let Some((aim, _)) = self.pending_aim {
+            if let Location::Room { x, y, .. } = at {
+                if self.inside(x, y) {
+                    self.pending_aim = None;
+                    self.apply(aim.command((x, y)));
+                }
+            }
+            return;
+        }
+        if (dx, dy) == (0, 0) {
+            if self.pending_drop.is_some() {
+                self.key(Command::Wait);
+            }
+            return;
+        }
+        let step = i8::try_from(dx).ok().zip(i8::try_from(dy).ok());
+        if let Some(dir) = step.and_then(|(a, b)| Dir::from_delta(a, b)) {
+            self.key(Command::Move { dir });
+        }
+    }
+
+    /// Where `at` lies from the current player, if it is in the same room
+    /// or both are on the map (across the wraparound where it wraps).
+    fn offset(&self, at: Location) -> Option<(i16, i16)> {
+        let world = &self.game.adventure().world;
+        offset(
+            self.game.current_player().at,
+            at,
+            world.tiles.len() as i16,
+            world.wraps,
+        )
     }
 
     fn note(&mut self, s: String) {
@@ -599,13 +741,26 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     {
         let walk = doc.walk.as_mut().unwrap();
-        if (walk.pending_drop.is_some() || walk.pending_fire.is_some())
+        if walk.waiting()
             && ui
                 .ctx()
                 .input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
         {
-            walk.pending_drop = None;
-            walk.pending_fire = None;
+            walk.cancel();
+        }
+        // The pad follows the last input: a touch shows it, a key hides
+        // it (client 4).
+        let (touched, keyed) = ui.ctx().input(|i| {
+            let any = |f: fn(&egui::Event) -> bool| i.events.iter().any(f);
+            (
+                any(|e| matches!(e, egui::Event::Touch { .. })),
+                any(|e| matches!(e, egui::Event::Key { pressed: true, .. })),
+            )
+        });
+        if touched {
+            walk.touch = true;
+        } else if keyed {
+            walk.touch = false;
         }
         if let Some(cmd) = key_command(ui.ctx()) {
             walk.key(cmd);
@@ -630,6 +785,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     let mut restart: Option<Rules> = None;
     let mut resume = false;
     let mut save_game = false;
+    let mut aim: Option<Aim> = None;
     let mut load_game = false;
     let walk = doc.walk.as_mut().unwrap();
 
@@ -681,12 +837,19 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
             );
             party_panel(ui, g, &mut walk.new_name, &mut click);
-            actions_panel(ui, g, &walk.retired, walk.pending_fire.is_some(), &mut fire, &mut click);
+            actions_panel(ui, g, &walk.retired, walk.pending_aim.is_some(), &mut fire, &mut click);
             ui.separator();
             stats_panel(ui, g);
-            inventory_panel(ui, g, &mut walk.pending_drop, &mut walk.gold_amount, &mut click);
+            inventory_panel(
+                ui,
+                g,
+                &mut walk.pending_drop,
+                &mut walk.gold_amount,
+                &mut aim,
+                &mut click,
+            );
             creatures_panel(ui, g);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 let mut rules = g.rules();
                 if ui
                     .checkbox(&mut rules.diagonals, "Diagonal moves")
@@ -697,6 +860,14 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 {
                     restart = Some(rules);
                 }
+                let mut pad = doc.pad.unwrap_or(walk.touch);
+                if ui
+                    .checkbox(&mut pad, "On-screen pad")
+                    .on_hover_text("Arrows and Wait on the board; shows by itself after a touch.")
+                    .changed()
+                {
+                    doc.pad = Some(pad);
+                }
                 ui.checkbox(&mut doc.turn_based, "Turn-based").on_hover_text(
                     "The bar waits for you. Off: it drains while you do nothing, a step about every 7 seconds, as in the original.",
                 );
@@ -704,7 +875,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     restart = Some(g.rules());
                 }
             });
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui
                     .button("Save game")
                     .on_hover_text(
@@ -726,6 +897,17 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             ui.label(RichText::new(format!("seed {} · {} commands", g.seed(), g.log().len())).weak());
             });
         });
+
+    // The on-screen pad: its own strip at the bottom, under the thumbs,
+    // never over the board (client 4).
+    let mut pad_key = None;
+    if doc.pad.unwrap_or(walk.touch) {
+        let fire = !walk.waiting() && walk.fire_ready();
+        let waiting = walk.waiting();
+        egui::Panel::bottom("walk-pad").show(ui, |ui| {
+            pad_key = touch_pad(ui, waiting, fire);
+        });
+    }
 
     // The message log: always shown in walk mode, whatever else is hidden
     // (client 2, 3).
@@ -777,23 +959,39 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         store_window(ui.ctx(), &walk.game, &mut click);
     }
 
-    egui::CentralPanel::no_frame().show(ui, |ui| {
+    let board = egui::CentralPanel::no_frame().show(ui, |ui| {
         let g = &walk.game;
         let at = g.current_player().at;
         match at {
             Location::World { x, y } => draw_map(&doc.tiles, ui, g, x, y),
             Location::Room { region, room, .. } => {
-                let cursor = walk.pending_fire.map(|(_, xy)| xy);
+                let cursor = walk.pending_aim.map(|(_, xy)| xy);
                 draw_room(&doc.tiles, ui, g, region, room, cursor)
             }
         }
     });
+    // Clicks and taps on the board (client 4); the cursor follows the
+    // pointer only while it moves, so the keys can still move it.
+    match board.inner {
+        Some((at, true)) => walk.click(at),
+        Some((at, false)) if ui.ctx().input(|i| i.pointer.delta() != egui::Vec2::ZERO) => walk.hover(at),
+        _ => {}
+    }
 
     if let Some(cmd) = click {
         walk.apply(cmd);
     }
     if let Some((weapon, aim)) = fire {
         walk.start_fire(weapon, aim);
+    }
+    if let Some(a) = aim {
+        walk.start_aim(a);
+    }
+    match pad_key {
+        Some(PadKey::Key(cmd)) => walk.key(cmd),
+        Some(PadKey::Cancel) => walk.cancel(),
+        Some(PadKey::Fire) => walk.start_fire(None, true),
+        None => {}
     }
     if resume {
         walk.resume();
@@ -874,6 +1072,100 @@ fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
         });
 }
 
+/// What the on-screen pad asked for.
+enum PadKey {
+    /// A key, as the keyboard's: a step or Wait.
+    Key(Command),
+    Cancel,
+    Fire,
+}
+
+/// The on-screen pad (client 4): eight arrows round Wait on the left,
+/// and on the right Cancel while a drop or cursor waits and Fire when it
+/// needs no menu.
+fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool) -> Option<PadKey> {
+    const KEY: f32 = 52.0;
+    const GAP: f32 = 4.0;
+    let mut out = None;
+    ui.add_space(GAP);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing = egui::vec2(GAP, GAP);
+        ui.vertical(|ui| {
+            use Dir::*;
+            for row in [
+                [Some(NW), Some(N), Some(NE)],
+                [Some(W), None, Some(E)],
+                [Some(SW), Some(S), Some(SE)],
+            ] {
+                ui.horizontal(|ui| {
+                    for d in row {
+                        if pad_key(ui, KEY, d) {
+                            out = Some(PadKey::Key(d.map_or(Command::Wait, |dir| Command::Move { dir })));
+                        }
+                    }
+                });
+            }
+        });
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Max), |ui| {
+            let mut big = |ui: &mut egui::Ui, label: &str, key: PadKey| {
+                let b = egui::Button::new(RichText::new(label).size(16.0)).min_size(egui::vec2(104.0, KEY));
+                if ui.add(b).clicked() {
+                    out = Some(key);
+                }
+            };
+            if fire {
+                big(ui, "Fire", PadKey::Fire);
+            }
+            if waiting {
+                big(ui, "Cancel", PadKey::Cancel);
+            }
+        });
+    });
+    ui.add_space(GAP);
+    out
+}
+
+/// One of the pad's square keys: an arrow, or Wait for `None`.
+fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::click());
+    let fill = if resp.is_pointer_button_down_on() {
+        ui.visuals().selection.bg_fill
+    } else {
+        Color32::from_black_alpha(160)
+    };
+    let painter = ui.painter();
+    painter.rect_filled(rect, 8.0, fill);
+    painter.rect_stroke(
+        rect,
+        8.0,
+        Stroke::new(1.0, Color32::from_white_alpha(70)),
+        egui::StrokeKind::Inside,
+    );
+    let ink = Color32::from_white_alpha(230);
+    match dir {
+        Some(d) => {
+            let (dx, dy) = d.delta();
+            let v = egui::vec2(dx as f32, dy as f32).normalized() * size * 0.28;
+            painter.arrow(rect.center() - v, v * 2.0, Stroke::new(3.0, ink));
+        }
+        None => {
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                "Wait",
+                egui::FontId::proportional(14.0),
+                ink,
+            );
+        }
+    }
+    let label = match dir {
+        Some(d) => format!("{d:?}"),
+        None => "Wait".into(),
+    };
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
+    resp.clicked()
+}
+
 /// Marker colour of each of the four players (movement 1.4).
 fn player_colour(player: usize) -> Color32 {
     const COLOURS: [Color32; 4] = [
@@ -912,7 +1204,7 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
         }
     }
     let living = players.iter().filter(|p| p.alive).count();
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.add(
             egui::TextEdit::singleline(new_name)
                 .char_limit(acs_engine::NAME_MAX)
@@ -968,7 +1260,7 @@ fn actions_panel(
     };
     if aiming {
         ui.label(
-            RichText::new("Fire: move the cursor, Space = fire, Esc = cancel")
+            RichText::new("Aim: arrows or the mouse move the cursor; Space or a click sends it, Esc cancels")
                 .color(Color32::from_rgb(255, 215, 0)),
         );
     }
@@ -1107,6 +1399,7 @@ fn target_menu(
     g: &Game,
     label: &str,
     make: impl Fn(Option<(u8, u8)>) -> Command,
+    (aim, start): (Aim, &mut Option<Aim>),
     click: &mut Option<Command>,
 ) {
     let me = Who::Player { player: g.current() };
@@ -1118,6 +1411,11 @@ fn target_menu(
         let Location::Room { region, room, .. } = g.current_player().at else {
             return;
         };
+        // Client 4: the target cursor, as FIRE's.
+        if ui.button("a square…").clicked() {
+            *start = Some(aim);
+            ui.close();
+        }
         for (i, p) in g.players().iter().enumerate() {
             let who = Who::Player { player: i };
             let Location::Room { x, y, .. } = p.at else {
@@ -1144,6 +1442,7 @@ fn inventory_panel(
     g: &Game,
     pending: &mut Option<u16>,
     gold_amount: &mut u16,
+    aim: &mut Option<Aim>,
     click: &mut Option<Command>,
 ) {
     let a = g.adventure();
@@ -1232,6 +1531,7 @@ fn inventory_panel(
                             at,
                             target: None,
                         },
+                        (Aim::Cast(t), &mut *aim),
                         click,
                     );
                 }
@@ -1245,6 +1545,7 @@ fn inventory_panel(
                             at,
                             target: None,
                         },
+                        (Aim::Use(t), &mut *aim),
                         click,
                     );
                 }
@@ -1404,7 +1705,13 @@ fn markers(painter: &egui::Painter, g: &Game, cell: impl Fn(Location) -> Option<
     }
 }
 
-fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py: u8) {
+fn draw_map(
+    tiles: &crate::tiles::Tiles,
+    ui: &mut egui::Ui,
+    g: &Game,
+    px: u8,
+    py: u8,
+) -> Option<(Location, bool)> {
     let map = &g.adventure().world;
     let n = map.tiles.len() as i16;
     let (cols, rows) = (MAP_VIEW.0 as i16, MAP_VIEW.1 as i16);
@@ -1433,6 +1740,20 @@ fn draw_map(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, g: &Game, px: u8, py
         );
         (mi < cols && mj < rows).then(|| grid.cell_rect(mi as u32, mj as u32))
     });
+    // The square under the pointer, and whether it was clicked (client 4).
+    hovered_cell(&resp, &grid).map(|(i, j)| {
+        let (mx, my) = (
+            (ox + i as i16).rem_euclid(n.max(1)),
+            (oy + j as i16).rem_euclid(n.max(1)),
+        );
+        (
+            Location::World {
+                x: mx as u8,
+                y: my as u8,
+            },
+            resp.clicked(),
+        )
+    })
 }
 
 /// The picture a room square shows. An encounter area's door item on top
@@ -1463,14 +1784,10 @@ fn draw_room(
     region: u8,
     room: u8,
     cursor: Option<(u8, u8)>,
-) {
+) -> Option<(Location, bool)> {
     let a = g.adventure();
-    let Some(reg) = g.region(region) else {
-        return;
-    };
-    let Some(r) = reg.rooms.get(room as usize) else {
-        return;
-    };
+    let reg = g.region(region)?;
+    let r = reg.rooms.get(room as usize)?;
     let scene = RoomScene::new(reg, r);
     let door = |x: u8, y: u8| g.area_door(Location::Room { region, room, x, y }).is_some();
     let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles.size);
@@ -1513,6 +1830,16 @@ fn draw_room(
             egui::StrokeKind::Inside,
         );
     }
+    // The square under the pointer, and whether it was clicked (client 4).
+    hovered_cell(&resp, &grid).map(|(x, y)| {
+        let at = Location::Room {
+            region,
+            room,
+            x: x as u8,
+            y: y as u8,
+        };
+        (at, resp.clicked())
+    })
 }
 
 #[cfg(test)]
@@ -1657,5 +1984,131 @@ mod tests {
             }]
         );
         assert!(parse_commands("cast:33:4").is_err());
+    }
+
+    /// One region with one room 10 x 7 (inside 1..8 x 1..5); the player
+    /// on its square 3,3.
+    fn in_a_room() -> Walk {
+        use acs_core::layout::world_map as wm;
+        let mut f = common::Fixture::new(acs_core::Platform::Pc);
+        f.header("CLICKS", "", "");
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        f.region(common::RegionSpec {
+            name: "HALL",
+            rooms: vec![common::RoomSpec {
+                name: "HALL",
+                w: 10,
+                h: 7,
+                wall: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let w = f.l.world_map;
+        f.put(w + wm::TERRAIN, &[1 | 1 << 6, 0]);
+        let a = acs_core::decode(&f.build()).expect("decodes").adventure;
+        let mut walk = Walk::new(&a, 1, Rules::default());
+        walk.place(sq(3, 3));
+        walk
+    }
+
+    fn sq(x: u8, y: u8) -> Location {
+        Location::Room {
+            region: 1,
+            room: 0,
+            x,
+            y,
+        }
+    }
+
+    fn last(w: &Walk) -> Option<&Command> {
+        w.game.log().last()
+    }
+
+    /// Client 4: a click beside the player is a step; its own square and
+    /// farther squares, and squares of another room, send nothing.
+    #[test]
+    fn a_click_beside_the_player_steps_there() {
+        let mut w = in_a_room();
+        for at in [
+            sq(3, 3),
+            sq(5, 3),
+            Location::World { x: 4, y: 3 },
+            Location::Room {
+                region: 1,
+                room: 1,
+                x: 4,
+                y: 3,
+            },
+        ] {
+            w.click(at);
+            assert_eq!(last(&w), None, "{at:?}");
+        }
+        w.click(sq(4, 2));
+        assert_eq!(last(&w), Some(&Command::Move { dir: Dir::NE }));
+    }
+
+    /// Client 4: with a drop waiting, the own square drops it there and a
+    /// square beside it that way.
+    #[test]
+    fn a_click_places_a_waiting_drop() {
+        let mut w = in_a_room();
+        w.pending_drop = Some(5);
+        w.click(sq(3, 3));
+        assert_eq!(last(&w), Some(&Command::Drop { thing: 5, dir: None }));
+        w.pending_drop = Some(5);
+        w.click(sq(2, 3));
+        assert_eq!(
+            last(&w),
+            Some(&Command::Drop {
+                thing: 5,
+                dir: Some(Dir::W)
+            })
+        );
+        assert!(!w.waiting());
+    }
+
+    /// Client 4: the cursor follows the pointer onto inside squares only;
+    /// a click on one sends the command there, a wall does nothing.
+    #[test]
+    fn the_target_cursor_follows_the_pointer_and_a_click_sends_it() {
+        let mut w = in_a_room();
+        assert!(w.start_aim(Aim::Cast(33)));
+        w.hover(sq(8, 5));
+        assert_eq!(w.pending_aim, Some((Aim::Cast(33), (8, 5))));
+        w.hover(sq(9, 5));
+        assert_eq!(w.pending_aim, Some((Aim::Cast(33), (8, 5))));
+        w.click(sq(0, 0));
+        assert_eq!(last(&w), None);
+        w.click(sq(7, 1));
+        assert_eq!(
+            last(&w),
+            Some(&Command::Cast {
+                thing: 33,
+                target: None,
+                at: Some((7, 1))
+            })
+        );
+        assert!(!w.waiting());
+        // FIRE's cursor is the same one.
+        w.start_fire(None, true);
+        w.click(sq(1, 5));
+        assert_eq!(
+            last(&w),
+            Some(&Command::Fire {
+                target: Some((1, 5)),
+                weapon: None
+            })
+        );
+    }
+
+    /// Client 4: on the map a step can cross the wraparound.
+    #[test]
+    fn map_offsets_take_the_short_way_round_where_it_wraps() {
+        let at = |x, y| Location::World { x, y };
+        assert_eq!(offset(at(0, 0), at(39, 1), 40, true), Some((-1, 1)));
+        assert_eq!(offset(at(0, 0), at(39, 1), 40, false), Some((39, 1)));
+        assert_eq!(offset(at(39, 39), at(0, 0), 40, true), Some((1, 1)));
+        assert_eq!(offset(at(5, 5), sq(5, 5), 40, true), None);
     }
 }

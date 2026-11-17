@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] [--ppp F] [--screenshot OUT.png]`.
+//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] [--ppp F] [--pad] [--screenshot OUT.png]`.
 //!
 //! `--screenshot` renders a few frames, writes the window as a PNG and exits;
 //! it is for documentation and checking the renderer at known window sizes.
@@ -20,6 +20,8 @@ pub struct Args {
     /// scale: a size too big for this screen at its scale still fits, and
     /// the layout, which depends only on points, is the same.
     pub ppp: Option<f32>,
+    /// Walk mode with the on-screen pad shown (`--pad`).
+    pub pad: bool,
     pub screenshot: Option<PathBuf>,
     /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
     pub seed: Option<u64>,
@@ -34,7 +36,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--ppp F] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--pad] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -58,6 +60,7 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
                         .ok_or(format!("bad --ppp {v:?} (0.5..4)"))?,
                 );
             }
+            "--pad" => out.pad = true,
             "--screenshot" => out.screenshot = Some(PathBuf::from(value("--screenshot")?)),
             "--seed" => {
                 let v = value("--seed")?;

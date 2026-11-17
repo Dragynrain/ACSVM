@@ -41,6 +41,7 @@ fn main() -> eframe::Result {
         path: args.file,
         view: args.view,
         ppp: args.ppp.map(|p| (p, args.size.unwrap_or([1280.0, 800.0]))),
+        pad: args.pad,
         screenshot: args.screenshot,
         place: args.place,
         load: args.load,
