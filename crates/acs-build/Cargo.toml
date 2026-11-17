@@ -15,6 +15,8 @@ png.workspace = true
 toml = { version = "1.1", features = ["preserve_order"] }
 
 [dev-dependencies]
+toml = "1.1"
+acs-bundle.workspace = true
 acs-engine.workspace = true
 
 [lints]

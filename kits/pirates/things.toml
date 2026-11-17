@@ -1,0 +1,999 @@
+# The pirate kit's things (docs/content.md 4.3). CC BY-SA 4.0.
+# Names and ratings are this kit's own. An adventure takes only the ones
+# it names (content 4.2), and may replace any by giving its own entry the
+# same key (to lock a door, say). Things that stack (up to three, things
+# 1..32) come first.
+
+# --- Consumables -----------------------------------------------------------
+
+[[thing]]
+key = "rum_flask"
+name = "RUM FLASK"
+type = "magic_item"
+picture = "flask"
+weight = 1
+value = 12
+once = true
+on_use = true
+spell = { action = "change_life_force", by = 6 }
+
+[[thing]]
+key = "salve"
+name = "SALVE JAR"
+type = "magic_item"
+picture = "salve"
+weight = 1
+value = 60
+once = true
+on_use = true
+spell = { action = "change_life_force", by = 14 }
+
+[[thing]]
+key = "powder_keg"
+name = "POWDER KEG"
+type = "magic_item"
+picture = "powderkeg"
+weight = 12
+value = 40
+once = true
+on_use = true
+spell = { action = "change_life_force", by = -20 }
+
+[[thing]]
+key = "lucky_charm"
+name = "LUCKY CHARM"
+type = "magic_item"
+picture = "charm"
+weight = 0
+value = 160
+once = true
+on_use = true
+spell = { action = "increase_magic_defense", level = "non_magic_half" }
+
+[[thing]]
+key = "throwing_knives"
+name = "THROWING KNIVES"
+type = "missile_weapon"
+picture = "throwknives"
+weight = 2
+value = 25
+power = 4
+range = 4
+break = 4
+attack = 10
+anyone = true
+
+# --- Melee weapons ---------------------------------------------------------
+
+[[thing]]
+key = "gutting_knife"
+name = "GUTTING KNIFE"
+type = "melee_weapon"
+picture = "gutknife"
+weight = 1
+value = 6
+power = 3
+break = 2
+attack = 10
+anyone = true
+
+[[thing]]
+key = "gaff_hook"
+name = "GAFF HOOK"
+type = "melee_weapon"
+picture = "gaff"
+weight = 3
+value = 12
+power = 5
+break = 3
+anyone = true
+
+[[thing]]
+key = "cutlass"
+name = "CUTLASS"
+type = "melee_weapon"
+picture = "cutlass"
+weight = 4
+value = 30
+power = 7
+break = 1
+attack = 5
+anyone = true
+
+[[thing]]
+key = "boarding_axe"
+name = "BOARDING AXE"
+type = "melee_weapon"
+picture = "axe"
+weight = 5
+value = 40
+power = 9
+break = 2
+attack = -5
+anyone = true
+
+[[thing]]
+key = "sabre"
+name = "OFFICER'S SABRE"
+type = "melee_weapon"
+picture = "sabre"
+weight = 3
+value = 80
+power = 8
+break = 1
+attack = 10
+anyone = true
+
+[[thing]]
+key = "halberd"
+name = "HALBERD"
+type = "melee_weapon"
+picture = "halberd"
+weight = 9
+value = 100
+power = 11
+break = 1
+attack = -10
+anyone = true
+
+# --- Missile weapons -------------------------------------------------------
+
+[[thing]]
+key = "harpoon"
+name = "HARPOON"
+type = "missile_weapon"
+picture = "harpoon"
+weight = 6
+value = 45
+power = 8
+range = 4
+break = 2
+anyone = true
+
+[[thing]]
+key = "pistol"
+name = "FLINTLOCK PISTOL"
+type = "missile_weapon"
+picture = "pistol"
+weight = 3
+value = 120
+power = 9
+range = 5
+break = 4
+anyone = true
+
+[[thing]]
+key = "musket"
+name = "MUSKET"
+type = "missile_weapon"
+picture = "musket"
+weight = 10
+value = 200
+power = 11
+range = 8
+break = 3
+attack = 5
+anyone = true
+
+[[thing]]
+key = "blunderbuss"
+name = "BLUNDERBUSS"
+type = "missile_weapon"
+picture = "blunderbuss"
+weight = 12
+value = 180
+power = 13
+range = 3
+break = 5
+attack = 10
+anyone = true
+
+# --- Armour (the attack value is the wearer's penalty) ---------------------
+
+[[thing]]
+key = "oilskin"
+name = "OILSKIN"
+type = "armor"
+picture = "oilskin"
+weight = 3
+value = 15
+power = 1
+break = 5
+attack = 5
+anyone = true
+
+[[thing]]
+key = "leather_jerkin"
+name = "LEATHER JERKIN"
+type = "armor"
+picture = "jerkin"
+weight = 6
+value = 30
+power = 2
+break = 3
+anyone = true
+
+[[thing]]
+key = "navy_coat"
+name = "NAVY COAT"
+type = "armor"
+picture = "navycoat"
+weight = 6
+value = 70
+power = 2
+break = 2
+attack = 5
+anyone = true
+
+[[thing]]
+key = "buff_coat"
+name = "BUFF COAT"
+type = "armor"
+picture = "buffcoat"
+weight = 10
+value = 90
+power = 4
+break = 2
+attack = -15
+anyone = true
+
+# --- Natural weapons: owner-only, so never dropped at a death (magic 7.2) --
+
+[[thing]]
+key = "teeth"
+name = "TEETH"
+type = "melee_weapon"
+picture = "bones"
+power = 6
+attack = 5
+
+[[thing]]
+key = "claws"
+name = "CLAWS"
+type = "melee_weapon"
+picture = "bones"
+power = 4
+attack = 10
+
+[[thing]]
+key = "pincers"
+name = "PINCERS"
+type = "melee_weapon"
+picture = "bones"
+power = 5
+
+[[thing]]
+key = "tentacle"
+name = "TENTACLE"
+type = "melee_weapon"
+picture = "bones"
+power = 8
+attack = -5
+
+[[thing]]
+key = "sting"
+name = "STING"
+type = "melee_weapon"
+picture = "bones"
+power = 3
+attack = 15
+
+[[thing]]
+key = "beak"
+name = "BEAK"
+type = "melee_weapon"
+picture = "bones"
+power = 2
+attack = 15
+
+[[thing]]
+key = "grave_touch"
+name = "GRAVE TOUCH"
+type = "melee_weapon"
+picture = "bones"
+power = 7
+magic = true
+
+# --- Tools and curiosities (magic items) -----------------------------------
+
+[[thing]]
+key = "lantern"
+name = "LANTERN"
+type = "magic_item"
+picture = "lantern"
+weight = 2
+value = 15
+spell = { action = "nothing" }
+
+[[thing]]
+key = "spyglass"
+name = "SPYGLASS"
+type = "magic_item"
+picture = "spyglass"
+weight = 1
+value = 90
+spell = { action = "nothing" }
+
+[[thing]]
+key = "ships_bell"
+name = "SHIP'S BELL"
+type = "magic_item"
+picture = "bell"
+weight = 8
+value = 40
+on_use = true
+spell = { action = "play_music", music = 3 }
+
+[[thing]]
+key = "diving_helm"
+name = "DIVING HELM"
+type = "magic_item"
+picture = "divehelm"
+weight = 15
+value = 150
+spell = { action = "nothing" }
+
+[[thing]]
+key = "small_boat"
+name = "SMALL BOAT"
+type = "magic_item"
+picture = "smallboat"
+weight = 40
+value = 200
+spell = { action = "nothing" }
+
+[[thing]]
+key = "compass"
+name = "COMPASS"
+type = "magic_item"
+picture = "compass"
+weight = 1
+value = 60
+spell = { action = "nothing" }
+
+[[thing]]
+key = "conch"
+name = "CONCH SHELL"
+type = "magic_item"
+picture = "conch"
+weight = 2
+value = 100
+on_use = true
+spell = { action = "change_life_force", by = 4 }
+
+[[thing]]
+key = "ghost_lantern"
+name = "GHOST LANTERN"
+type = "magic_item"
+picture = "ghostlantern"
+weight = 2
+value = 300
+once = true
+on_use = true
+spell = { action = "summon_or_banish" }
+
+[[thing]]
+key = "voodoo_doll"
+name = "VOODOO DOLL"
+type = "magic_item"
+picture = "voodoodoll"
+weight = 1
+value = 120
+on_use = true
+spell = { action = "decrease_stat", stat = "strength" }
+
+[[thing]]
+key = "black_spot"
+name = "BLACK SPOT"
+type = "magic_item"
+picture = "blackspot"
+weight = 0
+value = 0
+on_pickup = true
+spell = { action = "change_power", by = -10 }
+
+# --- Treasure --------------------------------------------------------------
+
+[[thing]]
+key = "coin_chest"
+name = "CHEST OF COIN"
+type = "treasure"
+picture = "coinchest"
+weight = 30
+value = 500
+
+[[thing]]
+key = "goods_crate"
+name = "CRATE OF GOODS"
+type = "treasure"
+picture = "goodscrate"
+weight = 40
+value = 200
+
+[[thing]]
+key = "chalice"
+name = "GOLD CHALICE"
+type = "treasure"
+picture = "chalice"
+weight = 3
+value = 300
+
+[[thing]]
+key = "crown"
+name = "JEWELLED CROWN"
+type = "treasure"
+picture = "crown"
+weight = 4
+value = 800
+
+[[thing]]
+key = "gems"
+name = "UNCUT GEMS"
+type = "treasure"
+picture = "gems"
+weight = 1
+value = 400
+
+[[thing]]
+key = "pearls"
+name = "STRING OF PEARLS"
+type = "treasure"
+picture = "pearls"
+weight = 1
+value = 240
+
+[[thing]]
+key = "idol"
+name = "GOLDEN IDOL"
+type = "treasure"
+picture = "idol"
+weight = 8
+value = 600
+
+[[thing]]
+key = "crystal_skull"
+name = "CRYSTAL SKULL"
+type = "treasure"
+picture = "crystalskull"
+weight = 5
+value = 1000
+
+[[thing]]
+key = "mermaid_comb"
+name = "MERMAID'S COMB"
+type = "treasure"
+picture = "mermaidcomb"
+weight = 0
+value = 160
+
+[[thing]]
+key = "treasure_map"
+name = "TREASURE MAP"
+type = "treasure"
+picture = "treasuremap"
+weight = 0
+value = 0
+
+[[thing]]
+key = "scroll"
+name = "SCROLL"
+type = "treasure"
+picture = "scroll"
+weight = 0
+value = 0
+
+[[thing]]
+key = "book"
+name = "BOOK"
+type = "treasure"
+picture = "book"
+weight = 2
+value = 5
+
+# --- Floor spaces ----------------------------------------------------------
+
+[[thing]]
+key = "sand"
+name = "SAND"
+type = "space"
+picture = "room_fsand"
+
+[[thing]]
+key = "mud"
+name = "MUD"
+type = "space"
+picture = "room_fmud"
+
+[[thing]]
+key = "scorched_sand"
+name = "SCORCHED SAND"
+type = "space"
+picture = "room_fscorched"
+
+[[thing]]
+key = "lava_vent"
+name = "LAVA VENT"
+type = "space"
+picture = "room_lavavent"
+access = { spell = { action = "change_life_force", by = -4 } }
+
+[[thing]]
+key = "flagstone"
+name = "FLAGSTONE"
+type = "space"
+picture = "room_flagstone"
+
+[[thing]]
+key = "carpet"
+name = "CARPET"
+type = "space"
+picture = "room_carpet"
+
+[[thing]]
+key = "boardwalk"
+name = "BOARDWALK"
+type = "space"
+picture = "room_boardwalk"
+
+[[thing]]
+key = "shallow_water"
+name = "SHALLOW WATER"
+type = "space"
+picture = "room_fwater"
+
+[[thing]]
+key = "dive_platform"
+name = "DIVE PLATFORM"
+type = "space"
+picture = "diveplat"
+
+[[thing]]
+key = "bone_pile"
+name = "BONES"
+type = "space"
+picture = "bones"
+
+# --- Set dressing (obstacles) ----------------------------------------------
+
+[[thing]]
+key = "cannon"
+name = "CANNON"
+type = "obstacle"
+picture = "cannon"
+
+[[thing]]
+key = "barrels"
+name = "BARRELS"
+type = "obstacle"
+picture = "barrels"
+
+[[thing]]
+key = "powder_barrels"
+name = "POWDER BARRELS"
+type = "obstacle"
+picture = "powderkegs"
+
+[[thing]]
+key = "crates"
+name = "CRATES"
+type = "obstacle"
+picture = "crates"
+
+[[thing]]
+key = "sea_chest"
+name = "SEA CHEST"
+type = "obstacle"
+picture = "seachest"
+
+[[thing]]
+key = "rigging"
+name = "RIGGING"
+type = "obstacle"
+picture = "rigging"
+
+[[thing]]
+key = "ships_wheel"
+name = "SHIP'S WHEEL"
+type = "obstacle"
+picture = "wheel"
+
+[[thing]]
+key = "map_table"
+name = "MAP TABLE"
+type = "obstacle"
+picture = "maptable"
+
+[[thing]]
+key = "tavern_table"
+name = "TAVERN TABLE"
+type = "obstacle"
+picture = "tavtable"
+
+[[thing]]
+key = "bar_counter"
+name = "BAR"
+type = "obstacle"
+picture = "bar"
+
+[[thing]]
+key = "bookcase"
+name = "BOOKCASE"
+type = "obstacle"
+picture = "bookcase"
+
+[[thing]]
+key = "fish_rack"
+name = "FISH RACK"
+type = "obstacle"
+picture = "fishrack"
+
+[[thing]]
+key = "smoke_rack"
+name = "SMOKEHOUSE RACK"
+type = "obstacle"
+picture = "smokerack"
+
+[[thing]]
+key = "coral"
+name = "CORAL"
+type = "obstacle"
+picture = "coral"
+
+[[thing]]
+key = "flagpole"
+name = "FLAGPOLE"
+type = "obstacle"
+picture = "flagpole"
+
+[[thing]]
+key = "tiki"
+name = "TIKI POST"
+type = "obstacle"
+picture = "tiki"
+
+# --- Stores and ships ------------------------------------------------------
+
+[[thing]]
+key = "store"
+name = "TRADER'S COUNTER"
+type = "store"
+picture = "room_store"
+
+[[thing]]
+key = "ship"
+name = "SHIP"
+type = "portal"
+picture = "ship"
+two_way = true
+
+[[thing]]
+key = "gangplank"
+name = "GANGPLANK"
+type = "portal"
+picture = "room_gangplank"
+two_way = true
+
+[[thing]]
+key = "trapdoor"
+name = "TRAPDOOR"
+type = "portal"
+picture = "room_trapdoor"
+
+# --- Doors: one per door and wall, open and two-way ------------------------
+# The plain ones (wooden_door and so on) suit any wall; the others are
+# drawn into a wall (wooden_door_hull is a wooden door in a ship's hull).
+
+[[thing]]
+key = "wooden_door"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor"
+two_way = true
+
+[[thing]]
+key = "wooden_door_caverock"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_caverock"
+two_way = true
+
+[[thing]]
+key = "wooden_door_dressed"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_dressed"
+two_way = true
+
+[[thing]]
+key = "wooden_door_fortstone"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_fortstone"
+two_way = true
+
+[[thing]]
+key = "wooden_door_hull"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_hull"
+two_way = true
+
+[[thing]]
+key = "wooden_door_palisade"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_palisade"
+two_way = true
+
+[[thing]]
+key = "wooden_door_panelling"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_panelling"
+two_way = true
+
+[[thing]]
+key = "wooden_door_stilthut"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_stilthut"
+two_way = true
+
+[[thing]]
+key = "wooden_door_woven"
+name = "WOODEN DOOR"
+type = "portal"
+picture = "door_woodendoor_woven"
+two_way = true
+
+[[thing]]
+key = "double_door"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor"
+two_way = true
+
+[[thing]]
+key = "double_door_caverock"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_caverock"
+two_way = true
+
+[[thing]]
+key = "double_door_dressed"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_dressed"
+two_way = true
+
+[[thing]]
+key = "double_door_fortstone"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_fortstone"
+two_way = true
+
+[[thing]]
+key = "double_door_hull"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_hull"
+two_way = true
+
+[[thing]]
+key = "double_door_palisade"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_palisade"
+two_way = true
+
+[[thing]]
+key = "double_door_panelling"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_panelling"
+two_way = true
+
+[[thing]]
+key = "double_door_stilthut"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_stilthut"
+two_way = true
+
+[[thing]]
+key = "double_door_woven"
+name = "DOUBLE DOOR"
+type = "portal"
+picture = "door_doubledoor_woven"
+two_way = true
+
+[[thing]]
+key = "fort_gate"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate"
+two_way = true
+
+[[thing]]
+key = "fort_gate_caverock"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_caverock"
+two_way = true
+
+[[thing]]
+key = "fort_gate_dressed"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_dressed"
+two_way = true
+
+[[thing]]
+key = "fort_gate_fortstone"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_fortstone"
+two_way = true
+
+[[thing]]
+key = "fort_gate_hull"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_hull"
+two_way = true
+
+[[thing]]
+key = "fort_gate_palisade"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_palisade"
+two_way = true
+
+[[thing]]
+key = "fort_gate_panelling"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_panelling"
+two_way = true
+
+[[thing]]
+key = "fort_gate_stilthut"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_stilthut"
+two_way = true
+
+[[thing]]
+key = "fort_gate_woven"
+name = "FORT GATE"
+type = "portal"
+picture = "door_fortgate_woven"
+two_way = true
+
+[[thing]]
+key = "vault_door"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor"
+two_way = true
+
+[[thing]]
+key = "vault_door_caverock"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_caverock"
+two_way = true
+
+[[thing]]
+key = "vault_door_dressed"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_dressed"
+two_way = true
+
+[[thing]]
+key = "vault_door_fortstone"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_fortstone"
+two_way = true
+
+[[thing]]
+key = "vault_door_hull"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_hull"
+two_way = true
+
+[[thing]]
+key = "vault_door_palisade"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_palisade"
+two_way = true
+
+[[thing]]
+key = "vault_door_panelling"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_panelling"
+two_way = true
+
+[[thing]]
+key = "vault_door_stilthut"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_stilthut"
+two_way = true
+
+[[thing]]
+key = "vault_door_woven"
+name = "VAULT DOOR"
+type = "portal"
+picture = "door_vaultdoor_woven"
+two_way = true
+
+[[thing]]
+key = "cave_passage"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass"
+two_way = true
+
+[[thing]]
+key = "cave_passage_caverock"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_caverock"
+two_way = true
+
+[[thing]]
+key = "cave_passage_dressed"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_dressed"
+two_way = true
+
+[[thing]]
+key = "cave_passage_fortstone"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_fortstone"
+two_way = true
+
+[[thing]]
+key = "cave_passage_hull"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_hull"
+two_way = true
+
+[[thing]]
+key = "cave_passage_palisade"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_palisade"
+two_way = true
+
+[[thing]]
+key = "cave_passage_panelling"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_panelling"
+two_way = true
+
+[[thing]]
+key = "cave_passage_stilthut"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_stilthut"
+two_way = true
+
+[[thing]]
+key = "cave_passage_woven"
+name = "CAVE PASSAGE"
+type = "portal"
+picture = "door_cavepass_woven"
+two_way = true

@@ -118,7 +118,7 @@ CC BY-SA 4.0); the bundle is build output. Code: `crates/acs-build`.
 | File | Holds |
 | --- | --- |
 | `adventure.toml` | The adventure: name, byline, licence, credits, intro, theme, palette, creature classes, limits, and the built-in things' looks |
-| `pictures.toml` | The art atlas and the picture list |
+| `pictures.toml` | The art atlas and the picture list (optional with a kit, 4.2) |
 | `things.toml` | The master thing list |
 | `creatures.toml` | The master creature list |
 | `messages.toml` | Long and short messages |
@@ -140,6 +140,7 @@ intro = """..."""                 # the intro text
 theme = "fantasy"                 # fantasy | spy_mystery | sci_fi: the endless music
 palette = ["black", "brown", "light cyan", "white"]   # PC colour names, Classic pixels only
 classes = ["PIRATE", "NAVY", "ISLANDER"]              # creature classes, in order
+kit = "../../kits/pirates"        # optional: a starter kit (4.2)
 
 [limits]                          # caps above Classic's; the rest stay Classic's
 pictures = 160
@@ -165,6 +166,9 @@ an adventure asks, so our adventures play inside the sizes the golden
 tests cover.]
 
 ### 3.3 Pictures
+
+`pictures.toml` is the adventure's own art; with a kit (4.2) it is
+optional.
 
 ```toml
 atlas = "art/kit.png"   # RGBA, square tiles left to right, then down
@@ -410,11 +414,63 @@ rest of `limits.residents_per_region` are free slots for arrivals.
 
 ## 4. Starter kits
 
-Four kits at 128 px (design.md, Kit 4): pirates first, then the three
-runners-up. The pirate kit's art exists outside the repository
-(`ACSVM-research/art/pirates`, `docs/art/pirates-style.md`); what it
-lacks for play is its things and creatures as data (names, stats,
-types) and its packed atlas as a kit folder the build reads.
+Four kits (design.md, Kit 4): pirates first, then the three runners-up.
+A kit is a library an adventure builds on: pictures, things and
+creatures, all under CC BY-SA 4.0, in `kits/NAME/` in the repository.
+
+### 4.1 The kit folder
+
+| File | Holds |
+| --- | --- |
+| `kit.toml` | Name, licence, credits, the atlas and its picture list (as `pictures.toml`, 3.3) |
+| `atlas.png` | The kit's tiles, packed |
+| `things.toml`, `creatures.toml` | As an adventure's (3.4, 3.6) |
+| `provenance.json` | Each tile's generation record, from the art pipeline's packing step (`docs/art/pirates-style.md` 18) |
+
+`scripts/kitfolder.py PACK.json PACK.png OUTDIR` writes `atlas.png`,
+`provenance.json` and the picture list from a packed kit, leaving out
+the groups an adventure keeps for itself (`--skip kp`). The things and
+creatures are written by hand.
+
+### 4.2 Using a kit
+
+`adventure.toml` names it: `kit = "../../kits/pirates"`, a path from the
+adventure's folder. Then:
+
+- A kit entry (picture, thing or creature) is **taken** when its key
+  appears as a value anywhere in the adventure's own files, or in a kit
+  entry already taken (a creature's weapon, a thing's spell, a picture).
+  Nothing else of the kit goes in, so an adventure pays only for what
+  it uses: the pirate kit's 202 pictures would pass the limit alone.
+  [choice: any string value counts, so a name or text that happens to
+  equal a kit key takes that entry too; that costs a slot, nothing else.]
+- Taken kit entries come first, in the kit's order, then the
+  adventure's own; numbering then runs as in 3.4 and 3.6. An adventure
+  entry with a kit entry's key replaces it, in the kit entry's place.
+- Pictures from the kit and the adventure's own atlas must share one
+  tile size. The bundle's atlas holds only the pictures taken, at their
+  picture numbers' places (place n - 1 for picture n), so `pictures.toml`
+  is optional when the kit has every picture.
+
+### 4.3 The pirate kit
+
+`kits/pirates`, tiles at 64 px (the art pipeline's working size;
+design.md's 128 px is the later target). Its art is made and checked
+outside the repository (`ACSVM-research/art/pirates`,
+`docs/art/pirates-style.md`); the folder holds the packed result.
+Things and creatures are named and rated for this kit alone, never
+from the original's builder sets (design.md, "Our own spy"):
+
+- **Weapons and armour** span the ranges in 3.4 from a gutting knife to
+  a blunderbuss, so a designer can pace a game by what's for sale.
+- **People** come in three bands, deckhand to captain, by Constitution,
+  skills and gear; **beasts** have no gear and rely on Size and
+  Strength; **the dead** (skeletons, the drowned, ghosts) take
+  `only_magic` or `non_magic_half` magic defence, so the kit's few
+  magic weapons matter.
+- **Doors** are one portal per door picture and wall (`wooden_door_hull`
+  and so on), all open and two-way; locks are the adventure's to add
+  (an adventure entry with the same key, 4.2).
 
 ## 5. Audio
 
@@ -453,6 +509,14 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    bytes, checked against every corpus thing (the corpus test
    `thing_props_encode_back`).
 3. The pirate kit as data (4), and a test adventure built from it.
+   Done November 2026: `kits/pirates` (202 pictures, 123 things, 53
+   creatures; `scripts/kitfolder.py`, `scripts/kitcreatures.py`), kits
+   in `acs build` (4.2), and `crates/acs-build/tests/kit.rs` (only what
+   is used goes in; an entry replaced; the whole kit builds; a kit
+   adventure plays). Seen in the viewer: transparent HD art needs what
+   it stands on drawn under it, so room squares are drawn as layers
+   (`acs_core::scene::layers`: wall or floor, top thing, resident). Left
+   for the art side: the store tile's background is opaque white.
 4. The tutorial (6), with its replay test.
 5. The 30 cues (5).
 6. *The King's Pardon* (6), with its replay test.

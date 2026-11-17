@@ -88,8 +88,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize, i: usize) {
         painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
         for (k, sq) in scene.squares.iter().enumerate() {
             let (x, y) = ((k % room.width as usize) as u32, (k / room.width as usize) as u32);
-            let (_, pic) = scene::shown(adv, region, room, sq);
-            doc.tiles.paint(&painter, pic, grid.cell_rect(x, y));
+            for pic in scene::layers(adv, region, room, sq) {
+                doc.tiles.paint(&painter, Some(pic), grid.cell_rect(x, y));
+            }
         }
         hover = hovered_cell(&resp, &grid).map(|(x, y)| (x as u8, y as u8));
         if let Some((x, y)) = hover {

@@ -104,6 +104,17 @@ fn room_squares_on_both_platforms() {
             (Shown::Resident(0), Some(70))
         );
         assert_eq!(c.square(1, 1).unwrap().items, vec![0]);
+
+        // Layers, bottom up: the floor, the top item with a picture, the
+        // resident; a door over its wall; bare floor alone.
+        let sq = s.square(1, 1).unwrap();
+        assert_eq!(scene::layers(&adv, region, hall, sq), vec![1, 3]);
+        let sq = s.square(4, 1).unwrap();
+        assert_eq!(scene::layers(&adv, region, hall, sq), vec![9, 4]);
+        let sq = s.square(3, 2).unwrap();
+        assert_eq!(scene::layers(&adv, region, hall, sq), vec![1]);
+        let sq = c.square(2, 1).unwrap();
+        assert_eq!(scene::layers(&adv, region, cell, sq).last(), Some(&70));
     }
 }
 

@@ -17,7 +17,7 @@ use acs_core::layout::world_map as wm;
 use acs_core::limits::{self, Limits, Profile};
 use acs_core::model::*;
 use acs_core::Platform;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 use toml::{Table, Value};
 
@@ -25,11 +25,30 @@ use toml::{Table, Value};
 #[derive(Debug, Clone, Default)]
 pub struct Folder {
     pub files: BTreeMap<String, Vec<u8>>,
+    /// The starter kit `adventure.toml` names (content 4.2).
+    pub kit: Option<Box<Folder>>,
 }
 
 impl Folder {
-    /// Reads every file under `dir`.
+    /// Reads every file under `dir`, and the kit `adventure.toml` names.
     pub fn read(dir: &Path) -> std::io::Result<Folder> {
+        let mut folder = Folder::read_one(dir)?;
+        let kit = folder
+            .files
+            .get(ADVENTURE)
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .and_then(|t| t.parse::<Table>().ok())
+            .and_then(|t| t.get("kit").and_then(Value::as_str).map(String::from));
+        if let Some(k) = kit {
+            let path = dir.join(&k);
+            let kit = Folder::read_one(&path)
+                .map_err(|e| std::io::Error::new(e.kind(), format!("kit {}: {e}", path.display())))?;
+            folder.kit = Some(Box::new(kit));
+        }
+        Ok(folder)
+    }
+
+    fn read_one(dir: &Path) -> std::io::Result<Folder> {
         fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> std::io::Result<()> {
             for e in std::fs::read_dir(dir)? {
                 let path = e?.path();
@@ -49,7 +68,13 @@ impl Folder {
         }
         let mut files = BTreeMap::new();
         walk(dir, dir, &mut files)?;
-        Ok(Folder { files })
+        Ok(Folder { files, kit: None })
+    }
+
+    /// Sets the kit (tests).
+    pub fn with_kit(mut self, kit: Folder) -> Folder {
+        self.kit = Some(Box::new(kit));
+        self
     }
 
     /// Adds a text file (tests).
@@ -91,6 +116,16 @@ const THINGS: &str = "things.toml";
 const CREATURES: &str = "creatures.toml";
 const MESSAGES: &str = "messages.toml";
 const WORLD: &str = "world.toml";
+/// A kit's files, as problems name them.
+const KIT: &str = "kit/kit.toml";
+const KIT_THINGS: &str = "kit/things.toml";
+const KIT_CREATURES: &str = "kit/creatures.toml";
+
+/// A `[[thing]]` or `[[creature]]` table and the file it is from.
+type Entry = (String, Table);
+
+/// An atlas's tile size and, in list order, each picture's key and pixels.
+type Tiles = (u32, Vec<(String, Vec<u8>)>);
 
 /// Fixed thing numbers (content 3.4).
 const GOLD: u16 = 81;
@@ -201,7 +236,13 @@ impl<'a> Build<'a> {
 
     /// Parses a TOML file into `tables`; false if it is missing or broken.
     fn load(&mut self, name: &str, required: bool) -> bool {
-        let Some(bytes) = self.folder.files.get(name) else {
+        let folder = self.folder;
+        self.load_from(folder, name, name, required)
+    }
+
+    /// Parses `path` in `folder` into `tables` as `name`.
+    fn load_from(&mut self, folder: &Folder, path: &str, name: &str, required: bool) -> bool {
+        let Some(bytes) = folder.files.get(path) else {
             if required {
                 self.p.push(name, "", "missing");
             }
@@ -225,10 +266,29 @@ impl<'a> Build<'a> {
 
     fn run(mut self) -> Option<Bundle> {
         let mut ok = true;
-        for f in [ADVENTURE, PICTURES, THINGS, CREATURES, WORLD] {
+        for f in [ADVENTURE, THINGS, CREATURES, WORLD] {
             ok &= self.load(f, true);
         }
         self.load(MESSAGES, false);
+        let names_kit = self.tables.get(ADVENTURE).is_some_and(|t| t.contains_key("kit"));
+        let has_pictures = self.load(PICTURES, false);
+        if !names_kit && !has_pictures {
+            self.p.push(PICTURES, "", "missing");
+            ok = false;
+        }
+        if names_kit {
+            match self.folder.kit.as_deref() {
+                None => {
+                    self.p.push(ADVENTURE, "", "kit: the kit's folder wasn't read");
+                    ok = false;
+                }
+                Some(kit) => {
+                    ok &= self.load_from(kit, "kit.toml", KIT, true);
+                    self.load_from(kit, "things.toml", KIT_THINGS, false);
+                    self.load_from(kit, "creatures.toml", KIT_CREATURES, false);
+                }
+            }
+        }
         let region_files: Vec<String> = self
             .folder
             .files
@@ -248,16 +308,48 @@ impl<'a> Build<'a> {
         let tables = std::mem::take(&mut self.tables);
         let adv_t = &tables[ADVENTURE];
         let a = Obj::new(adv_t, ADVENTURE, "", self.p);
+        a.raw("kit");
         let header = self.header(&a);
-        let (pictures, art) = self.pictures(&tables[PICTURES])?;
+
+        // The kit's entries this adventure takes (content 4.2).
+        let own_things = self.entries(THINGS, tables.get(THINGS), "thing");
+        let own_creatures = self.entries(CREATURES, tables.get(CREATURES), "creature");
+        let kit_things = self.entries(KIT_THINGS, tables.get(KIT_THINGS), "thing");
+        let kit_creatures = self.entries(KIT_CREATURES, tables.get(KIT_CREATURES), "creature");
+        let mut words = HashSet::new();
+        for (name, t) in &tables {
+            if !name.starts_with("kit/") {
+                strings(&Value::Table(t.clone()), &mut words);
+            }
+        }
+        let own_keys: HashSet<String> = own_things
+            .iter()
+            .chain(&own_creatures)
+            .map(|(_, t)| entry_key(t))
+            .collect();
+        loop {
+            let before = words.len();
+            for (_, t) in kit_things.iter().chain(&kit_creatures) {
+                let k = entry_key(t);
+                if words.contains(&k) && !own_keys.contains(&k) {
+                    strings(&Value::Table(t.clone()), &mut words);
+                }
+            }
+            if words.len() == before {
+                break;
+            }
+        }
+        let things_list = merge(kit_things, own_things, &words);
+        let creatures_list = merge(kit_creatures, own_creatures, &words);
+        let (pictures, art) = self.pictures(tables.get(PICTURES), tables.get(KIT), &words)?;
         let (long_messages, short_messages) = match tables.get(MESSAGES) {
             Some(t) => self.messages(t),
             None => (Vec::new(), Vec::new()),
         };
-        self.number_things(&tables[THINGS]);
-        self.number_creatures(&tables[CREATURES]);
-        let things = self.things(&tables[THINGS], &a);
-        self.masters = self.creature_list(&tables[CREATURES], &header.classes);
+        self.number_things(&things_list);
+        self.number_creatures(&creatures_list);
+        let things = self.things(&things_list, &a);
+        self.masters = self.creature_list(&creatures_list, &header.classes);
         let regions_first: Vec<(&str, &Table)> =
             region_files.iter().map(|f| (f.as_str(), &tables[f])).collect();
         self.room_places(&regions_first);
@@ -418,21 +510,28 @@ impl<'a> Build<'a> {
     // -------------------------------------------------------------------
     // pictures.toml
 
-    fn pictures(&mut self, t: &Table) -> Option<(Vec<Picture>, Art)> {
-        let o = Obj::new(t, PICTURES, "", self.p);
+    /// One atlas's listed tiles, cut out: its tile size and, in list
+    /// order, each picture's key and pixels.
+    fn atlas(&self, folder: &Folder, file: &str, t: &Table) -> Option<Tiles> {
+        let o = Obj::new(t, file, "", self.p);
+        if file == KIT {
+            for k in ["name", "license", "credits"] {
+                o.raw(k);
+            }
+        }
         let atlas = o.need_str("atlas");
         let tile = o.need_int("tile", 16, 512);
         let list = o.table("pictures");
         o.done();
         let (atlas, tile, list) = (atlas?, tile? as u32, list?);
-        let Some(bytes) = self.folder.files.get(atlas) else {
+        let Some(bytes) = folder.files.get(atlas) else {
             o.err(format!("atlas: {atlas} is missing"));
             return None;
         };
         let (width, height, rgba) = match decode_png(bytes) {
             Ok(x) => x,
             Err(e) => {
-                self.p.push(atlas, "", e);
+                o.err(format!("atlas {atlas}: {e}"));
                 return None;
             }
         };
@@ -448,36 +547,97 @@ impl<'a> Build<'a> {
             rgba,
             places: BTreeMap::new(),
         };
+        let mut out = Vec::new();
+        for (key, v) in list {
+            let at = format!("picture {key}");
+            if !is_key(key) {
+                self.p.push(file, &at, "not a key (lowercase letters, digits, _)");
+            }
+            match v {
+                Value::Integer(n) if (0..places as i64).contains(n) => {
+                    art.places.insert(0, *n as u32);
+                    out.push((key.clone(), art.picture(0).expect("placed")));
+                }
+                _ => self
+                    .p
+                    .push(file, &at, format!("should be an atlas place, 0..{}", places - 1)),
+            }
+        }
+        Some((tile, out))
+    }
+
+    /// The pictures (content 3.3, 4.2): the kit's taken ones (an own one
+    /// of the same key in its place), then the adventure's own; one atlas
+    /// of just those, place n - 1 for picture n.
+    fn pictures(
+        &mut self,
+        own: Option<&Table>,
+        kit: Option<&Table>,
+        words: &HashSet<String>,
+    ) -> Option<(Vec<Picture>, Art)> {
+        let folder = self.folder;
+        let own = own.and_then(|t| self.atlas(folder, PICTURES, t));
+        let kit = match (kit, folder.kit.as_deref()) {
+            (Some(t), Some(f)) => self.atlas(f, KIT, t),
+            _ => None,
+        };
+        let tile = own.as_ref().or(kit.as_ref())?.0;
+        if let (Some(o), Some(k)) = (&own, &kit) {
+            if o.0 != k.0 {
+                self.p
+                    .push(PICTURES, "", format!("tile {} but the kit's is {}", o.0, k.0));
+                return None;
+            }
+        }
+        let own_list: &[(String, Vec<u8>)] = own.as_ref().map_or(&[], |o| &o.1);
+        let mut chosen: Vec<(&str, &[u8])> = Vec::new();
+        if let Some((_, list)) = &kit {
+            for (key, px) in list {
+                let mine = own_list.iter().find(|(k, _)| k == key);
+                if mine.is_some() || words.contains(key) {
+                    chosen.push((key, mine.map_or(px.as_slice(), |m| m.1.as_slice())));
+                }
+            }
+        }
+        for (key, px) in own_list {
+            if !chosen.iter().any(|(k, _)| k == key) {
+                chosen.push((key, px));
+            }
+        }
+        const PER_ROW: usize = 16;
+        let rows = chosen.len().div_ceil(PER_ROW).max(1);
+        let (width, height) = (PER_ROW as u32 * tile, rows as u32 * tile);
+        let row = (tile * 4) as usize;
+        let mut rgba = vec![0u8; (width * height * 4) as usize];
+        let mut places = BTreeMap::new();
         let mut pictures = vec![Picture {
             width: 16,
             height: 16,
             pixel_aspect: 1,
             pixels: vec![0; 256],
         }];
-        for (key, v) in list {
-            let at = format!("picture {key}");
-            if !is_key(key) {
-                self.p
-                    .push(PICTURES, &at, "not a key (lowercase letters, digits, _)");
+        for (i, (key, px)) in chosen.iter().enumerate() {
+            let (cx, cy) = ((i % PER_ROW) as u32 * tile, (i / PER_ROW) as u32 * tile);
+            for y in 0..tile {
+                let dst = (((cy + y) * width + cx) * 4) as usize;
+                let src = y as usize * row;
+                rgba[dst..dst + row].copy_from_slice(&px[src..src + row]);
             }
-            let place = match v {
-                Value::Integer(n) if (0..places as i64).contains(n) => *n as u32,
-                _ => {
-                    self.p.push(
-                        PICTURES,
-                        &at,
-                        format!("should be an atlas place, 0..{}", places - 1),
-                    );
-                    continue;
-                }
-            };
             let id = pictures.len() as u16;
-            self.pictures.insert(key.clone(), id);
-            art.places.insert(id, place);
-            let tile_rgba = art.picture(id).expect("placed");
-            pictures.push(classic_pixels(&tile_rgba, tile as usize, &self.palette));
+            self.pictures.insert(key.to_string(), id);
+            places.insert(id, i as u32);
+            pictures.push(classic_pixels(px, tile as usize, &self.palette));
         }
-        Some((pictures, art))
+        Some((
+            pictures,
+            Art {
+                tile,
+                width,
+                height,
+                rgba,
+                places,
+            },
+        ))
     }
 
     fn picture(&self, o: &Obj, key: &str) -> u16 {
@@ -570,34 +730,37 @@ impl<'a> Build<'a> {
     // -------------------------------------------------------------------
     // things.toml
 
-    fn thing_entries<'t>(&self, t: &'t Table) -> Vec<&'t Table> {
-        match t.get("thing") {
+    /// A file's `[[name]]` tables, each with the file.
+    fn entries(&self, file: &str, t: Option<&Table>, name: &str) -> Vec<Entry> {
+        match t.and_then(|t| t.get(name)) {
             None => Vec::new(),
             Some(Value::Array(a)) => a
                 .iter()
                 .filter_map(|v| {
                     let t = v.as_table();
                     if t.is_none() {
-                        self.p.push(THINGS, "", "each [[thing]] should be a table");
+                        self.p
+                            .push(file, "", format!("each [[{name}]] should be a table"));
                     }
-                    t
+                    t.map(|t| (file.to_string(), t.clone()))
                 })
                 .collect(),
             Some(_) => {
-                self.p.push(THINGS, "", "thing: should be [[thing]] tables");
+                self.p
+                    .push(file, "", format!("{name}: should be [[{name}]] tables"));
                 Vec::new()
             }
         }
     }
 
-    fn number_things(&mut self, t: &Table) {
+    fn number_things(&mut self, list: &[Entry]) {
         let (mut carriable, mut fixture) = (1u16, FIRST_FIXTURE);
-        for e in self.thing_entries(t) {
+        for (file, e) in list {
             let key = e.get("key").and_then(Value::as_str).unwrap_or("");
             let at = format!("thing {key}");
             if !is_key(key) {
                 self.p.push(
-                    THINGS,
+                    file,
                     &at,
                     "key: missing or not a key (lowercase letters, digits, _)",
                 );
@@ -605,7 +768,7 @@ impl<'a> Build<'a> {
             }
             let Some(ty) = e.get("type").and_then(Value::as_str).and_then(Type::parse) else {
                 self.p.push(
-                    THINGS,
+                    file,
                     &at,
                     "type: missing or not one of treasure, magic_item, missile_weapon, melee_weapon, armor, magic_spell, portal, space, custom_space, obstacle, custom_obstacle, store",
                 );
@@ -615,7 +778,7 @@ impl<'a> Build<'a> {
                 let n = carriable;
                 carriable += 1;
                 if n > CARRIABLE_MAX {
-                    self.p.push(THINGS, &at, "more than 80 carriable things");
+                    self.p.push(file, &at, "more than 80 carriable things");
                 }
                 n
             } else {
@@ -627,7 +790,7 @@ impl<'a> Build<'a> {
                 n
             };
             if self.things.insert(key.into(), (number, ty)).is_some() {
-                self.p.push(THINGS, &at, "key used twice");
+                self.p.push(file, &at, "key used twice");
             }
         }
     }
@@ -640,15 +803,15 @@ impl<'a> Build<'a> {
         r
     }
 
-    fn things(&mut self, t: &Table, a: &Obj) -> Vec<Thing> {
+    fn things(&mut self, list: &[Entry], a: &Obj) -> Vec<Thing> {
         let mut out: BTreeMap<u16, Thing> = BTreeMap::new();
         let mut table_index = 0u8;
-        for e in self.thing_entries(t) {
+        for (file, e) in list {
             let key = e.get("key").and_then(Value::as_str).unwrap_or("");
             let Some(&(number, ty)) = self.things.get(key) else {
                 continue;
             };
-            let o = Obj::new(e, THINGS, format!("thing {key}"), self.p);
+            let o = Obj::new(e, file, format!("thing {key}"), self.p);
             o.raw("key");
             o.raw("type");
             let name = o.need_str("name").unwrap_or_default().to_string();
@@ -1115,43 +1278,26 @@ impl<'a> Build<'a> {
     // -------------------------------------------------------------------
     // creatures.toml
 
-    fn creature_entries<'t>(&self, t: &'t Table) -> Vec<&'t Table> {
-        match t.get("creature") {
-            None => Vec::new(),
-            Some(Value::Array(a)) => a.iter().filter_map(Value::as_table).collect(),
-            Some(_) => {
-                self.p
-                    .push(CREATURES, "", "creature: should be [[creature]] tables");
-                Vec::new()
-            }
-        }
-    }
-
-    fn number_creatures(&mut self, t: &Table) {
-        for (i, e) in self.creature_entries(t).into_iter().enumerate() {
+    fn number_creatures(&mut self, list: &[Entry]) {
+        for (i, (file, e)) in list.iter().enumerate() {
             let key = e.get("key").and_then(Value::as_str).unwrap_or("");
             if !is_key(key) {
-                self.p.push(
-                    CREATURES,
-                    &format!("creature {}", i + 1),
-                    "key: missing or not a key",
-                );
+                self.p
+                    .push(file, &format!("creature {}", i + 1), "key: missing or not a key");
                 continue;
             }
             if self.creatures.insert(key.into(), i as u16 + 1).is_some() {
-                self.p
-                    .push(CREATURES, &format!("creature {key}"), "key used twice");
+                self.p.push(file, &format!("creature {key}"), "key used twice");
             }
         }
     }
 
-    fn creature_list(&self, t: &Table, classes: &[String]) -> Vec<Creature> {
-        self.creature_entries(t)
-            .into_iter()
+    fn creature_list(&self, list: &[Entry], classes: &[String]) -> Vec<Creature> {
+        list.iter()
             .enumerate()
-            .map(|(i, e)| {
+            .map(|(i, (file, e))| {
                 let key = e.get("key").and_then(Value::as_str).unwrap_or("");
-                let o = Obj::new(e, CREATURES, format!("creature {key}"), self.p);
+                let o = Obj::new(e, file, format!("creature {key}"), self.p);
                 o.raw("key");
                 let c = self.creature(&o, i as u16 + 1, classes);
                 o.done();
@@ -2143,4 +2289,40 @@ pub fn classic_pixels(rgba: &[u8], tile: usize, palette: &Palette) -> Picture {
         pixel_aspect: 1,
         pixels,
     }
+}
+
+/// Every string value in `v`, at any depth (content 4.2's "taken").
+fn strings(v: &Value, out: &mut HashSet<String>) {
+    match v {
+        Value::String(s) => {
+            out.insert(s.clone());
+        }
+        Value::Array(a) => a.iter().for_each(|v| strings(v, out)),
+        Value::Table(t) => t.values().for_each(|v| strings(v, out)),
+        _ => {}
+    }
+}
+
+fn entry_key(t: &Table) -> String {
+    t.get("key").and_then(Value::as_str).unwrap_or("").to_string()
+}
+
+/// The kit's taken entries in kit order (an own entry of the same key in
+/// its place), then the rest of the adventure's own (content 4.2).
+fn merge(kit: Vec<Entry>, own: Vec<Entry>, words: &HashSet<String>) -> Vec<Entry> {
+    let mut own: Vec<Option<Entry>> = own.into_iter().map(Some).collect();
+    let mut out = Vec::new();
+    for e in kit {
+        let k = entry_key(&e.1);
+        if let Some(slot) = own
+            .iter_mut()
+            .find(|o| o.as_ref().is_some_and(|o| entry_key(&o.1) == k))
+        {
+            out.push(slot.take().expect("found"));
+        } else if words.contains(&k) {
+            out.push(e);
+        }
+    }
+    out.extend(own.into_iter().flatten());
+    out
 }

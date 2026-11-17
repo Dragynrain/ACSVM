@@ -136,6 +136,24 @@ pub fn thing_picture(adv: &Adventure, number: ThingId) -> Option<PictureId> {
 }
 
 /// The floor picture: master thing 127's.
+/// A square's pictures from the bottom up: its wall or floor, the top
+/// thing with a picture, then a resident. [`shown`] is the last of them;
+/// the rest show through art with transparent parts (Native HD, HD packs).
+pub fn layers(adv: &Adventure, region: &Region, room: &Room, sq: &Square) -> Vec<PictureId> {
+    let mut out = Vec::with_capacity(3);
+    out.extend(match sq.base {
+        Base::Wall => Some(room.wall_picture),
+        Base::Floor => floor_picture(adv),
+    });
+    out.extend(
+        sq.items
+            .iter()
+            .find_map(|&i| thing_picture(adv, room.items[i].thing)),
+    );
+    out.extend(sq.residents.first().and_then(|&r| region.residents[r].picture));
+    out
+}
+
 pub fn floor_picture(adv: &Adventure) -> Option<PictureId> {
     thing_picture(adv, FLOOR_THING)
 }

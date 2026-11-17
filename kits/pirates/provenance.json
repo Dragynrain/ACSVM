@@ -1,0 +1,3270 @@
+{
+ "axe": {
+  "group": "kit",
+  "source": "handfinish\\done\\axe-501.png",
+  "generation": [
+   {
+    "file": "axe-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A boarding axe with a short wooden handle, a steel blade and a spike on the back. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/axe-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bar": {
+  "group": "kit",
+  "source": "ramps\\kit\\bar-501.png",
+  "generation": [
+   {
+    "file": "bar-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A wooden tavern bar counter with bottles and mugs on top. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/bar-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "barrels": {
+  "group": "kit",
+  "source": "handfinish\\done\\barrels-501.png",
+  "generation": [
+   {
+    "file": "barrels-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. Two wooden barrels with iron hoops standing side by side. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/barrels-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bell": {
+  "group": "kit",
+  "source": "ramps\\kit\\bell-503.png",
+  "generation": [
+   {
+    "file": "bell-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A brass ship bell hanging from a small wooden bracket. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/bell-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "blunderbuss": {
+  "group": "kit",
+  "source": "ramps\\kit\\blunderbuss-505.png",
+  "generation": [
+   {
+    "file": "blunderbuss-505.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 505,
+    "prompt": "acspirates style. A blunderbuss: a short flintlock gun whose barrel widens into a large trumpet-shaped brass bell at the muzzle. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/blunderbuss-505",
+  "licence": "CC BY-SA 4.0"
+ },
+ "boarder": {
+  "group": "kit",
+  "source": "handfinish4\\done\\boarder-502.png",
+  "generation": [
+   {
+    "file": "boarder-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A pirate boarder, a big bald man in his thirties with dark brown skin, wearing a sleeveless vest, holding a grappling hook and a boarding axe. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/boarder-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bones": {
+  "group": "kit",
+  "source": "ramps\\kit\\bones-502.png",
+  "generation": [
+   {
+    "file": "bones-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A small pile of old bones with a skull on top. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/bones-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "book": {
+  "group": "kit",
+  "source": "ramps\\kit\\book-501.png",
+  "generation": [
+   {
+    "file": "book-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A thick closed leather-bound book with brass corners. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/book-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bookcase": {
+  "group": "kit",
+  "source": "handfinish\\done\\bookcase-503.png",
+  "generation": [
+   {
+    "file": "bookcase-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A tall wooden bookcase full of old leather books. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/bookcase-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "buffcoat": {
+  "group": "kit",
+  "source": "ramps\\kit\\buffcoat-501.png",
+  "generation": [
+   {
+    "file": "buffcoat-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A thick tan buff leather coat hanging on a wooden coat hanger. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/buffcoat-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "cannon": {
+  "group": "kit",
+  "source": "handfinish\\done\\cannon-502.png",
+  "generation": [
+   {
+    "file": "cannon-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A black iron ship cannon on a wooden carriage with small wheels, barrel pointing to the right. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/cannon-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "cat": {
+  "group": "kit",
+  "source": "handfinish\\done\\cat-501.png",
+  "generation": [
+   {
+    "file": "cat-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A ginger and white ship cat sitting upright. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/cat-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "charm": {
+  "group": "kit",
+  "source": "ramps\\kit\\charm-502.png",
+  "generation": [
+   {
+    "file": "charm-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A small carved bone charm with beads and two feathers on a leather cord. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/charm-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "coinchest": {
+  "group": "kit",
+  "source": "handfinish\\done\\coinchest-502.png",
+  "generation": [
+   {
+    "file": "coinchest-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A wooden treasure chest with iron bands, lid open, heaped with plain gold coins and pearls. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/coinchest-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "coral": {
+  "group": "kit",
+  "source": "handfinish\\done\\coral-503.png",
+  "generation": [
+   {
+    "file": "coral-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A cluster of pink and orange branching coral. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/coral-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "crab": {
+  "group": "kit",
+  "source": "handfinish\\done\\crab-503.png",
+  "generation": [
+   {
+    "file": "crab-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A giant orange-red crab with two big claws raised. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_things.json"
+  ],
+  "tile": "kit/crab-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "crates": {
+  "group": "kit",
+  "source": "ramps\\kit\\crates-505.png",
+  "generation": [
+   {
+    "file": "crates-505.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 505,
+    "prompt": "acspirates style. Three wooden cargo crates stacked in a small pyramid, two on the bottom and one on top. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/crates-505",
+  "licence": "CC BY-SA 4.0"
+ },
+ "cutlass": {
+  "group": "kit",
+  "source": "handfinish\\done\\cutlass-722.png",
+  "generation": [
+   {
+    "pick": "cutlass-722",
+    "picks": "kit1/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/cutlass-722",
+  "licence": "CC BY-SA 4.0"
+ },
+ "deckhand": {
+  "group": "kit",
+  "source": "handfinish4\\done\\deckhand-503.png",
+  "generation": [
+   {
+    "file": "deckhand-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A pirate deckhand, a wiry man in his twenties with medium brown skin and a red bandana, wearing a loose white shirt and rolled canvas trousers, barefoot, holding a cutlass. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/deckhand-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "divehelm": {
+  "group": "kit",
+  "source": "handfinish\\done\\divehelm-502.png",
+  "generation": [
+   {
+    "file": "divehelm-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. An old brass diving helmet with a round glass window at the front. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/divehelm-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "diveplat": {
+  "group": "kit",
+  "source": "ramps\\kit\\diveplat-504.png",
+  "generation": [
+   {
+    "file": "diveplat-504.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 504,
+    "prompt": "acspirates style. A small wooden pier platform on wooden stilts standing in a patch of shallow water, a rope ladder hanging down into the water. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/diveplat-504",
+  "licence": "CC BY-SA 4.0"
+ },
+ "diver": {
+  "group": "kit",
+  "source": "handfinish4\\done\\diver-503.png",
+  "generation": [
+   {
+    "file": "diver-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A pearl diver, a lean young woman with deep brown skin and short hair, wearing a simple wrap top and short trousers with a knife belt, holding a net bag of shells. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/diver-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "fisher": {
+  "group": "kit",
+  "source": "handfinish4\\done\\fisher-502.png",
+  "generation": [
+   {
+    "file": "fisher-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A fisherman, an older man with tan skin and a white beard, wearing a knitted cap, a patched blue shirt and rolled trousers, holding a fishing rod. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/fisher-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "fishrack": {
+  "group": "kit",
+  "source": "ramps\\kit\\fishrack-502.png",
+  "generation": [
+   {
+    "file": "fishrack-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A wooden rack hung with fishing nets and drying fish. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/fishrack-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "flagpole": {
+  "group": "kit",
+  "source": "ramps\\kit\\flagpole-501.png",
+  "generation": [
+   {
+    "file": "flagpole-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A wooden flagpole with a plain black flag. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/flagpole-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "flask": {
+  "group": "kit",
+  "source": "ramps\\kit\\flask-502.png",
+  "generation": [
+   {
+    "file": "flask-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A flat pewter hip flask with a screw cap. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/flask-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "gaff": {
+  "group": "kit",
+  "source": "ramps\\kit\\gaff-503.png",
+  "generation": [
+   {
+    "file": "gaff-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A fishing gaff: a wooden pole with a large steel hook at the end. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/gaff-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "goldpile": {
+  "group": "kit",
+  "source": "ramps\\kit\\goldpile-502.png",
+  "generation": [
+   {
+    "file": "goldpile-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A heap of plain gold coins with a few gold bars, no symbols on the coins. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/goldpile-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "goodscrate": {
+  "group": "kit",
+  "source": "ramps\\kit\\goodscrate-503.png",
+  "generation": [
+   {
+    "file": "goodscrate-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. An open wooden crate of trade goods: rolled bolts of silk and small sacks of spice. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/goodscrate-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "gull": {
+  "group": "kit",
+  "source": "ramps\\kit\\gull-503.png",
+  "generation": [
+   {
+    "file": "gull-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A white seagull with grey wings, standing. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/gull-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "gunner": {
+  "group": "kit",
+  "source": "handfinish4\\done\\gunner-501.png",
+  "generation": [
+   {
+    "file": "gunner-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A pirate gunner, a stocky woman in her thirties with pale freckled skin and a short brown braid, wearing a leather apron over a grey shirt, holding a ramrod. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/gunner-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "gutknife": {
+  "group": "kit",
+  "source": "ramps\\kit\\gutknife-502.png",
+  "generation": [
+   {
+    "file": "gutknife-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A short curved fish gutting knife with a wooden handle. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/gutknife-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "halberd": {
+  "group": "kit",
+  "source": "ramps\\kit\\halberd-502.png",
+  "generation": [
+   {
+    "file": "halberd-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A halberd with a long wooden shaft, an axe blade and a spike. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/halberd-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "harpoon": {
+  "group": "kit",
+  "source": "ramps\\kit\\harpoon-502.png",
+  "generation": [
+   {
+    "file": "harpoon-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A whaling harpoon with a long wooden shaft and a barbed iron head. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/harpoon-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "houseguard": {
+  "group": "kit",
+  "source": "handfinish4\\done\\houseguard-502.png",
+  "generation": [
+   {
+    "file": "houseguard-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A governor house guard, a tall woman in her thirties with dark brown skin, wearing a grey coat under a black steel breastplate and a black helmet, holding a pike. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/houseguard-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "jerkin": {
+  "group": "kit",
+  "source": "ramps\\kit\\jerkin-501.png",
+  "generation": [
+   {
+    "file": "jerkin-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A sleeveless brown leather jerkin with laces hanging on a wooden coat hanger. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/jerkin-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "krakenarm": {
+  "group": "kit",
+  "source": "handfinish\\done\\krakenarm-502.png",
+  "generation": [
+   {
+    "file": "krakenarm-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. One single giant purple tentacle rising straight up out of a small patch of water, curling at the tip, rows of pale suckers; only one tentacle, no octopus body. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/krakenarm-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "lantern": {
+  "group": "kit",
+  "source": "handfinish\\done\\lantern-503.png",
+  "generation": [
+   {
+    "file": "lantern-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A brass ship lantern with glass panes and a warm candle flame inside. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/lantern-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "leech": {
+  "group": "kit",
+  "source": "handfinish3\\done\\leech-503.png",
+  "generation": [
+   {
+    "file": "leech-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A giant black swamp leech with a round sucker mouth, curled on the ground. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish3\\_things.json"
+  ],
+  "tile": "kit/leech-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "maptable": {
+  "group": "kit",
+  "source": "ramps\\kit\\maptable-504.png",
+  "generation": [
+   {
+    "file": "maptable-504.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 504,
+    "prompt": "acspirates style. A small square wooden table, the whole table visible with its four legs, a sea chart spread on top with a brass compass. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/maptable-504",
+  "licence": "CC BY-SA 4.0"
+ },
+ "marine": {
+  "group": "kit",
+  "source": "handfinish4\\done\\marine-502.png",
+  "generation": [
+   {
+    "file": "marine-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A navy marine, a young man with light brown skin, wearing a red coat with white crossbelts, white breeches and a black tricorn hat, holding a musket upright. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/marine-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "musket": {
+  "group": "kit",
+  "source": "ramps\\kit\\musket-503.png",
+  "generation": [
+   {
+    "file": "musket-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A long flintlock musket with a fixed steel bayonet. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/musket-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "navycoat": {
+  "group": "kit",
+  "source": "ramps\\kit\\navycoat-502.png",
+  "generation": [
+   {
+    "file": "navycoat-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A navy blue naval officer coat with brass buttons and gold epaulettes hanging on a wooden coat hanger. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/navycoat-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "oilskin": {
+  "group": "kit",
+  "source": "ramps\\kit\\oilskin-502.png",
+  "generation": [
+   {
+    "file": "oilskin-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A yellow oilskin rain coat hanging on a wooden coat hanger. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/oilskin-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "parrot": {
+  "group": "kit",
+  "source": "handfinish\\done\\parrot-501.png",
+  "generation": [
+   {
+    "file": "parrot-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A red and blue macaw parrot perched on a short wooden branch. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/parrot-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "pistol": {
+  "group": "kit",
+  "source": "handfinish\\done\\pistol-505.png",
+  "generation": [
+   {
+    "file": "pistol-505.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 505,
+    "prompt": "acspirates style. A small one-handed flintlock pistol with a short barrel no longer than a hand, a curved wooden grip and brass fittings. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/pistol-505",
+  "licence": "CC BY-SA 4.0"
+ },
+ "powderkeg": {
+  "group": "kit",
+  "source": "ramps\\kit\\powderkeg-501.png",
+  "generation": [
+   {
+    "file": "powderkeg-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A small dark wooden gunpowder keg with copper hoops and a short fuse on top. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/powderkeg-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "powderkegs": {
+  "group": "kit",
+  "source": "ramps\\kit\\powderkegs-505.png",
+  "generation": [
+   {
+    "file": "powderkegs-505.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 505,
+    "prompt": "acspirates style. Two small wooden gunpowder barrels with copper hoops, one standing and one lying on its side in front. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/powderkegs-505",
+  "licence": "CC BY-SA 4.0"
+ },
+ "rifleman": {
+  "group": "kit",
+  "source": "handfinish4\\done\\rifleman-502.png",
+  "generation": [
+   {
+    "file": "rifleman-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A pirate marksman, a lean older man with tan skin and a grey goatee, wearing a long brown coat and a wide hat, holding a long musket. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish3\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/rifleman-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "rigging": {
+  "group": "kit",
+  "source": "fix3\\snap\\rigging-613.png",
+  "generation": [
+   {
+    "file": "rigging-613.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 613,
+    "prompt": "acspirates style. A compact square section of ship rigging: a thick tarred rope net of large square meshes hanging from a short heavy wooden spar at the top, with two round wooden pulley blocks at the bottom corners, as wide as it is tall. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "fix3\\manifest-20261113-0919.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/rigging-613",
+  "licence": "CC BY-SA 4.0"
+ },
+ "sabre": {
+  "group": "kit",
+  "source": "ramps\\kit\\sabre-501.png",
+  "generation": [
+   {
+    "file": "sabre-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A slim curved officer sabre with a gilded hilt and knuckle guard. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/sabre-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "salve": {
+  "group": "kit",
+  "source": "handfinish\\done\\salve-503.png",
+  "generation": [
+   {
+    "file": "salve-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A small clay jar of healing salve with a cloth lid tied with string. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/salve-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "scroll": {
+  "group": "kit",
+  "source": "handfinish\\done\\scroll-502.png",
+  "generation": [
+   {
+    "file": "scroll-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A rolled parchment scroll tied with a red ribbon and a wax seal. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/scroll-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "seachest": {
+  "group": "kit",
+  "source": "handfinish\\done\\seachest-501.png",
+  "generation": [
+   {
+    "file": "seachest-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A closed wooden sea chest with iron corners and a rope handle. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/seachest-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "sergeant": {
+  "group": "kit",
+  "source": "handfinish4\\done\\sergeant-501.png",
+  "generation": [
+   {
+    "file": "sergeant-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A navy sergeant, a broad man in his forties with ruddy pale skin and a thick moustache, wearing a red coat with white crossbelts and gold stripes on the sleeve, holding a halberd. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/sergeant-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "serpent": {
+  "group": "kit",
+  "source": "handfinish\\done\\serpent-502.png",
+  "generation": [
+   {
+    "file": "serpent-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A sea serpent with a dragon-like head, fins and teal scales, its long body rising in coils out of a small patch of water. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/serpent-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "shark": {
+  "group": "kit",
+  "source": "handfinish3\\done\\shark-501.png",
+  "generation": [
+   {
+    "file": "shark-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A grey reef shark swimming sideways, seen from the side. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish3\\_things.json"
+  ],
+  "tile": "kit/shark-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "ship": {
+  "group": "kit",
+  "source": "ramps\\kit\\ship-502.png",
+  "generation": [
+   {
+    "file": "ship-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A small two-masted pirate sloop with full white sails and a dark wooden hull, seen from the side, sailing on a small patch of blue water. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261112-1240.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/ship-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "skeleton": {
+  "group": "kit",
+  "source": "handfinish4\\done\\skeleton-502.png",
+  "generation": [
+   {
+    "file": "skeleton-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A drowned skeleton pirate with a smooth bare bone skull, completely bald, in a torn sea-green coat with seaweed hanging from it, holding a rusty cutlass. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/skeleton-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "smallboat": {
+  "group": "kit",
+  "source": "ramps\\kit\\smallboat-503.png",
+  "generation": [
+   {
+    "file": "smallboat-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A small wooden rowboat with two oars resting inside it. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/smallboat-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "smokerack": {
+  "group": "kit",
+  "source": "ramps\\kit\\smokerack-503.png",
+  "generation": [
+   {
+    "file": "smokerack-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A wooden smoking rack with fish hanging over a small fire. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/smokerack-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "smuggler": {
+  "group": "kit",
+  "source": "handfinish4\\done\\smuggler-503.png",
+  "generation": [
+   {
+    "file": "smuggler-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A smuggler, a woman in her forties with olive skin, wearing a dark hooded cloak over plain clothes, carrying a sack over one shoulder. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish3\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/smuggler-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "spyglass": {
+  "group": "kit",
+  "source": "ramps\\kit\\spyglass-505.png",
+  "generation": [
+   {
+    "file": "spyglass-505.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 505,
+    "prompt": "acspirates style. A pirate spyglass: one long brass telescope tube of three sliding sections, extended, lying horizontally. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1948.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/spyglass-505",
+  "licence": "CC BY-SA 4.0"
+ },
+ "tavernkeep": {
+  "group": "kit",
+  "source": "handfinish4\\done\\tavernkeep-503.png",
+  "generation": [
+   {
+    "file": "tavernkeep-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A tavern keeper, a tall man in his forties with pale skin and red side whiskers, wearing a white shirt, a brown waistcoat and an apron, holding a tankard and a cloth. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/tavernkeep-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "tavtable": {
+  "group": "kit",
+  "source": "ramps\\kit\\tavtable-501.png",
+  "generation": [
+   {
+    "file": "tavtable-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. A heavy wooden tavern table with two tankards on it. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/tavtable-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "thief": {
+  "group": "kit",
+  "source": "handfinish4\\done\\thief-502.png",
+  "generation": [
+   {
+    "file": "thief-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A sneaky thief, a slight young man with pale skin and messy black hair, wearing dark close-fitting clothes and soft shoes, holding a small dagger. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/thief-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "throwknives": {
+  "group": "kit",
+  "source": "ramps\\kit\\throwknives-501.png",
+  "generation": [
+   {
+    "file": "throwknives-501.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 501,
+    "prompt": "acspirates style. Three small steel throwing knives fanned out. One single weapon, centred, lying diagonally with the point or muzzle toward the top right. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/throwknives-501",
+  "licence": "CC BY-SA 4.0"
+ },
+ "trader": {
+  "group": "kit",
+  "source": "handfinish4\\done\\trader-503.png",
+  "generation": [
+   {
+    "file": "trader-503.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 503,
+    "prompt": "acspirates style. A trader, a plump man in his fifties with light brown skin and a neat black beard, wearing a long green coat and a turban, holding a small set of brass scales. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit/trader-503",
+  "licence": "CC BY-SA 4.0"
+ },
+ "wheel": {
+  "group": "kit",
+  "source": "handfinish\\done\\wheel-502.png",
+  "generation": [
+   {
+    "file": "wheel-502.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v3-final",
+    "seed": 502,
+    "prompt": "acspirates style. A wooden ship steering wheel with eight handles on a short wooden post. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit1\\manifest-20261111-1753.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit/wheel-502",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bat": {
+  "group": "kit2",
+  "source": "handfinish5\\done\\bat-601.png",
+  "generation": [
+   {
+    "file": "bat-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A giant brown cave bat with its wings spread. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish5\\_things.json"
+  ],
+  "tile": "kit2/bat-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "blackspot": {
+  "group": "kit2",
+  "source": "fix3\\snap\\blackspot-613.png",
+  "generation": [
+   {
+    "file": "blackspot-613.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 613,
+    "prompt": "acspirates style. The black spot: a small torn scrap of yellowed parchment, roughly square with ragged edges and one corner folded over, with a smudged black ink circle drawn on it and a few lines of scrawled brown handwriting underneath, lying tilted at an angle. One single small object, centred, filling about half the image, seen from above. On a plain flat magenta background.",
+    "log": "fix3\\manifest-20261113-0919.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/blackspot-613",
+  "licence": "CC BY-SA 4.0"
+ },
+ "boar": {
+  "group": "kit2",
+  "source": "handfinish5\\done\\boar-601.png",
+  "generation": [
+   {
+    "file": "boar-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A wild boar with tusks and dark bristly brown fur, standing, seen from the side. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish5\\_things.json"
+  ],
+  "tile": "kit2/boar-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "bosun": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\bosun-601.png",
+  "generation": [
+   {
+    "file": "bosun-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A boatswain, a burly man in his forties with deep brown skin and a short black beard, wearing a striped shirt and a red bandana, holding a coiled rope. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/bosun-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "cabinboy": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\cabinboy-601.png",
+  "generation": [
+   {
+    "file": "cabinboy-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A cabin boy, a skinny boy of about fourteen with dark brown skin and short curly hair, wearing a too-big white shirt and rolled trousers, barefoot, holding a mop. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/cabinboy-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "caiman": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\caiman-601.png",
+  "generation": [
+   {
+    "file": "caiman-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A caiman crocodile crawling, seen from the side, green-brown scales. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/caiman-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "captainf": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\captainf-601.png",
+  "generation": [
+   {
+    "file": "captainf-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A pirate captain, a tall woman in her forties with dark brown skin and long black braids, wearing a black tricorn, a long dark green frock coat with gold buttons and tall boots, holding a flintlock pistol. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/captainf-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "captainm": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\captainm-601.png",
+  "generation": [
+   {
+    "file": "captainm-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A pirate captain, a broad-shouldered man in his fifties with tanned skin, short grey hair and a neat grey beard, wearing a black tricorn with a white feather, a long dark red frock coat and tall boots, holding a cutlass. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/captainm-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "chalice": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\chalice-601.png",
+  "generation": [
+   {
+    "file": "chalice-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A tall ornate gold chalice set with a ring of red gems. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/chalice-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "compass": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\compass-601.png",
+  "generation": [
+   {
+    "file": "compass-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A brass pocket compass with its lid open and the needle glowing green. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/compass-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "conch": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\conch-603.png",
+  "generation": [
+   {
+    "file": "conch-603.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 603,
+    "prompt": "acspirates style. A large spiral conch shell, cream with orange bands. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/conch-603",
+  "licence": "CC BY-SA 4.0"
+ },
+ "cook": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\cook-601.png",
+  "generation": [
+   {
+    "file": "cook-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A ship cook, a big round man in his forties with light brown skin and a bald head, wearing a stained white apron, holding a ladle and a pot. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/cook-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "crown": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\crown-602.png",
+  "generation": [
+   {
+    "file": "crown-602.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 602,
+    "prompt": "acspirates style. A gold crown set with red and blue jewels. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/crown-602",
+  "licence": "CC BY-SA 4.0"
+ },
+ "crystalskull": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\crystalskull-601.png",
+  "generation": [
+   {
+    "file": "crystalskull-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A clear crystal skull glowing faintly blue. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/crystalskull-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "drownedcapt": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\drownedcapt-603.png",
+  "generation": [
+   {
+    "file": "drownedcapt-603.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 603,
+    "prompt": "acspirates style. A drowned captain, a tall gaunt man with grey-green waterlogged skin and glowing pale eyes, wearing a wet tattered captain coat and hat hung with seaweed and barnacles, holding a rusty cutlass. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/drownedcapt-603",
+  "licence": "CC BY-SA 4.0"
+ },
+ "eel": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\eel-601.png",
+  "generation": [
+   {
+    "file": "eel-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A green moray eel rising out of a small patch of water, mouth open showing its teeth. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/eel-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "gems": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\gems-601.png",
+  "generation": [
+   {
+    "file": "gems-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A small heap of cut gemstones: red rubies, green emeralds and blue sapphires. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/gems-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "ghost": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\ghost-604.png",
+  "generation": [
+   {
+    "file": "ghost-604.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 604,
+    "prompt": "acspirates style. A ghost sailor drawn with a dark teal outline: a pale blue-green see-through man with a clear face, two glowing white eyes and an open mouth, a torn coat with visible buttons and a sash, his legs fading into a wisp of mist. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2343.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish3\\_things.json"
+  ],
+  "tile": "kit2/ghost-604",
+  "licence": "CC BY-SA 4.0"
+ },
+ "ghostlantern": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\ghostlantern-601.png",
+  "generation": [
+   {
+    "file": "ghostlantern-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. An old iron lantern glowing with a cold pale green ghostly flame. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/ghostlantern-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "idol": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\idol-603.png",
+  "generation": [
+   {
+    "file": "idol-603.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 603,
+    "prompt": "acspirates style. A small golden idol of a seated figure with green gem eyes. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/idol-603",
+  "licence": "CC BY-SA 4.0"
+ },
+ "jaguar": {
+  "group": "kit2",
+  "source": "handfinish5\\done\\jaguar-601.png",
+  "generation": [
+   {
+    "file": "jaguar-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A spotted jaguar standing, seen from the side. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish5\\_things.json"
+  ],
+  "tile": "kit2/jaguar-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "jellyfish": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\jellyfish-601.png",
+  "generation": [
+   {
+    "file": "jellyfish-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A big blue glowing jellyfish with long trailing tentacles. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/jellyfish-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "krakenhead": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\krakenhead-601.png",
+  "generation": [
+   {
+    "file": "krakenhead-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A giant kraken head rising out of a small patch of water: a huge dark red octopus head with big yellow eyes, tentacles curling around it. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/krakenhead-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "mermaid": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\mermaid-602.png",
+  "generation": [
+   {
+    "file": "mermaid-602.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 602,
+    "prompt": "acspirates style. A mermaid, a young woman with brown skin and long dark hair, a teal fish tail instead of legs, sitting upright on a small rock, holding a conch shell. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/mermaid-602",
+  "licence": "CC BY-SA 4.0"
+ },
+ "mermaidcomb": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\mermaidcomb-601.png",
+  "generation": [
+   {
+    "file": "mermaidcomb-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A curved comb carved from white mother of pearl with a few small pearls set along its spine. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/mermaidcomb-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "monkey": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\monkey-601.png",
+  "generation": [
+   {
+    "file": "monkey-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A small brown capuchin monkey standing on its hind legs, holding a gold coin. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/monkey-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "navigator": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\navigator-601.png",
+  "generation": [
+   {
+    "file": "navigator-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A navigator, a young woman with East Asian features and black hair in a bun, wearing a blue coat, holding a brass sextant. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/navigator-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "octopus": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\octopus-601.png",
+  "generation": [
+   {
+    "file": "octopus-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A giant orange octopus with its tentacles spread out. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/octopus-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "pearls": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\pearls-602.png",
+  "generation": [
+   {
+    "file": "pearls-602.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 602,
+    "prompt": "acspirates style. A long string of white pearls coiled in a loose pile. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/pearls-602",
+  "licence": "CC BY-SA 4.0"
+ },
+ "powdermonkey": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\powdermonkey-601.png",
+  "generation": [
+   {
+    "file": "powdermonkey-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A powder monkey, a small girl of about twelve with freckled pale skin and red hair, wearing a soot-stained shirt and a cap, carrying a small powder keg. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/powdermonkey-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "quartermaster": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\quartermaster-601.png",
+  "generation": [
+   {
+    "file": "quartermaster-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A quartermaster, a stocky woman in her fifties with olive skin and short grey hair, wearing a brown waistcoat over a white shirt, a ledger under one arm and a cutlass at her belt. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/quartermaster-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "skelcapt": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\skelcapt-601.png",
+  "generation": [
+   {
+    "file": "skelcapt-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A skeleton captain: a skeleton in a rotting long captain coat with gold buttons and a big feathered hat, holding a cutlass and a lantern. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/skelcapt-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "skelmusket": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\skelmusket-601.png",
+  "generation": [
+   {
+    "file": "skelmusket-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A skeleton musketeer: a skeleton wearing a ragged red sash and a battered tricorn, holding a long musket. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/skelmusket-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "spider": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\spider-601.png",
+  "generation": [
+   {
+    "file": "spider-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A giant hairy black and orange jungle spider. Whole body, facing the viewer, centred. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/spider-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "surgeon": {
+  "group": "kit2",
+  "source": "handfinish4\\done\\surgeon-601.png",
+  "generation": [
+   {
+    "file": "surgeon-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A ship surgeon, a thin man in his sixties with pale skin and grey hair tied back, wearing a black coat and round spectacles, holding a small leather bag. Full body, standing upright and facing the viewer, both feet on the ground. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [
+   "handfinish2\\_faces.json",
+   "handfinish4\\_faces.json"
+  ],
+  "tile": "kit2/surgeon-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "tiki": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\tiki-601.png",
+  "generation": [
+   {
+    "file": "tiki-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A small carved wooden tiki idol with a big grinning face and white shell eyes. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/tiki-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "treasuremap": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\treasuremap-603.png",
+  "generation": [
+   {
+    "file": "treasuremap-603.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 603,
+    "prompt": "acspirates style. An old treasure map: a torn sheet of yellowed parchment showing a small island, a dotted path and a red X. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/treasuremap-603",
+  "licence": "CC BY-SA 4.0"
+ },
+ "voodoodoll": {
+  "group": "kit2",
+  "source": "ramps\\kit2\\voodoodoll-601.png",
+  "generation": [
+   {
+    "file": "voodoodoll-601.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 601,
+    "prompt": "acspirates style. A small stitched doll of rough brown sacking with button eyes and three pins stuck in it. One single object, centred, seen from the front and tilted slightly from above so its top is visible. On a plain flat magenta background.",
+    "log": "kit2\\manifest-20261112-2324.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "kit2/voodoodoll-601",
+  "licence": "CC BY-SA 4.0"
+ },
+ "magpie": {
+  "group": "player",
+  "source": "fix3\\snap\\magpie2-612-nowater.png",
+  "generation": [
+   {
+    "file": "magpie-612.png",
+    "model": "SwarmUI_Z-Image-Turbo-FP8Mix",
+    "lora": "acspirates/acspirates-v4-final",
+    "seed": 612,
+    "prompt": "acspirates style. The Magpie, a small fast single-masted sloop with a black hull with a white stripe along it, crisp white sails, a long bowsprit and a small black and white pennant with a bird on it at the masthead. The whole ship seen from the side and slightly above, centred, sitting on a small patch of blue water. On a plain flat magenta background.",
+    "log": "fix3\\manifest-20261113-0927.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "player/magpie-612",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_boardwalk": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\boardwalk.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\boardwalk-tex-652__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/boardwalk",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_carpet": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\carpet.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\carpet-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/carpet",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_cavepass": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\cavepass.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\cavepass-place-651__c80kc.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/cavepass",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_caverock": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\caverock.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-tex\\caverock-tex-661__c75box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_caverock": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-caverock.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/caverock"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_dressed": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-dressed.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/dressed"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_fortstone": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-fortstone.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/fortstone"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_hull": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-hull.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/hull"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_palisade": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-palisade.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/palisade"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_panelling": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-panelling.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/panelling"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_stilthut": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-stilthut.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/stilthut"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass_woven": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass-woven.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/cavepass",
+     "rooms/woven"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass-woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_cavepass": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\cavepass.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\cavepass-place-651__c80kc.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/cavepass",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_caverock": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-caverock.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/caverock"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_dressed": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-dressed.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/dressed"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_fortstone": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-fortstone.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/fortstone"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_hull": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-hull.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/hull"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_palisade": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-palisade.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/palisade"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_panelling": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-panelling.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/panelling"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_stilthut": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-stilthut.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/stilthut"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor_woven": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor-woven.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/doubledoor",
+     "rooms/woven"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor-woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_doubledoor": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\doubledoor.png",
+  "generation": [
+   {
+    "file": "doubledoor-713.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 713,
+    "prompt": "Make the pair of doors and their frame narrower: they take up only the middle 60 percent of the image width and keep their full height, with plain flat magenta on both sides. Keep the same doors, brass handles, panels, colours and pixel art style exactly the same.",
+    "log": "fix3\\doubledoor-manifest.json"
+   },
+   {
+    "file": "doubledoor-741.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 741,
+    "prompt": "Remove the wall around the doorway: replace all of the wall, stone, rock, ground and background around it with a plain flat magenta colour. Keep only the door itself and its frame or arch exactly as they are, same size, same position, same outline, flat cel-shaded cartoon style and colours.",
+    "log": "edit2\\doubledoor-manifest.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/doubledoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_caverock": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-caverock.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/caverock"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_dressed": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-dressed.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/dressed"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_fortstone": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-fortstone.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/fortstone"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_hull": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-hull.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/hull"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_palisade": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-palisade.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/palisade"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_panelling": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-panelling.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/panelling"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_stilthut": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-stilthut.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/stilthut"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate_woven": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate-woven.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/fortgate",
+     "rooms/woven"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate-woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_fortgate": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\fortgate.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\fortgate-place-652__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/fortgate",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_caverock": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-caverock.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/caverock"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_dressed": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-dressed.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/dressed"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_fortstone": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-fortstone.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/fortstone"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_hull": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-hull.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/hull"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_palisade": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-palisade.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/palisade"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_panelling": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-panelling.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/panelling"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_stilthut": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-stilthut.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/stilthut"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor_woven": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor-woven.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/vaultdoor",
+     "rooms/woven"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor-woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_vaultdoor": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\vaultdoor.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-place\\vaultdoor-place-661__c100box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/vaultdoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_caverock": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-caverock.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/caverock"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-caverock",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_dressed": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-dressed.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/dressed"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_fortstone": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-fortstone.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/fortstone"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_hull": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-hull.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/hull"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_palisade": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-palisade.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/palisade"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_panelling": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-panelling.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/panelling"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_stilthut": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-stilthut.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/stilthut"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor_woven": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor-woven.png",
+  "generation": [
+   {
+    "composite": [
+     "rooms/doors/woodendoor",
+     "rooms/woven"
+    ]
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor-woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "door_woodendoor": {
+  "group": "rooms/doors",
+  "source": "ramps\\rooms\\doors\\woodendoor.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\woodendoor-place-651__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doors/woodendoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_doubledoor": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\doubledoor.png",
+  "generation": [
+   {
+    "file": "doubledoor-713.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 713,
+    "prompt": "Make the pair of doors and their frame narrower: they take up only the middle 60 percent of the image width and keep their full height, with plain flat magenta on both sides. Keep the same doors, brass handles, panels, colours and pixel art style exactly the same.",
+    "log": "fix3\\doubledoor-manifest.json"
+   },
+   {
+    "file": "doubledoor-741.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 741,
+    "prompt": "Remove the wall around the doorway: replace all of the wall, stone, rock, ground and background around it with a plain flat magenta colour. Keep only the door itself and its frame or arch exactly as they are, same size, same position, same outline, flat cel-shaded cartoon style and colours.",
+    "log": "edit2\\doubledoor-manifest.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/doubledoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_dressed": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\dressed.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\dressed-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/dressed",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_flagstone": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\flagstone.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\flagstone-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/flagstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fmud": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fmud.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-tex\\fmud-tex-662__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fmud",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fortgate": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fortgate.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\fortgate-place-652__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fortgate",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fortstone": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fortstone.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\fortstone-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fortstone",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fsand": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fsand.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-tex\\fsand-tex-661__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fsand",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fscorched": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fscorched.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-tex\\fscorched-tex-662__c75box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fscorched",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_fwater": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\fwater.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\fwater-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/fwater",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_gangplank": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\gangplank.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\gangplank-place-651__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/gangplank",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_hull": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\hull.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\hull-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/hull",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_lavavent": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\lavavent.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\lavavent-place-651__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/lavavent",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_palisade": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\palisade.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\palisade-tex-652__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/palisade",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_panelling": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\panelling.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\panelling-tex-652__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/panelling",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_roomfloor": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\roomfloor.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-tex\\roomfloor-tex-662__c75box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/roomfloor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_stilthut": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\stilthut.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\stilthut-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/stilthut",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_store": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\store.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\store-place-651__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/store",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_trapdoor": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\trapdoor.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-place\\trapdoor-place-661__c100box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/trapdoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_vaultdoor": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\vaultdoor.png",
+  "generation": [
+   {
+    "pick": "rooms2\\cand-place\\vaultdoor-place-661__c100box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/vaultdoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_woodendoor": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\woodendoor.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-place\\woodendoor-place-651__c80box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/woodendoor",
+  "licence": "CC BY-SA 4.0"
+ },
+ "room_woven": {
+  "group": "rooms",
+  "source": "ramps\\rooms\\woven.png",
+  "generation": [
+   {
+    "pick": "rooms1\\cand-tex\\woven-tex-651__c50box.png",
+    "picks": "rooms-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "rooms/woven",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_anchorage": {
+  "group": "terrain",
+  "source": "fix3\\snap\\anchorage-714.png",
+  "generation": [
+   {
+    "file": "anchorage-714.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 714,
+    "prompt": "Replace the green grass and sand of the island corners with the same calm turquoise sea water, so water fills the whole image edge to edge. Keep the ship, its sails, the top-down view, the style and the colours exactly the same.",
+    "log": "fix3\\anchorage-manifest.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/anchorage",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_beach": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\beach.png",
+  "generation": [
+   {
+    "pick": "terrain-tuned\\beach.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/beach",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_cavemouth": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\cavemouth.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\cavemouth-place-631__c80kc.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/cavemouth",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_cliff": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\cliff.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\cliff-tex-632__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/cliff",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_cove": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\cove.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\cove-place-631__c80box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/cove",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_deepsea": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\deepsea.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\deepsea-tex-632__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/deepsea",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_fort": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\fort.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\fort-place-631__c80kc.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/fort",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_grassland": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\grassland.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\grassland-tex-631__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/grassland",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_jungle": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\jungle.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\jungle-tex-632__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/jungle",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_porttown": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\porttown.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\porttown-place-632__c80box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/porttown",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_reef": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\reef.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\reef-tex-631__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/reef",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_reefchannel": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\reefchannel.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\reefchannel-place-631__c80box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/reefchannel",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_shallows": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\shallows.png",
+  "generation": [
+   {
+    "pick": "terrain16b\\cand\\shallows-tex-641__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/shallows",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_swamp": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\swamp.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\swamp-tex-631__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/swamp",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_village": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\village.png",
+  "generation": [
+   {
+    "pick": "terrain16\\cand\\village-place-632__c80kc.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/village",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_volcanic": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\volcanic.png",
+  "generation": [
+   {
+    "pick": "terrain16b\\cand\\volcanic-tex-641__c50box.png",
+    "picks": "terrain-kit/picks.json",
+    "note": "no generation log; the prompt is in the generating script"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/volcanic",
+  "licence": "CC BY-SA 4.0"
+ },
+ "terrain_wreck": {
+  "group": "terrain",
+  "source": "ramps\\terrain\\wreck.png",
+  "generation": [
+   {
+    "file": "wreck-732.png",
+    "model": "qwen-image-edit-2511-Q4_K_M",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps",
+    "seed": 732,
+    "prompt": "Turn this ship into a shipwreck: the hull is broken in two with a jagged gap in the middle, both halves tilted and half sunk in the shallow water, the masts snapped off short, the sails torn into rags hanging down, a few loose planks floating around it. Keep the same top-down view, turquoise water, green island corners, flat cel-shaded cartoon style and colours.",
+    "log": "edit1\\wreck-manifest.json"
+   }
+  ],
+  "hand_edits": [],
+  "tile": "terrain/wreck",
+  "licence": "CC BY-SA 4.0"
+ },
+ "crab_blue": {
+  "group": "variants",
+  "source": "variants\\crab-blue.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/crab-blue",
+  "licence": "CC BY-SA 4.0"
+ },
+ "deckhand_night": {
+  "group": "variants",
+  "source": "variants\\deckhand-night.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/deckhand-night",
+  "licence": "CC BY-SA 4.0"
+ },
+ "marine_blue": {
+  "group": "variants",
+  "source": "variants\\marine-blue.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/marine-blue",
+  "licence": "CC BY-SA 4.0"
+ },
+ "octopus_rose": {
+  "group": "variants",
+  "source": "variants\\octopus-rose.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/octopus-rose",
+  "licence": "CC BY-SA 4.0"
+ },
+ "parrot_blue": {
+  "group": "variants",
+  "source": "variants\\parrot-blue.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/parrot-blue",
+  "licence": "CC BY-SA 4.0"
+ },
+ "serpent_red": {
+  "group": "variants",
+  "source": "variants\\serpent-red.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/serpent-red",
+  "licence": "CC BY-SA 4.0"
+ },
+ "skeleton_cursed": {
+  "group": "variants",
+  "source": "variants\\skeleton-cursed.png",
+  "generation": [],
+  "hand_edits": [],
+  "tile": "variants/skeleton-cursed",
+  "licence": "CC BY-SA 4.0"
+ }
+}

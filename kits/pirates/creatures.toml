@@ -1,0 +1,1116 @@
+# The pirate kit's creatures (docs/content.md 4.3). CC BY-SA 4.0.
+# Written by scripts/kitcreatures.py: edit its table, not this file.
+# Power is Wisdom and Life Force Constitution (content 3.6) unless set.
+
+[[creature]]
+key = "trader"
+name = "TRADER"
+picture = "trader"
+constitution = 10
+strength = 8
+dexterity = 10
+speed = 5
+wisdom = 13
+size = 9
+dodge = 14
+parry = 10
+melee = 18
+missile = 10
+armor_skill = 0
+alignment = "friend"
+wealth = 120
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }]
+
+[[creature]]
+key = "tavern_keeper"
+name = "TAVERN KEEPER"
+picture = "tavernkeep"
+constitution = 12
+strength = 12
+dexterity = 9
+speed = 5
+wisdom = 10
+size = 12
+dodge = 12
+parry = 14
+melee = 24
+missile = 8
+armor_skill = 0
+alignment = "friend"
+wealth = 60
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }, { thing = "rum_flask" }]
+
+[[creature]]
+key = "fisher"
+name = "FISHER"
+picture = "fisher"
+constitution = 10
+strength = 10
+dexterity = 10
+speed = 5
+wisdom = 9
+size = 10
+dodge = 15
+parry = 12
+melee = 20
+missile = 15
+armor_skill = 0
+alignment = "neutral"
+wealth = 10
+weapon = "gaff_hook"
+carries = [{ thing = "gaff_hook" }]
+
+[[creature]]
+key = "cook"
+name = "SHIP'S COOK"
+picture = "cook"
+constitution = 11
+strength = 11
+dexterity = 8
+speed = 4
+wisdom = 8
+size = 12
+dodge = 10
+parry = 10
+melee = 20
+missile = 6
+armor_skill = 0
+alignment = "neutral"
+wealth = 15
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }]
+
+[[creature]]
+key = "surgeon"
+name = "SURGEON"
+picture = "surgeon"
+constitution = 9
+strength = 7
+dexterity = 12
+speed = 5
+wisdom = 15
+size = 9
+dodge = 16
+parry = 12
+melee = 16
+missile = 10
+armor_skill = 0
+alignment = "neutral"
+wealth = 80
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }, { thing = "salve" }]
+
+[[creature]]
+key = "navigator"
+name = "NAVIGATOR"
+picture = "navigator"
+constitution = 10
+strength = 8
+dexterity = 12
+speed = 5
+wisdom = 16
+size = 9
+dodge = 18
+parry = 14
+melee = 20
+missile = 18
+armor_skill = 0
+alignment = "neutral"
+wealth = 90
+weapon = "cutlass"
+carries = [{ thing = "cutlass" }, { thing = "compass" }]
+
+[[creature]]
+key = "cabin_boy"
+name = "CABIN BOY"
+picture = "cabinboy"
+constitution = 7
+strength = 6
+dexterity = 12
+speed = 6
+wisdom = 8
+size = 6
+dodge = 24
+parry = 8
+melee = 12
+missile = 8
+armor_skill = 0
+alignment = "neutral"
+wealth = 2
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }]
+
+[[creature]]
+key = "diver"
+name = "PEARL DIVER"
+picture = "diver"
+constitution = 11
+strength = 9
+dexterity = 14
+speed = 6
+wisdom = 11
+size = 8
+dodge = 24
+parry = 14
+melee = 22
+missile = 18
+armor_skill = 0
+alignment = "neutral"
+wealth = 30
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }, { thing = "pearls" }]
+
+[[creature]]
+key = "deckhand"
+name = "DECKHAND"
+picture = "deckhand"
+constitution = 11
+strength = 11
+dexterity = 11
+speed = 5
+wisdom = 8
+size = 10
+dodge = 18
+parry = 14
+melee = 26
+missile = 14
+armor_skill = 0
+alignment = "neutral"
+aggressive = true
+wealth = 15
+weapon = "cutlass"
+carries = [{ thing = "cutlass" }]
+
+[[creature]]
+key = "deckhand_night"
+name = "NIGHT WATCH"
+picture = "deckhand_night"
+constitution = 11
+strength = 11
+dexterity = 11
+speed = 5
+wisdom = 8
+size = 10
+dodge = 18
+parry = 14
+melee = 26
+missile = 14
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+wealth = 15
+weapon = "cutlass"
+carries = [{ thing = "cutlass" }]
+
+[[creature]]
+key = "powder_monkey"
+name = "POWDER MONKEY"
+picture = "powdermonkey"
+constitution = 8
+strength = 7
+dexterity = 13
+speed = 6
+wisdom = 8
+size = 7
+dodge = 24
+parry = 10
+melee = 16
+missile = 16
+armor_skill = 0
+alignment = "neutral"
+wealth = 4
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }, { thing = "powder_keg" }]
+
+[[creature]]
+key = "boarder"
+name = "BOARDER"
+picture = "boarder"
+constitution = 13
+strength = 14
+dexterity = 11
+speed = 5
+wisdom = 8
+size = 11
+dodge = 16
+parry = 18
+melee = 34
+missile = 10
+armor_skill = 10
+alignment = "enemy"
+aggressive = true
+brave = true
+wealth = 25
+weapon = "boarding_axe"
+armor = "leather_jerkin"
+carries = [{ thing = "boarding_axe" }, { thing = "leather_jerkin" }]
+
+[[creature]]
+key = "gunner"
+name = "GUNNER"
+picture = "gunner"
+constitution = 12
+strength = 12
+dexterity = 12
+speed = 5
+wisdom = 10
+size = 11
+dodge = 16
+parry = 14
+melee = 24
+missile = 30
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+wealth = 25
+weapon = "pistol"
+carries = [{ thing = "pistol" }, { thing = "cutlass" }]
+
+[[creature]]
+key = "smuggler"
+name = "SMUGGLER"
+picture = "smuggler"
+constitution = 11
+strength = 10
+dexterity = 13
+speed = 6
+wisdom = 11
+size = 9
+dodge = 22
+parry = 16
+melee = 26
+missile = 22
+armor_skill = 0
+alignment = "neutral"
+wealth = 60
+weapon = "cutlass"
+armor = "oilskin"
+carries = [{ thing = "cutlass" }, { thing = "oilskin" }, { thing = "pistol" }]
+
+[[creature]]
+key = "thief"
+name = "SLINKER"
+picture = "thief"
+constitution = 9
+strength = 8
+dexterity = 15
+speed = 7
+wisdom = 11
+size = 8
+dodge = 30
+parry = 14
+melee = 20
+missile = 20
+armor_skill = 0
+alignment = "thief"
+wealth = 30
+weapon = "gutting_knife"
+carries = [{ thing = "gutting_knife" }]
+
+[[creature]]
+key = "bosun"
+name = "BOSUN"
+picture = "bosun"
+constitution = 15
+strength = 15
+dexterity = 11
+speed = 5
+wisdom = 10
+size = 12
+dodge = 16
+parry = 20
+melee = 38
+missile = 12
+armor_skill = 10
+alignment = "neutral"
+aggressive = true
+brave = true
+wealth = 50
+weapon = "cutlass"
+armor = "leather_jerkin"
+carries = [{ thing = "cutlass" }, { thing = "leather_jerkin" }]
+
+[[creature]]
+key = "quartermaster"
+name = "QUARTERMASTER"
+picture = "quartermaster"
+constitution = 14
+strength = 12
+dexterity = 12
+speed = 5
+wisdom = 13
+size = 11
+dodge = 18
+parry = 22
+melee = 34
+missile = 20
+armor_skill = 10
+alignment = "neutral"
+brave = true
+wealth = 120
+weapon = "cutlass"
+armor = "leather_jerkin"
+carries = [{ thing = "cutlass" }, { thing = "leather_jerkin" }, { thing = "pistol" }]
+
+[[creature]]
+key = "house_guard"
+name = "HOUSE GUARD"
+picture = "houseguard"
+constitution = 14
+strength = 13
+dexterity = 11
+speed = 5
+wisdom = 9
+size = 11
+dodge = 16
+parry = 22
+melee = 34
+missile = 14
+armor_skill = 20
+alignment = "enemy"
+brave = true
+wealth = 20
+weapon = "halberd"
+armor = "buff_coat"
+carries = [{ thing = "halberd" }, { thing = "buff_coat" }]
+
+[[creature]]
+key = "marine"
+name = "MARINE"
+picture = "marine"
+constitution = 13
+strength = 12
+dexterity = 12
+speed = 5
+wisdom = 10
+size = 11
+dodge = 18
+parry = 20
+melee = 32
+missile = 26
+armor_skill = 15
+alignment = "enemy"
+aggressive = true
+brave = true
+wealth = 20
+weapon = "musket"
+armor = "navy_coat"
+carries = [{ thing = "musket" }, { thing = "navy_coat" }, { thing = "cutlass" }]
+
+[[creature]]
+key = "marine_blue"
+name = "MARINE"
+picture = "marine_blue"
+constitution = 13
+strength = 12
+dexterity = 12
+speed = 5
+wisdom = 10
+size = 11
+dodge = 18
+parry = 20
+melee = 32
+missile = 26
+armor_skill = 15
+alignment = "enemy"
+aggressive = true
+brave = true
+wealth = 20
+weapon = "musket"
+armor = "navy_coat"
+carries = [{ thing = "musket" }, { thing = "navy_coat" }, { thing = "cutlass" }]
+
+[[creature]]
+key = "rifleman"
+name = "RIFLEMAN"
+picture = "rifleman"
+constitution = 12
+strength = 11
+dexterity = 14
+speed = 5
+wisdom = 11
+size = 10
+dodge = 20
+parry = 14
+melee = 22
+missile = 38
+armor_skill = 10
+alignment = "enemy"
+aggressive = true
+wealth = 20
+weapon = "musket"
+armor = "navy_coat"
+carries = [{ thing = "musket" }, { thing = "navy_coat" }]
+
+[[creature]]
+key = "sergeant"
+name = "SERGEANT"
+picture = "sergeant"
+constitution = 17
+strength = 15
+dexterity = 13
+speed = 6
+wisdom = 12
+size = 12
+dodge = 22
+parry = 28
+melee = 44
+missile = 26
+armor_skill = 25
+alignment = "enemy"
+aggressive = true
+brave = true
+wealth = 60
+weapon = "sabre"
+armor = "navy_coat"
+carries = [{ thing = "sabre" }, { thing = "navy_coat" }, { thing = "pistol" }]
+
+[[creature]]
+key = "captain_f"
+name = "CAPTAIN"
+picture = "captainf"
+constitution = 19
+strength = 13
+dexterity = 16
+speed = 7
+wisdom = 15
+size = 10
+dodge = 30
+parry = 32
+melee = 46
+missile = 32
+armor_skill = 20
+alignment = "neutral"
+brave = true
+wealth = 300
+weapon = "sabre"
+armor = "buff_coat"
+carries = [{ thing = "sabre" }, { thing = "buff_coat" }, { thing = "pistol" }]
+
+[[creature]]
+key = "captain_m"
+name = "CAPTAIN"
+picture = "captainm"
+constitution = 20
+strength = 16
+dexterity = 13
+speed = 6
+wisdom = 14
+size = 12
+dodge = 24
+parry = 32
+melee = 48
+missile = 28
+armor_skill = 20
+alignment = "neutral"
+brave = true
+wealth = 300
+weapon = "sabre"
+armor = "buff_coat"
+carries = [{ thing = "sabre" }, { thing = "buff_coat" }, { thing = "pistol" }]
+
+[[creature]]
+key = "ships_cat"
+name = "SHIP'S CAT"
+picture = "cat"
+constitution = 4
+strength = 3
+dexterity = 18
+speed = 9
+wisdom = 6
+size = 2
+dodge = 40
+parry = 0
+melee = 20
+missile = 0
+armor_skill = 0
+alignment = "neutral"
+weapon = "claws"
+carries = [{ thing = "claws" }]
+
+[[creature]]
+key = "parrot"
+name = "PARROT"
+picture = "parrot"
+constitution = 3
+strength = 2
+dexterity = 16
+speed = 10
+wisdom = 9
+size = 1
+dodge = 44
+parry = 0
+melee = 12
+missile = 0
+armor_skill = 0
+alignment = "neutral"
+weapon = "beak"
+carries = [{ thing = "beak" }]
+
+[[creature]]
+key = "parrot_blue"
+name = "BLUE PARROT"
+picture = "parrot_blue"
+constitution = 3
+strength = 2
+dexterity = 16
+speed = 10
+wisdom = 9
+size = 1
+dodge = 44
+parry = 0
+melee = 12
+missile = 0
+armor_skill = 0
+alignment = "neutral"
+weapon = "beak"
+carries = [{ thing = "beak" }]
+
+[[creature]]
+key = "gull"
+name = "GULL"
+picture = "gull"
+constitution = 3
+strength = 2
+dexterity = 15
+speed = 11
+wisdom = 4
+size = 1
+dodge = 40
+parry = 0
+melee = 12
+missile = 0
+armor_skill = 0
+alignment = "neutral"
+aggressive = true
+weapon = "beak"
+carries = [{ thing = "beak" }]
+
+[[creature]]
+key = "monkey"
+name = "MONKEY"
+picture = "monkey"
+constitution = 6
+strength = 6
+dexterity = 18
+speed = 9
+wisdom = 7
+size = 3
+dodge = 40
+parry = 0
+melee = 18
+missile = 0
+armor_skill = 0
+alignment = "thief"
+weapon = "claws"
+carries = [{ thing = "claws" }]
+
+[[creature]]
+key = "bat"
+name = "BAT"
+picture = "bat"
+constitution = 3
+strength = 2
+dexterity = 17
+speed = 11
+wisdom = 3
+size = 1
+dodge = 44
+parry = 0
+melee = 14
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "giant_crab"
+name = "GIANT CRAB"
+picture = "crab"
+constitution = 14
+strength = 14
+dexterity = 6
+speed = 3
+wisdom = 2
+size = 12
+dodge = 6
+parry = 0
+melee = 30
+missile = 0
+armor_skill = 40
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "pincers"
+carries = [{ thing = "pincers" }]
+
+[[creature]]
+key = "blue_crab"
+name = "BLUE CRAB"
+picture = "crab_blue"
+constitution = 16
+strength = 15
+dexterity = 6
+speed = 3
+wisdom = 2
+size = 12
+dodge = 6
+parry = 0
+melee = 32
+missile = 0
+armor_skill = 40
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "pincers"
+carries = [{ thing = "pincers" }]
+
+[[creature]]
+key = "leech"
+name = "GIANT LEECH"
+picture = "leech"
+constitution = 6
+strength = 4
+dexterity = 6
+speed = 3
+wisdom = 1
+size = 4
+dodge = 10
+parry = 0
+melee = 24
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "eel"
+name = "MORAY EEL"
+picture = "eel"
+constitution = 10
+strength = 10
+dexterity = 14
+speed = 7
+wisdom = 2
+size = 8
+dodge = 24
+parry = 0
+melee = 32
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "jellyfish"
+name = "JELLYFISH"
+picture = "jellyfish"
+constitution = 5
+strength = 2
+dexterity = 4
+speed = 2
+wisdom = 1
+size = 6
+dodge = 6
+parry = 0
+melee = 30
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "sting"
+carries = [{ thing = "sting" }]
+
+[[creature]]
+key = "spider"
+name = "GIANT SPIDER"
+picture = "spider"
+constitution = 9
+strength = 9
+dexterity = 16
+speed = 8
+wisdom = 3
+size = 7
+dodge = 28
+parry = 0
+melee = 30
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "boar"
+name = "WILD BOAR"
+picture = "boar"
+constitution = 14
+strength = 15
+dexterity = 9
+speed = 7
+wisdom = 3
+size = 12
+dodge = 12
+parry = 0
+melee = 34
+missile = 0
+armor_skill = 10
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "jaguar"
+name = "JAGUAR"
+picture = "jaguar"
+constitution = 15
+strength = 16
+dexterity = 17
+speed = 9
+wisdom = 5
+size = 12
+dodge = 30
+parry = 0
+melee = 44
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "claws"
+carries = [{ thing = "claws" }]
+
+[[creature]]
+key = "caiman"
+name = "CAIMAN"
+picture = "caiman"
+constitution = 18
+strength = 18
+dexterity = 8
+speed = 4
+wisdom = 2
+size = 16
+dodge = 10
+parry = 0
+melee = 40
+missile = 0
+armor_skill = 30
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "reef_shark"
+name = "REEF SHARK"
+picture = "shark"
+constitution = 16
+strength = 16
+dexterity = 14
+speed = 9
+wisdom = 2
+size = 16
+dodge = 20
+parry = 0
+melee = 44
+missile = 0
+armor_skill = 10
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "octopus"
+name = "OCTOPUS"
+picture = "octopus"
+constitution = 12
+strength = 10
+dexterity = 15
+speed = 6
+wisdom = 6
+size = 10
+dodge = 26
+parry = 0
+melee = 34
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+weapon = "tentacle"
+carries = [{ thing = "tentacle" }]
+
+[[creature]]
+key = "octopus_rose"
+name = "ROSE OCTOPUS"
+picture = "octopus_rose"
+constitution = 12
+strength = 10
+dexterity = 15
+speed = 6
+wisdom = 6
+size = 10
+dodge = 26
+parry = 0
+melee = 34
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+weapon = "tentacle"
+carries = [{ thing = "tentacle" }]
+
+[[creature]]
+key = "sea_serpent"
+name = "SEA SERPENT"
+picture = "serpent"
+constitution = 28
+strength = 22
+dexterity = 12
+speed = 8
+wisdom = 6
+size = 24
+dodge = 10
+parry = 0
+melee = 52
+missile = 0
+armor_skill = 30
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "red_serpent"
+name = "RED SERPENT"
+picture = "serpent_red"
+constitution = 32
+strength = 24
+dexterity = 12
+speed = 8
+wisdom = 7
+size = 24
+dodge = 10
+parry = 0
+melee = 56
+missile = 0
+armor_skill = 30
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "teeth"
+carries = [{ thing = "teeth" }]
+
+[[creature]]
+key = "kraken_arm"
+name = "KRAKEN ARM"
+picture = "krakenarm"
+constitution = 24
+strength = 22
+dexterity = 10
+speed = 0
+wisdom = 3
+size = 20
+dodge = 0
+parry = 0
+melee = 48
+missile = 0
+armor_skill = 20
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "tentacle"
+carries = [{ thing = "tentacle" }]
+
+[[creature]]
+key = "kraken"
+name = "KRAKEN"
+picture = "krakenhead"
+constitution = 50
+strength = 28
+dexterity = 10
+speed = 0
+wisdom = 12
+size = 31
+dodge = 0
+parry = 0
+melee = 60
+missile = 0
+armor_skill = 40
+alignment = "enemy"
+aggressive = true
+brave = true
+weapon = "tentacle"
+carries = [{ thing = "tentacle" }]
+
+[[creature]]
+key = "mermaid"
+name = "MERMAID"
+picture = "mermaid"
+constitution = 12
+strength = 8
+dexterity = 16
+speed = 7
+wisdom = 18
+size = 9
+dodge = 30
+parry = 10
+melee = 18
+missile = 0
+armor_skill = 0
+alignment = "neutral"
+weapon = "claws"
+carries = [{ thing = "claws" }, { thing = "mermaid_comb" }]
+
+[[creature]]
+key = "skeleton"
+name = "SKELETON"
+picture = "skeleton"
+constitution = 12
+strength = 12
+dexterity = 10
+speed = 5
+wisdom = 4
+size = 10
+dodge = 12
+parry = 14
+melee = 30
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "non_magic_half"
+wealth = 5
+weapon = "cutlass"
+carries = [{ thing = "cutlass" }]
+
+[[creature]]
+key = "cursed_skeleton"
+name = "CURSED SKELETON"
+picture = "skeleton_cursed"
+constitution = 14
+strength = 13
+dexterity = 10
+speed = 5
+wisdom = 4
+size = 10
+dodge = 12
+parry = 16
+melee = 34
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "non_magic_half"
+wealth = 10
+weapon = "cutlass"
+carries = [{ thing = "cutlass" }]
+
+[[creature]]
+key = "skeleton_musketeer"
+name = "SKELETON MUSKETEER"
+picture = "skelmusket"
+constitution = 12
+strength = 11
+dexterity = 12
+speed = 5
+wisdom = 4
+size = 10
+dodge = 14
+parry = 10
+melee = 22
+missile = 30
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "non_magic_half"
+wealth = 5
+weapon = "musket"
+carries = [{ thing = "musket" }]
+
+[[creature]]
+key = "skeleton_captain"
+name = "SKELETON CAPTAIN"
+picture = "skelcapt"
+constitution = 20
+strength = 15
+dexterity = 12
+speed = 6
+wisdom = 10
+size = 11
+dodge = 18
+parry = 28
+melee = 46
+missile = 20
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "non_magic_half"
+wealth = 200
+weapon = "sabre"
+carries = [{ thing = "sabre" }]
+
+[[creature]]
+key = "drowned_captain"
+name = "DROWNED CAPTAIN"
+picture = "drownedcapt"
+constitution = 24
+strength = 16
+dexterity = 11
+speed = 5
+wisdom = 14
+size = 12
+dodge = 16
+parry = 26
+melee = 48
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "non_magic_half"
+wealth = 300
+weapon = "grave_touch"
+carries = [{ thing = "grave_touch" }]
+
+[[creature]]
+key = "ghost"
+name = "GHOST"
+picture = "ghost"
+constitution = 14
+strength = 6
+dexterity = 16
+speed = 7
+wisdom = 16
+size = 9
+dodge = 40
+parry = 0
+melee = 30
+missile = 0
+armor_skill = 0
+alignment = "enemy"
+aggressive = true
+brave = true
+magic_defense = "only_magic"
+weapon = "grave_touch"
+carries = [{ thing = "grave_touch" }]

@@ -79,6 +79,8 @@ python scripts/palsnap.py docs/art/pirates-palette.json OUTDIR IMG.png... --shee
 python scripts/tidy.py docs/art/pirates-palette.json OUTDIR TILE.png... --sheet s.png  # specks, strays, outline
 python scripts/font.py docs/art/pirates-font.txt OUTDIR   # UI font atlas, BDF, preview (docs/art/pirates-style.md 12)
 python scripts/mood.py|emissive.py|normals.py|animate.py|variants.py ...   # moods, glow, normals, animation, recolours (pirates-style.md 13-17; --help)
+python scripts/kitfolder.py PACK.json PACK.png kits/NAME --skip kp   # a kit folder's art from a packed kit (content.md 4.1)
+python scripts/kitcreatures.py   # kits/pirates/creatures.toml from its table
 python scripts/kitcheck.py KIT OUT; python scripts/pack.py KIT ARTROOT OUT; python scripts/frames64.py PAL IN OUT   # checks, atlas+manifest, frames (18-19)
 ```
 
@@ -121,6 +123,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `crates/acs-build`: `acs build`, a source folder of TOML to a bundle
   (content.md 3): keys to numbers, every reference and limit checked;
   `acs_core::encode` writes things' property bytes.
+- `kits/`: starter kits (content.md 4): atlas, picture list, things,
+  creatures, provenance; CC BY-SA 4.0. An adventure takes only what it
+  names.
 - `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives
   VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary

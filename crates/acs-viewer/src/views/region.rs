@@ -67,7 +67,14 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize) {
                     }
                     let (x, y) = ((k % room.width as usize) as u16, (k / room.width as usize) as u16);
                     let cell = grid.cell_rect((g.x - b.x + x) as u32, (g.y - b.y + y) as u32);
-                    doc.tiles.paint(&painter, pic, cell);
+                    if top_layer {
+                        // What stands here over its wall or floor (scene::layers).
+                        for pic in scene::layers(adv, region, room, sq) {
+                            doc.tiles.paint(&painter, Some(pic), cell);
+                        }
+                    } else {
+                        doc.tiles.paint(&painter, pic, cell);
+                    }
                 }
             }
         }

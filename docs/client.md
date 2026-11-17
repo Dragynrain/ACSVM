@@ -108,7 +108,7 @@ other way.
 | Original | The adventure's pixels, whole-number scaling (now) |
 | Smoothed | The original tiles upscaled 4x once at load (Scale2x twice), drawn with linear filtering and mipmaps at any scale |
 | HD pack | Replacement art for tiles whose hash a pack lists; the rest Smoothed |
-| Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art |
+| Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art. A room square is drawn in layers, wall or floor, then its top thing, then a resident (`scene::layers`), so art with transparent parts stands on the floor |
 
 **Smoothed.** Every picture, at its display size (16 x 16; a C64
 picture's pixels already doubled in width), goes through Scale2x twice

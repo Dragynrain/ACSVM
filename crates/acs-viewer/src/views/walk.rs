@@ -1870,8 +1870,17 @@ fn draw_room(
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for (k, sq) in scene.squares.iter().enumerate() {
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);
-        let pic = square_picture(a, reg, r, sq, door(x as u8, y as u8));
-        tiles.paint(&painter, pic, grid.cell_rect(x, y));
+        let cell = grid.cell_rect(x, y);
+        match square_picture(a, reg, r, sq, door(x as u8, y as u8)) {
+            // An area door drawn as an opening or floor: that alone.
+            Some(pic) if Some(pic) != scene::shown(a, reg, r, sq).1 => tiles.paint(&painter, Some(pic), cell),
+            None => tiles.paint(&painter, None, cell),
+            Some(_) => {
+                for pic in scene::layers(a, reg, r, sq) {
+                    tiles.paint(&painter, Some(pic), cell);
+                }
+            }
+        }
     }
     // A mark in the corner of each creature's square shows its alignment.
     for c in reg.residents.iter().filter(|c| c.in_use && c.room == room) {
