@@ -266,6 +266,8 @@ builds them as workflow artifacts only.
 
 ## 9. Order of work
 
+Phase 5's gate is met (10); next is Phase 6, original content and 1.0.
+
 1. Layout: the message log in its own panel, the info column scrolling
    (2, 3). Done November 2026.
 2. A screenshot sweep at the checked sizes, fixing what breaks. Done
@@ -302,3 +304,19 @@ builds them as workflow artifacts only.
 No layout breaks at the checked sizes (2) in walk mode, the map and
 every list view; an HD pack loads and its coverage report is right for
 a test adventure of our own.
+
+**Met, November 2026.** Every view (walk mode on the map and in a room
+with creatures, the world map, a region, a room, things, creatures,
+messages, diagnostics and the HD pack view) at the six checked sizes,
+with an HD pack loaded, the touch pad on and two players; and walk mode
+and the pack view again at 150% text with the colour-blind palette, at
+the two tablet sizes. Two breaks turned up and were fixed: the top bar
+ran under Fullscreen at large text (Fullscreen now takes its place
+first, and the adventure's name and file elide), and the Things list cut
+entries off on a 768-point window (list views' list column may now take
+about half the window, and entries that still don't fit end in "…").
+Left as they are: the menu column scrolls on hover only; at large text
+a bar's caption can run past a narrow info column. The pack half is the
+test `a_pack_loads_and_reports_its_coverage`, and a demo pack built
+with `scripts/hdpack.py` covered exactly what it was built to on
+*Rivers of Light* (not committed: its hashes come from EA's pictures).

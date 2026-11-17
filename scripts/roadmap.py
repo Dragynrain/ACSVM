@@ -38,11 +38,11 @@ PHASES = [
         "Measure, or research and confirm, rule by rule: hit and damage, skill growth, stores, spawns,",
         "characters, saves. Random formulas get a research brief first. Hot-seat; golden tests in CI."],
      "Gate: golden tests pass, and two players can finish a built-in adventure start to finish"),
-    ("Phase 5 \u00b7 Modern client and audio", "now", [
+    ("Phase 5 \u00b7 Modern client and audio", "done", [
         "Message log, panels, touch and accessibility; Smoothed and HD pack render modes.",
         "30 original sound and music cues; desktop builds."],
      "Gate: no layout breaks on laptop, 4K and tablet; HD packs load with a coverage report"),
-    ("Phase 6 \u00b7 Original content and 1.0", None, [
+    ("Phase 6 \u00b7 Original content and 1.0", "next", [
         "Four 128 px starter kits (pirates first), UI font, title art, two CC BY-SA sample adventures.",
         "Public playtest with long-time ACS players."],
      "Gate: 1.0 release, playable in the browser with no EA files bundled"),

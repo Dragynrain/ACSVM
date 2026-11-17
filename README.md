@@ -4,22 +4,20 @@ ACSVM (working name) is an open-source engine that plays adventures made with
 *Adventure Construction Set* (Electronic Arts, 1984), in the spirit of ScummVM:
 the engine is free software, and you bring the adventure files you own.
 
-**Status: Phase 2 (rules engine).** There is an inspector that decodes C64
-and PC adventures into JSON and exports their pictures, and a viewer that
-shows an adventure's world map, regions, rooms, things, creatures and messages
-on the desktop or in a browser
-([try it](https://dragynrain.github.io/ACSVM/) with your own file). The rules
-engine handles movement, inventory and creatures outside combat so far, and
-the viewer's walk mode lets you move a player through an adventure, pick
-things up, ready weapons and armor, drop things, and watch the creatures in
-the room take their turns: they walk up to you, follow you through doors,
-grab gold and treasure, and appear at random. Spells work: spaces, doors,
-obstacles and magic items set them off, you can cast spells and use magic
-items on yourself or anyone in the room, smart creatures cast at you (or
-heal you, if they are friends), and Life Force can run out. There is no
-combat yet. A capture harness now plays the original C64 program in the VICE
-emulator and measures it, to check those rules and to find the formulas the
-manual leaves out ([docs/capture.md](docs/capture.md)). See
+**Status: Phase 5 done (modern client and audio); next, Phase 6 (original
+content and 1.0).** The rules engine plays whole adventures: movement,
+inventory, creatures and their AI, the 15 spell actions, combat, stores,
+new characters, world map encounters and saves, each rule specified in
+`docs/rules/` and checked against the original C64 program, measured in
+the VICE emulator by a capture harness ([docs/capture.md](docs/capture.md)).
+Two players have finished *Rivers of Light*, the adventure that comes with
+ACS, in hot-seat. The viewer plays adventures on the desktop and in a
+browser ([try it](https://dragynrain.github.io/ACSVM/) with your own file):
+keyboard, mouse and an on-screen touch pad, a message log, the original's
+music cues (placeholders for now), Original and Smoothed looks, HD packs of
+replacement art with a coverage report, and accessibility options. An
+inspector decodes C64 and PC adventures into JSON and exports their
+pictures. See
 [docs/design.md](docs/design.md) for the full plan and
 [docs/rules/](docs/rules/movement.md) for the rules as specified.
 

@@ -183,6 +183,12 @@ pub fn panel_width(ui: &egui::Ui) -> std::ops::RangeInclusive<f32> {
     200.0..=(ui.ctx().content_rect().width() * 0.32).clamp(200.0, 480.0)
 }
 
+/// A list view's list column: the view's main content, so up to about
+/// half the window; entries that still don't fit end in "…" (client 2).
+pub fn list_width(ui: &egui::Ui) -> std::ops::RangeInclusive<f32> {
+    200.0..=(ui.ctx().content_rect().width() * 0.45).clamp(200.0, 480.0)
+}
+
 /// A picture about `points` wide, at a whole-number multiple of its pixels.
 pub fn picture(ui: &mut egui::Ui, doc: &Doc, picture: Option<u16>, points: f32) -> Response {
     let ppp = ui.ctx().pixels_per_point();

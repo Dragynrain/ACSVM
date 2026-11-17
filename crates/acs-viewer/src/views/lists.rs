@@ -12,7 +12,7 @@ pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::left("thing-list")
         .resizable(true)
         .default_size(280.0)
-        .size_range(panel_width(ui))
+        .size_range(list_width(ui))
         .show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (i, t) in adv.things.iter().enumerate() {
@@ -22,7 +22,8 @@ pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
                     ui.horizontal(|ui| {
                         picture(ui, doc, t.kind.picture(), 24.0);
                         let text = format!("{:>3} {} · {}", t.number, t.name.trim(), t.kind.type_name());
-                        if ui.selectable_label(doc.thing == i, text).clicked() {
+                        let entry = egui::Button::selectable(doc.thing == i, text.clone()).truncate();
+                        if ui.add(entry).on_hover_text(text).clicked() {
                             pick = Some(i);
                         }
                     });
@@ -109,7 +110,7 @@ pub fn creatures(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::left("creature-list")
         .resizable(true)
         .default_size(280.0)
-        .size_range(panel_width(ui))
+        .size_range(list_width(ui))
         .show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (i, c) in adv.creatures.iter().enumerate().filter(|(_, c)| c.in_use) {

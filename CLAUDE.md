@@ -7,8 +7,10 @@ capture harness, `docs/capture.md`) and 4 (formulas through research and
 capture, hot-seat) are done: the Phase 4 gate is two players finishing
 *Rivers of Light* by an automated replay (`acs play`, `docs/play.md`; the
 corpus test `two_players_finish_rivers_of_light`), November 2026. Phase 5
-(modern client and audio) is under way: plan and client spec in
-`docs/client.md`. Rules [unknown]s left in `docs/rules/`
+(modern client and audio) is done too: its gate (no layout breaks at the
+checked sizes, HD packs with a coverage report) was met November 2026;
+the client's spec is `docs/client.md`. Next is Phase 6 (original content
+and 1.0). Rules [unknown]s left in `docs/rules/`
 each carry the engine's choice; capture them as they matter.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec

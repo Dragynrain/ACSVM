@@ -486,83 +486,9 @@ impl Viewer {
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
-        let narrow = ctx.content_rect().width() < NARROW;
         egui::MenuBar::new().ui(ui, |ui| {
-            if self.doc.is_some() {
-                let nav = self
-                    .show_nav
-                    .unwrap_or_else(|| nav_default(self.doc.as_ref(), ctx.content_rect().width()));
-                if ui.selectable_label(nav, "Menu").clicked() {
-                    self.show_nav = Some(!nav);
-                }
-                let info = self.show_info.unwrap_or(!narrow);
-                if ui.selectable_label(info, "Info").clicked() {
-                    self.show_info = Some(!info);
-                }
-                ui.separator();
-            }
-            if ui.button("Open…").clicked() {
-                self.pick_file(&ctx);
-            }
-            // Accessibility options for every view (client 7).
-            ui.menu_button("Options", |ui| {
-                let a = &mut self.access;
-                let mut pct = (a.text * 100.0).round();
-                ui.add(
-                    egui::Slider::new(&mut pct, 75.0..=200.0)
-                        .step_by(5.0)
-                        .suffix("%")
-                        .text("Text size"),
-                );
-                a.text = pct / 100.0;
-                ui.checkbox(&mut a.colour_blind, "Colour-blind palette")
-                    .on_hover_text("Okabe-Ito colours for the log, the players, the creatures and the map.");
-                ui.checkbox(&mut a.reduce_motion, "Reduce motion")
-                    .on_hover_text("No pulsing outlines.");
-            });
-            if let Some(doc) = &mut self.doc {
-                if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
-                    doc.go(View::Walk);
-                }
-                ui.add_enabled_ui(!doc.history.is_empty(), |ui| {
-                    if ui.button("Back").clicked() {
-                        doc.back();
-                    }
-                });
-                // Render mode for every view (client 5).
-                let mode = doc.tiles.mode();
-                ui.menu_button(format!("Look: {}", mode.label()), |ui| {
-                    let has_pack = doc.tiles.has_pack();
-                    for m in crate::tiles::RenderMode::ALL {
-                        if m == crate::tiles::RenderMode::HdPack && !has_pack {
-                            continue;
-                        }
-                        if ui.selectable_label(mode == m, m.label()).clicked() {
-                            doc.tiles.set_mode(&ctx, m);
-                            ui.close();
-                        }
-                    }
-                });
-                ui.separator();
-                let a = &doc.decoded.adventure;
-                ui.label(RichText::new(&a.name).strong());
-                ui.label(format!("{} · {}", a.platform, doc.file_name));
-                let errors = doc.decoded.errors().count();
-                let warnings = doc.decoded.diagnostics.len() - errors;
-                if errors + warnings > 0 {
-                    let text = match (errors, warnings) {
-                        (0, w) => RichText::new(format!("{w} warning(s)")).color(Color32::YELLOW),
-                        (e, w) => {
-                            RichText::new(format!("{e} error(s), {w} warning(s)")).color(Color32::LIGHT_RED)
-                        }
-                    };
-                    if ui.button(text).clicked() {
-                        doc.go(View::Diagnostics);
-                    }
-                } else {
-                    ui.label(RichText::new("no diagnostics").weak());
-                }
-            }
+            // Fullscreen takes its place on the right first, so the rest
+            // fits in what is left and never runs under it (client 2).
             // Browsers have their own fullscreen key (F11).
             #[cfg(not(target_arch = "wasm32"))]
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -573,8 +499,95 @@ impl Viewer {
                 {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!full));
                 }
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    self.top_bar_left(ui, &ctx);
+                });
             });
+            #[cfg(target_arch = "wasm32")]
+            self.top_bar_left(ui, &ctx);
         });
+    }
+
+    /// The top bar's toggles, menus and the open adventure.
+    fn top_bar_left(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let narrow = ctx.content_rect().width() < NARROW;
+        if self.doc.is_some() {
+            let nav = self
+                .show_nav
+                .unwrap_or_else(|| nav_default(self.doc.as_ref(), ctx.content_rect().width()));
+            if ui.selectable_label(nav, "Menu").clicked() {
+                self.show_nav = Some(!nav);
+            }
+            let info = self.show_info.unwrap_or(!narrow);
+            if ui.selectable_label(info, "Info").clicked() {
+                self.show_info = Some(!info);
+            }
+            ui.separator();
+        }
+        if ui.button("Open…").clicked() {
+            self.pick_file(ctx);
+        }
+        // Accessibility options for every view (client 7).
+        ui.menu_button("Options", |ui| {
+            let a = &mut self.access;
+            let mut pct = (a.text * 100.0).round();
+            ui.add(
+                egui::Slider::new(&mut pct, 75.0..=200.0)
+                    .step_by(5.0)
+                    .suffix("%")
+                    .text("Text size"),
+            );
+            a.text = pct / 100.0;
+            ui.checkbox(&mut a.colour_blind, "Colour-blind palette")
+                .on_hover_text("Okabe-Ito colours for the log, the players, the creatures and the map.");
+            ui.checkbox(&mut a.reduce_motion, "Reduce motion")
+                .on_hover_text("No pulsing outlines.");
+        });
+        if let Some(doc) = &mut self.doc {
+            if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
+                doc.go(View::Walk);
+            }
+            ui.add_enabled_ui(!doc.history.is_empty(), |ui| {
+                if ui.button("Back").clicked() {
+                    doc.back();
+                }
+            });
+            // Render mode for every view (client 5).
+            let mode = doc.tiles.mode();
+            ui.menu_button(format!("Look: {}", mode.label()), |ui| {
+                let has_pack = doc.tiles.has_pack();
+                for m in crate::tiles::RenderMode::ALL {
+                    if m == crate::tiles::RenderMode::HdPack && !has_pack {
+                        continue;
+                    }
+                    if ui.selectable_label(mode == m, m.label()).clicked() {
+                        doc.tiles.set_mode(ctx, m);
+                        ui.close();
+                    }
+                }
+            });
+            ui.separator();
+            let name = doc.decoded.adventure.name.clone();
+            let place = format!("{} · {}", doc.decoded.adventure.platform, doc.file_name);
+            let errors = doc.decoded.errors().count();
+            let warnings = doc.decoded.diagnostics.len() - errors;
+            if errors + warnings > 0 {
+                let text = match (errors, warnings) {
+                    (0, w) => RichText::new(format!("{w} warning(s)")).color(Color32::YELLOW),
+                    (e, w) => {
+                        RichText::new(format!("{e} error(s), {w} warning(s)")).color(Color32::LIGHT_RED)
+                    }
+                };
+                if ui.button(text).clicked() {
+                    doc.go(View::Diagnostics);
+                }
+            } else {
+                ui.label(RichText::new("no diagnostics").weak());
+            }
+            // Last, so on a narrow bar they give way, elided (client 2).
+            ui.add(egui::Label::new(RichText::new(name).strong()).truncate());
+            ui.add(egui::Label::new(place).truncate());
+        }
     }
 
     fn nav(doc: &mut Doc, ui: &mut egui::Ui) {
