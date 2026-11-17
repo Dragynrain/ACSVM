@@ -56,7 +56,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
-cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed] [--screenshot out.png]   # docs/client.md 2
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed|hd] [--pack PACK.png] [--screenshot out.png]   # docs/client.md 2
 scripts/web.sh serve                                    # trunk dev server, :8080
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
@@ -67,6 +67,7 @@ python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs 
 python scripts/storeread.py table|check ...           # store screens to text, sell offers vs stores 5.1 (capture.md 10.17)
 python scripts/charcheck.py RUNS.jsonl [-v]          # new-character sweep vs characters 1-2, draw by draw (capture.md 10.18)
 python scripts/encountercheck.py RUNS.jsonl --records 5:60 [--patch ..] [--empty 7]   # map-encounter sweep vs encounters 2-5, step by step (capture.md 10.20)
+python scripts/hdpack.py build ATLAS.png MANIFEST.json OUT.png | check PACK.png | hashes DUMP.json   # HD packs (client.md 5)
 python scripts/sprite64.py OUTDIR IMG.png... --palette 32 --sheet s.png  # our generated art only
 python scripts/terrain64.py OUTDIR TEX.png... [--kind place] [--candidates]   # docs/art/pirates-style.md 11
 python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat sprite backgrounds

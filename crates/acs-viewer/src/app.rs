@@ -47,6 +47,8 @@ pub enum View {
     Creatures,
     Messages,
     Diagnostics,
+    /// The loaded HD pack and its coverage (client 5).
+    Pack,
 }
 
 /// A loaded adventure and everything the views remember about it.
@@ -80,6 +82,8 @@ pub struct Doc {
     pub pad: Option<bool>,
     /// Play Music's output and controls (client 6).
     pub audio: crate::audio::Audio,
+    /// The session's HD pack (client 5).
+    pub pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
 }
 
 impl Doc {
@@ -109,6 +113,7 @@ impl Doc {
             turn_based: false,
             pad: None,
             audio: Default::default(),
+            pack: None,
         }
     }
 
@@ -184,6 +189,8 @@ pub struct Startup {
     pub ppp: Option<(f32, [f32; 2])>,
     /// Walk mode with the on-screen pad on (`--pad`).
     pub pad: bool,
+    /// An HD pack to load first (`--pack`).
+    pub pack: Option<std::path::PathBuf>,
     /// The render mode to start in (`--render`).
     pub render: Option<crate::tiles::RenderMode>,
     /// Write a screenshot here after a few frames, then quit.
@@ -214,6 +221,8 @@ pub struct Viewer {
     /// different window; they are forgotten once this size is reached.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     resize_to: Option<egui::Vec2>,
+    /// The HD pack loaded this session, for every adventure opened.
+    pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
 }
 
 impl Viewer {
@@ -233,7 +242,19 @@ impl Viewer {
             show_info: None,
             capture: start.screenshot.map(|p| (p, 10)),
             resize_to: start.ppp.map(|(_, size)| size.into()),
+            pack: None,
         };
+        // The pack first, so the adventure opens with it.
+        if let Some(p) = start.pack {
+            let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
+            v.open(
+                &cc.egui_ctx,
+                Incoming {
+                    name: load::display_name(&p),
+                    bytes,
+                },
+            );
+        }
         if let Some(p) = start.path {
             let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
             v.open(
@@ -327,7 +348,42 @@ impl Viewer {
         });
     }
 
+    /// Puts the session's pack on `doc` and switches it to HD pack mode.
+    fn apply_pack(ctx: &egui::Context, pack: &std::rc::Rc<crate::hdpack::Pack>, doc: &mut Doc) {
+        doc.tiles.set_pack(ctx, pack);
+        doc.tiles.set_mode(ctx, crate::tiles::RenderMode::HdPack);
+        let c = crate::hdpack::coverage(pack, &doc.decoded.adventure);
+        doc.note = Some(format!(
+            "HD pack {}: {} of {} pictures ({:.0}%); Lists > HD pack shows what it misses.",
+            pack.name,
+            c.matched,
+            c.counted,
+            c.percent()
+        ));
+        doc.pack = Some(pack.clone());
+    }
+
     fn open(&mut self, ctx: &egui::Context, file: Incoming) {
+        // An HD pack stays for every adventure opened after it (client 5).
+        if let Ok(bytes) = &file.bytes {
+            match crate::hdpack::Pack::read(bytes) {
+                Ok(pack) => {
+                    let pack = std::rc::Rc::new(pack);
+                    if let Some(doc) = &mut self.doc {
+                        Self::apply_pack(ctx, &pack, doc);
+                    }
+                    log::info!("{}: HD pack {}", file.name, pack.name);
+                    self.pack = Some(pack);
+                    self.error = None;
+                    return;
+                }
+                Err(crate::hdpack::PackError::Broken(why)) => {
+                    self.error = Some(format!("{}: not a usable HD pack: {why}", file.name));
+                    return;
+                }
+                Err(crate::hdpack::PackError::NotAPack) => {}
+            }
+        }
         // A save file goes to the open adventure's walk (docs/saves.md 4.1).
         if let Some(text) = file.bytes.as_deref().ok().and_then(load::save_text) {
             self.error = match &mut self.doc {
@@ -348,7 +404,11 @@ impl Viewer {
                 for d in &decoded.diagnostics {
                     log::warn!("{}: {d}", file.name);
                 }
-                self.doc = Some(Doc::new(ctx, file.name, decoded));
+                let mut doc = Doc::new(ctx, file.name, decoded);
+                if let Some(pack) = &self.pack {
+                    Self::apply_pack(ctx, pack, &mut doc);
+                }
+                self.doc = Some(doc);
                 self.error = None;
             }
             Err(e) => self.error = Some(format!("{}: {e}", file.name)),
@@ -391,6 +451,7 @@ impl Viewer {
                     &["d64", "D64", "fpy", "FPY", "hrd", "HRD"],
                 )
                 .add_filter("Saves (.json)", &["json", "JSON"])
+                .add_filter("HD packs (.png)", &["png", "PNG"])
                 .add_filter("All files", &["*"])
                 .pick_file()
                 .await;
@@ -442,7 +503,11 @@ impl Viewer {
                 // Render mode for every view (client 5).
                 let mode = doc.tiles.mode();
                 ui.menu_button(format!("Look: {}", mode.label()), |ui| {
+                    let has_pack = doc.tiles.has_pack();
                     for m in crate::tiles::RenderMode::ALL {
+                        if m == crate::tiles::RenderMode::HdPack && !has_pack {
+                            continue;
+                        }
                         if ui.selectable_label(mode == m, m.label()).clicked() {
                             doc.tiles.set_mode(&ctx, m);
                             ui.close();
@@ -542,6 +607,7 @@ impl Viewer {
                 (View::Creatures, "Creatures"),
                 (View::Messages, "Messages"),
                 (View::Diagnostics, "Diagnostics"),
+                (View::Pack, "HD pack"),
             ] {
                 if ui.selectable_label(doc.view == v, name).clicked() {
                     go = Some(v);
@@ -561,6 +627,12 @@ impl Viewer {
             ui.add_space(8.0);
             ui.label("Drag a C64 .d64 disk image or a PC ADVEN.FPY / ADVEN.HRD here, or use Open….");
             ui.label(RichText::new("The file is read on this machine and never uploaded.").weak());
+            if let Some(p) = &self.pack {
+                ui.label(format!(
+                    "HD pack loaded: {}. Open an adventure to use it.",
+                    p.name
+                ));
+            }
             if let Some(e) = &self.error {
                 ui.add_space(12.0);
                 ui.colored_label(Color32::LIGHT_RED, e);

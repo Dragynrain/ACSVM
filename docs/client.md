@@ -124,12 +124,61 @@ cached between sessions (the design's IndexedDB cache isn't needed).
 The top bar's Look menu switches between Original and Smoothed for every
 view; `--render smoothed` starts in it.
 
-An HD pack is keyed by a hash of the original tile's decoded pixels, so
-the pack identifies a tile without containing it (design.md, "Render
-modes"). The client shows a pack's **coverage** for the open adventure:
-how many of its pictures the pack replaces, and which it doesn't. The
-pack's file format (manifest, hash, image layout) is written here before
-its code.
+**HD packs.** A pack is replacement art for original pictures, keyed by
+a hash of each picture's pixels, so it names a tile without containing
+it (design.md, "Render modes"). Each replacement is drawn fresh from what
+the tile shows, never traced.
+
+*File.* One PNG, so a pack is one file to drop or open:
+
+- The image is an atlas of square tiles, all `tile` pixels a side (16
+  to 512), placed left to right and then top to bottom; place `at` is
+  column `at % (width / tile)`, row `at / (width / tile)`. The width is
+  a whole number of tiles; spare places may stay empty.
+- An iTXt chunk with the keyword `acsvm-hd-pack` holds the manifest, a
+  JSON object:
+
+  ```json
+  {
+    "format": "acsvm-hd-pack",
+    "version": 1,
+    "name": "Stone and water",
+    "license": "CC BY-SA 4.0",
+    "tile": 128,
+    "tiles": [{ "hash": "5d0f9e1c2b3a4f60", "at": 0, "note": "stone wall" }]
+  }
+  ```
+
+  `name`, `license` and each `note` are free text (`note` optional).
+  Several hashes may share one place. A later entry for a hash already
+  listed is ignored. A file without the chunk is not a pack.
+
+*Hash.* FNV-1a, 64-bit (offset basis `cbf29ce484222325`, prime
+`100000001b3`), over the picture's RGBA bytes at its display size, row
+by row (16 x 16 x 4 = 1,024 bytes; a C64 picture's pixels doubled in
+width as shown). Written as 16 lowercase hexadecimal digits. The bytes
+are after the adventure's palette, so a tile an adventure recolours is
+another tile: the replacement's colours are fixed. [choice]
+
+*Use.* Dropping or opening a pack (or `--pack FILE`) loads it for every
+adventure opened afterwards in the session, and the Look menu gains
+**HD pack**, which it switches to. In that mode a picture the pack
+lists is drawn from the atlas with linear filtering and mipmaps; any
+other is drawn Smoothed. Scale as in Smoothed: the largest that fits.
+A broken pack (no chunk, bad JSON, a tile size or place outside the
+image) is refused with a message and changes nothing.
+
+*Coverage.* The Lists menu's **HD pack** view shows the pack (name,
+license, tile size, entries) and, for the open adventure, its
+**coverage**: the pictures the pack replaces out of those that aren't
+blank (a picture of one colour is blank and not counted), as a count
+and a percentage; then every picture it misses, with the picture, its
+number and its hash. "Copy missing" copies the missing pictures as
+manifest entries (hash, `at` left 0, the picture number in `note`), the
+start of a pack for an artist.
+
+`scripts/hdpack.py ATLAS.png MANIFEST.json OUT.png` writes a pack from
+an atlas and a manifest; `--check` reads one back.
 
 ## 6. Audio
 
@@ -194,7 +243,10 @@ an adventure: files are opened or dropped on the window.
    `write_cues_as_wav` with `ACSVM_CUES_DIR` set.
 5. Smoothed mode (5). Done November 2026 (`smooth.rs`, `tiles.rs`);
    the sweep's world map at 1920 x 1080 now fills its height.
-6. The HD pack format, loading and the coverage report (5).
+6. The HD pack format, loading and the coverage report (5). Done
+   November 2026 (`hdpack.rs`, `views/pack.rs`, `scripts/hdpack.py`);
+   the test `a_pack_loads_and_reports_its_coverage` is the gate's pack
+   check on a test adventure of our own.
 7. Accessibility options (7).
 8. Desktop builds (8).
 

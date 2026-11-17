@@ -10,6 +10,7 @@ mod app;
 mod audio;
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
+mod hdpack;
 mod load;
 mod savefile;
 mod smooth;
@@ -45,6 +46,7 @@ fn main() -> eframe::Result {
         ppp: args.ppp.map(|p| (p, args.size.unwrap_or([1280.0, 800.0]))),
         pad: args.pad,
         render: args.render,
+        pack: args.pack,
         screenshot: args.screenshot,
         place: args.place,
         load: args.load,

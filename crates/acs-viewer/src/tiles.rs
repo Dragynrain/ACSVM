@@ -22,15 +22,29 @@ pub enum RenderMode {
     Original,
     /// Scale2x twice, linear filtering, any scale.
     Smoothed,
+    /// A loaded HD pack's art where it has some, Smoothed elsewhere.
+    HdPack,
 }
 
 impl RenderMode {
-    pub const ALL: [RenderMode; 2] = [RenderMode::Original, RenderMode::Smoothed];
+    pub const ALL: [RenderMode; 3] = [RenderMode::Original, RenderMode::Smoothed, RenderMode::HdPack];
 
     pub fn label(self) -> &'static str {
         match self {
             RenderMode::Original => "Original",
             RenderMode::Smoothed => "Smoothed",
+            RenderMode::HdPack => "HD pack",
+        }
+    }
+
+    /// `original`, `smoothed` or `hd` (the command line).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn parse(s: &str) -> Option<RenderMode> {
+        match s.to_ascii_lowercase().as_str() {
+            "original" => Some(RenderMode::Original),
+            "smoothed" => Some(RenderMode::Smoothed),
+            "hd" | "hd pack" | "hdpack" => Some(RenderMode::HdPack),
+            _ => None,
         }
     }
 }
@@ -39,6 +53,8 @@ pub struct Tiles {
     textures: Vec<TextureHandle>,
     /// Smoothed mode's textures, made when the mode is first chosen.
     smoothed: Option<Vec<TextureHandle>>,
+    /// HD pack mode's textures by picture; `None` where the pack has none.
+    hd: Option<Vec<Option<TextureHandle>>>,
     /// Each picture's pixels at display size, for the smoothed copies.
     pixels: Vec<Vec<[u8; 4]>>,
     mode: RenderMode,
@@ -86,6 +102,7 @@ impl Tiles {
         Tiles {
             textures,
             smoothed: None,
+            hd: None,
             pixels,
             mode: RenderMode::Original,
             size,
@@ -97,9 +114,14 @@ impl Tiles {
         self.mode
     }
 
-    /// Switches the mode; the smoothed textures are made the first time.
+    /// Switches the mode; the smoothed textures are made the first time
+    /// (HD pack mode draws Smoothed where the pack has nothing). HD pack
+    /// mode needs a pack (`set_pack`).
     pub fn set_mode(&mut self, ctx: &Context, mode: RenderMode) {
-        if mode == RenderMode::Smoothed && self.smoothed.is_none() {
+        if mode == RenderMode::HdPack && self.hd.is_none() {
+            return;
+        }
+        if mode != RenderMode::Original && self.smoothed.is_none() {
             let [w, h] = self.size.map(|v| v as usize);
             let options = TextureOptions {
                 mipmap_mode: Some(TextureFilter::Linear),
@@ -125,15 +147,49 @@ impl Tiles {
         self.mode = mode;
     }
 
+    /// Makes the textures for `pack`'s art: one per atlas place the
+    /// adventure's pictures use (client 5).
+    pub fn set_pack(&mut self, ctx: &Context, pack: &crate::hdpack::Pack) {
+        let options = TextureOptions {
+            mipmap_mode: Some(TextureFilter::Linear),
+            ..TextureOptions::LINEAR
+        };
+        let t = pack.tile as usize;
+        let mut made: std::collections::HashMap<u32, TextureHandle> = Default::default();
+        let hd = self
+            .pixels
+            .iter()
+            .map(|px| {
+                let at = pack.place(crate::hdpack::hash(px.as_flattened()))?;
+                let tex = made.entry(at).or_insert_with(|| {
+                    let image = ColorImage::from_rgba_unmultiplied([t, t], &pack.tile_rgba(at));
+                    ctx.load_texture(format!("hd-{at}"), image, options)
+                });
+                Some(tex.clone())
+            })
+            .collect();
+        self.hd = Some(hd);
+    }
+
+    pub fn has_pack(&self) -> bool {
+        self.hd.is_some()
+    }
+
     /// Whether tiles keep to whole-number scales (Original mode).
     pub fn whole(&self) -> bool {
         self.mode == RenderMode::Original
     }
 
     pub fn get(&self, picture: u16) -> Option<&TextureHandle> {
-        match (&self.smoothed, self.mode) {
-            (Some(s), RenderMode::Smoothed) => s.get(picture as usize),
-            _ => self.textures.get(picture as usize),
+        let i = picture as usize;
+        let smoothed = self.smoothed.as_ref().and_then(|s| s.get(i));
+        match self.mode {
+            RenderMode::Original => self.textures.get(i),
+            RenderMode::Smoothed => smoothed.or(self.textures.get(i)),
+            RenderMode::HdPack => {
+                let hd = self.hd.as_ref().and_then(|h| h.get(i)).and_then(Option::as_ref);
+                hd.or(smoothed).or(self.textures.get(i))
+            }
         }
     }
 

@@ -5,6 +5,7 @@
 pub mod diagnostics;
 pub mod lists;
 pub mod messages;
+mod pack;
 pub mod region;
 pub mod room;
 pub mod walk;
@@ -45,6 +46,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         View::Creatures => lists::creatures(doc, ui),
         View::Messages => messages::show(doc, ui),
         View::Diagnostics => diagnostics::show(doc, ui),
+        View::Pack => pack::show(doc, ui),
     }
 }
 
