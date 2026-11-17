@@ -1950,6 +1950,10 @@ fn turns_of_1(ev: &[Event]) -> Vec<(u8, Vec<Option<u16>>)> {
 /// 200), carrying `gold` gold pieces (weight 1 each); the player far off
 /// and the doors blocked.
 fn burdened(p: Platform, speed: u8, gold: u16) -> Game {
+    start(burdened_adventure(p, speed, gold), 0, 1, 1)
+}
+
+fn burdened_adventure(p: Platform, speed: u8, gold: u16) -> Adventure {
     let mut a = adventure(p);
     let mut s = spec(0, 8, 5, Alignment::Friend, false);
     s.speed = speed;
@@ -1964,7 +1968,7 @@ fn burdened(p: Platform, speed: u8, gold: u16) -> Game {
     for (x, y) in [(8, 3), (1, 3), (4, 1), (4, 5)] {
         item(&mut a, 0, x, y, PILLAR, 0);
     }
-    start(a, 0, 1, 1)
+    a
 }
 
 #[test]
@@ -2188,12 +2192,12 @@ fn a_foe_beside_it_keeps_an_overburdened_creature_from_dropping() {
 }
 
 #[test]
-fn a_creatures_moves_come_from_the_life_force_its_turn_top_left() {
-    // Inventory 3.4 (engine): catch-up, drift and the die, then the moves.
-    // Strength 2, Constitution 20, Life Force 17 (wound 3): capacity 100,
-    // so a load of 100 gold leaves Speed 0 (the die's heal to 18 keeps it).
-    // A catch-up of many rounds heals it to 20 first: capacity 200, the
-    // load at half, the full 6 moves on that same turn.
+fn a_creatures_moves_come_from_the_life_force_its_catch_up_left() {
+    // Inventory 3.4 (engine): catch-up and drift, then the moves, then the
+    // die. Strength 2, Constitution 20, Life Force 17 (wound 3): capacity
+    // 100, so a load of 100 gold leaves Speed 0. A catch-up of many rounds
+    // heals it to 20 first: capacity 200, the load at half, the full 6
+    // moves on that same turn.
     both(|p| {
         for (byte, moves) in [(0u8, 0u8), (128, 6)] {
             let mut g = burdened(p, 6, 100);
@@ -2203,6 +2207,33 @@ fn a_creatures_moves_come_from_the_life_force_its_turn_top_left() {
             let turns = turns_of_1(&wait(&mut g));
             assert_eq!(turns[0].0, moves, "byte {byte}");
         }
+    });
+}
+
+#[test]
+fn a_creatures_moves_are_set_before_its_turn_top_die() {
+    // Inventory 3.4, creatures 2.5 (capture.md 10.43 item 9): Speed 10,
+    // Strength 10, Constitution 20, Life Force 14, carrying 600 (capacity
+    // 700: 2 moves; at 15 the capacity is 800 and the moves 5). Its first
+    // turn starts with 2 moves whatever the die does; a heal by the die
+    // lengthens only the next turn.
+    both(|p| {
+        let mut healed = 0;
+        for seed in 0..60 {
+            let mut a = burdened_adventure(p, 10, 600);
+            let c = &mut a.regions[0].residents[1];
+            c.strength = 10;
+            c.life_force = 14;
+            let mut g = start_seeded(a, seed, 0, 1, 1);
+            let ev = wait(&mut g);
+            let turns = turns_of_1(&ev);
+            assert_eq!(turns[0].0, 2, "seed {seed}: {turns:?}");
+            if turns.len() == 1 && turns[0].1.len() == 2 && g.creature(1, 1).unwrap().life_force == 15 {
+                healed += 1;
+            }
+        }
+        // The die (no idle move: both moves used) healed it on some seeds.
+        assert!(healed > 0);
     });
 }
 
@@ -2427,32 +2458,72 @@ fn bumps(ev: &[Event]) -> usize {
         .count()
 }
 
+/// The first of seeds 0..64 whose first wait has the seeker bump, with
+/// that wait's events.
+fn first_bump(a: &Adventure) -> (Game, Vec<Event>) {
+    (0..64)
+        .find_map(|seed| {
+            let mut g = start_seeded(a.clone(), seed, 0, 5, 3);
+            let ev = wait(&mut g);
+            (bumps(&ev) > 0).then_some((g, ev))
+        })
+        .expect("a bump in 64 seeds")
+}
+
 #[test]
 fn a_creature_bumps_the_obstacle_its_goal_stands_on() {
-    // 5.1 (engine choice, capture.md 10.41 item 3): the goal's square,
-    // its top an obstacle, is open to a creature that does not strike, at
-    // cost 1 when not stood on; picking it is a bump: it stays put, the
-    // bump spell acts on it, the move is spent and the turn goes on.
+    // 5.1 (engine choice, capture.md 10.44 item 1): the goal's square, its
+    // top an obstacle, opens to a creature that does not strike only on a
+    // turn it began on that square, once it has stepped off; picking it is
+    // a bump: it stays put, the bump spell acts on it, the move is spent
+    // and the turn goes on.
     both(|p| {
         let mut a = adventure(p);
         bump_pillar(&mut a, false);
         item(&mut a, 0, 5, 3, PILLAR, 0);
-        seeker(&mut a, 6, 3, 2);
-        let mut g = start(a, 0, 5, 3);
-        let ev = wait(&mut g);
+        seeker(&mut a, 5, 3, 2);
+        let (g, ev) = first_bump(&a);
         assert_eq!(turns_of(&ev, 1), vec![2]);
-        // Scored 5 + 4 x roll against at least 16 elsewhere: both moves.
-        assert_eq!(bumps(&ev), 2, "{ev:?}");
+        assert_eq!(bumps(&ev), 1, "{ev:?}");
+        let Some(Event::CreatureMoved { to, .. }) = ev
+            .iter()
+            .find(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }))
+        else {
+            panic!("it stepped off first: {ev:?}");
+        };
         assert!(ev.contains(&Event::CreatureBumped {
             region: 1,
             slot: 1,
             at: at(0, 5, 3),
             thing: PILLAR,
         }));
-        assert_eq!(xy(&g, 1), (0, 6, 3));
-        assert_eq!(g.creature(1, 1).expect("alive").life_force, 20);
+        let Location::Room { x, y, .. } = *to else {
+            unreachable!()
+        };
+        assert_eq!(xy(&g, 1), (0, x, y), "it stays where it stepped");
+        assert_eq!(g.creature(1, 1).expect("alive").life_force, 25);
         assert_eq!(top(&g, 0, 5, 3), Some(PILLAR));
         assert_eq!(g.current_player().at, at(0, 5, 3));
+    });
+}
+
+#[test]
+fn a_creature_beside_the_goals_obstacle_never_bumps() {
+    // 5.1 (capture.md 10.44 item 1): from beside the square, on a turn it
+    // did not begin there, the goal's obstacle square is closed.
+    both(|p| {
+        for seed in 0..32 {
+            let mut a = adventure(p);
+            bump_pillar(&mut a, false);
+            item(&mut a, 0, 5, 3, PILLAR, 0);
+            seeker(&mut a, 6, 3, 2);
+            let mut g = start_seeded(a, seed, 0, 5, 3);
+            for _ in 0..3 {
+                let ev = wait(&mut g);
+                assert_eq!(bumps(&ev), 0, "seed {seed}: {ev:?}");
+            }
+            assert_eq!(g.creature(1, 1).expect("alive").life_force, 30);
+        }
     });
 }
 
@@ -2464,24 +2535,23 @@ fn a_disappearing_obstacle_vanishes_at_a_creature_bump() {
         let mut a = adventure(p);
         bump_pillar(&mut a, true);
         item(&mut a, 0, 5, 3, PILLAR, 0);
-        seeker(&mut a, 6, 3, 2);
-        let mut g = start(a, 0, 5, 3);
-        let ev = wait(&mut g);
+        seeker(&mut a, 5, 3, 3);
+        let (g, ev) = first_bump(&a);
         assert_eq!(bumps(&ev), 1, "{ev:?}");
         assert!(ev
             .iter()
             .any(|e| matches!(e, Event::ObstacleVanished { thing: PILLAR, .. })));
         assert_eq!(top(&g, 0, 5, 3), None);
         assert_eq!(g.creature(1, 1).expect("alive").life_force, 25);
-        assert_ne!(xy(&g, 1), (0, 6, 3), "its second move is a step");
+        assert_ne!(xy(&g, 1), (0, 5, 3));
     });
 }
 
 #[test]
 fn the_goal_obstacle_costs_4_once_stood_on_and_strikers_never_bump() {
     // 5.1: a creature that shared the goal's square and stepped off scores
-    // it as stood on (cost 4), so it seldom picks it; with cost 1 it always
-    // would.
+    // it as stood on (cost 4), so it seldom picks it; with the goal's cost
+    // 1 it always would.
     both(|p| {
         let mut bumped = 0;
         for seed in 0..32 {
@@ -2493,15 +2563,19 @@ fn the_goal_obstacle_costs_4_once_stood_on_and_strikers_never_bump() {
             bumped += usize::from(bumps(&wait(&mut g)) > 0);
         }
         assert!(bumped < 8, "{bumped} of 32");
-        // A fighter owning a melee weapon strikes instead (combat 2.3).
+        // A fighter owning a melee weapon strikes instead (combat 2.3),
+        // though it began on the square.
         let mut a = adventure(p);
         bump_pillar(&mut a, false);
         item(&mut a, 0, 5, 3, PILLAR, 0);
-        put(&mut a, 1, spec(0, 6, 3, Alignment::Enemy, true));
+        put(&mut a, 1, spec(0, 5, 3, Alignment::Enemy, true));
         armed(&mut a, 1);
         let mut g = start(a, 0, 5, 3);
-        let ev = wait(&mut g);
+        let mut ev = Vec::new();
+        for _ in 0..3 {
+            ev.extend(wait(&mut g));
+        }
         assert_eq!(bumps(&ev), 0);
-        assert!(ev.iter().any(|e| matches!(e, Event::Attacked { .. })));
+        assert!(ev.iter().any(|e| matches!(e, Event::Attacked { .. })), "{ev:?}");
     });
 }

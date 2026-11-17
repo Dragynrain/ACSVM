@@ -107,7 +107,10 @@ Counts cover all 15 corpus adventures (222 regions).
    item 3; ours, no research pass, 2026-11-16] Which of HAND's marks
    keeps it off the shelves (weight 0, nobody may use, or both, the
    creatures' own weapons) is [unknown]; every such thing tried had all
-   of them.
+   of them, and capture.md 10.43 did not run the shelf side (the blade's
+   shelf place is not known). At a death the owner-only mark alone
+   decides ([magic](magic.md) 7.2); whether the shelves use the same test
+   is not known.
    **Where that stock comes from**: the file holds no stock record for
    region 0 anywhere [data], and the 14 bytes where a visited region's
    stock sits read 255 throughout, while the map was the visited region,
@@ -135,10 +138,12 @@ Counts cover all 15 corpus adventures (222 regions).
    0 included, each as many as the stock limit allows (2.6): the engine
    builds the map region's stock that way rather than modelling the map
    bytes the original reads. **In every store, room or area**, a weapon
-   or armor of weight 0 that nobody may use (the same test as
-   [characters](characters.md) 7.5.1 for the things a destroy loses) is
-   never offered: its place says out of stock, whatever the stock holds,
-   and the stock count is kept as stored. A thing of value 0 otherwise
+   or armor of weight 0 that nobody may use (both marks, as before; no
+   longer the test of a death or a destroy, [magic](magic.md) 7.2,
+   [characters](characters.md) 7.5.1, which lose an owner-only thing of
+   any weight) is never offered: its place says out of stock, whatever
+   the stock holds, and the stock count is kept as stored. [unknown: the
+   engine keeps both marks here until a shelf capture splits them] A thing of value 0 otherwise
    sells for 0 like any price (4.1). (Superseded: the engine's earlier
    choice of leaving value-0 things off the map's shelves.) Buying and selling pay and take as
    in a room (4.3, 4.4, 5.1, 5.2), but in region 0 neither changes the
@@ -310,7 +315,8 @@ Counts cover all 15 corpus adventures (222 regions).
    to 504, stock still 3] A thing numbered above 80 is paid for and never
    joins the stock. [research, unconfirmed] In region 0 nothing joins it
    (2.7).
-4. A treasure set to disappear when dropped still sells. [unknown]
+4. A treasure set to disappear when dropped still sells. [unknown:
+   reachable through 10.17's sell flow, not yet run, capture.md 10.43]
    **Engine:** yes, and it is then gone, never stocked.
 5. **The purse cap**: a sale is never refused for it. At 24,998 gold a
    sale of 50 left 25,000, and a further sale of 19 still went through,
@@ -327,10 +333,14 @@ region, or per-store stock, would be a rule feature with its own spec.
 
 1. A store in an encounter area on a map whose point table uses the
    points at the stock bytes (2.7): do the shelves follow those bytes?
-   Value 0: settled (2.7, not the value; capture.md 10.42). Still open:
-   which of HAND's marks (weight 0, nobody may use) keeps it off the
-   shelves; a weapon of weight 0 usable by anyone, or one of weight
-   above 0 nobody may use, would split it.
+   Value 0: settled (2.7, not the value; capture.md 10.42). Still open
+   (reachable, not run in capture.md 10.43, which split the marks at a
+   death only): which of HAND's marks (weight 0, nobody may use) keeps it
+   off the shelves; a stocked weapon of weight 0 usable by anyone, and
+   one of weight above 0 nobody may use, each with its shelf place found
+   first, would split it.
+2. A treasure that disappears when dropped, sold (5.4): reachable, not
+   run (capture.md 10.43).
 
 Settled: a magic item that acts when picked up, bought (4.4), and a
 store in a 10 x 8 room (3.3), capture.md 10.42; restocking from a used-up magic item (2.5), the stock across

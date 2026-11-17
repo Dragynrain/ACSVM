@@ -104,6 +104,26 @@ enum Stepped {
     Ended,
 }
 
+/// What a creature's magic came to at its turn's top (magic 6.3, 6.5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Magic {
+    None,
+    /// It cast a spell: the turn is over.
+    Cast,
+    /// It used a magic item: two moves, the turn goes on.
+    Used,
+}
+
+/// Magic 6.4: whether a creature casts `action` at its goal, a foe or a
+/// friend: hurtful spells at foes, helpful ones at friends, a summons (a
+/// creature number) at either.
+fn fits(action: SpellAction, foe: bool) -> bool {
+    if action.kind == SpellActionKind::SummonOrBanish && action.parameter != 0 {
+        return true;
+    }
+    magic::hurtful(action) == Some(foe)
+}
+
 /// The 4 squares beside, in the order a step looks at them (6.5).
 const STEP_DIRS: [Dir; 4] = [Dir::S, Dir::N, Dir::E, Dir::W];
 
@@ -124,9 +144,9 @@ impl Game {
     /// is always taken, even with no move (Speed 0).
     fn creature_acts(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Option<(u8, u8)> {
         let me = Who::Creature { region, slot };
-        // Inventory 3.4: catch-up, drift and the healing die first, then
-        // the moves from the Life Force they left.
-        self.turn_top(me, ev);
+        // Inventory 3.4, creatures 2.5: catch-up and drift, then the moves
+        // from the Life Force before the die, then the healing die.
+        self.turn_drift(me);
         let c = self.creature(region, slot)?.clone();
         // Creatures 2.6: halved, rounding up, with a foe beside it. 5.4: a
         // turn after a door starts with the moves carried through it, not
@@ -146,11 +166,21 @@ impl Game {
                 (m, m)
             }
         };
+        self.turn_die(me, ev);
         ev.push(Event::CreatureTurn { region, slot, moves });
         let mut left = moves;
-        // Magic 6.3: casting (or using an item) takes the whole turn.
-        if self.creature_magic(region, slot, ev) {
-            return None;
+        // Magic 6.3: casting takes the whole turn. 6.5: a use costs two
+        // moves and the turn goes on, ending with none left (4.3).
+        match self.creature_magic(region, slot, ev) {
+            Magic::None => {}
+            Magic::Cast => return None,
+            Magic::Used => {
+                self.creature(region, slot)?;
+                left = left.saturating_sub(2);
+                if left == 0 {
+                    return Some((0, full));
+                }
+            }
         }
         // 8.1.2: the overburdened drop, after the healing die and the
         // smartness checks, is the turn's first action and uses one move;
@@ -215,27 +245,30 @@ impl Game {
         Some((left, full))
     }
 
-    /// Magic 6.1-6.5: a smart fighter casts its lowest-numbered fitting
-    /// spell at the individual it is after (Power at least Wisdom), or else
-    /// uses a fitting magic item (Power at least half Wisdom). True if it
-    /// did, which ends its turn.
-    fn creature_magic(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
+    /// Magic 6.1-6.5: a smart creature that may cast (6.2: a friend, or
+    /// any fighter) casts its lowest-numbered fitting spell at the
+    /// individual it is after (Power after drift at least Wisdom), or else
+    /// uses a fitting magic item (2 x Power above Wisdom).
+    fn creature_magic(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> Magic {
         let me = Who::Creature { region, slot };
         let Some(c) = self.creature(region, slot).cloned() else {
-            return false;
+            return Magic::None;
         };
-        if !is_fighter(&c) || c.power < c.wisdom / 2 {
-            return false;
+        let may_cast = c.strategy.alignment == Friend || is_fighter(&c);
+        let can_cast = c.power >= c.wisdom;
+        let can_use = 2 * u16::from(c.power) > u16::from(c.wisdom);
+        if !may_cast || !(can_cast || can_use) {
+            return Magic::None;
         }
         let Some((grid, w, h)) = self.squares(region, slot) else {
-            return false;
+            return Magic::None;
         };
         let Some(Goal {
             individual: Some(goal),
             ..
         }) = self.choose_goal(region, slot, &grid, w, h)
         else {
-            return false;
+            return Magic::None;
         };
         let foe = is_foe(&c, &goal);
         let mut owned: Vec<ThingId> = c
@@ -250,24 +283,23 @@ impl Game {
                 .iter()
                 .copied()
                 .find(|&t| match self.thing(t).map(|t| &t.kind) {
-                    Some(ThingKind::MagicSpell { action, .. }) => {
-                        spell && magic::hurtful(*action) == Some(foe)
-                    }
+                    Some(ThingKind::MagicSpell { action, .. }) => spell && fits(*action, foe),
                     Some(ThingKind::MagicItem {
                         action, on_use: true, ..
-                    }) => !spell && magic::hurtful(*action) == Some(foe),
+                    }) => !spell && fits(*action, foe),
                     _ => false,
                 })
         };
-        let pick = if c.power >= c.wisdom {
-            find(true)
-                .map(|t| (t, true))
-                .or_else(|| find(false).map(|t| (t, false)))
-        } else {
-            find(false).map(|t| (t, false))
-        };
+        let spell = if can_cast { find(true) } else { None };
+        let pick = spell.map(|t| (t, true)).or_else(|| {
+            if can_use {
+                find(false).map(|t| (t, false))
+            } else {
+                None
+            }
+        });
         let Some((thing, is_spell)) = pick else {
-            return false;
+            return Magic::None;
         };
         let smart = match c.wisdom {
             w if w > 14 => true,
@@ -275,18 +307,19 @@ impl Game {
             w => self.rng.percent((w - 5) * 10),
         };
         if !smart {
-            return false;
+            return Magic::None;
         }
         // Magic 2.4: a creature aims at the square of its goal.
         let Some(aim) = self.aim_at(goal.who) else {
-            return false;
+            return Magic::None;
         };
         if is_spell {
             self.cast(me, thing, aim, ev);
+            Magic::Cast
         } else {
             self.use_item(me, thing, aim, ev);
+            Magic::Used
         }
-        true
     }
 
     /// Magic 6.6, 2.3: a magic item a creature drops on `at` casts its drop
@@ -507,7 +540,7 @@ impl Game {
             return Stepped::Ended;
         };
         let mut grid = grid;
-        if let Some((k, i)) = self.goal_obstacle(region, slot, &c, goal, w) {
+        if let Some((k, i)) = self.goal_obstacle(region, slot, &c, goal, start, w) {
             grid[k] = Sq::Bump(i);
         }
         // 7.3: a friend beside the player it chose.
@@ -554,12 +587,9 @@ impl Game {
             let cost = if first_choice && matches!(sq, Sq::Door(_)) {
                 exit_cost
             } else if matches!(sq, Sq::Bump(_)) {
-                // 5.1: 4 if stood on this turn, else 1.
-                if stood.contains(&(nx, ny)) {
-                    4
-                } else {
-                    1
-                }
+                // 5.1: the turn's starting square, so 6.5's 4 for a square
+                // stood on this turn (not the goal's 1).
+                4
             } else if goal.is_some_and(|g| g.at == (nx, ny)) {
                 1
             } else {
@@ -669,13 +699,16 @@ impl Game {
     /// 5.1 (engine choice): for a creature that does not strike (combat
     /// 2.3) with an individual for its goal, the grid index and room item
     /// of the square that individual stands on, when its top thing is an
-    /// obstacle or a custom obstacle.
+    /// obstacle or a custom obstacle and the creature began this turn on
+    /// that square (`start`, shared after a door, 5.4). Closed otherwise:
+    /// from beside the square, and on every other turn.
     fn goal_obstacle(
         &self,
         region: u8,
         slot: usize,
         c: &Creature,
         goal: Option<Goal>,
+        start: (u8, u8),
         w: u8,
     ) -> Option<(usize, usize)> {
         let o = goal?.individual?;
@@ -692,7 +725,7 @@ impl Game {
         else {
             return None;
         };
-        if (rg, room) != (region, c.room) {
+        if (rg, room) != (region, c.room) || (x, y) != start {
             return None;
         }
         let r = self.room(region, room)?;

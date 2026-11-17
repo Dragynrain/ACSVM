@@ -2316,3 +2316,224 @@ fn a_death_keeps_the_slot_random_mark_and_a_summons_clears_it() {
         assert!(g.is_random(1, 1));
     });
 }
+
+// ---- capture.md 10.43: creatures casting, half power, a death's marks ----
+
+/// The SpellCast and ItemUsed events of creature `slot`, in order.
+fn magic_of(ev: &[Event], slot: usize) -> Vec<(bool, u16, Who)> {
+    ev.iter()
+        .filter_map(|e| match e {
+            Event::SpellCast {
+                by, thing, target, ..
+            } if *by == cr(slot) => Some((true, *thing, *target)),
+            Event::ItemUsed { by, thing, target } if *by == cr(slot) => Some((false, *thing, *target)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn owning(things: &[u16]) -> Vec<Possession> {
+    things
+        .iter()
+        .map(|&thing| Possession { thing, count: 1 })
+        .collect()
+}
+
+#[test]
+fn a_peaceful_friend_casts_and_its_summons_lands_on_the_goal() {
+    // 6.2 (capture.md 10.43 item 7): a friend casts whether a fighter or a
+    // slinker; 6.4: a summons fits a friend goal too, made on its square.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 6, 3, |c| {
+            c.strategy.alignment = Alignment::Friend;
+            c.strategy.aggressive = false;
+            c.wisdom = 20;
+            c.power = 30;
+            c.possessions = owning(&[HEAL]);
+        });
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                life_force: 3,
+                ..setup()
+            },
+        );
+        let ev = g.apply(Command::Wait);
+        assert_eq!(magic_of(&ev, 1), vec![(true, HEAL, ME)], "{ev:?}");
+
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 6, 3, |c| {
+            c.strategy.alignment = Alignment::Friend;
+            c.strategy.aggressive = false;
+            c.wisdom = 20;
+            c.power = 30;
+            c.possessions = owning(&[CALL]);
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert_eq!(magic_of(&ev, 1), vec![(true, CALL, ME)], "{ev:?}");
+        let (_, creature, at) = summoned(&ev).expect("summoned");
+        assert_eq!((creature, at), (IMP, hall(2, 2)));
+    });
+}
+
+#[test]
+fn a_peaceful_enemy_still_casts_nothing() {
+    // 6.2: other creatures cast and use items only as fighters.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 6, 3, |c| {
+            c.strategy.aggressive = false;
+            c.wisdom = 20;
+            c.power = 30;
+            c.possessions = owning(&[CALL, ROD]);
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert!(magic_of(&ev, 1).is_empty(), "{ev:?}");
+    });
+}
+
+#[test]
+fn an_enemy_summons_at_its_foe_goal() {
+    // 6.4: the summons fits a foe goal as well, made on its square.
+    both(|p| {
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 7, 5, |c| {
+            c.wisdom = 20;
+            c.power = 20;
+            c.possessions = owning(&[CALL]);
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert_eq!(magic_of(&ev, 1), vec![(true, CALL, ME)], "{ev:?}");
+        assert_eq!(summoned(&ev).map(|s| s.2), Some(hall(2, 2)));
+    });
+}
+
+#[test]
+fn half_power_is_power_after_drift_above_half_the_wisdom() {
+    // 6.5 (capture.md 10.43 item 7): at Wisdom 20 a Power of 11 uses the
+    // item, 10 does not; at 15, 8 does and 7 does not (2 x Power >
+    // Wisdom). The Power is the one after the turn's drift (5.1). 6.3:
+    // casting needs Power after drift at least the Wisdom: 19 drifts to 20.
+    both(|p| {
+        for (wisdom, power, used) in [(20, 12, true), (20, 9, false), (15, 9, true), (15, 6, false)] {
+            let mut a = adventure(p);
+            put_creature(&mut a, 1, 7, 5, |c| {
+                c.wisdom = wisdom;
+                c.power = power;
+                c.possessions = owning(&[ROD]);
+            });
+            let mut g = start(a, 2, 2, setup());
+            let ev = g.apply(Command::Wait);
+            let want = if used { vec![(false, ROD, ME)] } else { vec![] };
+            assert_eq!(magic_of(&ev, 1), want, "Wisdom {wisdom}, Power {power}");
+        }
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 7, 5, |c| {
+            c.wisdom = 20;
+            c.power = 19;
+            c.possessions = owning(&[HEAL, BOLT]);
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert_eq!(magic_of(&ev, 1).first().map(|m| (m.0, m.1)), Some((true, BOLT)));
+    });
+}
+
+#[test]
+fn a_creatures_use_costs_two_moves_and_its_turn_goes_on() {
+    // 6.5: the use spends 2 Power and two moves; with moves left the
+    // creature walks on, with fewer than two its turn ends. At most one
+    // use a turn.
+    both(|p| {
+        for (speed, steps) in [(3u8, 1usize), (2, 0), (1, 0)] {
+            let mut a = adventure(p);
+            put_creature(&mut a, 1, 7, 5, |c| {
+                c.wisdom = 20;
+                c.power = 28;
+                c.speed = speed;
+                c.possessions = owning(&[ROD]);
+            });
+            let mut g = start(a, 2, 2, setup());
+            let ev = g.apply(Command::Wait);
+            assert_eq!(magic_of(&ev, 1), vec![(false, ROD, ME)], "Speed {speed}");
+            let moved = ev
+                .iter()
+                .filter(|e| matches!(e, Event::CreatureMoved { slot: 1, .. }))
+                .count();
+            assert_eq!(moved, steps, "Speed {speed}: {ev:?}");
+            // Drift 28 to 27, then the use's 2.
+            assert_eq!(g.creature(1, 1).unwrap().power, 25);
+        }
+        let mut a = adventure(p);
+        put_creature(&mut a, 1, 7, 5, |c| {
+            c.wisdom = 20;
+            c.power = 28;
+            c.speed = 8;
+            c.possessions = owning(&[ROD]);
+        });
+        let mut g = start(a, 2, 2, setup());
+        let ev = g.apply(Command::Wait);
+        assert_eq!(magic_of(&ev, 1).len(), 1, "{ev:?}");
+    });
+}
+
+#[test]
+fn at_a_death_the_owner_only_mark_alone_loses_a_weapon() {
+    // 7.2 (capture.md 10.43 item 10): a blade of weight 0 anyone may use
+    // goes down; one of weight 5 only its owner may use is lost, as is the
+    // claw with both marks.
+    const OPEN0: u16 = 6;
+    const OWN5: u16 = 7;
+    both(|p| {
+        let mut a = adventure(p);
+        let blade = |weight, anyone| ThingKind::MeleeWeapon {
+            picture: 6,
+            disappears_after_use: false,
+            carry: Carry { weight, value: 0 },
+            stats: WeaponStats {
+                power: 3,
+                range: None,
+                break_chance: 0,
+                attack_adjustment: 0,
+                usable_by_anyone: anyone,
+                magic: false,
+            },
+        };
+        a.things[OPEN0 as usize - 1].kind = blade(0, true);
+        a.things[OWN5 as usize - 1].kind = blade(5, false);
+        put_creature(&mut a, 1, 5, 3, |c| {
+            c.strategy.alignment = Alignment::Friend;
+            c.possessions = owning(&[CLAW, OPEN0, OWN5]);
+            c.weapon = OPEN0;
+        });
+        let mut g = start(
+            a,
+            2,
+            2,
+            PlayerSetup {
+                possessions: vec![DOOM, AMULET],
+                ..setup()
+            },
+        );
+        let ev = g.apply(Command::Cast {
+            thing: DOOM,
+            at: None,
+            target: Some(cr(1)),
+        });
+        assert!(
+            ev.contains(&Event::Died {
+                who: cr(1),
+                at: hall(5, 3),
+                left: vec![(OPEN0, 1)]
+            }),
+            "{ev:?}"
+        );
+        assert_eq!(stack(&g, 0, 5, 3), vec![OPEN0]);
+    });
+}

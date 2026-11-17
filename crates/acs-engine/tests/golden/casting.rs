@@ -4,17 +4,19 @@
 //! actions (magic 2.4, 3): Kill All, summons, Add to Room, Activate All and
 //! the "when dropped here" space (inventory 5.7); the cast's target, a
 //! summons with no target press or into a full region, and the death drop
-//! (magic 7.2).
+//! (magic 7.2); magic defense a level a cast, Give not readying, a spell
+//! that disappears, drops refused at the walls, creatures casting and
+//! using items (magic 6), and what a death loses.
 
 use crate::stats::{same_rate, Sweep, SEEDS};
 use crate::world::*;
 use acs_core::model::{
-    Access, Alignment, Carry, CustomTrigger, Destination, PlacementChoice, SpellAction, SpellActionKind as K,
-    ThingKind,
+    Access, Alignment, Carry, Creature, CustomTrigger, Destination, MagicDefense, PlacementChoice,
+    SpellAction, SpellActionKind as K, ThingKind,
 };
 use acs_core::Adventure;
 use acs_core::Platform;
-use acs_engine::{CastRefusal, Command, Dir, Event, Game, Location, PlayerSetup, Who};
+use acs_engine::{CastRefusal, Command, Dir, DropRefusal, Event, Game, Location, PlayerSetup, Stat, Who};
 
 const SPELL: u16 = 33;
 
@@ -962,4 +964,482 @@ fn a_deaths_drop_puts_magic_items_by_number_and_the_gold_under_all() {
             .and_then(|it| it.gold);
         assert_eq!(pile, Some(50), "{name}: the gold as one pile");
     }
+}
+
+// ---- magic defense, Give, disappearing, the walls, creatures casting ------
+//
+// capture.md 10.43 (rr39): T on 4,4 at its first room turn, as rr36's; a
+// retired player joining has its Life Force set to its Constitution (40)
+// and its Power to its Wisdom (13).
+
+const MAIL: u16 = 40;
+const BOW: u16 = 41;
+const INC_MD: u16 = 42; // 0:3:3, increase magic defense up to 3
+const GIVE_BLADE: u16 = 43; // 0:9:59, give the blade
+const WALL: u16 = 116; // a custom obstacle
+/// rr39 `cc`'s spells of cost 0 and item.
+const HURT: u16 = 80; // Life Force -5
+const CALL: u16 = 79; // summon ZED
+const HELP: u16 = 78; // Life Force +5
+const ROD: u16 = 70; // magic item, used: Life Force -3
+
+/// rr39's T: Constitution and Life Force 40, Speed 6, Wisdom and Power 13.
+fn t40(things: &[u16]) -> PlayerSetup {
+    PlayerSetup {
+        name: "T".into(),
+        speed: 6,
+        constitution: 40,
+        life_force: 40,
+        wisdom: 13,
+        power: Some(13),
+        possessions: things.to_vec(),
+        ..Default::default()
+    }
+}
+
+/// capture.md 10.43 item 3 (rr39 `md-c`, `md-c1`, `gv-c`, `gv-cb`; magic
+/// 3.3, 3.9): spells of cost 0 cast at T. Increase Magic Defense to 3: from
+/// 0 it gave 1, from 1 (poked) 2: one level a cast. Give the blade: T
+/// empty-handed owned it and held nothing; T holding the bow owned it and
+/// held the bow still. One run each.
+#[test]
+fn a_magic_defense_cast_raises_one_level_and_a_given_weapon_is_not_readied() {
+    use MagicDefense as M;
+    let mut a = magic_kit();
+    thing(&mut a, INC_MD, "INCMD", spell(0, act(K::IncreaseMagicDefense, 3)));
+    thing(&mut a, GIVE_BLADE, "GIVEBLADE", spell(0, act(K::Give, BLADE)));
+    thing(&mut a, BOW, "BOW", bow(5, 9));
+    for (name, from, to) in [
+        ("md-c", M::None, M::NonMagicHalfDamage),
+        ("md-c1", M::NonMagicHalfDamage, M::OnlyMagicDamages),
+    ] {
+        let mut g = game(
+            &a,
+            1,
+            PlayerSetup {
+                magic_defense: from,
+                ..t40(&[INC_MD])
+            },
+            room(4, 4),
+        );
+        let ev = at(&mut g, INC_MD, None);
+        assert_eq!(g.players()[0].magic_defense, to, "{name}: {ev:?}");
+    }
+    for (name, held) in [("gv-c", None), ("gv-cb", Some(BOW))] {
+        let mut g = game(&a, 1, t40(&[GIVE_BLADE, BOW]), room(4, 4));
+        if let Some(w) = held {
+            g.apply(Command::Ready { thing: w });
+        }
+        let ev = at(&mut g, GIVE_BLADE, None);
+        assert_eq!(given(&ev), [BLADE], "{name}: {ev:?}");
+        let p = &g.players()[0];
+        assert!(p.owns(BLADE), "{name}");
+        assert_eq!(p.weapon, held, "{name}: the given blade not readied");
+    }
+}
+
+/// capture.md 10.43 item 4 (rr39 `dsp-r0` .. `dsp-r224`; magic 3): our
+/// spell 80, Life Force +1 at cost 60 with the "disappears" bit, T of Power
+/// 13: a 19% cast. Of eight runs, the random state set to 0, 32, .., 224
+/// before the menu, one worked (Life Force 40 to 41, spell 80 gone) and
+/// seven failed, the Power spent and spell 80 kept: 8 of 8 fit. The rule
+/// is exact on every seed; the one in eight, eight spaced states, a sample.
+#[test]
+fn a_spell_that_disappears_goes_only_after_a_working_cast() {
+    let mut a = magic_kit();
+    thing(
+        &mut a,
+        SPELL80,
+        "SPELL80",
+        ThingKind::MagicSpell {
+            disappears_after_use: true,
+            power: 60,
+            action: act(K::ChangeLifeForce, 1),
+        },
+    );
+    let worked = crate::world::count(SEEDS, |seed| {
+        let mut g = game(&a, seed, t40(&[SPELL80]), room(4, 4));
+        let ev = at(&mut g, SPELL80, None);
+        let success = ev
+            .iter()
+            .find_map(|e| match e {
+                Event::SpellCast { success, .. } => Some(*success),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("seed {seed}: no cast: {ev:?}"));
+        let gone = ev.contains(&Event::SpellGone {
+            who: ME,
+            thing: SPELL80,
+        });
+        assert_eq!(gone, success, "seed {seed}: {ev:?}");
+        assert_eq!(g.players()[0].owns(SPELL80), !success, "seed {seed}");
+        assert_eq!(life(&g), 40 + u8::from(success), "seed {seed}");
+        // The 13 spent either way, then the next turn's drift.
+        assert_eq!(g.players()[0].power, 1, "seed {seed}");
+        success
+    });
+    same_rate("dsp: casts that worked", Sweep::Sample, 1, 8, worked, SEEDS);
+}
+
+/// capture.md 10.43 item 6 (rr39 `wp-po`, `wp-dco`, `wp-dpo`, `dh2-e`;
+/// magic 3.13, inventory 5.4, 5.7): T owning the blade; on the wall square
+/// 0,4 a portal of ours to the side room doing Add to Room 60, our custom
+/// obstacle on 4,5. T walked to 1,4 and west through the wall portal: on
+/// the side room's 2,4, 60 on 1,4, its square before the door. The drop
+/// cursor pushed toward the custom obstacle, or from 1,4 toward the wall
+/// portal, did not move, and the blade landed on T's own square: the
+/// engine refuses those squares at no cost, and the drop then goes on T's
+/// square. `dh2`: T owning the blade and our mail, on 5,4 a custom space
+/// "when dropped here" for the blade giving 61: the mail dropped there lay
+/// on top of the space, 61 not given. One run each.
+#[test]
+fn drops_refused_at_a_custom_obstacle_and_a_wall_portal_and_its_add_to_room() {
+    let mut a = rr38();
+    portal(&mut a, 0, 4, ARCH);
+    thing(
+        &mut a,
+        WALL,
+        "WALL",
+        ThingKind::CustomObstacle {
+            picture: 7,
+            action: nothing(),
+        },
+    );
+    put(&mut a, 4, 5, WALL, 0);
+
+    // `wp-po`
+    let mut g = tee(&a, &[BLADE]);
+    for _ in 0..4 {
+        g.apply(Command::Move { dir: Dir::W });
+    }
+    assert_eq!(g.players()[0].at, side(2, 4), "wp-po");
+    assert_eq!(stack(&g, 1, 4), [PUTCI], "wp-po");
+    assert_eq!(stack(&g, 0, 4), [ARCH], "wp-po");
+
+    // `wp-dco`, `wp-dpo`
+    for (name, from, dir, why) in [
+        ("wp-dco", (4, 4), Dir::S, DropRefusal::Thing { thing: WALL }),
+        ("wp-dpo", (1, 4), Dir::W, DropRefusal::Wall),
+    ] {
+        let mut g = tee(&a, &[BLADE]);
+        g.place(0, room(from.0, from.1));
+        let ev = g.apply(Command::Drop {
+            thing: BLADE,
+            dir: Some(dir),
+        });
+        assert_eq!(
+            ev,
+            [Event::DropRefused {
+                player: 0,
+                thing: BLADE,
+                reason: why
+            }],
+            "{name}"
+        );
+        assert_eq!(g.players()[0].moves_left, 6, "{name}: no cost");
+        g.apply(Command::Drop {
+            thing: BLADE,
+            dir: None,
+        });
+        assert_eq!(stack(&g, from.0, from.1), [BLADE], "{name}: on T's square");
+    }
+
+    // `dh2-e`
+    let mut a = magic_kit();
+    thing(&mut a, MAIL, "MAIL", mail(2, false));
+    put(&mut a, 5, 4, SLOT61, BLADE as u8);
+    let mut g = tee(&a, &[BLADE, MAIL]);
+    let ev = g.apply(Command::Drop {
+        thing: MAIL,
+        dir: Some(Dir::E),
+    });
+    assert!(given(&ev).is_empty(), "dh2-e: {ev:?}");
+    assert_eq!(stack(&g, 5, 4), [MAIL, SLOT61], "dh2-e");
+}
+
+fn mail(power: u8, once: bool) -> ThingKind {
+    ThingKind::Armor {
+        picture: 8,
+        disappears_after_use: once,
+        carry: Carry { weight: 5, value: 10 },
+        stats: acs_core::model::WeaponStats {
+            power,
+            range: None,
+            break_chance: 0,
+            attack_adjustment: 0,
+            usable_by_anyone: true,
+            magic: false,
+        },
+    }
+}
+
+/// Each turn of the creature in slot `n`: from its `CreatureTurn` to the
+/// next individual's turn.
+fn turns_of(ev: &[Event], n: usize) -> Vec<&[Event]> {
+    ev.iter()
+        .enumerate()
+        .filter(|(_, e)| matches!(e, Event::CreatureTurn { region: 1, slot, .. } if *slot == n))
+        .map(|(s, _)| {
+            let end = ev[s + 1..]
+                .iter()
+                .position(|e| matches!(e, Event::CreatureTurn { .. } | Event::TurnStarted { .. }))
+                .map_or(ev.len(), |k| s + 1 + k);
+            &ev[s..end]
+        })
+        .collect()
+}
+
+/// rr39 `cc`: EE in slot 0 on 10,4, six squares from T, an aggressive
+/// enemy of Wisdom 20, Power 29 (at the snapshot) and Speed 3, owning
+/// `owned`; then `f`. The spells cost 0.
+fn cc(owned: &[u16], f: impl FnOnce(&mut Creature)) -> Adventure {
+    let mut a = magic_kit();
+    thing(&mut a, HURT, "HURT", spell(0, act(K::ChangeLifeForce, 0x85)));
+    thing(&mut a, CALL, "CALL", spell(0, act(K::SummonOrBanish, ZED)));
+    thing(&mut a, HELP, "HELP", spell(0, act(K::ChangeLifeForce, 5)));
+    thing(
+        &mut a,
+        ROD,
+        "ROD",
+        magic_item(act(K::ChangeLifeForce, 0x83), true, false, false),
+    );
+    creature(&mut a, 0, 10, 4, |c| {
+        c.name = "EE".into();
+        c.speed = 3;
+        c.wisdom = 20;
+        c.power = 29;
+        c.weapon = 0;
+        c.possessions.clear();
+        for &t in owned {
+            owns(c, t);
+        }
+        f(c);
+    });
+    a
+}
+
+/// EE's first three turns, T waiting on 4,4.
+fn cc_turns(a: &Adventure, seed: u64) -> (Game, Vec<Vec<Event>>) {
+    let mut g = game(a, seed, t40(&[]), room(4, 4));
+    let mut ev = Vec::new();
+    for _ in 0..8 {
+        if turns_of(&ev, 0).len() >= 3 {
+            break;
+        }
+        ev.extend(wait(&mut g));
+    }
+    let turns: Vec<Vec<Event>> = turns_of(&ev, 0).into_iter().take(3).map(|t| t.to_vec()).collect();
+    assert_eq!(turns.len(), 3, "seed {seed}: EE's turns");
+    (g, turns)
+}
+
+fn steps_of(turn: &[Event]) -> usize {
+    turn.iter()
+        .filter(|e| matches!(e, Event::CreatureMoved { slot: 0, .. }))
+        .count()
+}
+
+/// T's Life Force changes in `turn`: (from, to).
+fn t_life(turn: &[Event]) -> Vec<(u8, u8)> {
+    turn.iter()
+        .filter_map(|e| match *e {
+            Event::StatChanged {
+                who: ME,
+                stat: Stat::LifeForce,
+                from,
+                to,
+            } => Some((from, to)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// capture.md 10.43 item 7, the spell (rr39 `cc-s5`, `cc-p19`, `cc-p10`,
+/// `cc-p15`, `run mem`, 2 states, three EE turns each; magic 6.3): EE
+/// owning the Life Force -5 spell cast it at T on each of its turns from
+/// six squares off, never moving, its moves 3 to 0 at the cast. Its Power
+/// is the one after the turn's drift toward Wisdom 20: from 29 and 19
+/// (drifted to 20) it cast; from 10 and 15 (drifted to 11, 16) it did not,
+/// walking up to T. Exact.
+#[test]
+fn a_smart_creature_casts_at_its_goal_anywhere_in_the_room() {
+    for (name, power, casts) in [
+        ("cc-s5", 29, true),
+        ("cc-p19", 19, true),
+        ("cc-p10", 10, false),
+        ("cc-p15", 15, false),
+    ] {
+        let a = cc(&[HURT], |c| c.power = power);
+        for seed in 0..4 {
+            let (_, turns) = cc_turns(&a, seed);
+            let cast = |t: &[Event]| {
+                t.iter().any(
+                    |e| matches!(e, Event::SpellCast { by, thing: HURT, target: ME, .. } if *by == slot(0)),
+                )
+            };
+            if casts {
+                for (n, turn) in turns.iter().enumerate() {
+                    assert!(cast(turn), "{name} seed {seed} turn {n}: {turn:?}");
+                    assert_eq!(steps_of(turn), 0, "{name} seed {seed} turn {n}");
+                    let fell = t_life(turn);
+                    assert!(
+                        matches!(fell[..], [(from, to)] if to + 5 == from),
+                        "{name} seed {seed} turn {n}: {fell:?}"
+                    );
+                }
+            } else {
+                let turn = &turns[0];
+                assert!(!cast(turn), "{name} seed {seed}: {turn:?}");
+                assert!(steps_of(turn) > 0, "{name} seed {seed}: walked up");
+            }
+        }
+    }
+}
+
+/// capture.md 10.43 item 7, fitting and the summons (rr39 `cc-fr`,
+/// `cc-sum`, `cc-fsum`; magic 6.2, 6.4): EE a peaceful friend owning only
+/// the Life Force +5: T's Life Force 40, 45, 50, 55 on EE's three turns.
+/// The enemy owning only the summons: ZED made in slot 1 on EE's turn, EE
+/// not moving; the friend owning only the summons: ZED made as well.
+/// (Where ZED lands, beside T in the one run read, is not settled: not
+/// compared.) Exact.
+#[test]
+fn creatures_cast_helpful_spells_and_summons_at_a_friend_and_summons_at_a_foe() {
+    let friend = |c: &mut Creature| {
+        c.strategy.alignment = Alignment::Friend;
+        c.strategy.aggressive = false;
+    };
+    for seed in 0..4 {
+        let a = cc(&[HELP], friend);
+        let (g, turns) = cc_turns(&a, seed);
+        let lives: Vec<_> = turns.iter().flat_map(|t| t_life(t)).collect();
+        assert_eq!(lives, [(40, 45), (45, 50), (50, 55)], "cc-fr seed {seed}");
+        assert_eq!(life(&g), 55, "cc-fr seed {seed}");
+
+        for (name, f) in [("cc-sum", None), ("cc-fsum", Some(friend))] {
+            let a = cc(&[CALL], |c| {
+                if let Some(f) = f {
+                    f(c)
+                }
+            });
+            let (_, turns) = cc_turns(&a, seed);
+            let turn = &turns[0];
+            assert!(
+                turn.iter().any(|e| matches!(
+                    e,
+                    Event::SpellCast { by, thing: CALL, success: true, .. } if *by == slot(0)
+                )),
+                "{name} seed {seed}: {turn:?}"
+            );
+            assert_eq!(summoned(turn).map(|s| s.0), Some(1), "{name} seed {seed}");
+            assert_eq!(steps_of(turn), 0, "{name} seed {seed}: EE stayed");
+        }
+    }
+}
+
+/// capture.md 10.43 item 7, magic items and "half power" (rr39 `cc-i30`,
+/// `cc-i10`, `cc-i9`; magic 6.5): EE owning only our item, used, Life
+/// Force -3. From Power 29 (28 after drift): T -3, EE's Power -2, its
+/// moves 3 to 1 at the use and one step with the last, at its next turns
+/// the same. From 10 (Power 11, 10, 11 at its three turns) and from 9
+/// (10, 11, 10): used at every 11, never at 10, walking instead. So with
+/// Wisdom 20 an item is used above half the Wisdom, the use costs two
+/// moves and the turn goes on. Exact.
+#[test]
+fn a_creature_uses_an_item_above_half_its_wisdom_for_two_moves() {
+    for (name, power, uses) in [
+        ("cc-i30", 29, [true, true, true]),
+        ("cc-i10", 10, [true, false, true]),
+        ("cc-i9", 9, [false, true, false]),
+    ] {
+        let a = cc(&[ROD], |c| c.power = power);
+        for seed in 0..4 {
+            let (_, turns) = cc_turns(&a, seed);
+            for (n, (turn, &used)) in turns.iter().zip(&uses).enumerate() {
+                let use_ = turn
+                    .iter()
+                    .any(|e| matches!(e, Event::ItemUsed { by, thing: ROD, target: ME } if *by == slot(0)));
+                assert_eq!(use_, used, "{name} seed {seed} turn {n}: {turn:?}");
+                if used {
+                    assert!(
+                        matches!(t_life(turn)[..], [(from, to)] if to + 3 == from),
+                        "{name} seed {seed} turn {n}: {turn:?}"
+                    );
+                    assert_eq!(steps_of(turn), 1, "{name} seed {seed} turn {n}: the last move");
+                } else {
+                    assert!(steps_of(turn) > 0, "{name} seed {seed} turn {n}: walked");
+                }
+            }
+        }
+    }
+}
+
+/// capture.md 10.43 item 10 (rr39 `bl0-aa`, `bln-aa`, `blb-aa`, `bl0-t`;
+/// magic 7.2, characters 7.4): AA, a Speed 0 friend on 6,4, owning and
+/// holding our blade and owning our item 70, which acts when dropped: Add
+/// to Room 61. T casts Kill All but owners of 62 at AA. The blade of weight
+/// 0 usable by anyone: 6,4 held 70, 59; of weight 5, owner only: 70 only;
+/// both marks: 70 only. Cast at T's own square, T owning item 70: T died
+/// and 4,4 held 70 only. No 61 in any run: drop spells do not go off at a
+/// death. One run each.
+#[test]
+fn at_a_death_owner_only_weapons_are_lost_and_drop_spells_stay_quiet() {
+    let kit = |weight: i32, anyone: bool| {
+        let mut a = rr38();
+        thing(
+            &mut a,
+            BLADE,
+            "BLADE",
+            ThingKind::MeleeWeapon {
+                picture: 6,
+                disappears_after_use: false,
+                carry: Carry { weight, value: 10 },
+                stats: acs_core::model::WeaponStats {
+                    power: 10,
+                    range: None,
+                    break_chance: 0,
+                    attack_adjustment: 0,
+                    usable_by_anyone: anyone,
+                    magic: false,
+                },
+            },
+        );
+        thing(
+            &mut a,
+            ITEM,
+            "ITEM",
+            magic_item(act(K::AddToRoom, T61), false, true, false),
+        );
+        still(&mut a, 0, 6, 4);
+        let aa = &mut a.regions[0].residents[0];
+        owns(aa, BLADE);
+        owns(aa, ITEM);
+        aa.weapon = BLADE;
+        a
+    };
+    for (name, weight, anyone, want) in [
+        ("bl0-aa", 0, true, vec![ITEM, BLADE]),
+        ("bln-aa", 5, false, vec![ITEM]),
+        ("blb-aa", 0, false, vec![ITEM]),
+    ] {
+        let a = kit(weight, anyone);
+        let mut g = game(&a, 1, t40(&[KILL62]), room(4, 4));
+        let ev = at(&mut g, KILL62, Some((6, 4)));
+        assert!(
+            ev.iter()
+                .any(|e| matches!(e, Event::Died { who, .. } if *who == slot(0))),
+            "{name}: {ev:?}"
+        );
+        assert_eq!(stack(&g, 6, 4), want, "{name}");
+        assert_eq!(added(&ev, T61), None, "{name}: no drop spell");
+    }
+    let a = kit(0, true);
+    let mut g = game(&a, 1, t40(&[KILL62, ITEM]), room(4, 4));
+    let ev = at(&mut g, KILL62, None);
+    assert!(
+        ev.iter().any(|e| matches!(e, Event::Died { who: ME, .. })),
+        "bl0-t: {ev:?}"
+    );
+    assert_eq!(stack(&g, 4, 4), [ITEM], "bl0-t");
+    assert_eq!(added(&ev, T61), None, "bl0-t: no drop spell");
 }

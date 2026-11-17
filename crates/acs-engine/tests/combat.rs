@@ -1710,8 +1710,13 @@ fn destroy_adventure(p: Platform, counts: &[(u16, u8)]) -> Adventure {
 /// spell, gem and bow (given out of number order) and 300 gold; TWO, when
 /// `two`, in EAST. Returns at ONE's turn with the destroy requested.
 fn destroyer(p: Platform, counts: &[(u16, u8)], two: bool) -> Game {
+    destroyer_in(destroy_adventure(p, counts), two)
+}
+
+/// `destroyer` on an adventure of the caller's.
+fn destroyer_in(a: Adventure, two: bool) -> Game {
     let (mut g, _) = Game::new(
-        destroy_adventure(p, counts),
+        a,
         5,
         Rules { diagonals: true },
         PlayerSetup {
@@ -1808,6 +1813,32 @@ fn destroyed_as_the_last_player_the_counts_do_not_matter() {
                 assert_eq!(stack, [MAIL, BOW, SWORD, GEM, GOLD]);
             }
         }
+    });
+}
+
+#[test]
+fn a_destroy_loses_what_only_its_owner_may_use_whatever_it_weighs() {
+    // 7.5.1 (engine, magic 7.2's death test, capture.md 10.43 item 10): the
+    // owner-only mark alone loses a weapon or armor; weight 0 alone does
+    // not. Here the claw weighs 5 and the mail is owner-only (both lost);
+    // the sting weighs 0 and anyone may use it (it goes down).
+    both(|p| {
+        let mut a = destroy_adventure(p, &[]);
+        for t in &mut a.things {
+            match (t.number, &mut t.kind) {
+                (CLAW, ThingKind::MeleeWeapon { carry, .. }) => carry.weight = 5,
+                (MAIL, ThingKind::Armor { stats, .. }) => stats.usable_by_anyone = false,
+                (STING, ThingKind::MissileWeapon { carry, stats, .. }) => {
+                    assert_eq!(carry.weight, 0);
+                    stats.usable_by_anyone = true;
+                }
+                _ => {}
+            }
+        }
+        let mut g = destroyer_in(a, true);
+        let (left, stack) = destroyed(&mut g);
+        assert_eq!(left, [(GOLD, 300), (GEM, 1), (SWORD, 1), (BOW, 1), (STING, 1)]);
+        assert_eq!(stack, [STING, BOW, SWORD, GEM, GOLD]);
     });
 }
 

@@ -19,8 +19,9 @@ means no capture of ours has checked it yet. The confirming runs are
 `ACSVM-research/capture/runs/rr13/` ([capture.md](../capture.md) 10.18)
 for the first pass and `rr19/` (capture.md 10.23) for the second;
 `rr26/` (capture.md 10.30, 2026-11-14), `rr34/` (capture.md 10.38,
-2026-11-15) and `rr38/` (capture.md 10.42, 2026-11-16) are captures of
-ours with no research pass behind them (3.1, 3.5, 6.2, 7.3, 7.5).
+2026-11-15), `rr38/` (capture.md 10.42, 2026-11-16) and `rr39/`
+(capture.md 10.43, 2026-11-16) are captures of ours with no research
+pass behind them (3.1, 3.5, 6.2, 7.3, 7.5).
 
 Words used: a **round** is one pass through a region visit's turn list
 ([creatures](creatures.md) 2.2.3). The **roster** is the list of retired
@@ -94,6 +95,15 @@ holds Constitution with magic defense in the top two bits.
    ([magic](magic.md) 5.1) and Life Force healed (magic 5.3). That drift
    is what capture.md 8.4 took for "Power starts at Wisdom, at most 27".
    [capture: rr13 `join`, `jointime`, capture.md 10.18]
+   The same misreading recurs in capture.md 10.43's note that a joining
+   player gets Life Force = Constitution and Power = Wisdom (records of
+   Life Force 30 under 40 and Power 20 under Wisdom 13 read 40 and 13):
+   those values were read at the first room turn, after
+   `start-retired.txt`'s long wait at the first map turn and the walk into
+   the room, so rounds of drift and healing had passed, each stopping at
+   Wisdom and Constitution. It is the 8.4 setup, not a second case, and
+   does not change this rule. (Checked against the scripts rr39's
+   `case.sh` ran: its cases start from `room.vsf`, the first room turn.)
    A player from this adventure's own roster keeps everything else too:
    possessions, weapon held, armor worn, gold and its picture (it is not
    asked for one). Choosing it clears its name from the roster.
@@ -164,6 +174,8 @@ holds Constitution with magic defense in the top two bits.
    place chosen joins its own entry's record (3.1). Through "another
    adventure", the one run took a record that was not U's; it was not
    tried again, and the disk swap's timing (3.2) may explain it [unknown].
+   Settling it needs a research pass on the swap; the engine has no
+   rosters, so it may stay open (capture.md 10.43 (b)).
    **Engine:** a front end with rosters joins the record of the place
    chosen, and treats an empty place as CREATE NEW PLAYER.
    **Engine:** a front end that offers players from another adventure
@@ -433,8 +445,12 @@ holds Constitution with magic defense in the top two bits.
    Which go down depends only on what the thing is, not on its kind of
    weapon, armor or treasure, its being held or worn, its "ACS may add"
    count, or whether another player is in play:
-   1. **Never put down**: spells, and the creatures' own weapons of weight
-      0 that nobody may use (horn, hand, claw, touches). They are lost.
+   1. **Never put down**: spells, and the creatures' own weapons (horn,
+      hand, claw, touches), which weigh 0 and only their owner may use.
+      They are lost. Every such weapon a destroy was run with had both
+      marks; at a creature's death the owner-only mark alone loses a
+      weapon and weight 0 alone does not ([magic](magic.md) 7.2;
+      capture.md 10.43 item 10).
    2. **Every other thing goes down**: each weapon, missile weapon, armor,
       treasure and magic item, held, worn or only carried, and the gold as
       one pile. This holds with another player in the room, with another
@@ -468,12 +484,15 @@ holds Constitution with magic defense in the top two bits.
    matched none of the runs [research, pass 2: disagreed by capture].
    The rr19 runs this replaces: `room-dest2`, `rd-*`, `newc` (capture.md
    10.23).
-   **Engine:** as above: spells and weapons of weight 0 that nobody may
-   use are lost; everything else lands on the square, top of the stack,
-   the gold as one pile (inventory 2.5), whoever else is in play; the
-   order is 3's; no save point. Whether weight 0 or "nobody may use" is
-   what loses the creatures' weapons is [unknown] (every one tried had
-   both); the engine asks for both. Then as 7.4.
+   **Engine:** as above: spells and weapons and armor that only their
+   owner may use are lost, whatever they weigh, the same test as a
+   death's (magic 7.2); everything else lands on the square, top of the
+   stack, the gold as one pile (inventory 2.5), whoever else is in play;
+   the order is 3's; no save point. A destroy with the two marks split
+   was not run [unknown]: the engine takes the death's test, which a
+   creature's death showed (capture.md 10.43 item 10). (Superseded: the
+   engine's earlier choice of losing only things with both marks.) Then
+   as 7.4.
    5. **Waiting reversals never come due.** A player raised by a
       temporary +10 (Life Force 20 to 30, one step back taken, 29) and
       destroyed with its next step due a few rounds on kept Life Force 29
@@ -482,7 +501,8 @@ holds Constitution with magic defense in the top two bits.
       was never taken. [capture: rr38 `rv-a`, `rv-b`, capture.md 10.42
       item 5; ours, no research pass, 2026-11-16] The original leaves the
       entry in the queue but never takes it; whether it holds back
-      reversals queued behind it is [unknown].
+      reversals queued behind it is [unknown] (reachable, not yet run:
+      capture.md 10.43).
       **Engine:** the destroyed character's reversals are dropped, as on
       Save (7.3): the same in effect, except for that open case.
 6. **Afterwards.** The character is out of play: only the first byte of
@@ -510,9 +530,9 @@ holds Constitution with magic defense in the top two bits.
 
 ## 8. Left for later
 
-- Destroy in a room (7.5): which mark loses the creatures' weapons, and
-  whether a reversal left in the queue holds back later ones (the
-  engine's choices in 7.5).
+- Destroy in a room (7.5): the marks split (only a death was run that
+  way, magic 7.2), and whether a reversal left in the queue holds back
+  later ones (the engine's choices in 7.5).
 - Rejoining a retired character from the roster (3.1, 7.3): not built in
   the engine.
 - Which record is taken through "another adventure" from a roster whose
@@ -523,13 +543,17 @@ holds Constitution with magic defense in the top two bits.
 
 1. Destroy in a room: the cases, the order, the count changed, U on the
    map and the save point captured (7.5, capture.md 10.30, 10.38), and a
-   reversal waiting, never coming due (7.5.5, capture.md 10.42). Still
-   open: whether the left entry holds back reversals behind it.
+   reversal waiting, never coming due (7.5.5, capture.md 10.42). The
+   owner-only mark deciding a creature weapon's loss at a death
+   (capture.md 10.43; 7.5.1 takes it). Still open: whether the left
+   entry holds back reversals behind it, and a destroy with the marks
+   split.
 2. Another adventure's disk with the adventure's own identity, and the
    adventure's own disk: captured, no refusal (3.5, capture.md 10.30).
    Choosing U on the own list with an empty first entry: captured (3.1:
    U's record joins, the empty place creates; capture.md 10.42). Still
-   open: the same through "another adventure".
+   open: the same through "another adventure" (a research pass on the
+   disk swap, capture.md 10.43 (b)).
 3. A roster of 34, then a save: captured (7.3, capture.md 10.30), and
    the full roster's Life Force, not raised (capture.md 10.38).
 4. A creature's ratings with marks (4.2): not reachable (no screen shows

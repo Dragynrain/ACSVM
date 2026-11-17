@@ -3852,3 +3852,400 @@ In this order (planned November 2026):
    No new addresses: the possession bytes (`$F5B6` on, a slot's +0x17
    on), the queue's first entry (`$F65F`) and the rest are section 9's.
    `$F65F`'s other seven bytes were only read, not interpreted.
+43. **Inventory, magic, stores and characters: the [unknown]s, the
+   2026-11-16 sweep** (ours, no research pass: every [unknown] left in
+   [inventory](rules/inventory.md), [magic](rules/magic.md),
+   [stores](rules/stores.md) and [characters](rules/characters.md)).
+   `ACSVM-research/capture/runs/rr39/` (the harness binary in `bin/`,
+   `env.sh`; `case.sh` and `build.sh` build the cases of `cases.txt` to
+   T's first room turn under way on 4,4, `room.vsf`; `runs.sh` plays
+   `runs.txt` and `runs2.txt` (a `BASE@start` line runs from the map
+   start), `gen.py` menu scripts (a sixth field walks first),
+   `py/steps.py` pushes, `py/probe.py` one push and the button with
+   `$719A` read close around both, `mp2.txt` the map drop; `mem.sh` the
+   `run mem` sweeps, `ccruns.sh` and `ccruns2.sh` the casting creature;
+   `py/last.py` reads a log). At most three VICE of ours. Harness: the kit
+   keys take `anyone=0` (`--blade anyone=0`: owner only, the extended
+   record's bit 6 clear; `KitSpec::anyone`); `scripts/capcheck.py` takes
+   `--who N --base ADDR` to read a creature slot (its turn-start reading
+   misses a creature's moves, which are set just before `$71FA` changes;
+   item 9 reads them directly). A retired player joining has its Life
+   Force set to its Constitution and its Power to its Wisdom (the cases
+   asking `lf=30` or `pow=20` started at 40 and 13), as 10.42's `sf` saw
+   for Power.
+
+   **The [unknown]s, sorted.** (a) reachable by a black-box capture as the
+   harness stands; (b) only with the editor, another platform or a
+   research pass; (c) not worth a run. The engine's choice is in
+   brackets; the item below gives the run.
+   - (a), run here: inventory 2.2 the carry limit's cost (refused, the
+     bar unchanged; item 1); 2.4 a picked-up weapon replacing the one
+     readied (yes, either kind) and armor not readied (item 2); 2.6 a
+     creature's take of a thing placed with 0 (taken, nothing owned;
+     item 8); 3.4 a creature's turn start, the die against the bar (the
+     die first; item 9); 4.3 readying by a pick-up costs only the step
+     (item 2); 4.4 the last copy dropped leaves nothing readied (item 2);
+     5.3 a drop spell on the world map (goes off; item 5); 5.4 a drop
+     toward a custom obstacle or a portal on the wall line (refused;
+     item 6); 5.7 another thing dropped on a "when dropped here" space
+     (lands on top; item 6); 5.9 a drop's cost on the world map (free;
+     item 5); magic 3 "disappears after first use" for a failed cast
+     (only a working cast removes it; item 4); 3.3 how far Increase Magic
+     Defense goes (one level; item 3); 3.9 a given weapon not readied
+     (item 3); 3.13 Add to Room from a portal on the wall line (the
+     bumper's square; item 6); 5.1 a creature's drift, die and moves
+     order (= inventory 3.4, item 9); 6.3 a smart creature casting at its
+     goal, its turn ending (item 7); 6.4 a summons as hurtful (item 7);
+     6.5 "half power" for magic items (Power at least half the Wisdom,
+     rounded down; the turn ends; item 7); 7.2 drop spells at a death
+     (not set off; item 10); stores 2.7 and characters 7.4, which of
+     HAND's marks loses a creature's weapon at its death (weight 0 and
+     owner only, both; item 10; the store's shelf side not run).
+   - (a), not run: magic 2.5 whether Rid Room and a banish ask for a
+     target (UI only: they ignore it either way); 3.14 Activate All from
+     a used or picked-up item (the user's and the item's square; a
+     magic item doing Activate All over a stack under the user, with a
+     plain-treasure control); 5.4 reversals going by the visited
+     region's rounds (needs a temporary effect left running across a
+     region change); stores 5.4 a "disappears when dropped" treasure
+     sold (sells, gone, never stocked: the sell flow of 10.17);
+     characters 7.5 whether a destroyed player's left entry holds back
+     reversals queued behind it (the `rv` chain of 10.42 with U's own
+     temporary effect behind T's); inventory 5.8 how a gold drop asks
+     for its amount (front end only); the store side of HAND's marks (a
+     stocked blade of each kind, its shelf place found first).
+   - (b): magic 6.1 when the 0..9 smartness roll of a Wisdom 6..14
+     creature is drawn against its other first-decision draws (a
+     random-rolls research pass: the draws' order inside a creature's
+     turn); inventory 2.5 what a gold pile's own placement parameter
+     means (nothing seen in play, 10.40; a research pass on the take);
+     characters 3.2 the record a roster place takes through "another
+     adventure" (the disk swap's timing, 10.30; the engine has no
+     rosters, so a research pass on the swap or nothing).
+   - (c): magic 3.12 Rid Room on the world map (nothing lies on the map
+     to rid; no effect on play); creatures 2.5's and inventory 3.4's
+     "the creature's slowdown itself", settled already by 10.32
+     (`burden2-sw`: loads of 150 and 101 of 200 gave Speed 6 creatures 3
+     and 5 moves) and seen again here (item 9).
+
+   - **Item 1, the carry limit** (inventory 2.2; `cl`: our treasure 60
+     on 5,4, thing 1 on 4,5, each placed with 1). `pc-e`: T owning 60
+     (poked, `$F5C1` 16), a push east: **"T CANNOT CARRY MORE PUTCI"**,
+     the button, T on 4,4, the moves **5 at the push, 5 just after the
+     button, 5 a million instructions on** and 4 only at the drain's
+     next fall; `pc-s`: T owning three of thing 1 (`$F5B6` 192), a push
+     south: the same. The control `pc-e0` (owning nothing): "T TAKES
+     PUTCI" and **4 just after the button**. So a move refused at the
+     limit costs nothing. Engine (2.2): `Blocked`, the bar unchanged;
+     agrees.
+   - **Item 2, readying by pick-up and by drop** (inventory 2.4, 4.3,
+     4.4; `rd`: T owning and holding the blade, our bow on 5,4, our mail
+     on 4,5, treasure 60 on 3,4; `rdb`: T holding the bow, the blade on
+     5,4). `rd-e`: the bow taken, **held 41** (the blade replaced);
+     `rdb-e`: **held 59** (the bow replaced); `rd-s`: the mail taken,
+     **worn 0**, held still 59. `pr-e` against `pr-w` (`py/probe.py`):
+     the bow's take and the treasure's both left **4 moves just after the
+     button**, from 5: the readying costs nothing over the step. `rd-drop`
+     (DROP OBJECT, the blade, the own square): the blade on 4,4, **held
+     0**. Engine (2.4, 4.3, 4.4): agrees on all four.
+   - **Item 3, Increase Magic Defense and Give** (magic 3.3, 3.9; spells
+     of cost 0 cast at T). `md` (Increase to 3): `md-c` from 0 gave **1**,
+     `md-c1` (T poked to 1) gave **2**: one level a cast. Engine: one
+     level, never past the parameter; agrees. `gv` (Give the blade):
+     `gv-c`, T empty-handed: the blade owned, **held 0**; `gv-cb`, T
+     holding the bow: the blade owned, **held still 41**. Engine: a given
+     weapon is not readied; agrees.
+   - **Item 4, a spell that disappears after use** (magic 3; `dsp`: our
+     spell 80 Life Force +1 at cost 60 with the "disappears" bit, `--put
+     80=163C0801`, T Power 13, so a 19% cast; `dsp-r0` .. `dsp-r224`, the
+     random state set to 0, 32, .., 224 before the menu). One worked
+     (`dsp-r64`: Life Force 40 to 41, **spell 80 gone**); seven failed,
+     Power spent, **spell 80 kept**. Engine: a magic spell goes after a
+     successful cast only; agrees.
+   - **Item 5, a drop on the world map** (inventory 5.3, 5.9; `mp`: T on
+     the map start owning our magic item, acting when dropped, Life Force
+     +5). `mp-d`, `mp-d2` (DROP OBJECT, the item): **"THE THING DROPPED IS
+     LOST FOREVER!"**, the item gone, **Life Force 40 to 45**: the drop
+     spell goes off (engine agrees). The moves (`mp2.txt`): 4 through
+     the menu and the list (the drain paused), **3 once the thing was
+     chosen**, 3 after the message's button and on until the drain's
+     next fall (2 about 1.5 million instructions later). In a room the
+     move taken at the choice comes back when the drop spot is pressed
+     (10.40 item 6); on the map there is no spot to press and it does not
+     come back: **a drop on the world map costs one move**. Engine (5.9):
+     free everywhere; **disagrees** for the map (2 runs).
+   - **Item 6, drops and Add to Room at the walls** (inventory 5.4, 5.7,
+     magic 3.13; `wp`: T owning the blade, a portal of ours on the wall
+     square 0,4 doing Add to Room 60 to the side room, our custom
+     obstacle on 4,5; `dh2`: T owning the blade and mail, on 5,4 a custom
+     space "when dropped here" for the blade giving 61). `wp-po`: T walked
+     to 1,4 and west through the wall portal to the side room's 2,4; 60
+     on **1,4, T's square before the door**. Engine (3.13): the bumper's
+     own square; agrees. `wp-dco` (the drop cursor pushed toward the
+     custom obstacle) and `wp-dpo` (T on 1,4, the cursor pushed toward
+     the wall portal): the cursor did not move and the blade landed **on
+     T's own square** each time. Engine (5.4): those squares refuse; the
+     same in effect, the C64's cursor never reaching them. `dh2-e` (the
+     mail dropped on the space): the mail **on top of the space, 61 not
+     given**. Engine (5.7): agrees.
+   - **Item 7, creatures casting** (magic 6.3 to 6.5; `cc`: EE in slot 0,
+     an aggressive enemy, Wisdom 20, Power 30 (29 at the snapshot),
+     Speed 3, six squares from T; spells of cost 0: 80 Life Force -5, 79
+     a summons of our ZED, 78 Life Force +5; our item 70, used, Life
+     Force -3; what EE owns and its Power set by `--set` (`$E1C7`,
+     `$E1C6`, `$E1A8`), its class by `$E1A7`; `run mem`, 2 states, 40M,
+     three EE turns each). Each turn starts with drift (Power one step
+     toward Wisdom), before the choice.
+     - *The spell* (`cc-s5`): T's Life Force **-5 on each of EE's turns**
+       from six squares off, EE never moving, its moves 3 to 0 at the
+       cast. `cc-p19` (Power 19, drifted to 20): cast too. `cc-p10`,
+       `cc-p15` (drifted to 11, 16): **no cast**, EE walked up. Engine
+       (6.3): a smart creature with Power at least its Wisdom casts at
+       its goal anywhere in the room, and its turn ends; agrees.
+     - *Fitting* (`cc-fr`: EE a peaceful friend, class 51, owning only
+       the +5): T's Life Force **40, 45, 50, 55** on EE's three turns:
+       helpful at a friend (agrees). *The summons*: `cc-sum` (the enemy
+       owning only 79): ZED made in slot 1 on EE's turn (placed on **4,5,
+       beside T**), EE not moving; `cc-fsum` (the friend owning only 79):
+       **ZED made as well**. Engine (6.4): a summons counts as hurtful, cast
+       only at a foe: agrees for the enemy, **disagrees** for the friend,
+       who summons at its friend goal.
+     - *Magic items and "half power"* (EE owning only the item): Power 28
+       after drift (`cc-i30`): T **-3**, EE's Power -2, and EE's moves went
+       3 to 1 at the use and it **took one step with the last**; at the
+       next turns the same. `cc-i10` (Power 11, 10, 11 at its three turns)
+       and `cc-i9` (10, 11, 10): **used at 11, never at 10**, walking
+       instead. So with Wisdom 20 an item is used at Power 11 and above,
+       above half the Wisdom, not at exactly half, and the use costs two
+       moves and does not end the turn. Engine (6.5): Power at least half
+       the Wisdom rounded down (10 here), the turn ends; **disagrees** on
+       both (4 runs at the boundary).
+   - **Item 8, a creature's take of a thing placed with 0** (inventory
+     2.6; `ct`: TH, a peaceful thief of Speed 0 on 8,4, our treasure 60
+     on 7,4 placed with 0, 61 on 9,4 placed with 1; `ct-m`, 8 states,
+     30M, watching TH's possessions `$E1C5`). Every run: **two takes
+     ("TH TAKES"), both things gone from the floor, only 61's bit set**
+     (6 runs took 60 first, 2 took 61 first). Engine (2.6): a take of a
+     thing placed with 0 adds nothing, for creatures too; agrees, 8 of 8.
+   - **Item 9, a creature's turn start** (inventory 3.4, magic 5.1,
+     creatures 2.5; `cw`: CW, a peaceful friend of Speed 10, Strength 10,
+     Constitution 20, Life Force 14, carrying a treasure of weight 600; by
+     3.2 capacity 700 at Life Force 14 (Speed x 2 x 100 / 700: 2 moves),
+     800 at 15 (5 moves)). `cw-m` (16 states, 40M) and `cw-m2` (96, 10M):
+     **every first turn began with 2 moves** (112 of 112); CW dropped the
+     treasure as its first action and stepped once (creatures 8.1), and
+     its next turns began with 10. In **23 of the 96** (`cw-m2`; 1 of
+     16 in `cw-m`) the top-of-turn die healed it 14 to 15, and each time
+     the moves byte (`$719A`) was set to 2 **before** the Life Force rose
+     (the moves at 8.46M, the heal at 8.48M, the turn byte 16 at 8.54M):
+     the creature's bar comes from the Life Force before the die's heal.
+     A player's comes after it (inventory 3.4, 10.39 item 4). Engine
+     (inventory 3.4, creatures 2.5): the same order for creatures as for
+     players (die, then the bar); **disagrees** for creatures (23
+     healed turn starts, 5 moves predicted, 2 seen). The slowdown itself
+     agrees (10.32 already).
+   - **Item 10, a death's drops** (magic 7.2, characters 7.4, stores 2.7;
+     `bl0`, `bln`, `blb`: AA, a Speed 0 friend on 6,4, owning and holding
+     our blade, and our item 70 (`$E1C6` 4), which acts when dropped: Add
+     to Room 61; T casts Kill All but owners of 62 at AA (`-aa`) or at
+     itself (`bl0-t`, T owning item 70)). The blade weight 0, usable by
+     anyone (`bl0-aa`, `--put 59=04000A00`): 6,4 held **70, 59**: kept.
+     Weight 5, owner only (`bln-aa`, `--blade anyone=0`): **70 only**, the
+     blade lost. Both (`blb-aa`): **70 only**. So "nobody may use" alone
+     loses a creature's weapon at its death, weight 0 alone does not.
+     Engine (characters 7.4, magic 7.2): lost only with both marks;
+     **disagrees** for an owner-only weapon that weighs something. **No
+     61 in any run** (`bl0-t`: T died, 4,4 held 70 only): drop spells do
+     not go off at a death; agrees. (Whether the store's shelves leave
+     out an owner-only weapon or a weightless one, stores 2.7, was not
+     run: the blade's shelf place is not known.)
+
+   No new addresses: T's held and worn things (`$F5B3`, `$F5B4`, record
+   +20, +21), the possession bytes (`$F5B6` on, a slot's +0x17 on), the
+   slot's class (`$E1A7`) and Power (`$E1A8`) are section 9's.
+44. **Creatures, encounters, combat and movement: the [unknown]s, the
+   2026-11-16 sweep** (ours, no research pass: every **[unknown]** left
+   in [creatures](rules/creatures.md), [encounters](rules/encounters.md),
+   [combat](rules/combat.md) and [movement](rules/movement.md), and the
+   bump at the goal of 10.41 item 3). `ACSVM-research/capture/runs/rr40/`
+   (the harness binary in `bin/`, `env.sh`; `cases.txt`, `case.sh` and
+   `build.sh` build the cases to T's first room turn, `NAME-room.vsf`, as
+   rr37's; `mem.sh` runs `run mem --set-random-state --draws`;
+   `queue.sh`, `doors.sh`, `after.sh`, `more.sh`, `more2.sh` the runs;
+   `arrive.txt`, `sp0.txt`, `sp0b.txt`, `pd.txt` scripts). At most three
+   VICE of ours beside rr39's. Harness: none. New `scripts/turnlog.py`:
+   a sweep's turns, individual by individual (moves at the start, Life
+   Force and square at start and end), with `--bump WHO@X,Y` (a Life
+   Force fall of 5 on the spot beside X,Y) and `--attacks WHO` (falls of
+   the player's Life Force on WHO's turns). In `fs`, `fs2`, `mo`, `fsw`,
+   `fsw2` and `fsb` the creature beside the entry square left T one
+   square further south, on 4,5, after `enter-room.txt` (the stick still
+   held); nothing below depends on it.
+
+   **The [unknown]s, sorted**: (a) a black-box capture with the harness
+   as it stands or a small option, (b) the editor, another platform or a
+   research pass, (c) not worth a run.
+   - creatures 2.4, the random mark (what clears it, does a death keep
+     it; engine: kept through removal, banishment and death): (a), a
+     random creature killed in its room, then the round ends' draws
+     (`fall2check.py`). Not run.
+   - creatures 2.5, a creature's bar (the load slowdown; before or after
+     the top-of-turn die; engine: a player's rule, after the die): (a),
+     item 3 below.
+   - creatures 2.6 and 5.4, a creature's carried moves (beside a foe;
+     through a door with no move left; engine: not halved; the full bar
+     if none was left): (a), item 4. Whether the top of that turn or the
+     load changes the carried count: (a), not run.
+   - creatures 4.2, fighter or slinker worked out afresh each turn
+     (engine: at each turn's start): (a), item 2.
+   - creatures 5.1, a goal individual on a square without an obstacle
+     (engine: closed): (c), 7.2's captures already have a slinker step
+     round the player it seeks; the obstacle case is item 1.
+   - creatures 5.3, spell doors other than the three let creatures pass,
+     the spell going off for them: (a), a portal of ours through
+     `--put`. Not run.
+   - creatures 6.5, one more case in which the step choice gives up:
+     (b), a research pass: the case is not known, so no scenario can aim
+     at it.
+   - creatures 7.3, a gift's drop spell acting on whoever stands on the
+     square: (a), 10.37 item 6's gift with `--item-when drop`. Not run.
+   - creatures 8.1, over capacity it picks nothing up; magic items in the
+     drop order; gold in the load: gold in item 3 (CD); the rest (a), not
+     run.
+   - encounters 3.4, room 0's list on the open map: (c), empty in the
+     whole corpus. The gaps an over-long list leaves in a wall, walkable
+     or not: (c), malformed data no editor writes.
+   - encounters 3.5, door parameters above 4, a missing destination's
+     screen (also 7.1), the door item's own picture: (c), malformed data
+     or drawing only. An area door into a room of region 1 rolling that
+     room's random creature (engine: it does): (a), `--map-bytes` on the
+     area door table with `--room-chance 15`. Not run.
+   - encounters 6.1, several players on the open map with an area in
+     use, and the map's 10-round visit (engine: player order; 10
+     rounds): (a), two players of ours, low in play. Not run.
+   - encounters 6.4, a door item on an inside square beside a creature:
+     (c), every corpus area door is the stored one on the wall; the
+     engine closes such squares to creatures anyway.
+   - encounters 7.6, retiring one of two players in an area: (a), 10.36's
+     retire chain with two players, low in play. Not run.
+   - combat 4.3: (c), the superseded [unknown], settled by 10.39 item 3.
+   - combat 4.4, magic defense bringing a blow to 0, and its message:
+     (c), 5.4 calls the attack off at levels 2 and 3 and level 1 never
+     makes 0; the message is presentation.
+   - combat 5.2, armor that disappears used up by a blow it stops
+     entirely: (a), item 6.
+   - combat 6.2, where readying falls on a drop turn with moves left:
+     (a), a creature over half its capacity owning a weapon. Not run.
+   - combat 7.4 and 8's "Not run", the Wisdom roll after arrows on
+     aggressive thieves and enemies and on players of Wisdom below 6 or
+     above 14: (a), a state sweep with 10.32's FIRE kit. Not run.
+   - combat 8.1, a creature fires only at a goal that is its foe: (a),
+     item 5.
+   - combat 8.8, what else misses a player that came in after the firer:
+     (a), two players through doors in one round, low in play. Not run.
+   - movement 2.4, a part-drained step: (a), item 7.
+   - movement 2.7, by how much load and adjacency slow: (c), the
+     manual's [unknown], settled by 10.39 item 4 and 10.41 item 2.
+   - movement 2.8, a player of Speed 0: (a), item 8.
+   - movement 4.3, terrain that triggers a spell, before or after the
+     move: (b), the editor: the scenario builder writes no such terrain
+     (one use in the corpus).
+   - movement 5.7, destroy needed thing with non-owners access (engine:
+     owners only): (a), a portal of ours through `--put`. Not run.
+
+   - **Item 1, the bump at the goal** (creatures 5.1; 10.41 item 3 saw
+     one). rr37's `ad-ob-a/arrived.vsf` (T arrived by the side portal on
+     2,4, where our obstacle bumps for Life Force -5; FF, a peaceful
+     friend of Speed 6, Life Force 15, on 5,5 of the first room, T its
+     goal), T's Speed set to 1 (`--set F5A3=1`) for short rounds;
+     `bump-m`, 256 random states, 30M each (about 5 FF turns a run), 2
+     jobs, 51 minutes. `turnlog.py --bump 16@2,4`: **9 bumps in 8 of 256
+     runs** (one run had 2), each a fall of 5 with FF staying put beside
+     2,4. Every one came on **FF's first turn after following T through
+     the portal**, the turn it began on 2,4 sharing T's square: 231 runs
+     followed, and 8 of those 231 turns bumped. In the **586 other
+     turns** that had FF beside 2,4 with a move left, **no bump**. State
+     1 is 10.41's run: the same bump at the same moment. So the bump
+     comes only after the creature has stood on the goal's square that
+     turn and stepped off (6.5's cost 4 for a square stood on this turn);
+     a creature that has not stood there does not try the square. Engine
+     (5.1): the square open at cost 4 if stood on this turn and **1
+     otherwise**, bumping about 3 times a run in 224 of 256: **wrong**
+     for the cost-1 case; the original bumps in 3.5% of the turns that
+     begin on the square, never otherwise.
+   - **Item 2, fighter or slinker each turn** (creatures 4.2). EE, an
+     aggressive cautious enemy of Speed 3 (Constitution 20) on 5,4 owning
+     and holding our blade (power 3); T of Speed 1 (`--set F5A3=1`);
+     `--answer T`; 4 states, 30M each. Built unwounded (Life Force 20),
+     `fsw-m`: it struck T in **4 of 4** runs (32 falls); the same
+     snapshot with its Life Force set to 10 at the run's start, after the
+     visit began (`fsw-set`, `--set E1A6=10`): **0 of 4**, walking off.
+     Built wounded (10), `fsw2-m`: 0 of 4; set to 20 at the start
+     (`fsw2-set`): **4 of 4** (31 falls). Brave and unwounded (`fsb-m`):
+     4 of 4. So the choice follows the Life Force of the moment, not the
+     one it had when placed or when the visit began. Engine (4.2): at
+     each turn's start: confirmed (16 of 16 runs). The same cases with no
+     weapon (`fs-m`, `fs-set`, `fs2-m`, `fs2-set`, 15 runs) never struck,
+     as an unarmed fighter never does (combat 2).
+   - **Item 3, a creature's bar and its load** (creatures 2.5, 8.1).
+     `wt`: peaceful friends of Speed 10, Strength 10, Constitution 20:
+     CA carrying 700 (Life Force 20, capacity 1,000), CB 500, CC 700 at
+     Life Force 18 (capacity 900), CD 700 gold and nothing else (Gold's
+     weight 1). `wt-m`, 8 states, 40M: the first turn's moves **CA 6,
+     CB 10, CC 4, CD 6, in 8 of 8 runs each**: inventory 3.3 with the
+     creature's own capacity, gold counted per piece; their next turns
+     began with 10. `wt2-m` (4 states, 60M, the room's list `$E583` and
+     CD's gold watched): CA, CC and CD each added an entry at the top of
+     their first turn (CD's a gold pile of 6 bytes, its gold going to
+     0), the overburdened drop of 8.1; CB's entry came later, when it
+     reached T (a gift, 7.3). Engine (2.5, 8.1): the same, gold dropped
+     first as one pile: confirmed. Not reached: before or after the die
+     (no creature healed at that turn's top: CC stayed 18 in 12 of 12
+     runs).
+   - **Item 4, a creature's carried moves** (creatures 2.6, 5.4).
+     `arrive.txt` as rr37's (T east through the side portal to 2,4), then
+     `run mem` from there with T at Speed 1, 30M. `dz`: FF of Speed 2 on
+     6,5, the portal its second step: it followed in 3 of 4 runs and
+     **began its next turn with 2**, its full bar. `d1`: Speed 3, 4 of 4
+     followed with 1 left and began with **1**. `df`: FF as rr37's
+     (Speed 6 on 5,5), EE an aggressive enemy of Speed 0 (no weapon) on
+     the side room's 2,5 beside the arrival square: 6 of 8 followed and
+     began beside EE with **3** (5 runs) or 1 (1 run), its carried moves,
+     **not halved**. `fh` (control): the same FF beside the same kind of
+     enemy on its first turn, nothing carried, began with **3** of 6 (2
+     of 2). Engine (2.6, 5.4): carried moves not halved, the full bar
+     when none were left: confirmed.
+   - **Item 5, firing at a goal that is not a foe** (combat 8.1). `fb`:
+     FB, an aggressive brave friend holding our bow (power 5, range 9),
+     on 10,4, T the only other individual; `nb` the same as a neutral.
+     8 states each, 30M: FB **never fired** (no shot count at `$B799`,
+     16 turns); NB fired on its first turn in **8 of 8** runs. Engine
+     (8.1): a goal not its foe is not shot at: confirmed.
+   - **Item 6, armor that disappears, a blow it stops** (combat 5.2).
+     `mo`: T wearing our mail (power 20, once), EE an aggressive brave
+     enemy with our blade of power 5; `mo2-m`, 4 states, 30M, `--answer
+     T` (`mo-m` stopped at the message on EE's first blow). In **4 of
+     4** runs the mail went (`$F5B4` to 0) at a blow that took no Life
+     Force, the first blow to reach it; T's first loss came at a later
+     blow (in the same attack in run 3). Engine (5.2): used up by a blow
+     it stops entirely: confirmed.
+   - **Item 7, a part-drained step** (movement 2.4). `pd` (T alone,
+     Speed 6): `pd.txt` waits for the refill to 6 and the first drain to
+     5, runs Y more, then holds east until the moves reach 0. The second
+     drain came between 1.75M and 1.85M after the first. Y 100k, 900k,
+     1,600k, 1,750k: moves 5 at the push and **5 squares walked**; Y
+     1,850k: moves 4, 4 walked. So a step is walkable however much of it
+     has drained; only the whole step's drain takes it. Engine (2.4):
+     whole steps: confirmed (5 of 5).
+   - **Item 8, a player of Speed 0** (movement 2.8). From rr37's
+     `hp-room.vsf`, T's Speed set to 0 (`sp0.txt`): at its next turn
+     the moves read 0 and **the menu opened by itself**; the stick did
+     nothing (T stayed on 4,4) and the turn did not end in 20M. `sp0b`:
+     MOVE chosen from that menu shows the message that it can't move,
+     perhaps carrying too much; the turn still did not end. Engine (2.8):
+     moves refused, only Wait ends the turn: confirmed (one run each); a
+     front end may open the menu at once, as the original does.
+
+   No new addresses: the turn byte, the moves, the slots' bytes, `$B799`,
+   `$F5B4` (record +21), the possession bytes and the room list are
+   section 9's.

@@ -16,6 +16,7 @@ as 0). The moves: Speed when the load is at most half the capacity, else
 Speed x 2 x (capacity - load) / capacity rounded down; 0 at or past it.
 
     python scripts/capcheck.py RUNS.jsonl... --speed 15 --load 500 [--at refill|turn] [-v]
+    python scripts/capcheck.py RUNS.jsonl --speed 10 --load 600 --who 16 --base E1A3   # a creature (10.43)
 """
 import argparse
 import json
@@ -46,22 +47,24 @@ def moves(speed, strength, wound, load, how):
     return speed * 2 * (cap - load) // cap
 
 
-def readings(v, at):
-    """(Constitution, Strength, Life Force, moves) at each turn start."""
+def readings(v, at, who_at=1, base=0xF59F):
+    """(Constitution, Strength, Life Force, moves) at each turn start of
+    individual `who_at` (`$71FA`), whose record starts at `base`."""
+    con_a, str_a, lf_a = (f"{base + k:04X}" for k in (0, 1, 3))
     st = dict(zip(v["watch"], v["start"]))
     cur = dict(st)
     who = st.get("71FA")
-    lf_turn = cur["F5A2"]
+    lf_turn = cur[lf_a]
     out = []
     for c in v["changes"]:
         a = c["addr"]
         if a == "71FA":
             who = c["to"]
-            if who == 1:
-                lf_turn = cur["F5A2"]
-        if a == "719A" and c["to"] > c["from"] and who == 1:
-            lf = cur["F5A2"] if at == "refill" else lf_turn
-            out.append((cur["F59F"] & 63, cur["F5A0"] & 31, lf & 63, c["to"]))
+            if who == who_at:
+                lf_turn = cur[lf_a]
+        if a == "719A" and c["to"] > c["from"] and who == who_at:
+            lf = cur[lf_a] if at == "refill" else lf_turn
+            out.append((cur[con_a] & 63, cur[str_a] & 31, lf & 63, c["to"]))
         cur[a] = c["to"]
     return out
 
@@ -72,6 +75,8 @@ def main():
     ap.add_argument("--speed", type=int, required=True)
     ap.add_argument("--load", type=int, required=True)
     ap.add_argument("--at", default="refill", choices=["refill", "turn"])
+    ap.add_argument("--who", type=int, default=1, help="the individual (`$71FA`; 16 is creature slot 0, capture.md 10.43)")
+    ap.add_argument("--base", default="F59F", help="its record, hex (creature slot s: E1A3 + 37 s)")
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
     hows = WOUNDS + [w + "-clamped" for w in WOUNDS]
@@ -81,7 +86,7 @@ def main():
     for path in a.runs:
         for line in open(path, encoding="utf-8"):
             v = json.loads(line)
-            for con, strength, lf, m in readings(v, a.at):
+            for con, strength, lf, m in readings(v, a.at, a.who, int(a.base, 16)):
                 total += 1
                 key = (con, strength, lf, m)
                 seen[key] = seen.get(key, 0) + 1

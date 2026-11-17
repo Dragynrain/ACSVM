@@ -3,7 +3,9 @@
 //! Creatures and turn order (creatures 2-3, magic 5): who moves when, the
 //! visits, doors and the moves they carry, the adjacency slowdown,
 //! following through a door, random creatures appearing and falling away,
-//! the catch-up, Power drift and the idle healing roll's range.
+//! the catch-up, Power drift and the idle healing roll's range; a creature's
+//! take, its bar against its load and the turn-top die, fighter or slinker
+//! afresh each turn, and the moves it carries through a door.
 //!
 //! The capture's scenarios differ from [`base`] in their room: no door in
 //! the top wall (the `one` room has no way out) and, with `--side-room`, a
@@ -2045,64 +2047,98 @@ fn arriving_by_a_room_door_triggers_nothing_and_a_creature_carries_its_moves() {
     );
 }
 
-/// capture.md 10.41 item 3, seen once (rr37 `ad-ob-m` run 1; creatures
-/// 5.1): FF, a slinker friend on the side room's 1,4 beside the obstacle
-/// that bumps for -5 on 2,4, the player (its goal) on that square, picked
-/// the square east: its Life Force fell 16 to 11 and it stayed on 1,4.
-/// Here every bump FF makes at 2,4 after following T there must so: the
-/// bump's -5 at once (to 0 at most), FF never on 2,4 again. One run: no
-/// rate.
+/// capture.md 10.44 item 1 (rr40 `bump-m`, 256 states; creatures 5.1,
+/// movement 5.5): T on the side room's 2,4, where the obstacle bumps for
+/// -5, FF (T its goal) following it through the portal. 9 bumps in 8 runs,
+/// every one on FF's first turn after following, the turn it began on 2,4
+/// sharing T's square: 8 of those 231 turns bumped; in the 586 other turns
+/// with FF beside 2,4 and a move left, never. Each bump is the -5 at once
+/// with FF staying put, and FF never steps back onto 2,4 (10.41 item 3,
+/// rr37 `ad-ob-m` run 1, the same bump). T's Speed 1 there only shortens
+/// the rounds; here T waits out its turns. The rate per such first turn is
+/// a sample; no bump on any other turn, exact.
 #[test]
 fn a_creature_bumps_the_obstacle_its_goal_stands_on() {
     let a = arrival("ad-ob");
-    let (mut bumps, mut runs) = (0, 0);
-    for seed in 0..SEEDS / 16 {
+    let (mut first_turns, mut first_bumped, mut others) = (0, 0, 0);
+    for seed in 0..SEEDS / 4 {
         let mut g = start(&a, seed, tee(12));
         walk_in(&mut g);
         let mut ev = east(&mut g, 3);
+        assert_eq!(g.players()[0].at, side(2, 4));
         for _ in 0..8 {
+            if g.creature(1, 0).is_none() {
+                break;
+            }
             ev.extend(wait(&mut g));
         }
-        let Some(landed) = ev
-            .iter()
-            .position(|e| matches!(e, Event::CreatureTookDoor { slot: 0, to, .. } if *to == side(2, 4)))
-        else {
-            continue;
+        assert_eq!(g.players()[0].at, side(2, 4), "seed {seed}");
+        let beside = |l: Location| {
+            matches!(l, Location::Room { region: 1, room: SIDE, x, y }
+                if x.abs_diff(2) + y.abs_diff(4) == 1)
         };
-        let after = &ev[landed + 1..];
-        let mut left = false;
-        let before = bumps;
-        for (i, e) in after.iter().enumerate() {
-            match *e {
-                Event::CreatureMoved {
-                    slot: 0, from, to, ..
-                } => {
-                    assert_ne!(to, side(2, 4), "seed {seed}: FF stepped back onto the obstacle");
-                    left |= from == side(2, 4);
+        // FF's square, followed through its moves and door.
+        let mut at = Location::Room {
+            region: 1,
+            room: ROOM,
+            x: 5,
+            y: 5,
+        };
+        let mut after_door = false;
+        for turn in turns_of(&ev, 0) {
+            let began = at;
+            let first = after_door && began == side(2, 4);
+            after_door = false;
+            // The squares it chose a step from, but the last.
+            let mut chose_beside = beside(began);
+            let mut bumped = 0;
+            for (i, e) in turn.iter().enumerate() {
+                match *e {
+                    Event::CreatureMoved { slot: 0, to, .. } => {
+                        assert_ne!(to, side(2, 4), "seed {seed}: FF stepped back onto the obstacle");
+                        at = to;
+                        chose_beside |= beside(to) && i + 1 < turn.len();
+                    }
+                    Event::CreatureTookDoor { slot: 0, to, .. } => {
+                        at = to;
+                        after_door = to == side(2, 4);
+                    }
+                    Event::CreatureBumped { slot: 0, at: b, .. } => {
+                        assert!(first && b == side(2, 4) && beside(at), "seed {seed}: {e:?}");
+                        let change = turn[i + 1..]
+                            .iter()
+                            .find(|e| matches!(e, Event::StatChanged { .. }));
+                        assert!(
+                            matches!(
+                                change,
+                                Some(Event::StatChanged { who, stat: Stat::LifeForce, from, to })
+                                    if *who == slot(0) && *to == from.saturating_sub(5)
+                            ),
+                            "seed {seed}: the bump's -5: {change:?}"
+                        );
+                        bumped += 1;
+                    }
+                    _ => {}
                 }
-                Event::CreatureBumped { slot: 0, at, .. } => {
-                    assert!(left && at == side(2, 4), "seed {seed}: {e:?}");
-                    let change = after[i + 1..]
-                        .iter()
-                        .find(|e| matches!(e, Event::StatChanged { .. }));
-                    assert!(
-                        matches!(
-                            change,
-                            Some(Event::StatChanged { who, stat: Stat::LifeForce, from, to })
-                                if *who == slot(0) && *to == from.saturating_sub(5)
-                        ),
-                        "seed {seed}: the bump's -5: {change:?}"
-                    );
-                    bumps += 1;
-                }
-                _ => {}
+            }
+            if first {
+                first_turns += 1;
+                first_bumped += u64::from(bumped > 0);
+            } else {
+                assert_eq!(bumped, 0, "seed {seed}");
+                others += u64::from(chose_beside);
             }
         }
-        assert_eq!(g.players()[0].at, side(2, 4));
-        runs += u64::from(bumps > before);
     }
-    println!("ad-ob: {bumps} bumps at the goal's obstacle in {runs} runs");
-    assert!(bumps > 0, "no bump at the goal's obstacle");
+    println!("bump-m: {others} other turns with FF beside 2,4, no bump");
+    same_rate(
+        "bump-m: FF bumps on its first turn on the goal's obstacle square",
+        Sweep::Sample,
+        8,
+        231,
+        first_bumped,
+        first_turns,
+    );
 }
 
 /// Puts a pile of `amount` gold on ROOM (x, y).
@@ -2251,5 +2287,381 @@ fn gold_costs_its_rank_on_the_first_step() {
         assert!(took(turns_of(&ev, 0)[0]), "g1-m seed {seed}: {ev:?}");
         let c = g.creature(1, 0).expect("TH");
         assert_eq!((c.x, c.y, c.wealth), (8, 4, 50), "g1-m seed {seed}");
+    }
+}
+
+// ---- capture.md 10.43: a creature's take and its turn start ---------------
+
+/// The first `n` turns of slot 0, T waiting: up to `4 * n` waits.
+fn first_turns(g: &mut Game, n: usize) -> Vec<Vec<Event>> {
+    let mut ev = Vec::new();
+    for _ in 0..4 * n {
+        if turns_of(&ev, 0).len() >= n {
+            break;
+        }
+        ev.extend(wait(g));
+    }
+    turns_of(&ev, 0).into_iter().take(n).map(|t| t.to_vec()).collect()
+}
+
+fn creature_moves(turn: &[Event]) -> u8 {
+    match turn[0] {
+        Event::CreatureTurn { moves, .. } => moves,
+        _ => unreachable!(),
+    }
+}
+
+/// capture.md 10.43 item 8 (rr39 `ct-m`, 8 states, 30M; inventory 2.7):
+/// TH, a peaceful thief of Speed 0 on 8,4, our treasure 60 on 7,4 placed
+/// with 0, 61 on 9,4 placed with 1. Every run: two takes, both things gone
+/// from the floor, only 61 owned; 6 runs took 60 first, 2 took 61 first.
+/// The takes exact; which first, a sample.
+#[test]
+fn a_creatures_take_of_a_thing_placed_with_0_owns_nothing() {
+    const PUTCI: u16 = 60;
+    const PUTGI: u16 = 61;
+    let mut a = closed();
+    thing(&mut a, PUTCI, "PUTCI", treasure(1, 1));
+    thing(&mut a, PUTGI, "PUTGI", treasure(1, 1));
+    // The room's list as the case wrote it, 60 before 61 (the goal's ties
+    // go to the earlier entry, creatures 6.2).
+    item(&mut a, ROOM, 9, 4, PUTGI);
+    item(&mut a, ROOM, 7, 4, PUTCI);
+    a.regions[0].rooms[ROOM as usize].items[0].parameter = 0;
+    creature(&mut a, 0, 8, 4, |c| {
+        c.name = "TH".into();
+        c.speed = 0;
+        c.strategy.alignment = Alignment::Thief;
+        c.strategy.aggressive = false;
+    });
+    let runs = SEEDS / 8;
+    let first_60 = count(runs, |seed| {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let mut took = Vec::new();
+        for _ in 0..8 {
+            for e in wait(&mut g) {
+                if let Event::CreaturePickedUp { slot: 0, thing, .. } = e {
+                    took.push(thing);
+                }
+            }
+            if took.len() >= 2 {
+                break;
+            }
+        }
+        assert!(
+            took.len() == 2 && took.contains(&PUTCI) && took.contains(&PUTGI),
+            "seed {seed}: {took:?}"
+        );
+        let c = g.creature(1, 0).expect("TH");
+        let n = |t| acs_engine::creatures::count(c, t);
+        assert_eq!((n(PUTCI), n(PUTGI)), (0, 1), "seed {seed}");
+        assert!(
+            !g.adventure().regions[0].rooms[ROOM as usize]
+                .items
+                .iter()
+                .any(|i| matches!((i.x, i.y), (7, 4) | (9, 4))),
+            "seed {seed}: both gone from the floor"
+        );
+        took[0] == PUTCI
+    });
+    same_rate("ct-m: 60 taken first", Sweep::Sample, 6, 8, first_60, runs);
+}
+
+/// capture.md 10.43 item 9 (rr39 `cw-m`, 16 states, 40M, `cw-m2`, 96, 10M;
+/// inventory 3.4, creatures 2.5, magic 5.1): CW, a peaceful friend of
+/// Speed 10, Strength 10, Constitution 20, Life Force 14, carrying a
+/// treasure of weight 600 (capacity 700 at Life Force 14: 2 moves; 800 at
+/// 15: 5). Every first turn began with 2 moves, 112 of 112; CW dropped the
+/// treasure as its first action and stepped once, and its next turn began
+/// with 10. The top-of-turn die healed it 14 to 15 in 23 of `cw-m2`'s 96
+/// and 1 of `cw-m`'s 16, the moves set to 2 before the heal each time. The
+/// moves exact; the heals a sample.
+#[test]
+fn a_creatures_moves_are_set_before_its_turn_top_die() {
+    const LOAD: u16 = 50;
+    let mut a = closed();
+    thing(&mut a, LOAD, "LOAD", treasure(600, 1));
+    ours(&mut a, 0, "CW", 12, 7, |c| {
+        c.speed = 10;
+        c.strength = 10;
+        c.constitution = 20;
+        c.life_force = 14;
+        owns(c, LOAD);
+    });
+    let runs = SEEDS / 4;
+    let healed = count(runs, |seed| {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        // CW's first turn comes in T's first wait; its Life Force after it
+        // is the die's alone (both moves used: no idle roll).
+        let mut ev = wait(&mut g);
+        assert_eq!(turns_of(&ev, 0).len(), 1, "seed {seed}");
+        let healed = match g.creature(1, 0).expect("CW").life_force {
+            14 => false,
+            15 => true,
+            lf => panic!("seed {seed}: Life Force {lf}"),
+        };
+        for _ in 0..4 {
+            if turns_of(&ev, 0).len() >= 2 {
+                break;
+            }
+            ev.extend(wait(&mut g));
+        }
+        let turns = turns_of(&ev, 0);
+        assert!(turns.len() >= 2, "seed {seed}: CW's turns");
+        let first = turns[0];
+        assert_eq!(creature_moves(first), 2, "seed {seed}: {first:?}");
+        assert!(
+            matches!(
+                first[1],
+                Event::CreatureDropped {
+                    slot: 0,
+                    thing: LOAD,
+                    ..
+                }
+            ),
+            "seed {seed}: the drop first: {first:?}"
+        );
+        let steps = first
+            .iter()
+            .filter(|e| matches!(e, Event::CreatureMoved { slot: 0, .. }))
+            .count();
+        assert_eq!(steps, 1, "seed {seed}: {first:?}");
+        assert_eq!(creature_moves(turns[1]), 10, "seed {seed}");
+        healed
+    });
+    same_rate(
+        "cw-m, cw-m2: first turns healed at the top",
+        Sweep::Sample,
+        24,
+        112,
+        healed,
+        runs,
+    );
+}
+
+// ---- capture.md 10.44: fighter or slinker, the load, carried moves --------
+
+/// capture.md 10.44 item 2 (rr40 `fsw-m`, `fsw-set`, `fsw2-m`, `fsw2-set`,
+/// `fsb-m`, 4 states each, 30M, `--answer T`; `fs-*`, 15 runs; creatures
+/// 4.2): EE, an aggressive cautious enemy of Speed 3, Constitution 20, on
+/// 5,4 beside T (Speed 1), owning and holding our blade of power 3. Built
+/// unwounded (Life Force 20): it struck T in 4 of 4 runs; set to 10 at the
+/// run's start, after the visit began: 0 of 4, walking off. Built wounded
+/// (10): 0 of 4; set to 20 at the start: 4 of 4. Brave and unwounded: 4 of
+/// 4. With no weapon none ever struck. Over EE's first four turns here;
+/// exact.
+#[test]
+fn fighter_or_slinker_is_worked_out_afresh_each_turn() {
+    const BLADE: u16 = 59;
+    for armed in [true, false] {
+        for (name, built, set, brave, strikes) in [
+            ("fsw-m", 20, None, false, true),
+            ("fsw-set", 20, Some(10), false, false),
+            ("fsw2-m", 10, None, false, false),
+            ("fsw2-set", 10, Some(20), false, true),
+            ("fsb-m", 20, None, true, true),
+        ] {
+            let mut a = closed();
+            thing(&mut a, BLADE, "BLADE", blade(3));
+            creature(&mut a, 0, 5, 4, |c| {
+                c.name = "EE".into();
+                c.speed = 3;
+                c.constitution = 20;
+                c.life_force = built;
+                c.strategy.brave = brave;
+                c.weapon = 0;
+                c.possessions.clear();
+                if armed {
+                    owns(c, BLADE);
+                    c.weapon = BLADE;
+                }
+            });
+            for seed in 0..16 {
+                let mut g = game(&a, seed, tee(1), room(4, 4));
+                if let Some(lf) = set {
+                    g.creature_mut(1, 0).expect("EE").life_force = lf;
+                }
+                let turns = first_turns(&mut g, 4);
+                assert_eq!(turns.len(), 4, "{name} seed {seed}");
+                let struck = turns
+                    .iter()
+                    .flatten()
+                    .any(|e| matches!(e, Event::Attacked { by, target: ME, .. } if *by == slot(0)));
+                assert_eq!(struck, strikes && armed, "{name} armed {armed} seed {seed}");
+            }
+        }
+    }
+}
+
+/// capture.md 10.44 item 3 (rr40 `wt-m`, 8 states, 40M; `wt2-m`, 4 states,
+/// 60M; creatures 2.5, 8.1): peaceful friends of Speed 10, Strength 10,
+/// Constitution 20: CA carrying 700 (Life Force 20, capacity 1,000), CB
+/// 500, CC 700 at Life Force 18 (capacity 900), CD 700 gold and nothing
+/// else (Gold's weight 1). The first turn's moves CA 6, CB 10, CC 4, CD 6
+/// in 8 of 8 runs each, their next turns 10. CA, CC and CD dropped at the
+/// top of the first turn, CD its gold as one pile, its gold going to 0; CB
+/// did not. Exact.
+#[test]
+fn a_creatures_bar_counts_its_load_and_its_gold() {
+    const HEAVY: u16 = 50;
+    const LIGHT: u16 = 51;
+    let mut a = closed();
+    thing(&mut a, HEAVY, "HEAVY", treasure(700, 1));
+    thing(&mut a, LIGHT, "LIGHT", treasure(500, 1));
+    thing(&mut a, GOLD, "GOLD", treasure(1, 1));
+    // (name, square, Life Force, the thing carried, gold, first turn's moves)
+    type Case = (&'static str, (u8, u8), u8, Option<u16>, u16, u8);
+    let cases: [Case; 4] = [
+        ("CA", (12, 1), 20, Some(HEAVY), 0, 6),
+        ("CB", (12, 8), 20, Some(LIGHT), 0, 10),
+        ("CC", (1, 8), 18, Some(HEAVY), 0, 4),
+        ("CD", (1, 1), 20, None, 700, 6),
+    ];
+    for (n, &(name, (x, y), lf, load, gold, _)) in cases.iter().enumerate() {
+        ours(&mut a, n, name, x, y, |c| {
+            c.speed = 10;
+            c.strength = 10;
+            c.constitution = 20;
+            c.life_force = lf;
+            c.wealth = gold;
+            c.possessions.clear();
+            if let Some(t) = load {
+                owns(c, t);
+            }
+        });
+    }
+    for seed in 0..32 {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let mut ev = Vec::new();
+        for _ in 0..8 {
+            if (0..4).all(|n| turns_of(&ev, n).len() >= 2) {
+                break;
+            }
+            ev.extend(wait(&mut g));
+        }
+        for (n, &(name, _, _, load, gold, moves)) in cases.iter().enumerate() {
+            let turns = turns_of(&ev, n);
+            assert!(turns.len() >= 2, "{name} seed {seed}");
+            assert_eq!(creature_moves(turns[0]), moves, "{name} seed {seed}");
+            assert_eq!(creature_moves(turns[1]), 10, "{name} seed {seed}");
+            let first = &turns[0][1];
+            let over = moves < 10;
+            let dropped = match (load, gold) {
+                (_, 700) => matches!(
+                    first,
+                    Event::CreatureDropped {
+                        thing: GOLD,
+                        amount: 700,
+                        ..
+                    }
+                ),
+                (Some(t), _) => matches!(first, Event::CreatureDropped { thing, .. } if *thing == t),
+                _ => unreachable!(),
+            };
+            assert_eq!(dropped, over, "{name} seed {seed}: {:?}", turns[0]);
+        }
+    }
+}
+
+/// rr40's `arrive` rooms (as rr37's `ad-*`, the side portal on 7,4 to the
+/// side room's 2,4): FF, a peaceful friend of `speed`, on ROOM (x, y).
+fn arrive(speed: u8, at: (u8, u8)) -> Adventure {
+    let mut a = with_portal(DOOR, to_side());
+    ours(&mut a, 0, "FF", at.0, at.1, |c| {
+        c.speed = speed;
+        c.constitution = 15;
+        c.life_force = 15;
+    });
+    a
+}
+
+/// EE of rr40 `df`, `fh`: an aggressive enemy of Speed 0, no weapon, in
+/// slot 1 on `room` (x, y).
+fn still_enemy(a: &mut Adventure, room: u8, x: u8, y: u8) {
+    creature(a, 1, x, y, |c| {
+        c.name = "EE".into();
+        c.room = room;
+        c.speed = 0;
+        c.wisdom = 3;
+        c.weapon = 0;
+        c.possessions.clear();
+    });
+}
+
+/// capture.md 10.44 item 4 (rr40 `dz`, `d1`, `df`, `fh`, `arrive.txt`,
+/// `run mem` from T's arrival through the side portal, 30M; creatures 2.6,
+/// 5.4): FF following T through the portal on its first turn. `dz` (Speed
+/// 2 on 6,5, the portal its second step): followed in 3 of 4 runs, its
+/// next turn beginning with 2, its full bar. `d1` (Speed 3 on 6,5): 4 of 4
+/// followed with 1 left and began with 1. `df` (Speed 6 on 5,5, EE an
+/// aggressive enemy of Speed 0 with no weapon on the side room's 2,5
+/// beside the arrival square): 6 of 8 followed and began beside EE with
+/// its carried moves, 3 (5 runs) or 1 (1), not halved. `fh`: the same FF
+/// beside the same kind of enemy on its first turn, nothing carried: 3 of
+/// 6 (2 of 2). The moves exact; the following a sample.
+#[test]
+fn a_creatures_carried_moves_are_not_halved_and_none_left_is_a_full_bar() {
+    for (name, speed, at, enemy, cap_k, cap_n) in [
+        ("dz", 2, (6, 5), false, 3, 4),
+        ("d1", 3, (6, 5), false, 4, 4),
+        ("df", 6, (5, 5), true, 6, 8),
+    ] {
+        let mut a = arrive(speed, at);
+        if enemy {
+            still_enemy(&mut a, SIDE, 2, 5);
+        }
+        let runs = SEEDS / 16;
+        let followed = count(runs, |seed| {
+            let mut g = start(&a, seed, tee(12));
+            walk_in(&mut g);
+            let mut ev = east(&mut g, 3);
+            assert_eq!(g.players()[0].at, side(2, 4), "{name}");
+            let first = turns_of(&ev, 0)
+                .first()
+                .unwrap_or_else(|| panic!("{name} seed {seed}: FF took no turn"))
+                .to_vec();
+            if !first
+                .iter()
+                .any(|e| matches!(e, Event::CreatureTookDoor { slot: 0, to, .. } if *to == side(2, 4)))
+            {
+                return false;
+            }
+            let steps = first
+                .iter()
+                .filter(|e| matches!(e, Event::CreatureMoved { slot: 0, .. }))
+                .count() as u8;
+            let ff = g.creature(1, 0).expect("FF");
+            assert_eq!((ff.room, ff.x, ff.y), (SIDE, 2, 4), "{name} seed {seed}");
+            for _ in 0..4 {
+                if turns_of(&ev, 0).len() >= 2 {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let left = speed - steps - 1;
+            let want = if left == 0 { speed } else { left };
+            assert_eq!(
+                creature_moves(turns_of(&ev, 0)[1]),
+                want,
+                "{name} seed {seed}: FF's carried moves"
+            );
+            true
+        });
+        same_rate(
+            &format!("{name}: FF through the portal on its first turn"),
+            Sweep::Sample,
+            cap_k,
+            cap_n,
+            followed,
+            runs,
+        );
+    }
+    // `fh`
+    let mut a = arrive(6, (5, 5));
+    still_enemy(&mut a, ROOM, 5, 6);
+    for seed in 0..16 {
+        let mut g = game(&a, seed, tee(6), room(4, 4));
+        let turns = first_turns(&mut g, 1);
+        assert_eq!(creature_moves(&turns[0]), 3, "fh seed {seed}");
     }
 }

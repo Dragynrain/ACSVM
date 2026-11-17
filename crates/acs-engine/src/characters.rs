@@ -241,20 +241,14 @@ impl Game {
     }
 
     /// Whether a possession goes down on a Destroy in a room (7.5): never
-    /// a spell, nor a weapon of weight 0 that nobody may use (1); every
-    /// other thing does, whoever else is in play and whatever its "ACS may
-    /// add" count (2).
+    /// a spell, nor a weapon or armor only its owner may use, whatever it
+    /// weighs (1, a death's test, magic 7.2); every other thing does,
+    /// whoever else is in play and whatever its "ACS may add" count (2).
     fn goes_down_on_destroy(&self, thing: ThingId) -> bool {
         let Some(t) = self.thing(thing) else {
             return true;
         };
-        match &t.kind {
-            ThingKind::MagicSpell { .. } => false,
-            ThingKind::MeleeWeapon { carry, stats, .. } | ThingKind::MissileWeapon { carry, stats, .. } => {
-                carry.weight != 0 || stats.usable_by_anyone
-            }
-            _ => true,
-        }
+        !matches!(t.kind, ThingKind::MagicSpell { .. }) && !crate::magic::owner_only(&t.kind)
     }
 }
 

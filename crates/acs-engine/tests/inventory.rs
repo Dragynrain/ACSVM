@@ -873,3 +873,74 @@ fn a_take_gives_the_placed_parameter() {
         assert_eq!(g.current_player().count(DUST), 3);
     });
 }
+
+// ---- capture.md 10.43: a drop on the world map --------------------------
+
+/// 5.3, 5.9: a drop on the world map spends one move and its drop spell
+/// goes off on the dropper; refused drops there cost nothing; a room drop
+/// stays free.
+#[test]
+fn a_drop_on_the_world_map_costs_one_move_and_casts_on_the_dropper() {
+    both(|p| {
+        let mut g = game_with(p, PlayerSetup { gold: 5, ..setup() });
+        for t in [AMULET, SWORD, CHARM, CLAWS] {
+            g.give(0, t);
+        }
+        g.place(0, Location::World { x: 20, y: 20 });
+        let left = g.current_player().moves_left;
+        // Refused on the map: nothing spent.
+        for t in [CHARM, CLAWS] {
+            let ev = drop(&mut g, t, None);
+            assert!(refused(&ev).is_some(), "{ev:?}");
+            assert_eq!(g.current_player().moves_left, left);
+        }
+        let ev = drop(&mut g, AMULET, None);
+        assert_eq!(
+            ev[0],
+            Event::LostOnMap {
+                player: 0,
+                thing: AMULET
+            }
+        );
+        assert!(
+            ev.iter().any(|e| matches!(
+                e,
+                Event::SpellTriggered {
+                    by: acs_engine::Who::Player { player: 0 },
+                    source: SpellSource::Dropped,
+                    thing: AMULET,
+                    ..
+                }
+            )),
+            "{ev:?}"
+        );
+        assert_eq!(g.current_player().moves_left, left - 1);
+        drop(&mut g, SWORD, None);
+        assert_eq!(g.current_player().moves_left, left - 2);
+        g.apply(Command::DropGold { amount: 2, dir: None });
+        assert_eq!(g.current_player().moves_left, left - 3);
+        assert_eq!(g.current_player().gold, 3);
+        // Back in a room, a drop is free.
+        g.give(0, ROCK);
+        g.place(0, hall(5, 3));
+        let left = g.current_player().moves_left;
+        drop(&mut g, ROCK, None);
+        assert_eq!(g.current_player().moves_left, left);
+    });
+}
+
+/// 5.9: with its last move a map drop ends the turn, as any move does.
+#[test]
+fn a_map_drop_with_the_last_move_ends_the_turn() {
+    both(|p| {
+        let mut g = game_with(p, PlayerSetup { speed: 1, ..setup() });
+        g.give(0, SWORD);
+        g.place(0, Location::World { x: 20, y: 20 });
+        assert_eq!(g.current_player().moves_left, 1);
+        let ev = drop(&mut g, SWORD, None);
+        assert!(
+            ev.iter().any(|e| matches!(e, Event::TurnEnded { player: 0 })),
+            "{ev:?}"
+        );
+    });
+}

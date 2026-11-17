@@ -456,7 +456,9 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    4. The mark is set on a slot when a random room creature is put there
       (3.3). Removal keeps it (above). What clears it, and whether a
       death keeps it too, is [unknown]: none of these runs put a new
-      creature into a marked empty slot.
+      creature into a marked empty slot. (Reachable, not yet run: a
+      random creature killed in its room, then the round ends' draws read
+      as above; capture.md 10.44.)
    **Engine:** so. The engine keeps the mark per slot, apart from the
    creature: a removal, and (its choice) a banishment and a death, leave
    it set, so a
@@ -477,12 +479,32 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    the creature's own Strength, Constitution, Life Force and load. On the
    C64 it shows on the left as a player's does, 8 pixels a point of Speed
    (24, 40 and 32 pixels for Speeds 3, 5 and 4, carrying nothing), and
-   drains as the creature walks. [capture: turns] The slowdown part is
-   [unknown]. A player's bar is set after the top-of-turn healing die,
-   from the Life Force it leaves ([inventory](inventory.md) 3.4;
-   [capture: rr35, capture.md 10.39 item 4]); whether a creature's is too
-   is [unknown]. **Engine:** the same order for creatures (catch-up,
-   drift, the die, then the bar).
+   drains as the creature walks. [capture: turns] The slowdown is a
+   player's: loads of 150 and 101 of a capacity of 200 gave Speed 6
+   creatures 3 and 5 moves (8.1.2) [capture: rr28 `burden2-sw`,
+   capture.md 10.32], and a Speed 10 creature at capacity 700 carrying
+   600 had 2 [capture: rr39 `cw-m`, capture.md 10.43 item 9]. **Gold in
+   the load** counts as a player's does, per piece times Gold's weight
+   ([inventory](inventory.md) 3.1): four peaceful friends of Speed 10,
+   Strength 10 and Constitution 20 began their first turn with 6 moves
+   carrying 700 (capacity 1,000), 10 carrying 500, 4 carrying 700 at Life
+   Force 18 (capacity 900), and 6 carrying 700 gold of weight 1 and
+   nothing else, in 8 of 8 runs each; each began its next turn with 10,
+   the three over half their capacity having dropped (8.1.2), the gold
+   carrier its gold as one pile. [capture: mem, rr40 `wt-m`, `wt2-m`,
+   capture.md 10.44 item 3; ours, no research pass, 2026-11-16] A player's
+   bar is set after the top-of-turn healing die, from the Life Force it
+   leaves; **a creature's is set before the die**, from the Life Force
+   it had: in 24 turn starts of 112 the die healed the creature (14 to
+   15 of Constitution 20, which would have raised its moves from 2 to 5),
+   and each began with 2, the moves set before the heal
+   ([inventory](inventory.md) 3.4; [capture: rr35, capture.md 10.39 item
+   4; mem, rr39 `cw-m`, `cw-m2`, capture.md 10.43 item 9; ours, no
+   research pass, 2026-11-16]). **Engine:** for a creature, catch-up,
+   drift, the bar, then the die; for a player, drift, the die, then the
+   bar. Where the catch-up falls against the bar is [unknown] (the
+   engine keeps it first). (Superseded: the engine's earlier choice of
+   the player's order for creatures.)
    **Engine:** so. A creature with Speed 0 has a bar of 0 but still takes
    one action a turn (2.7); the manual adds that it does not show its name
    on its turn. [manual]
@@ -499,7 +521,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    turn, as the bar is refilled, its moves are **halved, rounding up**,
    if an aggressive individual or a player not on its side stands beside
    it (Speed 3 gives 2, 6 gives 3); the weight slowdown comes after the
-   halving, and both after the healing die (inventory 3.4). [research: combat third pass, every turn start of about 1,500
+   halving, and both after the healing die for a player, before it for a
+   creature (inventory 3.4, 2.5). [research: combat third pass, every turn start of about 1,500
    in its replays; the slowdown's order traced] An enemy of Speed 3 had 2
    moves on every turn it began beside the player, 3 otherwise, and the
    player 3 of 6 beside it. [capture: every pass 2 and 3 combat run,
@@ -536,9 +559,14 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    every later turn beside the enemy began with 6. [capture: mem, rr25,
    cases adj, diag, capture.md 10.29; ours, no research pass,
    2026-11-14] **Engine:** so; `TurnStarted` reports `hindered` false
-   for a turn that starts with carried moves. A creature's turn that
-   starts with moves carried through a door (5.4) was never seen beside a
-   foe [unknown]. **Engine:** as for a player: not halved.
+   for a turn that starts with carried moves. **A creature's carried turn
+   is not halved either**: a friend of Speed 6 that followed the player
+   through a portal onto a square beside an aggressive enemy of Speed 0
+   began its next turn there with its carried moves, 3 (5 runs) or 1 (1
+   run), where the same friend beside the same kind of enemy with nothing
+   carried began with 3 of 6 (2 of 2). [capture: mem, rr40 `df`, `fh`,
+   capture.md 10.44 item 4; ours, no research pass, 2026-11-16]
+   **Engine:** so, as for a player (5.4).
 7. **A creature's turn is a loop**: it takes one action (after the top of
    the turn: catch-up, drift and the healing die, [magic](magic.md) 5), then
    another while it has moves left. The test comes after the action, so a
@@ -689,8 +717,19 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 2. **Fighter or slinker.** A creature that is Aggressive and either Brave or
    unwounded (Life Force at least Constitution) behaves as a fighter. One
    that is Peaceful, or Cautious and wounded, behaves as a slinker. Slinkers
-   never attack or cast. [manual] Worked out afresh at the start of each of
-   its turns. [unknown]
+   never attack or cast. [manual] On the C64 it is worked out afresh from
+   the Life Force of the moment, at each of its turns, not from the Life
+   Force it had when placed or when the visit began: an aggressive
+   cautious enemy holding a melee weapon of ours struck the player in 4
+   of 4 runs built unwounded and in none with its Life Force set to half
+   its Constitution after the visit had begun (it walked off), and the
+   other way round when built wounded and healed by a poke (0 of 4, then
+   4 of 4); built brave, it struck in 4 of 4. [capture: mem, rr40
+   `fsw-m`, `fsw-set`, `fsw2-m`, `fsw2-set`, `fsb-m`, 16 of 16 runs,
+   capture.md 10.44 item 2; ours, no research pass, 2026-11-16] The same
+   cases unarmed never struck, as an unarmed fighter never does
+   ([combat](combat.md) 2.3). **Engine:** at the start of each of its
+   turns.
 3. Placed residents by type at the start (all 15 adventures, 3,248): 1,985
    fighter enemies, 632 fighter friends, 494 fighter neutrals, 105 fighter
    thieves, 16 slinker friends, 9 slinker thieves, 7 slinker neutrals and no
@@ -711,29 +750,48 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    [capture: mem, rr37 `cs-m`, capture.md 10.41 item 3; ours, no research
    pass, 2026-11-16] **Engine:** so, and nor onto walls, stores, or
    another individual.
-   **An obstacle under the goal** [capture, 1 run: rr37 `ad-ob-m` run 1,
-   capture.md 10.41 item 3; ours, no research pass, 2026-11-16]. A player
-   arrived by a door on the square of an obstacle that bumps for Life
-   Force -5 (movement 6.3). A slinker friend beside that square, the
-   player its goal, picked it in its step choice, scored as a square it
-   had stood on that turn (cost 4: it had arrived there by the same door
-   and stepped off); its Life Force fell by 5 and it stayed where it was.
-   So the obstacle's bump went off for the creature. The other five runs
-   never had the friend beside the square with a move left. What the
-   original does with a goal's square holding an individual and no
-   obstacle is not seen by this [unknown]: elsewhere a slinker beside the
-   player it seeks steps round it (7.2). **Engine:** a narrow rule for
-   this case only. When a creature that does not strike (combat 2.3) has
-   an individual for its goal, and that individual stands on a square
-   whose top thing is an obstacle or a custom obstacle, the square is open
-   to it in its step choice, costing 4 if it has stood there this turn
-   and 1 otherwise (6.5). Picking it is a bump: the creature stays put,
-   the obstacle's bump spell, if it has one, goes off acting on the
-   creature, as a door's spell does ([magic](magic.md) 6.6), a disappearing obstacle
-   vanishes (movement 5.9), and the move is spent, the turn going on. An
-   individual's square is otherwise closed to a creature that does not
-   strike. (The custom obstacle, the move spent and the cost 1 when not
-   stood on are the engine's choices, not seen.)
+   **An obstacle under the goal: the bump after a shared door.** A
+   player comes to stand on an obstacle's square by arriving there
+   through a door (movement 6.3). A creature that followed it through
+   the same door lands on that square too (5.4), and only such a
+   creature, in that turn, bumps the obstacle; one that merely stands
+   beside the square never does.
+   - Seen: a player arrived by a side portal on the square of an obstacle
+     that bumps for Life Force -5; a peaceful friend of Speed 6, the
+     player its goal, followed it through the portal. Over 256 random
+     states its first turn after following, begun on the obstacle's
+     square sharing it with the player, came in 231 runs, and **8 of
+     those 231 turns bumped** (9 bumps, one turn bumping twice): the
+     friend, having stepped off, picked the square again in a later step
+     choice of the same turn, its Life Force fell by 5 and it stayed
+     where it was. In the **586 other turns** with the friend beside the
+     square and a move left, it never bumped. [capture: mem, rr40
+     `bump-m`, `scripts/turnlog.py --bump`, capture.md 10.44 item 1; rr37
+     `ad-ob-m` run 1, capture.md 10.41 item 3, the same bump; ours, no
+     research pass, 2026-11-16]
+   - **Engine:** a narrow rule for this case only. When a creature that
+     does not strike (combat 2.3) has an individual for its goal, that
+     individual stands on a square whose top thing is an obstacle or a
+     custom obstacle, and **the creature began this turn on that same
+     square** (sharing it after a door, 5.4), the square is open to it in
+     every step choice of this turn once it has stepped off, at 6.5's
+     cost 4 for a square stood on this turn. On any other turn, and for
+     any creature that has not stood there this turn, the square is
+     closed, as any individual's square is to a creature that does not
+     strike. Picking it is a bump: the creature stays put, the obstacle's
+     bump spell, if it has one, goes off acting on the creature, as a
+     door's spell does ([magic](magic.md) 6.6), a disappearing obstacle
+     vanishes (movement 5.9), and the move is spent, the turn going on.
+     Whether cost 4 gives the original's rate (about 3.5% of such turns
+     bumping) is for the golden test to check against rr40's count. (The
+     custom obstacle and the move spent are the engine's choices, not
+     seen. Superseded: the engine's earlier cost 1 for a creature that
+     had not stood on the square, which bumped from beside it about 3
+     times a run where the original never did.)
+   - **A goal's square holding an individual and no obstacle** stays
+     closed to a creature that does not strike: not worth a run of its
+     own, as the captures of 7.2 already have a slinker stepping round the
+     player it seeks (capture.md 10.44).
 2. **Things it won't pick up.** Creatures never pick up magic items,
    weapons or armor; only thieves pick up treasure; all creatures except
    friends and slinker neutrals pick up gold. [manual] An AI will not walk
@@ -750,6 +808,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    door destroys it); an "invoke spell" door is closed to creatures when the
    spell is Activate All, Rid Room or Add to Room. Other spell doors let them
    pass and the spell goes off for them ([magic](magic.md) 6.6). [unknown]
+   (Reachable, not yet run: a portal of ours with another spell, put in
+   the room; capture.md 10.44.)
    An encounter area's door item is not a door to creatures: they never
    step onto it ([encounters](encounters.md) 6.4). [capture]
 4. **Taking a door** costs one step and ends the creature's turn. It arrives
@@ -771,10 +831,15 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    the sixth, its Speed less the steps it had taken up to and onto the
    portal (3, or 5). [capture: mem, rr37 `ad-sp-m`, `ad-ob-m`, `ad-cs-m`,
    6 of 6 runs, capture.md 10.41 item 4; ours, no research pass,
-   2026-11-16] Not seen [unknown]: a creature through a door with no move
-   left, one beside a foe at its carried turn's start, and whether the
-   top of that turn (catch-up, drift, the die) or the weight slowdown
-   changes the carried count.
+   2026-11-16] **With none left**, its next turn starts at its full bar:
+   a friend of Speed 2 whose second step was the portal began its next
+   turn with 2 (3 runs of 4 followed), one of Speed 3 that went through
+   with 1 left began with 1 (4 of 4); and carried moves beside a foe are
+   not halved (2.6). [capture: mem, rr40 `dz`, `d1`, `df`, capture.md
+   10.44 item 4; ours, no research pass, 2026-11-16] Not seen [unknown]:
+   whether the top of that turn (catch-up, drift, the die) or the weight
+   slowdown changes the carried count (reachable, not yet run, capture.md
+   10.44).
    **Engine:** taking a door costs the step and ends the creature's turn;
    it arrives on the destination square whoever stands there, sharing it
    until they move. The original keeps the creature out of sight until
@@ -922,6 +987,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    `w5-m2`, `g1-m`, `scripts/goalcheck.py --cand gold:..`, capture.md
    10.41 item 6; ours, no research pass, 2026-11-16] **Engine:** so.
    Not settled: one more case in which the step choice gives up. [unknown]
+   It needs a research pass: the case is not known, so no capture can aim
+   at it (capture.md 10.44).
 6. **Engine:** 6.2 to 6.5 as written. Before the goal, a smartness roll
    decides whether a creature acts smart (magic 6.1). On the C64 that roll
    is taken at the top of the turn by friends, enemies and every fighter
@@ -975,7 +1042,8 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    a giver that arrives beside the player with a move left gives in the
    same turn. A drop
    spell then acts on whoever stands on that square, else on the friend
-   itself ([magic](magic.md) 2.3). [unknown]
+   itself ([magic](magic.md) 2.3). [unknown] (Reachable, not yet run: a
+   gift with a drop spell; capture.md 10.44.)
 4. **Foes**, for readying (combat 6.2): [manual] **Engine:**
    - an enemy's foes are players and friends;
    - a friend's foes are enemies, aggressive neutrals and aggressive thieves;
@@ -1110,7 +1178,14 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       moves.) A treasure that disappears when dropped vanishes; things
       that can't be dropped (owner-only) are never chosen. While over
       capacity it picks nothing up. [unknown] Not settled: magic items'
-      place in the order and how gold counts toward the load.
+      place in the order (both reachable, not yet run, capture.md
+      10.44). **Gold counts toward the load** per piece times Gold's
+      weight, as a player's (2.5): a creature carrying only gold, over
+      half its capacity, dropped all of it as one pile at the top of its
+      first turn, its gold going to 0, and the two others over half their
+      capacity dropped a thing at the top of theirs. [capture: mem, rr40
+      `wt2-m`, the room's list and the gold watched, capture.md 10.44 item
+      3; ours, no research pass, 2026-11-16] **Engine:** so.
 2. **Readying.** A creature readies an appropriate weapon: when not next to
    a foe, a missile weapon if it has one, otherwise a melee weapon if it has
    one; with several, the lowest item number. [manual] On the C64: a melee
@@ -1171,13 +1246,14 @@ creatures replay exactly.
    10.40); two random creatures left at once (2.4: a percentile for each
    marked slot in slot order, a removed one's included; capture.md
    10.41). Still open: the square of each random state, draw by draw;
-   what clears a slot's random mark (2.4.4).
+   what clears a slot's random mark (2.4.4; reachable, not yet run,
+   capture.md 10.44).
 3. The adjacency slowdown: captured (2.6: halved, 4 squares, aggressive
    and not a friend), and a turn that starts with carried moves beside an
    enemy (not halved, capture.md 10.29); odd Speeds (rounding up) and
    coming beside a foe mid-turn (no halving), for players and creatures
-   (capture.md 10.41). Still open: a creature's carried turn beside a foe
-   (5.4).
+   (capture.md 10.41); a creature's carried turn beside a foe (not
+   halved, 2.6, 5.4, capture.md 10.44).
 4. Goal choice: researched and captured for slinker friends and neutrals
    (6.2-6.4), and for thieves and a slinker enemy going for gold and
    treasure (6.5, 7.5), and for a fighter enemy going for the player
@@ -1187,14 +1263,20 @@ creatures replay exactly.
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll),
    and an exit's cost of 4 on the turn's first step (6.5, capture.md
    10.39); gold costing its rank / 32 on the first step too, 1 as the
-   goal (6.5, capture.md 10.41). Still open: the step choice's give-up
-   case; a goal's square holding an individual on an obstacle (5.1, one
-   run), and on no obstacle.
+   goal (6.5, capture.md 10.41); a goal's square holding an individual
+   on an obstacle (5.1: a bump only on the turn after a shared door,
+   never from beside; capture.md 10.44), on no obstacle not worth a run.
+   Fighter or slinker afresh each turn (4.2, capture.md 10.44). Still
+   open: the step choice's give-up case (6.5, a research pass); the
+   golden test's check of the bump's rate at cost 4 (5.1).
 6. A creature following through a door: captured (5.4: the step ends its
    turn; it lands on the destination square, sharing it with a player or a
    creature standing there; its next turn starts with the moves it had
-   left, capture.md 10.41). Still open: a creature through a door with no
-   move left. Creatures never stepping onto spaces, custom ones included
+   left, capture.md 10.41); through a door with no move left (its full
+   bar next turn, capture.md 10.44). Still open, reachable but not run
+   (capture.md 10.44): whether the top of the carried turn or the load
+   changes the carried count (5.4); spell doors other than the three
+   (5.3). Creatures never stepping onto spaces, custom ones included
    (5.1): captured (capture.md 10.41). Seen in the same runs:
    creatures' paths and goals varied from run to run (a friend sometimes
    took the portal with the player still in the room), so goal choice
@@ -1207,9 +1289,13 @@ creatures replay exactly.
    10.32). A store taking a drop (8.1.1), a foe beside stopping the drop
    and who counts (8.1.2: 2.6's test, diagonal not), a drop that leaves 0
    moves ending the turn without readying (8.1.2), and a friend's gift
-   placed around the giver (7.3): captured (capture.md 10.37). Still
-   open: magic items' place in the order, gold's weight, and where
-   readying falls after a drop with moves left (combat 6.2).
+   placed around the giver (7.3): captured (capture.md 10.37). Gold in
+   the load, per piece, and its drop as one pile (2.5, 8.1): captured
+   (capture.md 10.44). Still open, reachable but not run (capture.md
+   10.44): magic items' place in the order and picking nothing up over
+   capacity (8.1.2), where readying falls after a drop with moves left
+   (combat 6.2), and a gift's drop spell acting on whoever stands on the
+   square (7.3).
 8. A Speed 0 creature's turn (2.7) and a Speed 0 fighter with its goal
    beside it (capture.md 10.32): captured. A creature of Speed above 0
    whose readying spends its last move (its turn ends there) and what

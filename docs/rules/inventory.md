@@ -49,14 +49,26 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    the same way. [unknown for gold]
 2. **At the limit.** If the character already owns as many of that thing as
    allowed, a message says they can't carry more of those, and they must drop
-   one first if they need to pass. [manual] So the move is refused.
+   one first if they need to pass. [manual] So the move is refused, and it
+   costs nothing: on the C64 a player owning the one copy of a treasure
+   allowed, or the three of a thing 1..32, pushed onto another: "cannot
+   carry more", the button, the player still on its square and its moves
+   the same before the push, after the button and long after, until the
+   bar's next drain; the same push with nothing owned took the thing and
+   one move. [capture: rr39 `pc-e`, `pc-s`, `pc-e0`, capture.md 10.43
+   item 1; ours, no research pass, 2026-11-16]
    **Engine:** `Blocked` with `CarryLimit`; the bar does not change, as for
-   other refused moves (movement 2.2). [unknown]
+   other refused moves (movement 2.2).
 3. Weight never stops a pick-up; it only slows the character (section 3).
    [manual]
-4. **Picking up a weapon readies it.** [manual] Whether it replaces a weapon
-   already readied: [unknown] **Engine:** yes, missile or melee alike.
-   Picking up armor does not ready it. [unknown]
+4. **Picking up a weapon readies it.** [manual] It replaces a weapon
+   already readied, whichever kind either is: a player holding a melee
+   weapon who took a missile weapon held the missile weapon, and one
+   holding a missile weapon who took a melee weapon held the melee one.
+   Picking up armor does not ready it: the armor taken was owned, nothing
+   worn, the weapon in hand unchanged. [capture: rr39 `rd-e`, `rdb-e`,
+   `rd-s`, capture.md 10.43 item 2; ours, no research pass, 2026-11-16]
+   **Engine:** so.
 5. **Gold on the floor.** A placed pile of gold is two item records: the
    gold, then a record on square 15,14 whose other two bytes are the
    pile's size, low byte first. All 112 corpus piles (110 C64, 2 PC) are
@@ -72,7 +84,8 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    and got exactly 10, and one whose size bytes were 81 and 10 got 2,641
    (81 + 10 x 256), the parameter 35 again. [capture: rr36 `gp2`, `gp`,
    capture.md 10.40; ours, no research pass, 2026-11-16] What else it may
-   mean is [unknown]. A taken pile and its size record stay in the room's
+   mean is [unknown]: nothing in play shows it, so only a research pass on
+   the take can tell (capture.md 10.43 sorts it so). A taken pile and its size record stay in the room's
    list, moved to square 15,15, as other taken things are. [capture:
    rr36] **Engine:** the decoder folds the size record into the
    pile (`RoomItem::gold`); the pile holds that many pieces (a pile the
@@ -100,17 +113,21 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    to set no bit before (winning 1.4, a treasure we had placed with 0).
    A magic item placed with 0 still runs its pick-up spell (2.6) when
    taken: ours set off its summons and its Add to Room. [capture: rr38
-   `sn-pk2`, `ar-pk2`, capture.md 10.42 items 1 and 4] Not tried: what a
-   2 or 3 gives for things 1..32, whose count has two bits, and a
-   creature's take of a thing placed with 0 [unknown]. The gold pile is
-   not counted this way: its size record decides (2.5).
+   `sn-pk2`, `ar-pk2`, capture.md 10.42 items 1 and 4] **Creatures
+   alike**: a thief creature took two treasures, one placed with 0 and
+   one with 1; both showed the take and left the floor, and only the one
+   placed with 1 became its possession, whichever it took first, in 8 of
+   8 runs. [capture: rr39 `ct-m`, capture.md 10.43 item 8; ours, no
+   research pass, 2026-11-16] Not tried: what a 2 or 3 gives for things
+   1..32, whose count has two bits [unknown]. The gold pile is not counted
+   this way: its size record decides (2.5).
    **Engine:** a take adds the placed parameter to the count, capped at
    the thing's limit (1.2), so for things 33..80 any parameter above 0
    makes it owned; a parameter of 0 is taken off the floor, spends its
    step, shows the take and runs a pick-up spell as usual, and adds
    nothing (a weapon so taken is not readied, 2.4). The limit check of
    2.2 is made on the count owned, whatever the parameter. Creatures'
-   takes follow the same rule. Things the engine itself puts down
+   takes follow the same rule (captured, above). Things the engine itself puts down
    (drops, a death's or a destroy's things, Add to Room, whose count was
    1 on the C64, magic 3.13 and capture.md 10.40) carry 1. How many
    corpus carriables are placed with 0 is not yet counted [data: to
@@ -185,14 +202,27 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    10.12) carried nothing, the idle-roll range (magic 5.3.1, capture.md
    10.29) is the moves this refill gave and so already the after-die bar,
    and the creatures' die (capture.md 10.33, 10.39 item 1) is drawn before
-   their turn byte, as here. A creature's turn start in the same order is
-   [unknown]: no wounded, loaded creature was watched at its refill (and
-   the creature's slowdown itself is [unknown], creatures 2.5).
-   **Engine:** at every turn start, player or creature: catch-up
-   (creatures only, magic 5.5), drift, the healing die, then the moves
-   (Speed, the halving, this slowdown from the capacity at the Life Force
-   the die left), which are also the turn's full moves of magic 5.3.1.
-   (Superseded: the engine set the moves before the die.)
+   their turn byte, as here.
+   **A creature's turn start is the other way round**: its moves are set
+   from the Life Force **before** the die, so a heal by the die lengthens
+   only its next turn. A creature of Speed 10, Strength 10 and
+   Constitution 20 at Life Force 14, carrying 600 (capacity 700, so 2
+   moves; at 15 the capacity is 800 and the moves 5), began every first
+   turn with 2 moves, 112 of 112; in the 24 of them where the die healed
+   it to 15, the moves byte was set to 2 before the Life Force rose, and
+   the turn byte changed after both. [capture: mem, rr39 `cw-m`, `cw-m2`,
+   capture.md 10.43 item 9; ours, no research pass, 2026-11-16] The
+   creature's slowdown itself follows 3.3 (creatures 2.5; capture.md
+   10.32, and again here).
+   **Engine:** at a player's turn start: drift, the healing die, then the
+   moves (Speed, the halving, this slowdown from the capacity at the Life
+   Force the die left). At a creature's: catch-up (magic 5.5), drift, the
+   moves (the same, from the Life Force before the die), then the die.
+   Either way these are the turn's full moves of magic 5.3.1. Where a
+   creature's catch-up, which can raise its Life Force, falls against its
+   moves is [unknown] (the creature watched had no round to catch up);
+   the engine keeps it first. (Superseded: the engine set the moves
+   before the die for everyone, then after it for everyone.)
 5. **A heavy take ends the turn.** When the thing taken weighs more than
    a quarter of the taker's capacity (3.2), the take ends the turn under
    way, whatever steps are left; a thing of exactly a quarter, or less,
@@ -238,10 +268,15 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    mover at once; the weapon's one move was captured before (combat 6.1,
    capture.md 10.32). [capture: rr36 `dk2-armor`, capture.md 10.40 item
    6; ours, no research pass, 2026-11-16] **Engine:** so. A weapon readied
-   by picking it up costs only the pick-up's step. [unknown]
+   by picking it up (2.4) costs only the pick-up's step: a missile weapon
+   taken and readied left the same 4 of 5 moves just after the button as
+   a treasure taken. [capture: rr39 `pr-e`, `pr-w`, capture.md 10.43 item
+   2; ours, no research pass, 2026-11-16] **Engine:** so.
 4. When the last copy of a readied thing leaves the character (dropped, or
-   used up by a door), nothing is readied in that slot. [unknown] **Engine:**
-   so.
+   used up by a door), nothing is readied in that slot: a player dropping
+   the melee weapon it held, its only copy, held nothing after. [capture:
+   rr39 `rd-drop`, capture.md 10.43 item 2; ours, no research pass,
+   2026-11-16; a door using one up not tried] **Engine:** so.
 5. What readied things do in a fight: [combat](combat.md) (parrying needs a
    held melee weapon, armor counts only when worn).
 
@@ -262,8 +297,14 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    only by their owner (claws, fists) [manual]; 279 corpus weapons and armors
    are owner-only. [data] **Engine:** refused (`DropRefused`) at no cost.
 3. **On the world map** a dropped thing is lost from the adventure for good.
-   [manual] **Engine:** `dir` is ignored; the thing is gone (`LostOnMap`).
-   A drop spell still goes off. [unknown]
+   [manual] On the C64 the player's DROP OBJECT on the map asks for no
+   spot: choosing the thing shows "the thing dropped is lost forever!",
+   and the thing is gone. A magic item set to act when dropped (Life
+   Force +5) still cast its spell on the dropper: Life Force 40 to 45.
+   [capture: rr39 `mp-d`, `mp-d2`, capture.md 10.43 item 5; ours, no
+   research pass, 2026-11-16] Its cost in moves is 5.9's.
+   **Engine:** `dir` is ignored; the thing is gone (`LostOnMap`), and a
+   drop spell goes off on the dropper.
 4. **In a room** the thing lands on top of the target square's stack (movement
    5.3). On the C64 the player's own square, a portal's square, a store's
    square and a square a creature stands on all took a drop, on top each
@@ -271,13 +312,19 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    [capture: rr36 `dk2`, capture.md 10.40 item 6; ours, no research pass,
    2026-11-16] A thing dropped on a portal or a store then lies on top
    and is what the next step there meets (movement 5.3). A custom
-   obstacle was not tried with a player's drop; a creature's drop finds
-   one refusing ([creatures](creatures.md) 8.1.1), and the portal tried
-   was inside the room, not on its wall. [unknown] **Engine:** an inside
+   obstacle beside the player and a portal on the wall line beside it are
+   out of reach too: the cursor pushed toward either stayed on the
+   player's square, and the button dropped the thing there. [capture: rr39
+   `wp-dco`, `wp-dpo`, capture.md 10.43 item 6; ours, no research pass,
+   2026-11-16] A creature's drop finds a custom obstacle refusing as well
+   ([creatures](creatures.md) 8.1.1). **Engine:** an inside
    square whose top is anything but an obstacle or a custom obstacle; a
    wall square (a portal on the wall line included), an obstacle and a
    custom obstacle refuse (`DropRefused`) at no cost. A square with a
-   creature on it accepts the thing, which lies under the creature.
+   creature on it accepts the thing, which lies under the creature. The
+   C64's cursor never offers the refused squares, so a front end with a
+   cursor gets the same outcome; the refusal only guards commands it
+   should not send.
    (Superseded: the engine's earlier refusal of portals and stores.)
 5. **Treasures that disappear when dropped** vanish instead of landing
    (`VanishedWhenDropped`). [manual] 19 corpus treasures do this. [data]
@@ -297,17 +344,28 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    dropped thing is consumed (`ThingUsedUp`); without it, it lands on top
    of the space. Such a space does not run under Activate All
    ([magic](magic.md) 3.14). Dropping anything else there just lands on
-   top. [unknown]
+   top, the space's spell not run: armor dropped on a space waiting for a
+   weapon lay on top of it, and the space gave nothing. [capture: rr39
+   `dh2-e`, capture.md 10.43 item 6; ours, no research pass, 2026-11-16]
 8. **Dropping gold.** **Engine:** `DropGold { amount, dir }` puts down one
    pile of 1..25,000 pieces (a pile's size is two bytes, 5). How the
-   original asks for the amount is [unknown]. A pile dropped on a matching
+   original asks for the amount is [unknown]: a front end matter only, not
+   yet run (capture.md 10.43). A pile dropped on a matching
    "when dropped here" space casts the spell once.
 9. Dropping costs no moves. On the C64 a player's moves fell by one as
    the thing was chosen and were back once the drop spot was pressed: no
    net cost, on the own square or beside it. [capture: rr36 `dh-own`,
    `dh-e`, the moves read around every press, capture.md 10.40 item 6;
-   ours, no research pass, 2026-11-16] A drop on the world map, with no
-   spot to press, was not tried. [unknown] **Engine:** free, everywhere.
+   ours, no research pass, 2026-11-16] **On the world map a drop costs one
+   move**: there is no spot to press, and the move taken as the thing is
+   chosen never comes back. A player with 4 moves had 3 once the thing was
+   chosen, 3 still after the message's button and on until the bar's next
+   drain. [capture: rr39 `mp-d`, `mp-d2`, `mp2.txt`, 2 runs, capture.md
+   10.43 item 5; ours, no research pass, 2026-11-16] **Engine:** a drop in
+   a room is free; a drop on the world map spends one move (and with none
+   left the turn ends, as any move does). A refused drop (5.2, 5.4) costs
+   nothing anywhere. (Superseded: the engine's earlier choice of free
+   everywhere.)
 
 ## 6. Characters
 
@@ -339,20 +397,26 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    by wounds, a gold pile, and a creature's take (3.5).
 2. Capacity with Life Force above Constitution, and rounding of odd
    wounds: captured (3.2: rounded down, unclamped; capture.md 10.39). A
-   player's bar comes from the Life Force after the top-of-turn die
-   (3.4). Still open: the same order at a creature's turn start (a
-   wounded creature carrying more than half its capacity, its moves read
-   at the refill against its die).
+   player's bar comes from the Life Force after the top-of-turn die, a
+   creature's from the Life Force before it (3.4, capture.md 10.43).
+   Still open: a creature's catch-up against its moves.
 3. Gold pile size: captured (2.5, the size record alone; the pile's own
-   parameter changes nothing seen, capture.md 10.40). Still open: what
-   that parameter is for.
+   parameter changes nothing seen, capture.md 10.40). What that parameter
+   is for needs a research pass on the take (capture.md 10.43 (b)).
 4. Which squares accept a drop, dropping on one's own square, and the cost
    of dropping and of readying: captured (5.1, 5.4, 5.9, 4.3; capture.md
-   10.32, 10.40). Still open: a custom obstacle or a wall portal as a
-   player's drop spot, and a drop on the map.
+   10.32, 10.40), and a custom obstacle and a wall portal out of the
+   cursor's reach, a drop on the map (its spell goes off, it costs one
+   move) and readying by a pick-up (only the step): capture.md 10.43.
 5. Whether a non-destroying "when dropped here" space leaves the thing:
-   captured (5.7: it does, on top).
+   captured (5.7: it does, on top), and another thing dropped there lies
+   on top, giving nothing (capture.md 10.43).
 6. Gold's weight per piece (3.1) and what a take gives (2.7: the placed
-   parameter, 0 nothing): captured (capture.md 10.42). Still open: a
-   parameter of 2 or 3 on things 1..32, a creature's take of a thing
-   placed with 0, and the corpus count of such placements.
+   parameter, 0 nothing): captured (capture.md 10.42), creatures' takes
+   too (capture.md 10.43). Still open: a parameter of 2 or 3 on things
+   1..32, and the corpus count of such placements.
+7. The carry limit's refusal (2.2: no cost), a picked-up weapon replacing
+   the one readied, armor not readied (2.4) and the last copy dropped
+   (4.4): captured (capture.md 10.43). Still open, reachable but not run:
+   how a gold drop asks for its amount (5.8, the front end's), and a door
+   using up a readied thing (4.4).

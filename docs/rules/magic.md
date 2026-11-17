@@ -78,7 +78,8 @@ researcher's plain-language findings (CONTRIBUTING.md 3;
    capture.md 10.42 item 1; ours, no research pass, 2026-11-16]
    **Engine:** so: a cast Activate All ignores the target and runs the
    caster's square. Whether Rid Room and banishing ask for a target is
-   [unknown]; they ignore it either way.
+   [unknown]: the front end's only, since they ignore it either way, and
+   not yet run (capture.md 10.43).
 
 ## 3. The 15 actions
 
@@ -136,9 +137,10 @@ The parameter layout is the format draft's; numbers below are corpus counts.
      room. [capture: rr38 `sn-dro`] **Engine:** so: the space's square, the
      obstacle's square, the portal's square in the room the traveller
      left, the item's square for a pick-up, the drop square for a drop. An
-     obstacle or portal on the wall line was not tried with a summons;
-     **Engine:** as Add to Room's (3.13), the bumper's own square, on the
-     C64 observed for a wall obstacle only [unknown for a wall portal].
+     obstacle or portal on the wall line was not tried with a summons
+     [unknown]; **Engine:** as Add to Room's (3.13), the bumper's own
+     square, which the C64 showed for Add to Room from a wall obstacle and
+     from a wall portal.
      (Superseded: the engine's earlier choices of the bumper's square for
      an obstacle inside the room, the door's destination and the picker's
      square.)
@@ -180,8 +182,11 @@ The parameter layout is the format draft's; numbers below are corpus counts.
      custom placements name a creature. [data]
 3. **Increase magic defense, but not above** (0..3: none, non-magic weapons
    do half damage, only magic weapons hurt, magic weapons do half damage).
-   [manual] How far one spell raises it: [unknown] **Engine:** one level,
-   never past the parameter; nothing if already there.
+   [manual] One spell raises it **one level**: a player at 0 cast one
+   with parameter 3 at itself and went to 1; at 1 the same cast gave 2.
+   [capture: rr39 `md-c`, `md-c1`, capture.md 10.43 item 3; ours, no
+   research pass, 2026-11-16] **Engine:** one level, never past the
+   parameter; nothing if already there (the cap not run).
 4. **Decrease magic defense, but not below**: the mirror image. [manual]
 5. **Increase the victim's** trait or skill (parameter 0..9: Constitution,
    Strength, Dexterity, Speed, Wisdom, Dodge, Parry, Armor, Melee, Missile).
@@ -201,7 +206,11 @@ The parameter layout is the format draft's; numbers below are corpus counts.
 9. **Give the victim one** (thing). [manual] **Engine:** as a pick-up
    within the carry limits ([inventory](inventory.md) 1.2); at the limit
    nothing is given (`Given` with `kept: false`). Gold gives one piece. A
-   weapon given is not readied. [unknown] 94 uses.
+   weapon given is not readied: a melee weapon given to an empty-handed
+   player was owned and not held, and one given to a player holding a
+   missile weapon left the missile weapon in hand. [capture: rr39 `gv-c`,
+   `gv-cb`, capture.md 10.43 item 3; ours, no research pass, 2026-11-16]
+   94 uses.
 10. **Display long message** (message 1..255). [manual] **Engine:** a
     `LongMessage` event with the text; 0 shows nothing.
 11. **Play music** (one of 30). Choices 1-12 are effects, 13-30 themes, and
@@ -210,7 +219,9 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     with the 1-based choice; the front end plays it. 151 master uses and
     the most common custom placement.
 12. **Rid room of every uncarried** (thing). Every copy lying in the room
-    goes, in stacks too. [manual] On the world map: nothing. [unknown]
+    goes, in stacks too. [manual] On the world map: nothing. [unknown;
+    not to be run: nothing lies on the map to rid, so play cannot tell,
+    capture.md 10.43]
 13. **Add to room one** (thing). Takes effect at once. [manual] On the C64
     one of the thing lands on top of the square where the spell takes
     effect: for a cast the target square (2.4), the caster's own or an
@@ -232,9 +243,13 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     2026-11-16] **Engine:** so: a cast's target square, the space's or
     inside obstacle's own square, the bumper's own square for an obstacle
     on the wall line, the portal's own square in the room left, the
-    item's square for a pick-up and the drop square for a drop. A portal
-    on the wall line was not tried [unknown]; **Engine:** the bumper's own
-    square, as for a wall obstacle. Nothing on the world map.
+    item's square for a pick-up and the drop square for a drop. **A
+    portal on the wall line** is as a wall obstacle: a player walking
+    through one out to the side room left the thing on the inside square
+    it stood on before the door, in the room it left. [capture: rr39
+    `wp-po`, capture.md 10.43 item 6; ours, no research pass, 2026-11-16]
+    **Engine:** so, the traveller's own square before the door. Nothing
+    on the world map.
     (Superseded: the engine's earlier choices of the caster's square for
     every cast, a door's destination, and the nearest free inside square
     for a thing on the wall.)
@@ -254,7 +269,7 @@ The parameter layout is the format draft's; numbers below are corpus counts.
       the square where it takes effect: for a cast, the caster's own square
       (2.5) [capture: rr38 `tb-c`, `ta-sel`, capture.md 10.42 item 1]; for
       a use or a pick-up [unknown], the user's own square and the item's
-      square.
+      square (reachable, not yet run: capture.md 10.43).
 
     On the C64, a player stepping onto a stack of (top first) an Activate
     All space, a "when moved onto" custom space, one open to owners of a
@@ -272,8 +287,13 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     outside 0..14 (one corpus key spell holds 15) does nothing too. [data]
 
 Spells "may be made to disappear after first use" (magic spells and magic
-items). [manual] **Engine:** a magic spell goes after a successful cast, a
-magic item after it is used. [unknown]
+items). [manual] On the C64 a magic spell set so goes only when a cast
+works: at a 19% chance, of eight casts from eight random states one
+worked (its Life Force +1 given) and the spell was gone; the seven that
+failed spent the Power and kept it. [capture: rr39 `dsp-r0` to
+`dsp-r224`, capture.md 10.43 item 4; ours, no research pass, 2026-11-16]
+**Engine:** a magic spell goes after a successful cast, a magic item
+after it is used (items always work, 4.2).
 
 ## 4. Casting and using
 
@@ -347,10 +367,15 @@ magic item after it is used. [unknown]
    and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
    reached 20 after 10 turn ends in every run] It takes no roll, and
    comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] The moves themselves
-   are set from the Life Force after the healing die (5.3.2,
-   [inventory](inventory.md) 3.4). [capture: capture.md 10.39 item 4]
-   **Engine:** the same, at the top of each turn, before the die and the
-   moves. A player joining an adventure keeps its
+   are set from the Life Force after the healing die for a player, before
+   it for a creature (5.3.2, [inventory](inventory.md) 3.4). [capture:
+   capture.md 10.39 item 4, 10.43 item 9] A creature drifts before it
+   chooses what to do: a smart creature's Power after drift is what its
+   casting and using test (6.3, 6.5). [capture: rr39 `cc-*`, capture.md
+   10.43 item 7]
+   **Engine:** the same, at the top of each turn: for a player before the
+   die and the moves, for a creature (after its catch-up) before the
+   moves and the die. A player joining an adventure keeps its
    saved Power and Life Force; drift and healing then move them as for
    anyone. [research; capture: rr13, [characters](characters.md) 3.1]
    (capture.md 8.4 read the profile after several rounds had passed, and
@@ -439,9 +464,13 @@ magic item after it is used. [unknown]
       turn it starts. [capture: rr35 `c-s12c40`, `c-s12c41`, capture.md
       10.39 item 4; ours, no research pass, 2026-11-16] (5.1's "just after
       the bar is refilled" is the researcher's reading; the moves byte as
-      captured comes from the Life Force after the die.) For a creature
-      the same order is [unknown]. **Engine:** for everyone, drift and
-      this die first, then the moves (inventory 3.4).
+      captured comes from the Life Force after the die.) **A creature's
+      moves come before this die**, from the Life Force it had: a heal
+      here lengthens only its next turn. [capture: mem, rr39 `cw-m`,
+      `cw-m2`, 24 healed turn starts of 112, capture.md 10.43 item 9; ours,
+      no research pass, 2026-11-16] **Engine:** for a player, drift and
+      this die, then the moves; for a creature, catch-up, drift, the moves,
+      then this die (inventory 3.4).
    [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] Confirmed exactly: with the random state set to each of
    its 256 values one idle move before a Speed 15 turn's end (Life Force
    6, Constitution 20), the idle move's roll and the next turn's die
@@ -469,7 +498,8 @@ magic item after it is used. [unknown]
    creatures in rooms no player visits stand still in time, as they do in
    everything else (creatures 2.3), until their next turn, when they catch
    up (5.5); the reversals of 5.2 go by rounds of the region being
-   visited. [unknown] They emit no events; the front end reads the
+   visited. [unknown: reachable with a temporary change left running
+   across a region change, not yet run, capture.md 10.43] They emit no events; the front end reads the
    numbers.
 5. **Creatures catch up.** A creature's record keeps the round of its last
    turn, as the round counter's low byte (0 to 255; 0 means it has had no
@@ -540,29 +570,88 @@ magic item after it is used. [unknown]
    C64 a roll of 0 to 9 below Wisdom - 5, once a turn at its first
    decision, for fighters, friends and enemies; [research: random-rolls
    third pass]), rolled when
-   it would otherwise cast. [unknown]
-2. Only fighters cast; slinkers never attack or cast. [manual]
+   it would otherwise cast. [unknown] When that roll is drawn against the
+   turn's other first-decision draws needs a research pass on the draws'
+   order inside a creature's turn (capture.md 10.43 (b)).
+2. Only fighters cast; slinkers never attack or cast. [manual] On the C64
+   a **peaceful friend** (a slinker by [creatures](creatures.md) 4.2) of
+   Wisdom 20 cast: a Life Force +5 at the player on each of its turns,
+   and a summons (6.4). [capture: rr39 `cc-fr`, `cc-fsum`, capture.md
+   10.43 item 7; ours, no research pass, 2026-11-16] So the manual's rule
+   does not hold for casting, at least for friends; slinker enemies,
+   thieves and neutrals, and a slinker's magic item, were not tried
+   [unknown]. **Engine:** a friend casts and uses magic items (6.3 to
+   6.5) whether a fighter or a slinker; any other creature only as a
+   fighter, as the manual says. (Superseded: the engine's earlier choice
+   of fighters only.)
 3. A smart creature casts only when its Power is at least its Wisdom, on the
    goal it has chosen if that goal is an individual, with its lowest-numbered
    appropriate spell. [manual] **Engine:** at the start of its turn, after
    the overburdened drop and readying, the creature chooses its goal as
    usual (creatures 6); if the goal is an individual anywhere in the room and
    the creature has a fitting spell, it casts it (section 4.1 chance and
-   cost) and its turn ends. [unknown]
+   cost) and its turn ends. On the C64 an aggressive enemy of Wisdom 20
+   and Speed 3, owning a Life Force -5 spell of cost 0, six squares from
+   the player, cast it at the player on each of its turns without
+   moving, its moves going from 3 to 0 at the cast: the turn over. The
+   Power tested is the one after the turn's drift (5.1): Power 30 and 19
+   (drifted to 20) cast; 10 and 15 (drifted to 11 and 16) did not, and
+   the creature walked toward the player instead. [capture: mem, rr39
+   `cc-s5`, `cc-p19`, `cc-p10`, `cc-p15`, capture.md 10.43 item 7; ours,
+   no research pass, 2026-11-16] **Engine:** so, Power after drift at
+   least the Wisdom. Where the cast falls against the overburdened drop
+   and readying was not seen (the caster carried neither) [unknown].
 4. **Fitting.** Hurtful spells only on foes, helpful ones only on friends.
-   [manual] **Engine:** a goal is a foe as in creatures 7.4, else a friend.
+   [manual] A peaceful friend of Wisdom 20 owning only a Life Force +5
+   spell cast it at the player on each of its turns (40, 45, 50, 55).
+   [capture: rr39 `cc-fr`, capture.md 10.43 item 7] **Engine:** a goal is
+   a foe as in creatures 7.4, else a friend.
    - hurtful: Kill All, Banish (summon 0), Decrease Magic Defense, Decrease
      trait or skill, a negative Power or Life Force change;
    - helpful: Increase Magic Defense, Increase trait or skill, a positive
      Power or Life Force change, Give;
-   - a summons counts as hurtful (help against a foe) [unknown];
+   - **a summons (a creature number) fits any goal**, foe or friend: on
+     the C64 the aggressive enemy owning only a summons cast it at the
+     player on its turn, and so did the peaceful friend owning only that
+     summons, at the player as its friend goal; each time the creature
+     was made (3.2) and the caster did not move. [capture: rr39 `cc-sum`,
+     `cc-fsum`, capture.md 10.43 item 7; ours, no research pass,
+     2026-11-16] Other kinds of caster (a neutral, a thief) were not
+     tried; **Engine:** a summons fits whatever individual the goal is.
+     (Superseded: the engine's earlier choice of a summons as hurtful,
+     cast only at a foe.) Where a creature's summons lands is not
+     settled: the enemy's put the new creature on a square beside the
+     player, not on the player's own square (one run; the friend's square
+     was not read) [unknown]. **Engine:** the goal's square (2.4), shared
+     with the goal, as for a player's cast.
    - never cast by creatures: Do Nothing, Rid Room, Add to Room, Activate
      All, Display Message, Play Music [manual], and invalid codes.
 5. **Magic items.** Smart creatures at half power use magic items in the same
-   way, if the item acts when used. [manual] "Half power" is not defined.
-   [unknown] **Engine:** when it casts nothing, a smart fighter whose Power
-   is at least half its Wisdom (rounded down) uses its lowest-numbered
-   fitting magic item that acts when used, on its goal; its turn ends.
+   way, if the item acts when used. [manual] On the C64 "half power" is
+   **Power above half the Wisdom**: at Wisdom 20, a creature with Power
+   11 used its item and one with Power 10 never did, walking instead
+   (Power after drift, 5.1, swinging between 10 and 11 from turn to turn
+   in two runs, a use at every 11 and none at any 10). A use works as a
+   player's (4.2): it costs the creature 2 Power and **two moves, and
+   does not end its turn**: with 3 moves it had 1 left after the use and
+   took a step with it, at Power 28 as at 11. The item, a Life Force -3,
+   acted on the player, the creature's foe goal. [capture: mem, rr39
+   `cc-i30`, `cc-i10`, `cc-i9`, capture.md 10.43 item 7, 4 runs at the
+   boundary; ours, no research pass, 2026-11-16] Only an even Wisdom was
+   run: "above half rounded down" (Wisdom 15: Power 8 or more) and
+   "above half rounded up" (15: 9 or more) both fit it and part only at
+   an odd Wisdom, untested [unknown].
+   **Engine:** when it casts nothing, a smart creature that may cast
+   (6.2) whose Power after drift is more than half its Wisdom (2 x Power > Wisdom; for an odd
+   Wisdom W, Power of (W + 1) / 2 or more) uses its lowest-numbered
+   fitting magic item that acts when used, on its goal, at the point
+   where 6.3 would cast; the use spends 2 Power (not below 0) and two moves
+   (all it has if fewer), and with moves left after that the turn goes on
+   as usual (its steps); with none left the turn ends, as for a player's
+   use (4.3). At most one use a
+   turn: a creature with two or more moves left after a use was not seen
+   [unknown]. (Superseded: the engine's earlier choice of Power at least
+   half the Wisdom rounded down, the turn ending at the use.)
 6. **Spells creatures set off.** A creature that takes a door with a spell
    (other than the forbidden Activate All, Rid Room and Add to Room,
    creatures 5.3) sets it off, acting on itself; a creature that drops a
@@ -603,12 +692,24 @@ Combat will reuse this; spells are the first thing that can kill.
    50, the gold; a player killed by its own cast, with the blade,
    treasures 13 and 14, item 70, a spell and 50 gold, left 70, the blade,
    14, 13, the gold. [capture: rr38 `dd-aa`, `dd-t`, capture.md 10.42 item
-   2; ours, no research pass, 2026-11-16] **Engine:** so, on
-   the death square; treasures that vanish when dropped vanish; magic
-   spells and owner-only weapons and armor are lost. (Superseded: the
-   engine's earlier choice of the gold on top.) Drop spells do not go off.
-   [unknown] On the world map everything is lost. One `Died` event lists
-   what was left.
+   2; ours, no research pass, 2026-11-16] **Which weapons are lost**: the
+   mark that decides is "only the owner may use it", not the weight. A
+   friend holding our blade died to Kill All: a blade of weight 0 that
+   anyone may use went down on the square; one of weight 5 that only its
+   owner may use was lost, and so was one with both marks. [capture: rr39
+   `bl0-aa`, `bln-aa`, `blb-aa`, capture.md 10.43 item 10; ours, no
+   research pass, 2026-11-16] **Drop spells do not go off** at a death: a
+   magic item set to act when dropped (Add to Room) went down with the
+   rest and added nothing, at a creature's death and at a player's own.
+   [capture: rr39 `bl0-aa`, `bln-aa`, `blb-aa`, `bl0-t`, capture.md 10.43
+   item 10] **Engine:** so, on the death square; treasures that vanish
+   when dropped vanish; magic spells and weapons and armor only their
+   owner may use are lost, whatever they weigh; a drop spell does not go
+   off. (Superseded: the engine's earlier choices of the gold on top, and
+   of losing a weapon only when it both weighed 0 and was owner-only.)
+   Owner-only armor was not run; the engine treats it as the weapon. On
+   the world map everything is lost. One `Died` event lists what was
+   left.
 3. A dead creature frees its slot. [data: creatures 1.1]
 4. A dead player stays in the player list, marked dead, and gets no more
    turns. After a death, play resumes from the last save (the region change
@@ -688,12 +789,28 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
 5. Add to Room: captured (3.13: on top of the square where it takes
    effect, a cast's target square; a wall obstacle the bumper's square, a
    portal its own square, a pick-up the item's square, capture.md 10.42).
-   Still open: a portal on the wall line.
+   A portal on the wall line: the traveller's square before the door
+   (capture.md 10.43).
 6. Activate All with conditional spaces, "when dropped here" spaces and a
    nested Activate All: captured (3.14); cast away from a stack (no
    target, the caster's square), the cursor's reach and a magic item's
-   use (2.4, 2.5, capture.md 10.42). Still open: Activate All from a used
-   or picked-up item away from a stack; whether Rid Room and banishing
-   ask for a target.
-7. How often a mid-Wisdom creature acts smart; what "half power" is.
+   use (2.4, 2.5, capture.md 10.42). Still open, reachable but not run
+   (capture.md 10.43): Activate All from a used or picked-up item away
+   from a stack; whether Rid Room and banishing ask for a target; the
+   reversals going by the visited region's rounds (5.4).
+7. Creatures casting: captured (6.3: Power after drift at least the
+   Wisdom, anywhere in the room, the turn ending; 6.4: a summons at a foe
+   and at a friend; 6.5: "half power" is Power above half the Wisdom, a
+   use costing two moves, the turn going on; 6.2: a peaceful friend
+   casts; capture.md 10.43). Still open: an odd Wisdom at the "half
+   power" boundary, a creature's summons' square, slinkers other than
+   friends casting, a use with two or more moves left. When the 0 to 9
+   smartness roll is drawn (6.1) needs a research pass (capture.md 10.43
+   (b)).
 8. What casting costs in moves: captured (4.3: the rest of the turn).
+9. Increase Magic Defense (3.3: one level), Give (3.9: not readied),
+   "disappears after first use" (3: a working cast only), Add to Room
+   from a wall portal (3.13) and a death's drops (7.2: owner-only lost,
+   drop spells not set off): captured (capture.md 10.43). A creature's
+   moves set before its top-of-turn die (5.3.2): captured (capture.md
+   10.43). Rid Room on the world map (3.12) is not worth a run.

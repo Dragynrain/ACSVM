@@ -3,8 +3,9 @@
 //! Movement and weight (movement 2-3, 5-6, inventory 2-5): the Speed survey,
 //! the weight slowdown and capacity, refused moves and the door's cost,
 //! spaces on arrival, drops, readying armor, gold piles and the success
-//! stack (winning 1), gold's weight per piece and what a take gives. All
-//! deterministic.
+//! stack (winning 1), gold's weight per piece and what a take gives, the
+//! carry limit's refusal, readying by a pick-up, the map drop's move, a
+//! part-drained step and a player of Speed 0. All deterministic.
 
 use crate::world::*;
 use acs_core::model::{
@@ -12,7 +13,7 @@ use acs_core::model::{
     SpellActionKind, ThingKind, WeaponStats,
 };
 use acs_core::{Adventure, Platform};
-use acs_engine::{Command, Dir, Event, Game, Location, PlayerSetup, Rules, Slot};
+use acs_engine::{BlockReason, Command, Dir, Event, Game, Location, PlayerSetup, Rules, Slot};
 
 fn map(x: u8, y: u8) -> Location {
     Location::World { x, y }
@@ -707,4 +708,223 @@ fn a_take_gives_the_placed_parameter() {
         assert!(stack(&g, x, y).is_empty(), "{name}: gone from the floor");
         assert_eq!(g.players()[0].count(t), owned, "{name}");
     }
+}
+
+// ---- the carry limit, readying by a pick-up, the map drop (capture.md 10.43)
+
+/// rr39's bow (thing 41).
+const BOW: u16 = 41;
+
+/// capture.md 10.43 item 1 (rr39 `pc-e`, `pc-s`, `pc-e0`; inventory 2.2):
+/// our treasure 60 on 5,4 and thing 1 on 4,5, each placed with 1. T owning
+/// 60, a push east: "T cannot carry more PUTCI", T on 4,4, its moves the
+/// same at the push, after the button and on to the drain; T owning three
+/// of thing 1, a push south: the same. Owning nothing, the push east took
+/// 60 and one move. One run each.
+#[test]
+fn a_move_refused_at_the_carry_limit_costs_nothing() {
+    const ONE: u16 = 1;
+    let mut a = kit();
+    thing(&mut a, ONE, "ONE", treasure(1, 1));
+    put(&mut a, 5, 4, PUTCI, 1);
+    put(&mut a, 4, 5, ONE, 1);
+    for (name, owned, dir, t) in [
+        ("pc-e", vec![PUTCI], Dir::E, PUTCI),
+        ("pc-s", vec![ONE; 3], Dir::S, ONE),
+    ] {
+        let mut g = game(&a, 1, tee(&owned), room(4, 4));
+        let ev = g.apply(Command::Move { dir });
+        assert!(
+            matches!(
+                ev[..],
+                [Event::Blocked {
+                    reason: BlockReason::CarryLimit { thing },
+                    ..
+                }] if thing == t
+            ),
+            "{name}: {ev:?}"
+        );
+        assert_eq!(g.players()[0].at, room(4, 4), "{name}");
+        assert_eq!(g.players()[0].moves_left, 6, "{name}: no move spent");
+        assert_eq!(g.players()[0].count(t), owned.len() as u16, "{name}");
+    }
+    let mut g = game(&a, 1, tee(&[]), room(4, 4));
+    let ev = g.apply(Command::Move { dir: Dir::E });
+    assert!(
+        ev.contains(&Event::PickedUp {
+            player: 0,
+            thing: PUTCI
+        }),
+        "pc-e0: {ev:?}"
+    );
+    assert_eq!(g.players()[0].at, room(4, 4), "pc-e0");
+    assert_eq!(g.players()[0].moves_left, 5, "pc-e0: the take's move");
+}
+
+/// capture.md 10.43 item 2 (rr39 `rd-e`, `rdb-e`, `rd-s`, `pr-e`, `pr-w`,
+/// `rd-drop`; inventory 2.4, 4.3, 4.4): T owning and holding the blade,
+/// our bow on 5,4, our mail on 4,5, treasure 60 on 3,4 (`rd`); or holding
+/// the bow, the blade on 5,4 (`rdb`). The bow taken: held 41, the blade
+/// replaced; the blade taken: held 59, the bow replaced; the mail taken:
+/// owned, nothing worn, the blade still held. The bow's take and the
+/// treasure's each left 4 of 5 moves: the readying costs nothing over the
+/// step. The blade dropped on T's own square: nothing held. One run each.
+#[test]
+fn a_picked_up_weapon_is_readied_for_the_steps_cost_alone() {
+    let mut rd = kit();
+    thing(&mut rd, BOW, "BOW", bow(5, 9));
+    let mut rdb = rd.clone();
+    put(&mut rd, 5, 4, BOW, 1);
+    put(&mut rd, 4, 5, MAIL, 1);
+    put(&mut rd, 3, 4, PUTCI, 1);
+    put(&mut rdb, 5, 4, BLADE, 1);
+    // T holding `held` with 5 moves left.
+    let holding = |a: &Adventure, held: u16| {
+        let mut g = game(a, 1, tee(&[held]), room(4, 4));
+        let ev = g.apply(Command::Ready { thing: held });
+        assert!(
+            ev.iter()
+                .any(|e| matches!(e, Event::Readied { thing, .. } if *thing == held)),
+            "{ev:?}"
+        );
+        assert_eq!(g.players()[0].moves_left, 5);
+        g
+    };
+    for (name, a, held, dir, taken, weapon) in [
+        ("rd-e", &rd, BLADE, Dir::E, BOW, BOW),
+        ("rdb-e", &rdb, BOW, Dir::E, BLADE, BLADE),
+        ("rd-s", &rd, BLADE, Dir::S, MAIL, BLADE),
+        ("pr-w", &rd, BLADE, Dir::W, PUTCI, BLADE),
+    ] {
+        let mut g = holding(a, held);
+        let ev = g.apply(Command::Move { dir });
+        assert!(
+            ev.contains(&Event::PickedUp {
+                player: 0,
+                thing: taken
+            }),
+            "{name}: {ev:?}"
+        );
+        let p = &g.players()[0];
+        assert!(p.owns(taken), "{name}");
+        assert_eq!((p.weapon, p.armor), (Some(weapon), None), "{name}");
+        assert_eq!(p.moves_left, 4, "{name}: the step alone");
+    }
+    let mut g = holding(&rd, BLADE);
+    let ev = g.apply(Command::Drop {
+        thing: BLADE,
+        dir: None,
+    });
+    assert!(ev.contains(&Event::Dropped {
+        player: 0,
+        thing: BLADE,
+        at: room(4, 4)
+    }));
+    assert_eq!(stack(&g, 4, 4), [BLADE], "rd-drop");
+    assert_eq!(g.players()[0].weapon, None, "rd-drop: nothing held");
+}
+
+/// capture.md 10.43 item 5 (rr39 `mp-d`, `mp-d2`, `mp2.txt`; inventory
+/// 5.3, 5.9): T on the map's start owning our magic item, acting when
+/// dropped, Life Force +5. DROP OBJECT, the item: "the thing dropped is
+/// lost forever!", the item gone, Life Force 40 to 45; the moves 4 to 3 as
+/// the thing was chosen and 3 on to the drain: a drop on the world map
+/// costs one move. Two runs alike.
+#[test]
+fn a_drop_on_the_world_map_costs_one_move_and_its_spell_goes_off() {
+    const CHARM: u16 = 70;
+    let mut a = kit();
+    thing(
+        &mut a,
+        CHARM,
+        "CHARM",
+        ThingKind::MagicItem {
+            picture: 3,
+            disappears_after_use: false,
+            carry: Carry { weight: 1, value: 1 },
+            action: act(SpellActionKind::ChangeLifeForce, 5),
+            on_use: false,
+            on_drop: true,
+            on_pickup: false,
+        },
+    );
+    let mut g = game(
+        &a,
+        1,
+        PlayerSetup {
+            constitution: 40,
+            life_force: 40,
+            ..tee(&[CHARM])
+        },
+        map(12, 12),
+    );
+    let before = g.players()[0].moves_left;
+    let ev = g.apply(Command::Drop {
+        thing: CHARM,
+        dir: None,
+    });
+    assert_eq!(
+        ev[0],
+        Event::LostOnMap {
+            player: 0,
+            thing: CHARM
+        },
+        "{ev:?}"
+    );
+    assert!(!g.players()[0].owns(CHARM));
+    assert_eq!(life(&g), 45, "the drop spell on the dropper: {ev:?}");
+    assert_eq!(g.players()[0].moves_left, before - 1, "one move");
+}
+
+// ---- a part-drained step, a player of Speed 0 (capture.md 10.44) ----------
+
+/// capture.md 10.44 item 7 (rr40 `pd`, `pd.txt`; movement 2.4): T alone,
+/// Speed 6, left idle until the bar's first drain to 5, then a further
+/// 100k, 900k, 1,600k or 1,750k instructions (part of the next step
+/// drained), then holding east until the moves reach 0: 5 squares each
+/// time; after 1,850k, past the second drain, 4 moves and 4 squares. Only
+/// a whole step's drain takes it: here an `Idle` a drained step. 5 of 5
+/// runs.
+#[test]
+fn a_part_drained_step_can_still_be_walked() {
+    let a = base(Platform::C64);
+    for drains in [1, 1, 1, 1, 2] {
+        let mut g = game(&a, 1, tee(&[]), room(4, 4));
+        for _ in 0..drains {
+            g.apply(Command::Idle);
+        }
+        let left = g.players()[0].moves_left;
+        assert_eq!(left, 6 - drains, "moves at the push");
+        assert_eq!(hold(&mut g, Dir::E), u32::from(left), "{drains} drained");
+    }
+}
+
+/// capture.md 10.44 item 8 (rr40 `sp0.txt`, `sp0b.txt`, from rr37's
+/// `hp-room.vsf`; movement 2.8): T's Speed set to 0; at its next turn the
+/// moves read 0 and the menu opened by itself; the stick moved T nowhere
+/// and the turn did not end in 20M instructions; MOVE from the menu said
+/// it can't move, and the turn still went on. Engine: moves refused
+/// (`NoMovesLeft`) at no cost, only `Wait` ending the turn. One run each.
+#[test]
+fn a_speed_0_player_cannot_move_and_only_wait_ends_its_turn() {
+    let a = base(Platform::C64);
+    let mut g = game(&a, 1, PlayerSetup { speed: 0, ..tee(&[]) }, room(4, 4));
+    assert_eq!(next_turn(&mut g), 0, "the next turn's moves");
+    for dir in [Dir::E, Dir::S, Dir::W, Dir::N] {
+        let ev = g.apply(Command::Move { dir });
+        assert!(
+            matches!(
+                ev[..],
+                [Event::Blocked {
+                    reason: BlockReason::NoMovesLeft,
+                    ..
+                }]
+            ),
+            "{dir:?}: {ev:?}"
+        );
+        assert_eq!(g.players()[0].at, room(4, 4));
+    }
+    let ev = wait(&mut g);
+    assert!(ev.contains(&Event::TurnEnded { player: 0 }), "{ev:?}");
+    assert_eq!(g.players()[0].at, room(4, 4));
 }

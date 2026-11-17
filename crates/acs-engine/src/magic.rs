@@ -126,6 +126,18 @@ pub fn hurtful(action: SpellAction) -> Option<bool> {
     }
 }
 
+/// 7.2 (and characters 7.5.1): a weapon or armor only its owner may use,
+/// whatever it weighs, is lost at a death or a destroy. The stores' shelf
+/// test is a separate one, both marks (stores 2.7).
+pub fn owner_only(kind: &ThingKind) -> bool {
+    match kind {
+        ThingKind::MissileWeapon { stats, .. }
+        | ThingKind::MeleeWeapon { stats, .. }
+        | ThingKind::Armor { stats, .. } => !stats.usable_by_anyone,
+        _ => false,
+    }
+}
+
 /// The lowest and highest chance a spell with a cost has (4.1).
 pub const CAST_CHANCE_MIN: u8 = 14;
 pub const CAST_CHANCE_MAX: u8 = 90;
@@ -939,9 +951,17 @@ impl Game {
 
     // ---- time (section 5) ----------------------------------------------------
 
-    /// The top of an individual's turn: a creature's catch-up (5.5), Power
-    /// drift (5.1), then the healing die (5.3).
+    /// The top of a player's turn: Power drift (5.1), then the healing die
+    /// (5.3); the moves are set after both (inventory 3.4). A creature's
+    /// turn sets its moves between the two, `turn_drift` then `turn_die`.
     pub(crate) fn turn_top(&mut self, who: Who, ev: &mut Vec<Event>) {
+        self.turn_drift(who);
+        self.turn_die(who, ev);
+    }
+
+    /// The first half of a turn's top: a creature's catch-up (5.5), then
+    /// Power drift (5.1). No draw.
+    pub(crate) fn turn_drift(&mut self, who: Who) {
         if !self.alive(who) {
             return;
         }
@@ -954,6 +974,13 @@ impl Game {
         if power != wisdom {
             let to = if power < wisdom { power + 1 } else { power - 1 };
             self.set_stat(who, Stat::Power, to);
+        }
+    }
+
+    /// The healing die at a turn's top (5.3.2): one draw, a 6 heals one.
+    pub(crate) fn turn_die(&mut self, who: Who, ev: &mut Vec<Event>) {
+        if !self.alive(who) {
+            return;
         }
         let face = self.rng.below(6) + 1;
         if face == HEAL_FACE {
@@ -1091,10 +1118,10 @@ impl Game {
                     }) => !disappears_when_dropped,
                     Some(ThingKind::MagicItem { .. }) => true,
                     Some(
-                        ThingKind::MissileWeapon { stats, .. }
-                        | ThingKind::MeleeWeapon { stats, .. }
-                        | ThingKind::Armor { stats, .. },
-                    ) => stats.usable_by_anyone,
+                        kind @ (ThingKind::MissileWeapon { .. }
+                        | ThingKind::MeleeWeapon { .. }
+                        | ThingKind::Armor { .. }),
+                    ) => !owner_only(kind),
                     _ => false,
                 };
                 if keeps {

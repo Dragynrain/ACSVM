@@ -378,6 +378,7 @@ impl Game {
                 return;
             }
         };
+        let on_map = matches!(target, Target::Map);
         self.take_one(p, thing);
         let me = Who::Player { player: p };
         // Magic 2.3: it acts on the dropper unless it lands on a creature.
@@ -455,6 +456,17 @@ impl Game {
         if let Some(s) = drop_spell {
             self.run_spell(s, ev);
         }
+        if on_map {
+            self.map_drop_move(ev);
+        }
+    }
+
+    /// 5.9: a drop on the world map spends one move (the turn ending with
+    /// the last, as any move's); a drop in a room is free.
+    fn map_drop_move(&mut self, ev: &mut Vec<Event>) {
+        if self.players[self.current].alive && !self.over {
+            self.spend(ev);
+        }
     }
 
     /// `DropGold { amount, dir }` (5.8).
@@ -482,11 +494,14 @@ impl Game {
         };
         self.players[p].gold -= amount;
         match target {
-            Target::Map => ev.push(Event::GoldDropped {
-                player: p,
-                amount,
-                at: None,
-            }),
+            Target::Map => {
+                ev.push(Event::GoldDropped {
+                    player: p,
+                    amount,
+                    at: None,
+                });
+                self.map_drop_move(ev);
+            }
             Target::Room {
                 region,
                 room,

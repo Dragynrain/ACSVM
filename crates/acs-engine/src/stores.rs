@@ -116,7 +116,8 @@ pub fn sell_offer(value: i32, wisdom: u8) -> i32 {
 }
 
 /// 2.7: whether a store ever offers `thing`: never a weapon or armor of
-/// weight 0 that nobody may use (the test of characters 7.5.1), whose
+/// weight 0 that nobody may use (both marks; not the owner-only test of a
+/// death or a destroy, magic 7.2, characters 7.5.1), whose
 /// place says out of stock whatever the stock holds.
 pub fn offered(adv: &Adventure, thing: ThingId) -> bool {
     match adv.things.get((thing as usize).wrapping_sub(1)).map(|t| &t.kind) {

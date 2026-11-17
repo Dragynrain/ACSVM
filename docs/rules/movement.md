@@ -121,8 +121,14 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    in the command log and replays exactly, and a turn idled out in full
    draws the same rolls as one `Wait`. The bar drains in whole steps, one
    every 354 frames of idle time, the first after 371 (the turn's extra
-   17 frames); whether a step needs a whole step's pixels left, or the
-   original lets a part-drained step be walked, is [unknown]. `Idle`
+   17 frames). **A part-drained step can be walked**: only a step's whole
+   drain takes it. A Speed 6 player left idle until its bar first fell to
+   5, then a further 0.1M to 1.75M instructions (its second drain coming
+   between 1.75M and 1.85M after the first), then holding the stick,
+   walked 5 squares each time; at 1.85M its moves read 4 and it walked
+   4. [capture: rr40 `pd`, `pd.txt`, 5 of 5 runs, capture.md 10.44 item
+   7; ours, no research pass, 2026-11-16] **Engine:** so: whole steps,
+   the moves left at the push. `Idle`
    during a store visit does nothing, as no time passes inside
    ([stores](stores.md) 3.7), and the front end stops the clock there.
    The viewer's walk mode drains in real time by default (50.125 frames a
@@ -142,8 +148,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    the moves it carried through the door meanwhile (creatures 2.2.4).
    [capture: mem, rr25, case reg2, capture.md 10.29] **Engine:** so.
 7. Effective Speed is lowered by carrying too much and by standing next to an
-   aggressive, unfriendly individual. [manual] By how much is not given.
-   [unknown] **Engine:** the bar starts at Speed after the weight slowdown
+   aggressive, unfriendly individual. [manual] By how much the manual
+   does not give; capture has settled both (below; capture.md 10.39 item
+   4, 10.41 item 2). **Engine:** the bar starts at Speed after the weight slowdown
    ([inventory](inventory.md) 3.3), set after the top-of-turn healing die
    from the Life Force it leaves (inventory 3.4; [capture: capture.md
    10.39 item 4]); adjacency halves the moves, rounding up, at the
@@ -152,8 +159,16 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    into another room (2.3, creatures 2.2.4), which are not halved, as on
    the C64. [capture: mem, rr25, capture.md 10.29]
 8. Speed 0: the manual only says such a creature does not show its name on its
-   turn. A character with Speed 0 cannot move. [unknown] **Engine:** its
-   moves are refused (`NoMovesLeft`) and only `Wait` ends its turn.
+   turn. A character with Speed 0 cannot move. On the C64 a player set to
+   Speed 0 began its next turn with 0 moves and the menu opened by
+   itself; the stick moved it nowhere and the turn did not end on its
+   own (20M instructions); MOVE chosen from that menu showed a message
+   that it can't move, perhaps carrying too much, and the turn still went
+   on. [capture: rr40 `sp0.txt`, `sp0b.txt`, from rr37's `hp-room.vsf`,
+   one run each, capture.md 10.44 item 8; ours, no research pass,
+   2026-11-16] **Engine:** its moves are refused (`NoMovesLeft`) and only
+   `Wait` ends its turn. Opening the menu at once and the "can't move"
+   message are the front end's to show.
 
 ## 3. Directions
 
@@ -183,6 +198,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    - *triggers a spell*: anyone may enter, and the thing's spell runs. The one
      corpus use names a magic spell. [data] Whether the spell runs before or
      after the move: [unknown] **Engine:** after the character arrives.
+     Capture can't settle it: the scenario builder writes no such
+     terrain; it needs the editor (capture.md 10.44).
 4. **Map doors.** Terrain types 13-16 (stored 12-15) are one-way doors,
    whatever their name or picture. Up to 32 doors, each at a map point with a
    destination: a room square or another map point. [manual] In the corpus
@@ -241,9 +258,12 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    one open to anyone and a custom one whose condition they meet included
    ([creatures](creatures.md) 5.1). [capture: mem, rr37 `cs-m`,
    capture.md 10.41 item 3; ours, no research pass, 2026-11-16] A
-   creature trying to step onto its goal's square where an individual
-   stands on an obstacle bumps the obstacle (creatures 5.1). [capture, 1
-   run: rr37 `ad-ob-m`, capture.md 10.41 item 3]
+   creature that followed its goal through a door onto an obstacle's
+   square can bump that obstacle later in the same turn, after stepping
+   off; from beside the square on any other turn it never does
+   (creatures 5.1). [capture: mem, rr40 `bump-m`, 8 of 231 such turns,
+   none of 586 others, capture.md 10.44 item 1; rr37 `ad-ob-m`, 10.41
+   item 3]
 
 6. **Access rules** for portals and spaces: anyone; invoke a spell (anyone
    passes and the spell runs); open only to owners of a thing; open only to
@@ -254,7 +274,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    a player who passed such a locked door was refused by it the next
    time; without the setting it passed again. [capture: acts, table lock,
    5 runs each] Only "owners of" makes sense here. [unknown] **Engine:**
-   applied only to "owners of" access.
+   applied only to "owners of" access. (Reachable, not yet run: a portal
+   of ours set so with non-owners access; capture.md 10.44.)
 8. **Custom spaces** choose one of two values at placement: either the needed
    thing (then the spell's parameter is fixed in the master list) or the
    spell's parameter (then the needed thing is fixed). Reading the placement
@@ -372,7 +393,8 @@ These need the AI and are listed so the movement code leaves room for them.
    take doors only within their own region, and only doors without a do-all,
    rid-room or add-to-room spell. [manual] Spaces: [capture, capture.md
    10.41 item 3] ([creatures](creatures.md) 5.1, with its one exception, a
-   bump at the goal's square).
+   bump at the goal's square on the turn after a shared door, capture.md
+   10.44 item 1).
 3. A creature sent through a door into a deleted room is banished. [manual]
 
 ## 9. What later rules need from movement
@@ -422,3 +444,7 @@ In priority order, for the behaviour-capture harness:
    roll keeps the door turn's range, [magic](magic.md) 5.3.1; room doors
    and region to region carry them too, creatures 2.2.4; capture.md
    10.29).
+9. A part-drained step (2.4: walkable) and a player of Speed 0 (2.8):
+   captured (capture.md 10.44). Still open: destroy needed thing with
+   non-owners access (5.7; reachable, not yet run); terrain that
+   triggers a spell, before or after the move (4.3; needs the editor).

@@ -159,8 +159,8 @@ enum Cmd {
         #[arg(long)]
         gold: Vec<String>,
         /// Our melee weapon's stats (thing 59): `key=value` pairs power,
-        /// adj (-35..40, multiples of 5), break (0..15), magic, once (0 or
-        /// 1). Who has it: the kit keys of --player and --creature (own=,
+        /// adj (-35..40, multiples of 5), break (0..15), magic, once, anyone
+        /// (0 or 1; anyone=0: owner only, 10.43). Who has it: the kit keys of --player and --creature (own=,
         /// hold=, wear=, md=; docs/capture.md 10.15).
         #[arg(long)]
         blade: Option<String>,

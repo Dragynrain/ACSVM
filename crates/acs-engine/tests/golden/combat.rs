@@ -2859,3 +2859,138 @@ fn life_force_above_constitution_enters_the_share_as_it_stands() {
         );
     }
 }
+
+// ---- capture.md 10.44: firing at a friend's goal, armor used up ----------
+
+/// capture.md 10.44 item 5 (rr40 `fb`, `nb`, 8 states each, 30M; combat
+/// 8.1): FB, an aggressive brave friend holding our bow (power 5, range 9)
+/// on 10,4, T on 4,4 the only other individual: FB never fired (no shot
+/// counted in 16 turns); the same creature as a neutral fired on its first
+/// turn in 8 of 8 runs. Exact.
+#[test]
+fn a_creature_fires_only_at_a_goal_that_is_its_foe() {
+    for (name, alignment) in [("fb", Alignment::Friend), ("nb", Alignment::Neutral)] {
+        let mut a = kit(9);
+        thing(&mut a, BOW, "BOW", bow(5, 9));
+        ours(&mut a, 0, 10, 4, |c| {
+            c.name = "FB".into();
+            c.strategy.alignment = alignment;
+            holds(c, BOW);
+        });
+        for seed in 0..32 {
+            let mut g = game(&a, seed, t(6, 40, vec![]), room(4, 4));
+            let mut ev = Vec::new();
+            for _ in 0..8 {
+                if turns_of(&ev, 0).len() >= 2 {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let turns = turns_of(&ev, 0);
+            assert!(turns.len() >= 2, "{name} seed {seed}");
+            if alignment == Alignment::Friend {
+                for turn in &turns[..2] {
+                    assert_eq!(fired(turn, slot(0)), None, "{name} seed {seed}: {turn:?}");
+                }
+            } else {
+                assert!(
+                    fired(turns[0], slot(0)).is_some(),
+                    "{name} seed {seed}: {:?}",
+                    turns[0]
+                );
+            }
+        }
+    }
+}
+
+/// capture.md 10.44 item 6 (rr40 `mo2-m`, 4 states, 30M, `--answer T`;
+/// combat 5.2): T wearing our mail of power 20 that disappears after use,
+/// EE an aggressive brave enemy holding our blade of power 5. In 4 of 4
+/// runs the mail went at a blow that took no Life Force, the first blow to
+/// reach it; T's first loss came at a later blow. T readies the mail,
+/// which ends its turn, as `mail-heavy`; EE (10.14.6) starts on 6,4. Exact.
+#[test]
+fn disappearing_armor_goes_at_the_first_blow_it_stops() {
+    let mut a = fighter(true);
+    thing(&mut a, BLADE, "BLADE", blade(5));
+    thing(
+        &mut a,
+        MAIL,
+        "MAIL",
+        ThingKind::Armor {
+            picture: 8,
+            disappears_after_use: true,
+            carry: Carry { weight: 5, value: 10 },
+            stats: stats(20),
+        },
+    );
+    for seed in 0..64 {
+        let mut g = game(&a, seed, t(6, 40, vec![MAIL]), room(4, 4));
+        let mut ev = g.apply(Command::Ready { thing: MAIL });
+        let damaging = |ev: &[Event]| {
+            ev.iter().position(|e| {
+                matches!(e, Event::Blow { by, target: ME, outcome: BlowOutcome::Hit { damage, .. }, .. }
+                    if *by == slot(0) && *damage > 0)
+            })
+        };
+        for _ in 0..8 {
+            if damaging(&ev).is_some() {
+                break;
+            }
+            ev.extend(wait(&mut g));
+        }
+        let hurt = damaging(&ev).unwrap_or_else(|| panic!("seed {seed}: no damaging blow"));
+        let reached = ev
+            .iter()
+            .position(|e| {
+                matches!(e, Event::Blow { by, target: ME, outcome: BlowOutcome::Hit { .. }, .. }
+                    if *by == slot(0))
+            })
+            .expect("a blow reached the mail");
+        assert!(
+            matches!(
+                ev[reached],
+                Event::Blow {
+                    outcome: BlowOutcome::Hit { damage: 0, .. },
+                    ..
+                }
+            ),
+            "seed {seed}: {:?}",
+            ev[reached]
+        );
+        let gone = ev
+            .iter()
+            .position(|e| {
+                matches!(
+                    e,
+                    Event::Broke {
+                        who: ME,
+                        thing: MAIL,
+                        used_up: true
+                    }
+                )
+            })
+            .unwrap_or_else(|| panic!("seed {seed}: the mail stayed"));
+        // Gone at that blow, before any other, and T's first loss later.
+        assert!(
+            reached < gone
+                && !ev[reached + 1..gone]
+                    .iter()
+                    .any(|e| matches!(e, Event::Blow { .. })),
+            "seed {seed}: {ev:?}"
+        );
+        assert!(gone < hurt, "seed {seed}");
+        assert!(
+            !ev[..hurt].iter().any(|e| matches!(
+                e,
+                Event::StatChanged {
+                    who: ME,
+                    stat: Stat::LifeForce,
+                    from,
+                    to
+                } if to < from
+            )),
+            "seed {seed}: T hurt before"
+        );
+    }
+}

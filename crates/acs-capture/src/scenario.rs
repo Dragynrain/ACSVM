@@ -184,6 +184,9 @@ pub struct KitSpec {
     pub range: u8,
     pub magic: bool,
     pub once: bool,
+    /// Usable by anyone (the extended record's bit 6); 0 makes it the
+    /// owner's only, like a creature's claws (docs/capture.md 10.43).
+    pub anyone: bool,
 }
 
 impl KitSpec {
@@ -197,6 +200,7 @@ impl KitSpec {
             range: 5,
             magic: false,
             once: false,
+            anyone: true,
         }
     }
 
@@ -216,7 +220,8 @@ impl KitSpec {
                 "range" => s.range = n.clamp(2, 9) as u8,
                 "magic" => s.magic = flag()?,
                 "once" => s.once = flag()?,
-                _ => return Err(format!("{k}: power, adj, break, range, magic or once")),
+                "anyone" => s.anyone = flag()?,
+                _ => return Err(format!("{k}: power, adj, break, range, magic, once or anyone")),
             }
         }
         s.check(kit)?;
@@ -252,7 +257,7 @@ impl KitSpec {
         };
         let adj = ((self.adj as i16 - base) / 5) as u8;
         let e1 = adj << 4 | (self.break_chance & 0x0F);
-        let e2 = u8::from(self.magic) << 7 | 0x40 | PIC_DOOR as u8;
+        let e2 = u8::from(self.magic) << 7 | u8::from(self.anyone) << 6 | PIC_DOOR as u8;
         (props, [e0, e1, e2])
     }
 }

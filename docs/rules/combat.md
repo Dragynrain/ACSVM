@@ -254,7 +254,10 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    damage: it uses one blow, as a miss, and is not a "damaging blow" (6.4,
    7). [research: third pass; capture: mail-heavy, mail of Power 12
    against blows of 10, 16 runs] **Engine:** so too when magic defense
-   brings it to 0. [unknown] The message for such a blow is not known.
+   brings it to 0. Not worth a run (capture.md 10.44): at levels 2 and 3
+   magic defense calls the attack off (5.4), and level 1's halving never
+   makes 0 of damage above 0. The message for such a blow is not known;
+   it is presentation.
 
 ## 5. Armor, magic defense and learning
 
@@ -290,8 +293,13 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    wearer for the full 10. [research: third pass] Its break roll is drawn
    first, as for any armor (at break chance 0 here): without that roll
    one of our 16 runs goes wrong. [capture: mail-once, 16 runs, the mail
-   gone in 13] **Engine:** a blow it stops entirely (none reaches it) also
-   uses it up, as the rows above say "taking its Power off". [unknown]
+   gone in 13] **A blow it stops entirely uses it up too**: the player
+   wearing our mail of Power 20, set to disappear, against an enemy's
+   blade of Power 5: in 4 of 4 runs the mail went at the first blow to
+   reach it, a blow that took no Life Force, and the player's first loss
+   came at a later blow. [capture: mem, rr40 `mo2-m`, capture.md 10.44
+   item 6; ours, no research pass, 2026-11-16] **Engine:** so, as the
+   rows above say "taking its Power off".
 3. **Armor in the hit chance**: the attacker's armor term (1.5), so heavy
    armor makes its wearer miss until its Armor skill grows. [research]
 4. **Magic defense** (levels 0..3, [magic](magic.md) 3.3), only when the
@@ -354,7 +362,9 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    readied on its next turn. [capture: rr33 `r0b`, `r0b-long`, capture.md
    10.37 item 4] With moves left after the drop the engine readies after
    it, before its first step; [unknown] where readying falls on such a
-   turn (no weapon was owned in the captures of a drop with moves left).
+   turn (no weapon was owned in the captures of a drop with moves left;
+   reachable, not yet run: a creature over half its capacity owning a
+   weapon, capture.md 10.44).
 3. **Breaking** is a roll of 0 to 99 below the thing's break chance
    (0..15): a melee weapon when its blow is parried (the striking weapon,
    not the parrying one); armor on a blow that reaches it (5.1). The thing
@@ -443,7 +453,8 @@ after every damaging blow (32 of 32 runs, 50 blows). [capture: rr33 `b-`,
 2026-11-15] So the Wisdom bounds hold for aggressive thieves and enemies
 as for neutrals, at least for blows; for arrows on them, and for a
 player of Wisdom below 6 or above 14 by blow or arrow, it was not run
-[unknown]. **Engine:** one rule for blows and arrows, the one above,
+[unknown] (reachable by a state sweep with the FIRE kit, not yet run,
+capture.md 10.44). **Engine:** one rule for blows and arrows, the one above,
 also after a hit that kills (by the class it had), so no roll and no
 change outside Wisdom 6 to 14. (Superseded: the engine's earlier
 choices, a roll after a player's arrow whatever the target's class, and
@@ -512,10 +523,14 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
      creature doesn't fire.) Above Speed 0, readying the bow with the
      turn's last move ends the turn before any shot ([creatures](creatures.md)
      2.7; capture.md 10.33).
-   - [unknown] whether the goal must be a foe. **Engine:** "not on its
-     side" is a foe ([creatures](creatures.md) 7.4), and it fires only at
-     a goal that is its foe, so a slinker friend whose goal is the player
-     doesn't shoot it.
+   - **The goal must be a foe.** An aggressive brave friend holding our
+     bow, the player the only other individual in the room, never fired
+     (16 turns, no shot counted); the same creature as a neutral fired on
+     its first turn in 8 of 8 runs. [capture: mem, rr40 `fb`, `nb`, 8
+     states each, capture.md 10.44 item 5; ours, no research pass,
+     2026-11-16] **Engine:** so: "not on its side" is a foe
+     ([creatures](creatures.md) 7.4), and it fires only at a goal that is
+     its foe, so a friend whose goal is the player doesn't shoot it.
    - **A player fires** only through the menu's FIRE (8.8). (Superseded:
      the first pass's "a player can't fire": the message it had read is
      the refusal with a foe beside, 8.8.2.)
@@ -635,8 +650,8 @@ decision in `ai.rs` (`creature_fires`); the events are `Fired`, `Shot`,
         later is not yet in the room during the other's turn: it is not
         drawn and the firer's arrows never reach its square; it is there
         from its own first turn in the room on. [capture: rr28 `bes2` and a
-        64-run sweep at it, capture.md 10.32] [unknown] what else misses it
-        meanwhile (creatures' goals, their arrows, the halving of 2.6 in
+        64-run sweep at it, capture.md 10.32] [unknown] (reachable, not
+        yet run, capture.md 10.44) what else misses it meanwhile (creatures' goals, their arrows, the halving of 2.6 in
         [creatures](creatures.md)). **Engine:** not yet so: the engine has
         the player in the room from its door step.
    3. **Holding a missile weapon**, no foe beside: a target cursor appears
@@ -796,7 +811,8 @@ misses a player that came into the room after the firer (8.8.2).
    (`bow-ready`), a melee weapon too (`ready-melee`, capture.md 10.35).
 5. Firing (section 8): captured but for its "Not run" list; a foe truly
    beside the shooter (8.1): captured (`bow-adj`, capture.md 10.35). A
-   Speed 0 archer: captured (8.1, `still-bow`).
+   Speed 0 archer: captured (8.1, `still-bow`). Firing only at a goal
+   that is a foe (8.1): captured (capture.md 10.44).
 6. The player's fire (8.8): the inputs, refusals and costs captured by
    script, and every draw by the sweeps of capture.md 10.24 (`fire-e5`,
    `fire-e3`, `fire-e0`, `ready-e5`, `beside-draws`, `none-draws`,
@@ -808,4 +824,10 @@ misses a player that came into the room after the firer (8.8.2).
    aggressive neutral at 3 and 20, a player at 13): captured (capture.md
    10.35, rr31). Still open: aggressive thieves and enemies, and players,
    at Wisdom below 6 or above 14 (7), and what else misses a player that
-   came in after the firer (8.8.2).
+   came in after the firer (8.8.2): both reachable, not yet run
+   (capture.md 10.44).
+7. Armor that disappears, used up by a blow it stops entirely (5.2):
+   captured (capture.md 10.44). Still open, reachable but not run
+   (capture.md 10.44): where readying falls on a drop turn with moves
+   left (6.2). Magic defense bringing a blow to 0 (4.4) and the
+   superseded [unknown] of 4.3: not worth a run.

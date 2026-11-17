@@ -120,7 +120,8 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    the doors, 7.2; an area reopened later has only what closing left,
    capture.md 10.34). Room 0's list (empty in the corpus) is kept for
    round-tripping and not placed on the open map; how the original treats
-   items in it was not tried [unknown].
+   items in it was not tried, and is not worth a run: the list is empty
+   in the whole corpus (capture.md 10.44).
 
    **Odd lists** (capture.md 10.34): the game read every one of these
    without refusing the area or crashing. [capture]
@@ -133,7 +134,8 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
      there as gaps in the wall (three gaps in the run, one of them the
      real door on 0,5, which worked as usual). At that area's closing no
      entry was marked deleted. [capture] Whether the other gaps can be
-     walked through was not tried. [unknown]
+     walked through was not tried, and is not worth a run: no editor
+     writes such a list (capture.md 10.44).
 
    **Engine:** the lists are read one after another by their stored
    lengths, as the original reads them, so an over-long length gives that
@@ -195,9 +197,10 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
      editor's `32 08` the game moved to region 3, room 2, square 0,8 (a
      region the scenario doesn't use; the template disk still held data
      for it). Changing + 0x80E made no visible difference to doors with
-     parameters 0..3. [capture] What parameters above 4 read is
-     [unknown] (by the pattern, the bytes after + 0x80E, where the lists
-     begin).
+     parameters 0..3. [capture] What parameters above 4 read was not
+     tried (by the pattern, the bytes after + 0x80E, where the lists
+     begin), and is not worth a run: no editor writes them (capture.md
+     10.44).
 
    **Engine:** an item of thing 82 in an area is a door wherever it lies;
    any number may share a square, the first in the room's item list
@@ -214,15 +217,18 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    door or room door on the arrival square is not taken (movement 6.3).
    Whether a door leading into a room of region 1 or above rolls that
    room's random creature ([movement](movement.md) 7.2) was not looked at
-   [unknown]. **Engine:** it does, reading "as a room door to another
-   region goes" to include the room's roll on entering. A destination
-   whose region or room is missing sends the player to the start point
-   with `LeftArea` only; whether the original shows anything more there
-   is [unknown], and the engine emits no `SentToStart`. Front ends
-   (walk mode included) draw a door item with the floor picture, on a
-   wall square and an inside square alike, so a wall door shows as an
-   opening; whether the original's wall gap is the floor picture or a
-   picture of its own was not checked [unknown]. An area with no door item has no way out.
+   [unknown] (reachable, not yet run: the area door table changed to
+   such a room with its chance at 15; capture.md 10.44). **Engine:** it
+   does, reading "as a room door to another region goes" to include the
+   room's roll on entering. A destination whose region or room is
+   missing sends the player to the start point with `LeftArea` only;
+   whether the original shows anything more there was not checked, and
+   the engine emits no `SentToStart`. Front ends (walk mode included)
+   draw a door item with the floor picture, on a wall square and an
+   inside square alike, so a wall door shows as an opening; whether the
+   original's wall gap is the floor picture or a picture of its own was
+   not checked. Neither is worth a run: malformed data, and drawing only
+   (capture.md 10.44). An area with no door item has no way out.
 
    **A door leading to another open area's entrance**: the player comes
    out on that map square, on the open map (place 0) with its moves left,
@@ -307,7 +313,8 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    while an area is in use (every case had at most one there), and
    whether the map's visit **stops after 10 rounds** as other regions' do
    (creatures 2.2.2): nothing outside region 0 was in play, so a new
-   visit could not be told from the old one. [unknown] **Engine:** the
+   visit could not be told from the old one. [unknown] (Reachable, not
+   yet run: two players of ours; capture.md 10.44.) **Engine:** the
    open map's players in player-number order, like an area's (the same
    as joining order unless a retired player's number is taken again);
    the 10-round visit limit applies to region 0 as to any region.
@@ -326,7 +333,9 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    through the door is removed, [research, traced] was not borne out:
    nothing of ours ever reached the door. Only a door on a wall square
    (0,5) was tried; a door item on an inside square (3.5) was not tried
-   with a creature beside it. [unknown] **Engine:** a square holding a
+   with a creature beside it, and is not worth a run: every corpus area
+   door is the stored one on the wall (capture.md 10.44). **Engine:** a
+   square holding a
    thing-82 item in an area is closed to creatures wherever it lies and
    is never a goal, so an area offers no exit at all to a creature (one
    whose only goal is an exit has no goal there, creatures 6.2). No creature
@@ -343,7 +352,8 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    says (3.5). The return takes no roll; the next step does. [research, run; capture: from 1,5 west, T
    on the entrance 13,12 with 5 of 6 moves] Event: `LeftArea`. A door
    whose region or room is missing sends the player to the start with
-   `LeftArea` alone, no `SentToStart` (engine's choice, 3.5 [unknown]).
+   `LeftArea` alone, no `SentToStart` (engine's choice, 3.5: not checked,
+   not worth a run).
 2. **Closing.** When no living player is left in the area it closes: it is
    marked free, its entrance forgotten, every creature copy in it removed
    for good (`CreatureRemoved`, reason `area_closed`), and every item
@@ -393,7 +403,8 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
      keeps the area's place and 12,4, but a retired player taken back
      into the game starts **at the adventure's start point on the open
      map**, not in the area. Retiring one of two players in an area was
-     not tried. [unknown]
+     not tried. [unknown] (Reachable, not yet run: 10.36's retire chain
+     with two players; capture.md 10.44.)
 
    **Engine:** saves are replays of the command log ([saves](../saves.md)),
    so a game saved in an area comes back in it, as above. Retiring takes
@@ -410,26 +421,32 @@ capture work. Still open: the meaning of the high bit cleared with a
 copy's Power (4.2), and a player standing in a freed area (7.5,
 [research, traced] only).
 
-**Captures needed** for the engine's choices above:
+**Captures needed** for the engine's choices above (the three that
+capture.md 10.44 sorted are reachable, not yet run):
 - the turn order of several players on the open map while an area is in
   use, and whether region 0's visit ends after 10 rounds (6.1; the
-  engine uses player-number order and the 10-round limit);
-- a creature beside a door item on an inside square (6.4; the engine
-  closes every door item's square to creatures);
+  engine uses player-number order and the 10-round limit; 10.44);
 - retiring one of two players in an area (7.6; the engine keeps the area
-  open for the other);
-- a door parameter above 4 (3.5: what it reads past + 0x80E);
+  open for the other; 10.44);
 - a door to another area's entrance where that area was opened by a
   real encounter, not by pokes (3.5);
-- items in room 0's list (3.4);
+- a door entry leading into a room of region 1 or above that has a
+  random creature chance: does arriving roll it (3.5; the engine rolls,
+  movement 7.2; 10.44).
+
+**Not worth a run** (capture.md 10.44 sorts them so: malformed data no
+editor writes, data the corpus never holds, or drawing only), the
+engine's choices standing:
+- a creature beside a door item on an inside square (6.4; every corpus
+  area door is the stored one on the wall; the engine closes every door
+  item's square to creatures);
+- a door parameter above 4 (3.5: what it reads past + 0x80E);
+- items in room 0's list (3.4; empty in the whole corpus);
 - the extra wall gaps an over-long list makes: can they be walked
   through (3.4); and why closing such an area marked no entry deleted,
   where the engine deletes as usual (3.4, 7.2);
 - which off-room items closing keeps (one on 7,12 deleted, one at x 15
   kept, 3.4): no effect on play;
-- a door entry leading into a room of region 1 or above that has a
-  random creature chance: does arriving roll it (3.5; the engine rolls,
-  movement 7.2);
 - a door entry naming a region or room the adventure doesn't have: what
   the game shows on the way to the start (3.5, 7.1; the engine sends
   `LeftArea` only, no `SentToStart`);
