@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! `acs`: the adventure inspector.
+//! `acs`: the adventure inspector, and `acs play`, a scripted playthrough.
+
+mod play;
+mod script;
+
+// acs-core's fixture builder for the play tests (as acs-engine's unit tests).
+#[cfg(test)]
+mod play_tests;
+#[cfg(test)]
+#[path = "../../acs-core/tests/common/mod.rs"]
+mod test_fixture;
 
 use acs_core::model::{Adventure, Destination, ThingKind};
 use acs_core::{decode, Decoded, Image, Platform, Severity};
@@ -51,6 +61,28 @@ enum Command {
         /// Also write a contact sheet of all pictures (sheet.png).
         #[arg(long)]
         sheet: bool,
+    },
+    /// Play an adventure with a scripted walkthrough (docs/play.md).
+    Play {
+        /// Adventure file, as for dump.
+        file: PathBuf,
+        /// The walkthrough script.
+        #[arg(long)]
+        script: PathBuf,
+        /// The game's seed.
+        #[arg(long)]
+        seed: u64,
+        /// Players in the game (at least those the script's header names).
+        #[arg(long, default_value_t = 1)]
+        players: usize,
+        /// Save file written at the end (also after a failure).
+        #[arg(long)]
+        save: PathBuf,
+        /// Trace: each step, its commands and their events, one JSON a line.
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        #[arg(long, value_enum)]
+        platform: Option<PlatformArg>,
     },
 }
 
@@ -129,6 +161,46 @@ fn run(cli: Cli) -> AnyResult<ExitCode> {
             }
             println!("wrote {} pictures to {}", adv.pictures.len(), outdir.display());
             Ok(exit_for(&decoded))
+        }
+        Command::Play {
+            file,
+            script,
+            seed,
+            players,
+            save,
+            trace,
+            platform,
+        } => {
+            let decoded = load(&file, platform)?;
+            let text = std::fs::read_to_string(&script)?;
+            let script = script::parse(&text, &decoded.adventure)?;
+            let out = play::play(&decoded.adventure, &script, seed, players);
+            for line in &out.progress {
+                println!("{line}");
+            }
+            std::fs::write(&save, out.save.to_json())?;
+            eprintln!("wrote {}", save.display());
+            if let Some(t) = trace {
+                let mut body = out.trace.join("\n");
+                body.push('\n');
+                std::fs::write(&t, body)?;
+                eprintln!("wrote {}", t.display());
+            }
+            let p = out.game.players();
+            eprintln!(
+                "{} commands played, round {}, {} of {} players alive",
+                out.game.log().len(),
+                out.game.round(),
+                p.iter().filter(|p| p.alive).count(),
+                p.len()
+            );
+            match out.failure {
+                Some(f) => {
+                    eprintln!("{f}");
+                    Ok(ExitCode::FAILURE)
+                }
+                None => Ok(ExitCode::SUCCESS),
+            }
         }
     }
 }

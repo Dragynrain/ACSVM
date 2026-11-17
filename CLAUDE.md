@@ -58,6 +58,7 @@ scripts/web.sh serve                                    # trunk dev server, :808
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
+cargo run -p acs-cli --release -- play FILE --script S.txt --seed N [--players 2] --save s.json [--trace t.jsonl]   # scripted playthrough (docs/play.md)
 cargo run -p acs-capture --release -- run move-basic --snapshot RUN/start.vsf --disk RUN/disk.d64 --out RUN [--jobs 4]  # docs/capture.md 4
 python scripts/combatcheck.py RUNS.jsonl [--case NAME] [-v]   # combat rules vs a case's runs, roll by roll (capture.md 10.14.9-10, 10.16)
 python scripts/storeread.py table|check ...           # store screens to text, sell offers vs stores 5.1 (capture.md 10.17)

@@ -28,6 +28,7 @@ name = "acs-cli"
 version = "0.1.0"
 dependencies = [
  "acs-core",
+ "acs-engine",
  "clap",
  "png 0.17.16",
  "serde_json",
