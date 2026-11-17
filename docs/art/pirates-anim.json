@@ -11,5 +11,6 @@
  "kit/smokerack-503": {"kind": "cycle", "frames": 3, "ms": 160, "box": [24, 40, 42, 52], "seq": [["g1", "g0", "g2"], ["g2", "g1", "r0"], ["r0", "g2", "g1"]]},
  "kit/flagpole-501": {"kind": "flutter", "frames": 6, "ms": 120, "amp": 1.6, "period": 14, "box": [22, 4, 54, 40]},
  "kit/ship-502":     {"kind": "bob", "frames": 4, "ms": 350, "amp": 1},
- "player/magpie-612": {"kind": "bob", "frames": 4, "ms": 300, "amp": 1}
+ "player/magpie-612": {"kind": "bob", "frames": 4, "ms": 300, "amp": 1},
+ "kp/varrick-813": {"kind": "cycle", "frames": 4, "ms": 140, "box": [16, 12, 19, 14], "seq": [["g1", "g0", "g1", "g2"]]}
 }

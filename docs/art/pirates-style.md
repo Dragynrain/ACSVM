@@ -165,7 +165,7 @@ Lightning LoRA runs in about 15 s an image.
 
 What the kit and the first adventure, *The King's Pardon*, need, by picture.
 **Kit** pictures are generic and reused by any pirate adventure; **KP**
-pictures belong to that adventure alone. About 135 pictures in all, over
+pictures belong to that adventure alone. About 138 pictures in all, over
 Classic's 110, so the adventure declares an Extended picture limit
 (design, Kit 4). Counts are first estimates.
 
@@ -182,41 +182,90 @@ flagstone) comes from spaces drawn as floor tiles and placed on the floor.
 | Doors | 7 | 7 | | Wooden door, fort gate, gangplank, cave passage, double door, iron vault door, trapdoor |
 | Store | 1 | 1 | | A trader's counter under an awning |
 | Set dressing | 22 | 17 | 5 | Kit: cannon, barrels, powder barrels, crate stack, chest, rigging, ship's wheel, map table, tavern table, bar counter, bookcase, nets and fish rack, dive platform, smokehouse rack, bones, coral, flagpole. KP: notice board, Vail's desk, his portrait, vault plinth, pile of signed pardons |
-| Documents | 7 | 2 | 5 | Kit: scroll, book. KP: letter of passage, ledger, governor's seal, sea log, pardon receipt (the three that open gates must look distinct) |
+| Documents | 8 | 2 | 6 | Kit: scroll, book. KP: letter of passage, ledger, governor's seal, the *Constance*'s sea log, pardon receipt, Kesi's pilot chart (the four that open gates must look distinct) |
 | Weapons | 11 | 11 | | Cutlass, flintlock pistol, blunderbuss, musket with bayonet, officer's sabre, boarding axe, gutting knife, throwing knives, harpoon, gaff hook, halberd |
 | Armor | 4 | 4 | | Buff coat, oilskin, leather jerkin, navy coat |
-| Magic and tools | 11 | 9 | 2 | Kit: powder keg, lantern, spyglass, ship's bell, rum flask, salve jar, charm, diving helm, small boat. KP: the flat-bottomed punt, the shark-tooth charm's own look if the kit charm doesn't fit |
+| Magic and tools | 13 | 9 | 4 | Kit: powder keg, lantern, spyglass, ship's bell, rum flask, salve jar, charm, diving helm, small boat. KP: the flat-bottomed punt, the shark-tooth charm's own look if the kit charm doesn't fit, Duroc's signal pistol, Abel's key |
 | Treasures | 8 | 3 | 5 | Kit: gold pile, coin chest, crate of goods. KP: Harrow's strongbox, Quill plate, fort pay chest, drowned gold, Reef Pearl |
 | Creatures, generic | 22 | 22 | | Deckhand, gunner, boarder, rifleman, smuggler, slinker thief, navy marine, sergeant, house guard, diver, fisher, trader, tavern keeper, skeleton or drowned crew, giant crab, kraken arm, reef shark, sea serpent, leech, gull, ship's cat, parrot |
-| Creatures, named | 8 | | 8 | Meg Harrow, Jory Fenn, Abel and Cass Quill, Sabine Duroc, Hob Varrick, Governor Vail, Warden Kesi |
-| **Total** | **134** | **109** | **25** | |
+| Creatures, named | 9 | | 9 | Meg Harrow, Jory Fenn, Abel and Cass Quill, Sabine Duroc, Hob Varrick, Governor Vail (twice: the mansion and the *Sovereign*), Warden Kesi |
+| **Total** | **138** | **109** | **29** | |
 
 Outside the picture list: title art, the *Magpie* as the player's world-map
 marker (a player picture), the UI font, and later, if Extended adds scene
 pictures, an illustration for the vault reveal.
 
-Creature rules for the named eight: each needs a silhouette no generic role
-shares (section 3), and house guards must read apart from navy marines, since
-the story turns on who serves Vail.
+Creature rules for the named characters: each needs a silhouette no generic
+role shares (section 3). Vail's house guards must read apart from Duroc's
+deserted navy marines, since the story turns on who serves Vail.
 
-**The named eight (briefs, November 2026).** Roles are working guesses from
-the asset list until the adventure is written; looks are fixed.
+**The named characters (re-briefed November 2026).** The roles come from the
+adventure's story design (the maintainer's working doc, not yet in the repo:
+premise, rivals, finale and script). The first briefs, from 12 November,
+guessed roles from the asset list without it and got every role wrong; five
+of the eight pictures have to be made again, and three can be edited. These
+briefs replace them; what can be kept is in the last column.
 
-| Character | Role | Look | Silhouette |
-| --- | --- | --- | --- |
-| Meg Harrow | Retired pirate captain, harbour fence | Woman, mid-fifties, weathered tan skin, long grey braid, patched knee-length captain's coat, wide hat with one feather | Wide hat over long coat; lantern and big iron key |
-| Jory Fenn | Swamp boatman and guide | Man, early twenties, light brown skin, curly hair under a frayed straw hat, open waistcoat, rolled trousers, barefoot | Punt pole taller than him, straw hat |
-| Abel Quill | Silversmith | Man, sixties, dark brown skin, short white beard, round spectacles, leather apron over a waistcoat, slightly stooped | Silver goblet and small hammer |
-| Cass Quill | Abel's daughter, keeps the books | Woman, thirties, dark brown skin, yellow headscarf, plain blue dress, rolled sleeves | The green ledger (the KP ledger picture) |
-| Sabine Duroc | French privateer captain | Woman, forties, pale skin, short black hair, deep crimson frock coat, black bicorne worn sideways | The only bicorne; rapier and spyglass |
-| Hob Varrick | Vail's enforcer or harbour master | Man, forties, olive skin, shaved head, thick red beard, very broad, tar-stained sea-grey greatcoat | Bigger than anyone; iron chain over one shoulder |
-| Governor Vail | Governor | Man, fifties, pale skin, tall and thin, powdered white wig, long dark-blue coat with gold embroidery | Tall and thin; cane and a sealed pardon. His portrait matches. |
-| Warden Kesi | Warden of the fort | Woman, sixties, deep brown skin, grey hair in a bun, short and stout, buff coat with a red sash | Ring of keys and walking staff |
+| Character | Role in the story | Look | Silhouette | From the first round |
+| --- | --- | --- | --- | --- |
+| "Black" Meg Harrow | First rival, Gullwreck Cay. Loud, fearless gunner, a former privateer whose letter of marque Vail revoked; raids his shipping | Woman, mid-fifties, weathered tan skin, long grey braid, scorched buff coat, powder-blackened hands and cheek, wide hat with one feather | Wide hat over a buff coat; a blunderbuss held across her body | Face, hat and braid: an edit (coat, held item) |
+| Jory Fenn | Second rival, the Saltmarsh. Genial smuggler who calls everyone "friend", a slinker thief, runs Vail's contraband and keeps good books | Man, thirties, light brown skin, curly hair under a frayed straw hat, open waistcoat over a loose shirt, rolled trousers, bare feet, a wide friendly grin | Straw hat; a stuffed sack over one shoulder and a small account book in the other hand | Face and hat: an edit (older, sack and book for the pole) |
+| Abel Quill | Third rival, Twin Hulls; the twin who schemes. Answered Vail's notice and kept the hoard | Man, forties, dark brown skin, neat short beard, narrow and upright, a good blue captain's coat, brass buttons, a tricorn | Lean, upright; a folded paper (the old pardon notice) and a pistol held low | New: same face as Cass, built as his opposite |
+| Cass Quill | Abel's twin, the muscle. Tired of running; surrenders if spared | Man, forties, dark brown skin, the same face as Abel, a full black beard, very broad, sleeveless leather jerkin, a knotted red-brown head cloth, bare arms | Broad shoulders; a boarding axe on one shoulder | New. The twins must read as twins: same face and skin, opposite build and dress |
+| Captain Sabine Duroc | Fourth rival, Fort Teal. Former navy lieutenant, disciplined and dry, deserted with the marines who survived Vail's hangings | Woman, forties, pale skin, short black hair, a navy officer's coat faded from blue to grey-blue, patched at the elbows, a black bicorne worn sideways | The only bicorne; officer's sabre and spyglass | Face and bicorne: an edit (coat to faded navy, rapier to sabre) |
+| Old Hob Varrick | Rival in the Hollow. Oldest pirate in these waters, half mad and oddly kind; doesn't fight, warns | Man, seventies, olive skin gone leathery, wild white hair and beard, thin and bent, a sea coat thirty years out of fashion gone green with damp, barefoot | Stooped; a lit lantern held high and a boarding axe used as a walking stick | New. Must read apart from the drowned crew and the ghosts: living colour, warm lantern light (emissive) |
+| Governor Edmund Vail | The villain: Hob's old quartermaster Ned Vail, now governor and pirate lord of these waters. Warm and generous until the vault | Man, about sixty, pale skin, grey hair tied back (no wig), clean-shaven, a plain good dark-grey coat, white stock, no embroidery | Empty hands in Act 1: the only named character without a weapon, holding a quill pen | New: plain, not grand |
+| Vail, the *Sovereign* | Act 3: the same man on his own quarterdeck, a duellist | As above, the same coat buttoned up, a sword cane drawn | The same silhouette with the blade out: one change that says who he is now | New (a second picture for his second creature record) |
+| Warden Kesi | Speaks for the islanders of Ama Reef, the divers and salvagers Vail has taxed for a generation. Practical, guarded | Woman, sixties, deep brown skin, grey hair cropped short, short and stout, a sun-faded indigo wrap shirt and knee-length skirt, a diver's knife at her belt, calloused bare feet | A tall carved driftwood staff; a rolled pilot chart under one arm | New. A person in working clothes: no costume shorthand, nothing the generic diver and fisher don't also wear |
 
-Kesi is drawn apart from the generic house guard (also a dark-skinned woman
-in a grey coat) by age, build, coat colour and held item; Hob apart from the
-boarder (also big and bald) by beard, greatcoat and chain. Keep coats off
-burgundy and purple: they cut away with the magenta background.
+Meg is drawn apart from the generic gunner by her hat, braid and
+blunderbuss; Cass apart from the boarder (also big) by his twin's face, head
+cloth and jerkin; Kesi apart from the generic diver and fisher by age,
+staff and chart. Keep coats off burgundy and purple: they cut away with the
+magenta background.
+
+**KP pictures the story adds or changes** (re-briefed November 2026):
+
+| Picture | Group | Why |
+| --- | --- | --- |
+| Vail's portrait | Set dressing, redo | Must show the **young** Ned Vail in a tricorn and a sea coat, painted badly in a heavy gilt frame, the brass plate under it gone and four screw holes left. Hob names him from it, so it must not look like the governor at a glance |
+| Kesi's pilot chart | Documents, new | Opens the reef channel to its owner; must look unlike the kit's treasure map (a long narrow chart, soundings and a coastline, no X) |
+| Duroc's signal pistol | Magic and tools, new | Fired for a marine; must look unlike the flintlock (brass, short, a wide bell mouth) |
+| Abel's key | Magic and tools, new | Opens Cass's cabin; a ship's brass cabin key on a cord |
+| Vail, the *Sovereign* | Creatures, named, new | In the table above |
+
+The three gate documents are now the letter of passage (the mansion; also
+what Fort Teal and Ama Reef turn away), the governor's seal (the vault) and
+the ledger (both endings), and with the pilot chart all four must read apart
+at a glance. The pardon receipt is in no gate: the clerk's message mentions
+one, so it can be the thing handed over with the reward purse, or be dropped.
+The KP count goes from 25 to 29 (134 to 138 in all), still under the
+declared 160.
+
+**Re-brief round made (17 November 2026)**, research `kp2/` (`_scripts/kp2.ps1`,
+LoRA v5-s2200, three seeds each; edits with `qedit.ps1`, two seeds each).
+Abel, Cass, Hob, Vail, Kesi, the key and the portrait came out right first
+time. Meg, Jory and Duroc are edits of their first-round pictures, and Vail on
+the *Sovereign* is an edit of the new Vail, so the two match. Picks are in
+`kp2/picks`, snapped and tidied in `kp2/snap`, finished in `kp2/faces` (section
+9), and in `final/` through `final-replace.json`, which drops the nine
+first-round tiles they replace. What it took:
+
+- **"Signal flare pistol"** drew a modern gold automatic; "an antique 1700s
+  flintlock signal pistol ... wood and brass like an old musket" fixed it.
+- **The pilot chart** first came out as a pale scroll, too close to the kit's
+  scroll; naming the colours (tan coast, green jungle, blue sea, a red dotted
+  course) and "wider than it is tall" made it read as a chart.
+- **The portrait** kept its brass plate in every seed whatever the prompt
+  said; a Qwen edit took it off.
+- **Qwen edits:** "scorch marks" on Meg's coat came out as camouflage
+  blotches and a powder smudge as a black hole in her face (a plain coat in
+  one colour fixed it); "officer sabre" came out as a scythe until its length
+  was given ("as long as her arm").
+- **Snapping:** Abel's dark face and beard went to `outline0`, a black block,
+  and Duroc's pale face to the kraken pink (section 5). Every face needs the
+  section 9 pass, and the portrait a crimson fringe along its bottom edge
+  removed.
 
 **Kit, second round (planned November 2026).** The first 109 cover the list
 above but leave gaps against what Kit 4 in [design](../design.md) promises
@@ -305,8 +354,8 @@ portrait is a Qwen-Image-Edit of Vail's own picture ("a head and shoulders
 portrait of this same man inside a gilded frame, same flat cel-shaded
 style"), so the two match.
 
-**The named eight (November 2026)** were made from the briefs below, three
-seeds each. Five came out right first time. LoRA v3 puts a tricorn on
+**The named eight (November 2026)** were made from the first briefs (since
+replaced, above), three seeds each. Five came out right first time. LoRA v3 puts a tricorn on
 anyone called a pirate, whatever the prompt asks; Harrow's wide hat and
 Duroc's bicorne came from a one-property Qwen-Image-Edit ("replace only her
 hat ... keep everything else exactly the same"). Cass's yellow headwrap
@@ -426,6 +475,30 @@ the face one step lighter with one eye pixel each side), the jaguar (gold
 irises in gold fur; the brightest gold beside each pupil) and the boar (a
 bright rust snout that read as a clown nose; now leather). An animal's eyes
 need a value step against the fur around them, as a person's do.
+
+**Faces of the re-briefed cast (sixth pass, 17 November 2026).** The nine
+people of the re-brief round (section 8), with the same rules. Edits are
+research `kp2/_faces.json` (`faces.py kp2/_faces.json kp2/snap kp2/faces`);
+the 13 finished tiles are in `kp2/faces` and in `final/`. Hob's raised fist had
+snapped to sand; it is on the skin ramp now.
+
+- **Dark skin from a light raw:** Abel, Cass and Kesi came out light brown.
+  The whole tile's skin moves two steps down the ramp (k2 to k4, then k1 to
+  k3, then k0 to k2, in that order so nothing moves twice), and faces painted
+  in wood go to k3. On a k3 face the `outline0` eyes read, but the face goes
+  flat: one k2 pixel or two on the lit left cheek gives it shape.
+- **The twins' beards** are `outline1`, the same as Abel's hat, with a row of
+  cheek skin above Abel's so his beard reads as neat and Cass's as full.
+- **Duroc** had a kraken-pink face (q0 to k0 over the whole tile) and a rust
+  collar under the chin, now a row of neck skin above the white cravat.
+- **Brim bands:** Jory's dark band under his straw hat and Meg's under her
+  wide hat are now one skin step darker, so they read as shadow, not
+  sunglasses.
+- **Vail on the *Sovereign*** came out tan from the Qwen edit; his face is
+  remapped to Vail's pale k0 and given the same features, so the two match.
+- **The portrait** had a crimson cut-out fringe along its bottom and right
+  edge: the edge rows are now `outline0`, and the rows under the frame are
+  cleared.
 ## 10. Kit LoRA
 
 **v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
@@ -680,7 +753,9 @@ of the same gold), or one by one with their own colour. `scripts/emissive.py`
 writes `<tile>.emit.png`, and with `--preview` shows day, the mood, and the
 mood with glow.
 
-Twelve tiles glow: lantern, ghost lantern, the skeleton captain's lantern,
+Thirteen tiles glow: lantern, ghost lantern, the skeleton captain's lantern,
+Hob Varrick's lantern (added with the re-brief round, with a flicker in
+[pirates-anim.json](pirates-anim.json)),
 the smoke rack's fire, lava vent, volcanic cracks, crystal skull, jellyfish,
 compass needle, kraken eyes, the drowned captain's eyes and the ghost's
 eyes. The ghost had no eyes at all; it got two dark pixels that read by day
@@ -769,7 +844,9 @@ of one height, so the test flags outliers, not the norm.
 the same boxes, and a manifest. For each tile the manifest gives its atlas
 box, source file, hand-edit file, layers and licence (CC BY-SA 4.0, as for
 all art), and the generation chain: model, LoRA, seed and prompt, followed
-back through Qwen-Image-Edit sources to the first generation. Terrain and
+back through Qwen-Image-Edit sources to the first generation. An exact pick
+(`picks.json` keyed by the tile's own stem, as `kp2/picks.json` is for the
+renamed re-brief edits) wins over a pick by picture name. Terrain and
 room picks were made by scripts that kept no log; those point to their
 pick and the generating script. Door squares point to their door and wall.
 

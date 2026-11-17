@@ -11,5 +11,6 @@
  "kit2/skelcapt-601": {"codes": ["g0", "g1", "g2", "r0"], "box": [43, 43, 48, 49]},
  "kit/smokerack-503": {"codes": ["g0", "g1", "g2", "r0"], "box": [24, 40, 42, 52]},
  "rooms/lavavent": {"codes": ["g2", "r0", "n2"]},
- "terrain/volcanic": {"codes": ["r1"], "strength": 0.6}
+ "terrain/volcanic": {"codes": ["r1"], "strength": 0.6},
+ "kp/varrick-813": {"codes": ["g1"], "box": [16, 12, 19, 14]}
 }

@@ -59,7 +59,7 @@ def chain(name, gen, depth=0):
 def raw_names(stem, picks):
     names = [stem + ".png"]
     base = re.sub(r"-\d+$", "", stem)
-    for folder, v in picks.get(base, []) + picks.get(stem, []):
+    for folder, v in picks.get(stem, []) + picks.get(base, []):  # an exact pick beats one by picture name
         if isinstance(v, int):
             names.append(f"{base}-{v}.png")
         elif isinstance(v, str):
