@@ -129,6 +129,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   `index.html`, `Trunk.toml`). Needs Rust 1.95 (eframe 0.37); the core stays
   at 1.85. `tiles.rs` computes the integer tile scale from the window in
   physical pixels each frame; `views/` holds one file per view; `views/walk.rs` is walk mode
-  (keys to engine commands, events to the log; no rules in the viewer).
+  (keys, clicks and the touch pad to engine commands, events to the log;
+  no rules in the viewer); `audio/` plays Play Music's cues through cpal
+  (placeholders made in code, client.md 6).
 - Repo: public at github.com/Dragynrain/ACSVM; Pages deploys `target/web` on
   every push to main. Commits use the GitHub noreply address.

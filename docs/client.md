@@ -120,12 +120,28 @@ its code.
 ## 6. Audio
 
 Play Music (magic 3, action 11) reaches the client as `Event::Music`
-with the 1-based choice: 1-12 are effects, played once over anything
-else; 13-30 are themes, and 14-17 loop until other music plays (another
-theme or an effect starts). The client plays 30 cues of our own; the
-original's audio from the user's own disk can come later, through
-research. A volume control and mute; muted until the first input in the
-browser, which can't play sound before one.
+with the 1-based choice: 1-12 are effects, 13-30 themes, and the themes
+14-17 loop until other music plays. [manual] Whether a cue starting
+while another plays mixes with it or replaces it is [unknown]; **the
+client's choice:** one cue at a time, and a new one replaces whatever
+plays, a looping theme included. Every other cue plays once and stops.
+
+**Cues.** 30 cues of our own (Phase 6 makes the finished set). Until
+then the client makes placeholders in code, so nothing is shipped or
+copied: effects are short sounds under a second (sweeps, blips, noise
+bursts), each choice its own; themes are short tunes of a few seconds
+on a pentatonic scale, each choice its own seed; the looping themes end
+on silence, so they repeat without a click. The original's own audio,
+read from the user's disk, can come later through research.
+
+**Output.** `cpal`, on the desktop and in the browser (its Web Audio
+host). The output opens at the first cue after an input, since a
+browser plays nothing before one; a cue arriving before then is
+dropped. Cues from the commands a session starts with (`--walk`, a
+loaded save's replay) are not played.
+
+**Controls.** In the info column: a volume slider (default 70%) and a
+Sound checkbox to mute. Muting stops what plays.
 
 ## 7. Accessibility
 
@@ -158,7 +174,10 @@ an adventure: files are opened or dropped on the window.
    is the original's 32-character column.
 3. Mouse targeting and the touch pad (4). Done November 2026
    (`--pad` shows the pad for screenshots).
-4. Audio: the cue player with placeholder cues, then our 30 (6).
+4. Audio: the cue player with placeholder cues (done November 2026;
+   `crates/acs-viewer/src/audio`), then our 30 (6). Two ignored tests
+   help by ear: `plays_a_cue_on_the_default_output`, and
+   `write_cues_as_wav` with `ACSVM_CUES_DIR` set.
 5. Smoothed mode (5).
 6. The HD pack format, loading and the coverage report (5).
 7. Accessibility options (7).

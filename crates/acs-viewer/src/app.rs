@@ -78,6 +78,8 @@ pub struct Doc {
     /// Walk mode's on-screen pad fixed on or off; `None` follows the last
     /// input (client 4).
     pub pad: Option<bool>,
+    /// Play Music's output and controls (client 6).
+    pub audio: crate::audio::Audio,
 }
 
 impl Doc {
@@ -106,6 +108,7 @@ impl Doc {
             pick: false,
             turn_based: false,
             pad: None,
+            audio: Default::default(),
         }
     }
 
@@ -250,6 +253,8 @@ impl Viewer {
             for c in commands {
                 walk.apply(c);
             }
+            // The start-up commands' cues are not played (client 6).
+            walk.take_cues();
             doc.walk = Some(walk);
             doc.view = View::Walk;
         }

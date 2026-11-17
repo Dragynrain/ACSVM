@@ -123,6 +123,8 @@ pub struct Walk {
     pending_aim: Option<(Aim, (u8, u8))>,
     /// The last input was a touch: the on-screen pad shows (client 4).
     pub touch: bool,
+    /// Play Music cues not yet played (client 6).
+    cues: Vec<u8>,
     /// Characters retired with Save (characters 7.3): the engine has no
     /// roster yet, so the front end keeps them.
     retired: Vec<Player>,
@@ -167,6 +169,7 @@ impl Walk {
             gold_amount: 1,
             pending_aim: None,
             touch: false,
+            cues: Vec::new(),
             retired: Vec::new(),
             hindered: false,
             new_name: String::new(),
@@ -236,6 +239,8 @@ impl Walk {
         let p = w.game.current_player();
         let line = format!("{}'s turn, {}.", p.name, place_name(&w.game, p.at));
         w.note(line);
+        // A replay's cues are not played (client 6).
+        w.cues.clear();
         Ok(w)
     }
 
@@ -389,6 +394,11 @@ impl Walk {
         self.pending_aim = None;
     }
 
+    /// The Play Music cues since the last call (client 6).
+    pub fn take_cues(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.cues)
+    }
+
     /// FIRE goes without a menu: on the map, or holding a missile weapon.
     fn fire_ready(&self) -> bool {
         let p = self.game.current_player();
@@ -464,6 +474,9 @@ impl Walk {
 
     fn record(&mut self, events: &[Event]) {
         for e in events {
+            if let Event::Music { number } = e {
+                self.cues.push(*number);
+            }
             if let Event::TurnStarted { hindered, .. } = e {
                 self.hindered = *hindered;
                 self.idle = 0.0;
@@ -762,6 +775,10 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         } else if keyed {
             walk.touch = false;
         }
+        // Sound may start once the player has done something (client 6).
+        if touched || keyed || ui.ctx().input(|i| i.pointer.any_pressed()) {
+            doc.audio.unlock();
+        }
         if let Some(cmd) = key_command(ui.ctx()) {
             walk.key(cmd);
         }
@@ -873,6 +890,21 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 );
                 if ui.button("Restart").clicked() {
                     restart = Some(g.rules());
+                }
+            });
+            ui.horizontal_wrapped(|ui| {
+                let audio = &mut doc.audio;
+                let mut changed = ui
+                    .checkbox(&mut audio.on, "Sound")
+                    .on_hover_text("Play Music's cues: placeholders until the finished set.")
+                    .changed();
+                let mut pct = (audio.volume * 100.0).round();
+                changed |= ui
+                    .add_enabled(audio.on, egui::Slider::new(&mut pct, 0.0..=100.0).suffix("%"))
+                    .changed();
+                audio.volume = pct / 100.0;
+                if changed {
+                    audio.apply_controls();
                 }
             });
             ui.horizontal_wrapped(|ui| {
@@ -1002,6 +1034,10 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     if load_game {
         doc.pick = true;
+    }
+    // Play Music (client 6): what this frame's commands played.
+    for n in walk.take_cues() {
+        doc.audio.play(n);
     }
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
@@ -1958,6 +1994,18 @@ mod tests {
         let (_, text) = w.save_file(&a);
         assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
+    }
+
+    #[test]
+    fn music_events_become_cues_and_a_replays_are_dropped() {
+        let a = adventure();
+        let mut w = Walk::new(&a, 3, Rules::default());
+        w.record(&[Event::Music { number: 14 }, Event::Music { number: 3 }]);
+        assert_eq!(w.take_cues(), [14, 3]);
+        assert!(w.take_cues().is_empty());
+        w.record(&[Event::Music { number: 20 }]);
+        let (_, text) = w.save_file(&a);
+        assert!(Walk::from_save(&a, &text).unwrap().take_cues().is_empty());
     }
 
     #[test]
