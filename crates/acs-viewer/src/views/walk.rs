@@ -11,7 +11,7 @@
 use super::*;
 use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
 use acs_core::scene::{self, RoomScene};
-use acs_engine::characters::{mark, Mark, Rating};
+use acs_engine::characters::{Mark, Rating};
 use acs_engine::creatures as cr;
 use acs_engine::inventory::{self, GOLD};
 use acs_engine::{
@@ -639,6 +639,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         .default_size(340.0)
         .size_range(PANEL_WIDTH)
         .show_collapsible(ui, &mut show_info, |ui| {
+            // Taller than the window on a short screen: it scrolls
+            // (client 2).
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             let g = &walk.game;
             let p = g.current_player();
             let heading = if g.players().len() > 1 {
@@ -657,7 +660,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             if ui
                 .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
                 .on_hover_text(
-                    "The original saves when a visit to another region begins, and at the end of                      a round in which SAVE GAME was chosen or a player retired with Save.",
+                    "The original saves when a visit to another region begins, and at the end of a round in which SAVE GAME was chosen or a player retired with Save.",
                 )
                 .clicked()
             {
@@ -695,7 +698,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     restart = Some(rules);
                 }
                 ui.checkbox(&mut doc.turn_based, "Turn-based").on_hover_text(
-                    "The bar waits for you. Off: it drains while you do nothing,                      a step about every 7 seconds, as in the original.",
+                    "The bar waits for you. Off: it drains while you do nothing, a step about every 7 seconds, as in the original.",
                 );
                 if ui.button("Restart").clicked() {
                     restart = Some(g.rules());
@@ -721,9 +724,20 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 }
             });
             ui.label(RichText::new(format!("seed {} · {} commands", g.seed(), g.log().len())).weak());
-            ui.separator();
-            ui.label(RichText::new("Log").strong());
-            egui::ScrollArea::vertical()
+            });
+        });
+
+    // The message log: always shown in walk mode, whatever else is hidden
+    // (client 2, 3).
+    let height = ui.ctx().content_rect().height();
+    let narrow = ui.ctx().content_rect().width() < crate::app::NARROW;
+    egui::Panel::bottom("walk-log")
+        .resizable(true)
+        .default_size(height * if narrow { 0.16 } else { 0.22 })
+        .size_range(48.0..=height * 0.6)
+        .show(ui, |ui| {
+            // Both ways: a long message's lines are never rewrapped.
+            egui::ScrollArea::both()
                 .stick_to_bottom(true)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -793,10 +807,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
 /// original lays the store out is not yet known (docs/research/stores.md),
 /// so this is a plain list.
 fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
-    use acs_engine::stores;
-    let Some(visit) = g.store_visit() else { return };
+    let Some(offers) = g.store_offers() else { return };
     let a = g.adventure();
-    let p = &g.players()[visit.player];
+    let p = &g.players()[offers.player];
     let name = |t: u16| {
         a.things
             .get(t as usize - 1)
@@ -808,49 +821,43 @@ fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .show(ctx, |ui| {
-            ui.label(format!("{} has {} gold to spend.", p.name, p.gold));
+            ui.label(format!("{} has {} gold to spend.", p.name, offers.gold));
             ui.separator();
             ui.label(RichText::new("For sale").strong());
-            let stock = g.stock(visit.region);
-            if stock.is_empty() {
+            if offers.buy.is_empty() {
                 ui.label(RichText::new("Nothing in stock.").weak());
             }
-            for s in stock {
-                let price = stores::buy_price(a, s.thing).unwrap_or(0);
+            for o in &offers.buy {
                 ui.horizontal(|ui| {
-                    let count = if s.count > 1 {
-                        format!("{} x ", s.count)
+                    let count = if o.count > 1 {
+                        format!("{} x ", o.count)
                     } else {
                         String::new()
                     };
-                    ui.label(format!("{count}{}: {price} gold", name(s.thing)));
-                    let can = p.gold as i32 >= price && p.count(s.thing) < inventory::limit(s.thing);
-                    if ui.add_enabled(can, egui::Button::new("Buy").small()).clicked() {
-                        *click = Some(Command::Buy { thing: s.thing });
+                    ui.label(format!("{count}{}: {} gold", name(o.thing), o.price));
+                    let button = ui.add_enabled(o.refusal.is_none(), egui::Button::new("Buy").small());
+                    let button = if o.kept {
+                        button
+                    } else {
+                        button.on_hover_text("You carry as many as you can: this one would be lost.")
+                    };
+                    if button.clicked() {
+                        *click = Some(Command::Buy { thing: o.thing });
                     }
                 });
             }
             ui.separator();
             ui.label(RichText::new("To sell").strong());
-            let mut goods = p.possessions.clone();
-            goods.sort_unstable();
-            goods.dedup();
-            let mut any = false;
-            for t in goods {
-                let Some(value) = stores::value(a, t) else {
-                    continue;
-                };
-                any = true;
-                let offer = stores::sell_offer(value, p.wisdom);
+            if offers.sell.is_empty() {
+                ui.label(RichText::new("Nothing the store would buy.").weak());
+            }
+            for o in &offers.sell {
                 ui.horizontal(|ui| {
-                    ui.label(format!("{}: the store offers {offer}", name(t)));
+                    ui.label(format!("{}: the store offers {}", name(o.thing), o.offer));
                     if ui.small_button("Sell").clicked() {
-                        *click = Some(Command::Sell { thing: t });
+                        *click = Some(Command::Sell { thing: o.thing });
                     }
                 });
-            }
-            if !any {
-                ui.label(RichText::new("Nothing the store would buy.").weak());
             }
             ui.separator();
             if ui.button("Leave the store").clicked() {
@@ -1016,12 +1023,12 @@ fn actions_panel(
 fn stats_panel(ui: &mut egui::Ui, g: &Game) {
     use Rating::*;
     // The profile's marks (characters 4): above or below average.
-    let m = |r: Rating, v: u8| match mark(r, v.into()) {
+    let p = g.current_player();
+    let m = |r: Rating| match p.mark(r) {
         Some(Mark::Up) => "+",
         Some(Mark::Down) => "-",
         None => "",
     };
-    let p = g.current_player();
     let me = Who::Player { player: g.current() };
     let temp = g.temporary_life(me);
     let temp = match temp {
@@ -1034,9 +1041,9 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
             .text(format!(
                 "Life Force {}{} (Constitution {}{}){temp}",
                 p.life_force,
-                m(LifeForce, p.life_force),
+                m(LifeForce),
                 p.constitution,
-                m(Constitution, p.constitution)
+                m(Constitution)
             )),
     );
     ui.add(
@@ -1045,9 +1052,9 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
             .text(format!(
                 "Power {}{} (drifts toward Wisdom {}{})",
                 p.power,
-                m(Power, p.power),
+                m(Power),
                 p.wisdom,
-                m(Wisdom, p.wisdom)
+                m(Wisdom)
             )),
     );
     let defense = match p.magic_defense {
@@ -1060,23 +1067,23 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
         RichText::new(format!(
             "Str {}{} · Dex {}{} · Size {}{} · Speed {}{} · Melee {}{} · Missile {}{} · Dodge {}{} · Parry {}{} · Armor {}{} · magic defense {defense}",
             p.strength,
-            m(Strength, p.strength),
+            m(Strength),
             p.dexterity,
-            m(Dexterity, p.dexterity),
+            m(Dexterity),
             p.size,
-            m(Size, p.size),
+            m(Size),
             p.speed,
-            m(Speed, p.speed),
+            m(Speed),
             p.melee,
-            m(Melee, p.melee),
+            m(Melee),
             p.missile,
-            m(Missile, p.missile),
+            m(Missile),
             p.dodge,
-            m(Dodge, p.dodge),
+            m(Dodge),
             p.parry,
-            m(Parry, p.parry),
+            m(Parry),
             p.armor_skill,
-            m(ArmorSkill, p.armor_skill)
+            m(ArmorSkill)
         ))
         .weak(),
     )
@@ -1113,13 +1120,11 @@ fn target_menu(
                 ui.close();
             }
         }
-        for slot in 0..g.slots(region) {
-            if let Some(c) = g.creature(region, slot).filter(|c| c.room == room) {
-                let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
-                if ui.button(name).clicked() {
-                    *click = Some(make(Some((c.x, c.y))));
-                    ui.close();
-                }
+        for (_, c) in g.residents_in(region, room) {
+            let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
+            if ui.button(name).clicked() {
+                *click = Some(make(Some((c.x, c.y))));
+                ui.close();
             }
         }
     });
@@ -1208,7 +1213,7 @@ fn inventory_panel(
             }
             match kind {
                 Some(ThingKind::MagicSpell { power, .. }) => {
-                    let chance = acs_engine::magic::cast_chance(p.power, *power);
+                    let chance = g.cast_chance(g.current(), t).unwrap_or(0);
                     ui.label(RichText::new(format!("cost {power}, {chance}%")).weak());
                     target_menu(
                         ui,
@@ -1272,10 +1277,7 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         return;
     };
     let a = g.adventure();
-    let here: Vec<(usize, &Creature)> = (0..g.slots(region))
-        .filter_map(|s| g.creature(region, s).map(|c| (s, c)))
-        .filter(|(_, c)| c.room == room)
-        .collect();
+    let here: Vec<(usize, &Creature)> = g.residents_in(region, room).collect();
     ui.separator();
     ui.label(RichText::new("Creatures here").strong());
     if here.is_empty() {

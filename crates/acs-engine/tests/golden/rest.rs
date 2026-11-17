@@ -867,6 +867,19 @@ mod characters {
         ] {
             assert_eq!(mark(r, v), Some(m), "{r:?} {v}");
         }
+        // A player's own marks read its ratings.
+        let p = acs_engine::PlayerSetup {
+            wisdom: 4,
+            constitution: 17,
+            gold: 250,
+            ..Default::default()
+        };
+        let g = fresh(&base(Platform::Pc), 1, p);
+        let me = g.current_player();
+        assert_eq!(me.mark(Rating::Wisdom), Some(Mark::Down));
+        assert_eq!(me.mark(Rating::Constitution), Some(Mark::Up));
+        assert_eq!(me.mark(Rating::Gold), Some(Mark::Up));
+        assert_eq!(me.rating(Rating::Gold), 250);
     }
 
     /// capture.md 10.18, 10.23 (`names.sh`, `name-*`): every key taken and

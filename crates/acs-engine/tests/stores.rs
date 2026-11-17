@@ -439,3 +439,45 @@ fn a_weightless_weapon_nobody_may_use_is_never_offered() {
         assert_eq!(g.current_player().gold, 500);
     });
 }
+
+#[test]
+fn store_offers_show_what_buy_and_sell_would_do() {
+    use acs_engine::{BuyOffer, SellOffer};
+    both(|p| {
+        let mut g = start(p, 31, 500, &[GEM, GEM, GEM, WAND, SPELL]);
+        assert_eq!(g.store_offers(), None);
+        open(&mut g);
+        let o = g.store_offers().expect("a store is open");
+        assert_eq!((o.player, o.region, o.gold), (0, 1, 500));
+        let offer = |thing, count, price, refusal, kept| BuyOffer {
+            thing,
+            count,
+            price,
+            refusal,
+            kept,
+        };
+        assert_eq!(
+            o.buy,
+            [
+                // Three gems owned already: bought and lost (4.4).
+                offer(GEM, 3, 50, None, false),
+                offer(CROWN, 1, 5100, Some(StoreRefusal::NotEnoughGold), true),
+                offer(SWORD, 1, 10, None, true),
+            ]
+        );
+        // Spells don't sell (5.2); a third of 50 x (25 + 31) / 25.
+        let sell = |thing, owned, offer| SellOffer { thing, owned, offer };
+        assert_eq!(o.sell, [sell(GEM, 3, 35), sell(WAND, 1, 0)]);
+        // The answers agree with the commands.
+        let ev = g.apply(Command::Buy { thing: CROWN });
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::StoreRefused {
+                reason: StoreRefusal::NotEnoughGold,
+                ..
+            }
+        )));
+        let ev = g.apply(Command::Sell { thing: GEM });
+        assert!(ev.iter().any(|e| matches!(e, Event::Sold { offer: 35, .. })));
+    });
+}

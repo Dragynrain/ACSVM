@@ -38,7 +38,7 @@ PHASES = [
         "Measure, or research and confirm, rule by rule: hit and damage, skill growth, stores, spawns,",
         "characters, saves. Random formulas get a research brief first. Hot-seat; golden tests in CI."],
      "Gate: golden tests pass, and two players can finish a built-in adventure start to finish"),
-    ("Phase 5 \u00b7 Modern client and audio", "next", [
+    ("Phase 5 \u00b7 Modern client and audio", "now", [
         "Message log, panels, touch and accessibility; Smoothed and HD pack render modes.",
         "30 original sound and music cues; desktop builds."],
      "Gate: no layout breaks on laptop, 4K and tablet; HD packs load with a coverage report"),

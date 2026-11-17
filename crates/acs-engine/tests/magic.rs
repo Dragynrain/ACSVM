@@ -435,6 +435,21 @@ fn cast_chance_is_90_power_over_cost_held_to_14_90() {
 }
 
 #[test]
+fn the_game_answers_a_spells_chance_for_the_casters_power() {
+    both(|p| {
+        let mut g = start(adventure(p), 2, 2, setup());
+        g.set_power(0, 20);
+        // BOLT costs 7: 90 x 7 / 7; HEAL costs 0; a treasure is no spell.
+        assert_eq!(g.cast_chance(0, BOLT), Some(90));
+        assert_eq!(g.cast_chance(0, HEAL), Some(100));
+        assert_eq!(g.cast_chance(0, GEM), None);
+        g.set_power(0, 3);
+        assert_eq!(g.cast_chance(0, BOLT), Some(cast_chance(3, 7)));
+        assert_eq!(g.cast_chance(1, BOLT), None);
+    });
+}
+
+#[test]
 fn a_cast_spends_the_cost_or_all_power() {
     assert_eq!(cast_spend(20, 10), 10);
     assert_eq!(cast_spend(20, 30), 20);

@@ -206,6 +206,8 @@ Most fan adventures were built from the three builder sets, so the same tiles re
 
 ### Modern client in Rust
 
+The client's spec and Phase 5's plan are in [client.md](client.md). It stays on eframe/egui, which the viewer already uses on the desktop and in the browser, instead of macroquad.
+
 - macroquad loads tiles into texture atlases: nearest-neighbor filtering for Original mode, linear filtering with mipmaps for HD.
 - Tile size is recomputed from the window size every frame: whole-number multiples in Original mode, any size in the HD modes. Resizing, fullscreen, zoom and high-DPI screens all come from that one calculation. egui scales its panels to the display's pixel ratio.
 - The layout puts the map or room in the center, with side panels for status, inventory and the message log. On narrow screens the panels collapse into drawers, and touch works on tablets.

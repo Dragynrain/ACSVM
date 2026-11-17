@@ -6,8 +6,9 @@ Plan: `docs/design.md`. Phases 2 (rules engine from the manual), 3 (the
 capture harness, `docs/capture.md`) and 4 (formulas through research and
 capture, hot-seat) are done: the Phase 4 gate is two players finishing
 *Rivers of Light* by an automated replay (`acs play`, `docs/play.md`; the
-corpus test `two_players_finish_rivers_of_light`), November 2026. Next is
-Phase 5 (modern client and audio). Rules [unknown]s left in `docs/rules/`
+corpus test `two_players_finish_rivers_of_light`), November 2026. Phase 5
+(modern client and audio) is under way: plan and client spec in
+`docs/client.md`. Rules [unknown]s left in `docs/rules/`
 each carry the engine's choice; capture them as they matter.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
@@ -97,7 +98,9 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   order, random creatures and personality, `ai.rs` one creature's turn (goals,
   paths, doors, pick-ups, drops, readying, casting), `magic.rs` the 15 spell
   actions, Cast/Use, Power drift, temporary Life Force, healing and death
-  (`run_spell` is the one place a spell takes effect), `combat.rs` melee
+  (`run_spell` is the one place a spell takes effect), `view.rs` the
+  read-only queries a client asks instead of computing rules (client.md 1),
+  `command.rs`/`event.rs` the `Command` and `Event` types, `combat.rs` melee
   and firing (`attack` and its blows, `fire` and its shots; who strikes
   whom is the step choice in `ai.rs`, firing `creature_fires` there, and
   `player_attack` in `step.rs`), `encounters.rs` world map encounters

@@ -20,7 +20,7 @@ pub fn project_name() -> &'static str {
 }
 
 /// Below this window width (in points) the side panels start hidden.
-const NARROW: f32 = 900.0;
+pub(crate) const NARROW: f32 = 900.0;
 
 /// What the central area shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
