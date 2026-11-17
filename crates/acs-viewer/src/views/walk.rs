@@ -1758,7 +1758,7 @@ fn draw_map(
     } else {
         (cx.clamp(0, (n - cols).max(0)), cy.clamp(0, (n - rows).max(0)))
     };
-    let (resp, painter, grid) = canvas(ui, cols as u32, rows as u32, tiles.size);
+    let (resp, painter, grid) = canvas(ui, cols as u32, rows as u32, tiles);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for j in 0..rows {
         for i in 0..cols {
@@ -1826,7 +1826,7 @@ fn draw_room(
     let r = reg.rooms.get(room as usize)?;
     let scene = RoomScene::new(reg, r);
     let door = |x: u8, y: u8| g.area_door(Location::Room { region, room, x, y }).is_some();
-    let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles.size);
+    let (resp, painter, grid) = canvas(ui, r.width as u32, r.height as u32, tiles);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for (k, sq) in scene.squares.iter().enumerate() {
         let (x, y) = ((k % r.width as usize) as u32, (k / r.width as usize) as u32);

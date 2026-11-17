@@ -49,9 +49,15 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
 }
 
 /// Allocates the whole area for a tile canvas and fits a grid into it.
-pub fn canvas(ui: &mut egui::Ui, cols: u32, rows: u32, tile_px: [u32; 2]) -> (Response, Painter, TileGrid) {
+pub fn canvas(
+    ui: &mut egui::Ui,
+    cols: u32,
+    rows: u32,
+    tiles: &crate::tiles::Tiles,
+) -> (Response, Painter, TileGrid) {
     let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
-    let grid = TileGrid::fit(resp.rect, ui.ctx().pixels_per_point(), cols, rows, tile_px);
+    let ppp = ui.ctx().pixels_per_point();
+    let grid = TileGrid::fit(resp.rect, ppp, cols, rows, tiles.size, tiles.whole());
     (resp, painter, grid)
 }
 

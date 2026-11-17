@@ -56,7 +56,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown
 cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings
-cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--screenshot out.png]   # docs/client.md 2
+cargo run -p acs-viewer --release -- FILE.D64 [--view room:1:0|walk] [--seed N --walk n,e,wait] [--save s.json|--load s.json] [--size WxH --ppp 1] [--pad] [--render smoothed] [--screenshot out.png]   # docs/client.md 2
 scripts/web.sh serve                                    # trunk dev server, :8080
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json

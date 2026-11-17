@@ -106,9 +106,23 @@ other way.
 | Mode | What it draws |
 | --- | --- |
 | Original | The adventure's pixels, whole-number scaling (now) |
-| Smoothed | The original tiles upscaled once at load by an xBRZ-style filter, then any scale; cached per adventure |
+| Smoothed | The original tiles upscaled 4x once at load (Scale2x twice), drawn with linear filtering and mipmaps at any scale |
 | HD pack | Replacement art for tiles whose hash a pack lists; the rest Smoothed |
 | Native HD | 128 px art stored in the extended format (Phase 6; a `MODEL_VERSION` bump) |
+
+**Smoothed.** Every picture, at its display size (16 x 16; a C64
+picture's pixels already doubled in width), goes through Scale2x twice
+(Andrea Mazzoleni's AdvMAME2x rules, written here from the published
+description): each pixel becomes four, and a corner takes its two
+neighbours' colour where they agree and the other two differ, so
+staircases become diagonals and nothing new is invented. The 64 x 64
+result is drawn with linear filtering and mipmaps, and the board's tile
+size is the largest that fits, whole number or not; the grid's origin
+stays on a physical pixel. Upscaling a whole adventure takes
+milliseconds, so it happens when the mode is first chosen and nothing is
+cached between sessions (the design's IndexedDB cache isn't needed).
+The top bar's Look menu switches between Original and Smoothed for every
+view; `--render smoothed` starts in it.
 
 An HD pack is keyed by a hash of the original tile's decoded pixels, so
 the pack identifies a tile without containing it (design.md, "Render
@@ -169,7 +183,7 @@ an adventure: files are opened or dropped on the window.
    took up to 43% of a 1024-point window; the log left tall windows'
    spare height empty. Left as they are: Original mode's whole-number
    scale leaves the 40 x 40 world map at scale 1 when 2 is just out of
-   reach (Smoothed, step 5, scales freely); the creature list's
+   reach (Smoothed, step 5, scales freely, and does); the creature list's
    stats table is a fixed width, so long values wrap; the message list
    is the original's 32-character column.
 3. Mouse targeting and the touch pad (4). Done November 2026
@@ -178,7 +192,8 @@ an adventure: files are opened or dropped on the window.
    `crates/acs-viewer/src/audio`), then our 30 (6). Two ignored tests
    help by ear: `plays_a_cue_on_the_default_output`, and
    `write_cues_as_wav` with `ACSVM_CUES_DIR` set.
-5. Smoothed mode (5).
+5. Smoothed mode (5). Done November 2026 (`smooth.rs`, `tiles.rs`);
+   the sweep's world map at 1920 x 1080 now fills its height.
 6. The HD pack format, loading and the coverage report (5).
 7. Accessibility options (7).
 8. Desktop builds (8).

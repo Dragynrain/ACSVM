@@ -184,6 +184,8 @@ pub struct Startup {
     pub ppp: Option<(f32, [f32; 2])>,
     /// Walk mode with the on-screen pad on (`--pad`).
     pub pad: bool,
+    /// The render mode to start in (`--render`).
+    pub render: Option<crate::tiles::RenderMode>,
     /// Write a screenshot here after a few frames, then quit.
     pub screenshot: Option<std::path::PathBuf>,
     /// Walk mode: seed and commands to play before showing it.
@@ -260,6 +262,9 @@ impl Viewer {
         }
         if let (true, Some(doc)) = (start.pad, &mut v.doc) {
             doc.pad = Some(true);
+        }
+        if let (Some(m), Some(doc)) = (start.render, &mut v.doc) {
+            doc.tiles.set_mode(&cc.egui_ctx, m);
         }
         if let Some(p) = start.load {
             let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
@@ -432,6 +437,16 @@ impl Viewer {
                 ui.add_enabled_ui(!doc.history.is_empty(), |ui| {
                     if ui.button("Back").clicked() {
                         doc.back();
+                    }
+                });
+                // Render mode for every view (client 5).
+                let mode = doc.tiles.mode();
+                ui.menu_button(format!("Look: {}", mode.label()), |ui| {
+                    for m in crate::tiles::RenderMode::ALL {
+                        if ui.selectable_label(mode == m, m.label()).clicked() {
+                            doc.tiles.set_mode(&ctx, m);
+                            ui.close();
+                        }
                     }
                 });
                 ui.separator();

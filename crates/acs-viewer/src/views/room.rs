@@ -84,7 +84,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize, i: usize) {
 
     let mut hover = None;
     egui::CentralPanel::no_frame().show(ui, |ui| {
-        let (resp, painter, grid) = canvas(ui, room.width as u32, room.height as u32, doc.tiles.size);
+        let (resp, painter, grid) = canvas(ui, room.width as u32, room.height as u32, &doc.tiles);
         painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
         for (k, sq) in scene.squares.iter().enumerate() {
             let (x, y) = ((k % room.width as usize) as u32, (k / room.width as usize) as u32);

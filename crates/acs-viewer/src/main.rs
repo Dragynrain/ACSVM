@@ -12,6 +12,7 @@ mod audio;
 mod cli;
 mod load;
 mod savefile;
+mod smooth;
 mod tiles;
 mod views;
 
@@ -43,6 +44,7 @@ fn main() -> eframe::Result {
         view: args.view,
         ppp: args.ppp.map(|p| (p, args.size.unwrap_or([1280.0, 800.0]))),
         pad: args.pad,
+        render: args.render,
         screenshot: args.screenshot,
         place: args.place,
         load: args.load,

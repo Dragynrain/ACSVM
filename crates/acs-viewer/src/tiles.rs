@@ -4,16 +4,44 @@
 //!
 //! Every picture becomes one texture at its display size (16 x 16; C64
 //! pixels are already doubled in width by `Picture::to_rgba`) with nearest
-//! filtering. The tile size is recomputed from the available area every
+//! filtering; Smoothed mode adds a 4x Scale2x copy with linear filtering
+//! (client 5). The tile size is recomputed from the available area every
 //! frame, in physical pixels, so resizing, fullscreen and high-DPI screens
-//! all come from one calculation: whole multiples of the original pixels
-//! whenever the grid fits at 1x or more, a fractional fit only below that.
+//! all come from one calculation: in Original mode whole multiples of the
+//! original pixels whenever the grid fits at 1x or more, a fractional fit
+//! only below that; in Smoothed mode the largest fit, whole or not.
 
 use acs_core::Adventure;
-use egui::{Color32, ColorImage, Context, Pos2, Rect, TextureHandle, TextureOptions, Vec2};
+use egui::{Color32, ColorImage, Context, Pos2, Rect, TextureFilter, TextureHandle, TextureOptions, Vec2};
+
+/// How tiles are drawn (client 5).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RenderMode {
+    /// The adventure's pixels at whole-number scales.
+    #[default]
+    Original,
+    /// Scale2x twice, linear filtering, any scale.
+    Smoothed,
+}
+
+impl RenderMode {
+    pub const ALL: [RenderMode; 2] = [RenderMode::Original, RenderMode::Smoothed];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            RenderMode::Original => "Original",
+            RenderMode::Smoothed => "Smoothed",
+        }
+    }
+}
 
 pub struct Tiles {
     textures: Vec<TextureHandle>,
+    /// Smoothed mode's textures, made when the mode is first chosen.
+    smoothed: Option<Vec<TextureHandle>>,
+    /// Each picture's pixels at display size, for the smoothed copies.
+    pixels: Vec<Vec<[u8; 4]>>,
+    mode: RenderMode,
     /// Display size of one picture in original pixels (16 x 16).
     pub size: [u32; 2],
     /// Palette colour 0, the background of every picture.
@@ -22,14 +50,22 @@ pub struct Tiles {
 
 impl Tiles {
     pub fn new(ctx: &Context, adv: &Adventure) -> Self {
+        let pixels: Vec<Vec<[u8; 4]>> = adv
+            .pictures
+            .iter()
+            .map(|p| {
+                let rgba = p.to_rgba(&adv.palette);
+                rgba.as_chunks::<4>().0.to_vec()
+            })
+            .collect();
         let textures: Vec<TextureHandle> = adv
             .pictures
             .iter()
+            .zip(&pixels)
             .enumerate()
-            .map(|(i, p)| {
+            .map(|(i, (p, px))| {
                 let (w, h) = p.display_size();
-                let image =
-                    ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &p.to_rgba(&adv.palette));
+                let image = ColorImage::from_rgba_unmultiplied([w as usize, h as usize], px.as_flattened());
                 ctx.load_texture(format!("picture-{i}"), image, TextureOptions::NEAREST)
             })
             .collect();
@@ -49,13 +85,56 @@ impl Tiles {
             .unwrap_or(Color32::BLACK);
         Tiles {
             textures,
+            smoothed: None,
+            pixels,
+            mode: RenderMode::Original,
             size,
             background,
         }
     }
 
+    pub fn mode(&self) -> RenderMode {
+        self.mode
+    }
+
+    /// Switches the mode; the smoothed textures are made the first time.
+    pub fn set_mode(&mut self, ctx: &Context, mode: RenderMode) {
+        if mode == RenderMode::Smoothed && self.smoothed.is_none() {
+            let [w, h] = self.size.map(|v| v as usize);
+            let options = TextureOptions {
+                mipmap_mode: Some(TextureFilter::Linear),
+                ..TextureOptions::LINEAR
+            };
+            let made = self
+                .pixels
+                .iter()
+                .enumerate()
+                .map(|(i, px)| {
+                    // A picture of another size (none so far) stays as it is.
+                    let (big, side) = if px.len() == w * h {
+                        (crate::smooth::scale4x(px, w, h), [4 * w, 4 * h])
+                    } else {
+                        (px.clone(), [w, h])
+                    };
+                    let image = ColorImage::from_rgba_unmultiplied(side, big.as_flattened());
+                    ctx.load_texture(format!("smooth-{i}"), image, options)
+                })
+                .collect();
+            self.smoothed = Some(made);
+        }
+        self.mode = mode;
+    }
+
+    /// Whether tiles keep to whole-number scales (Original mode).
+    pub fn whole(&self) -> bool {
+        self.mode == RenderMode::Original
+    }
+
     pub fn get(&self, picture: u16) -> Option<&TextureHandle> {
-        self.textures.get(picture as usize)
+        match (&self.smoothed, self.mode) {
+            (Some(s), RenderMode::Smoothed) => s.get(picture as usize),
+            _ => self.textures.get(picture as usize),
+        }
     }
 
     /// Paints `picture` into `rect`, or the background colour if there is none.
@@ -77,13 +156,14 @@ impl Tiles {
 }
 
 /// Scale (physical pixels per original pixel) that fits `cells` tiles of
-/// `tile_px` original pixels into `avail_px` physical pixels: a whole number
-/// when at least 1x fits, otherwise the largest fraction that fits.
-pub fn fit_scale(avail_px: [f32; 2], cells: [u32; 2], tile_px: [u32; 2]) -> f32 {
+/// `tile_px` original pixels into `avail_px` physical pixels: with `whole`,
+/// a whole number when at least 1x fits, otherwise the largest fraction
+/// that fits; without, the largest that fits.
+pub fn fit_scale(avail_px: [f32; 2], cells: [u32; 2], tile_px: [u32; 2], whole: bool) -> f32 {
     let need_w = (cells[0].max(1) * tile_px[0].max(1)) as f32;
     let need_h = (cells[1].max(1) * tile_px[1].max(1)) as f32;
     let s = (avail_px[0] / need_w).min(avail_px[1] / need_h);
-    if s >= 1.0 {
+    if whole && s >= 1.0 {
         s.floor()
     } else {
         s.max(0.05)
@@ -104,9 +184,21 @@ pub struct TileGrid {
 impl TileGrid {
     /// Fits a `cols` x `rows` grid into `avail`, centred, with its origin on
     /// a physical pixel so integer scales stay crisp.
-    pub fn fit(avail: Rect, pixels_per_point: f32, cols: u32, rows: u32, tile_px: [u32; 2]) -> Self {
+    pub fn fit(
+        avail: Rect,
+        pixels_per_point: f32,
+        cols: u32,
+        rows: u32,
+        tile_px: [u32; 2],
+        whole: bool,
+    ) -> Self {
         let ppp = pixels_per_point.max(0.01);
-        let scale = fit_scale([avail.width() * ppp, avail.height() * ppp], [cols, rows], tile_px);
+        let scale = fit_scale(
+            [avail.width() * ppp, avail.height() * ppp],
+            [cols, rows],
+            tile_px,
+            whole,
+        );
         let tile = Vec2::new(tile_px[0] as f32 * scale / ppp, tile_px[1] as f32 * scale / ppp);
         let size = Vec2::new(tile.x * cols as f32, tile.y * rows as f32);
         let min = avail.center() - size / 2.0;
@@ -152,16 +244,24 @@ mod tests {
     #[test]
     fn integer_scale_when_it_fits() {
         // 15 x 10 room of 16 px tiles in 1000 x 700 physical pixels: 4x.
-        assert_eq!(fit_scale([1000.0, 700.0], [15, 10], [16, 16]), 4.0);
+        assert_eq!(fit_scale([1000.0, 700.0], [15, 10], [16, 16], true), 4.0);
         // Exactly 1x.
-        assert_eq!(fit_scale([640.0, 640.0], [40, 40], [16, 16]), 1.0);
+        assert_eq!(fit_scale([640.0, 640.0], [40, 40], [16, 16], true), 1.0);
         // Height-bound.
-        assert_eq!(fit_scale([5000.0, 330.0], [10, 10], [16, 16]), 2.0);
+        assert_eq!(fit_scale([5000.0, 330.0], [10, 10], [16, 16], true), 2.0);
+    }
+
+    #[test]
+    fn smoothed_takes_the_largest_fit() {
+        // Client 5: the 40 x 40 map in 1268 x 1050 pixels: 1.64, not 1.
+        let s = fit_scale([1268.0, 1050.0], [40, 40], [16, 16], false);
+        assert!((s - 1050.0 / 640.0).abs() < 1e-4);
+        assert_eq!(fit_scale([1268.0, 1050.0], [40, 40], [16, 16], true), 1.0);
     }
 
     #[test]
     fn fractional_below_one() {
-        let s = fit_scale([320.0, 320.0], [40, 40], [16, 16]);
+        let s = fit_scale([320.0, 320.0], [40, 40], [16, 16], true);
         assert!((s - 0.5).abs() < 1e-6);
     }
 
@@ -169,7 +269,7 @@ mod tests {
     fn high_dpi_counts_physical_pixels() {
         // 500 x 500 points at 2x DPI is 1000 physical pixels: 6x for 10 tiles.
         let avail = Rect::from_min_size(Pos2::ZERO, Vec2::splat(500.0));
-        let g = TileGrid::fit(avail, 2.0, 10, 10, [16, 16]);
+        let g = TileGrid::fit(avail, 2.0, 10, 10, [16, 16], true);
         assert_eq!(g.scale, 6.0);
         assert_eq!(g.tile, Vec2::splat(48.0)); // 96 physical pixels
                                                // Centred, on a physical pixel.
@@ -179,7 +279,7 @@ mod tests {
     #[test]
     fn cells_round_trip() {
         let avail = Rect::from_min_size(Pos2::new(3.0, 7.0), Vec2::new(321.0, 161.0));
-        let g = TileGrid::fit(avail, 1.0, 20, 10, [16, 16]);
+        let g = TileGrid::fit(avail, 1.0, 20, 10, [16, 16], true);
         assert_eq!(g.scale, 1.0);
         for (x, y) in [(0, 0), (19, 9), (7, 3)] {
             assert_eq!(g.cell_at(g.cell_rect(x, y).center()), Some((x, y)));

@@ -49,7 +49,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize) {
             ui.label("This region has no rooms.");
             return;
         };
-        let (resp, painter, grid) = canvas(ui, b.w as u32, b.h as u32, doc.tiles.size);
+        let (resp, painter, grid) = canvas(ui, b.w as u32, b.h as u32, &doc.tiles);
         painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
         let scenes: Vec<(usize, GridRect, RoomScene)> = rooms
             .iter()

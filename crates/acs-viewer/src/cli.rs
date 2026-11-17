@@ -22,6 +22,8 @@ pub struct Args {
     pub ppp: Option<f32>,
     /// Walk mode with the on-screen pad shown (`--pad`).
     pub pad: bool,
+    /// The render mode to start in (`--render original|smoothed`).
+    pub render: Option<crate::tiles::RenderMode>,
     pub screenshot: Option<PathBuf>,
     /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
     pub seed: Option<u64>,
@@ -36,7 +38,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--ppp F] [--pad] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--pad] [--render original|smoothed] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -61,6 +63,15 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
                 );
             }
             "--pad" => out.pad = true,
+            "--render" => {
+                let v = value("--render")?;
+                out.render = Some(
+                    crate::tiles::RenderMode::ALL
+                        .into_iter()
+                        .find(|m| m.label().eq_ignore_ascii_case(&v))
+                        .ok_or(format!("unknown render mode {v:?} (original, smoothed)"))?,
+                );
+            }
             "--screenshot" => out.screenshot = Some(PathBuf::from(value("--screenshot")?)),
             "--seed" => {
                 let v = value("--seed")?;
@@ -206,6 +217,11 @@ mod tests {
         assert_eq!(p(&["--ppp", "1.5"]).unwrap().ppp, Some(1.5));
         assert!(p(&["--ppp", "9"]).is_err());
         assert!(p(&["--ppp", "x"]).is_err());
+        assert_eq!(
+            p(&["--render", "Smoothed"]).unwrap().render,
+            Some(crate::tiles::RenderMode::Smoothed)
+        );
+        assert!(p(&["--render", "blurry"]).is_err());
         assert!(p(&["a.d64", "b.d64"]).is_err());
         assert!(p(&["--frobnicate"]).is_err());
     }

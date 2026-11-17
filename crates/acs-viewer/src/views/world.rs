@@ -77,7 +77,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
 
     let mut hover = None;
     egui::CentralPanel::no_frame().show(ui, |ui| {
-        let (resp, painter, grid) = canvas(ui, cols, rows, doc.tiles.size);
+        let (resp, painter, grid) = canvas(ui, cols, rows, &doc.tiles);
         painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
         for (y, row) in map.tiles.iter().enumerate() {
             for (x, &t) in row.iter().enumerate() {
