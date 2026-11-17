@@ -549,6 +549,8 @@ Three tracks run side by side. Rules work alternates between spec and engine rul
 
 Starting combat before the harness would mean writing formulas twice, once as a guess and once after measuring.
 
+**Phase 4 gate met (November 2026).** The golden tests pass (`crates/acs-engine/tests/golden`, one test per capture), and two players finish *Rivers of Light*, the adventure that ships with ACS, in hot-seat on the engine: an automated replay of a walkthrough played with `acs play` (`docs/play.md`), checked by the corpus test `two_players_finish_rivers_of_light`. The adventure can't be finished alone: its Gizeh caverns need two players at once. The walkthrough and its save stay outside the repo, since they're derived from EA's adventure. Playing it turned up rules no capture had reached (things that vanish after use, custom obstacles' property bits, needed things used up under Activate All), captured and implemented on the way (capture.md 10.45).
+
 ## Risks and open questions
 
 | Risk | Effect | Mitigation |

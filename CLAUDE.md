@@ -2,12 +2,13 @@
 
 Open-source engine for Adventure Construction Set adventures (working name in
 `Cargo.toml` `description` and `README.md` only; never hard-code it elsewhere).
-Plan: `docs/design.md`. Current phase: 4, formulas through research and
-capture; melee and firing are in (`docs/rules/combat.md`, three combat
-passes), stores, new characters (`docs/rules/characters.md`) and map
-encounters (`docs/rules/encounters.md`). Phases 2
-(rules engine from the manual) and 3 (the capture harness,
-`docs/capture.md`) are done.
+Plan: `docs/design.md`. Phases 2 (rules engine from the manual), 3 (the
+capture harness, `docs/capture.md`) and 4 (formulas through research and
+capture, hot-seat) are done: the Phase 4 gate is two players finishing
+*Rivers of Light* by an automated replay (`acs play`, `docs/play.md`; the
+corpus test `two_players_finish_rivers_of_light`), November 2026. Next is
+Phase 5 (modern client and audio). Rules [unknown]s left in `docs/rules/`
+each carry the engine's choice; capture them as they matter.
 Rules specs: `docs/rules/` (CC BY 4.0), each rule tagged [manual], [data],
 [capture], [research] or [unknown] with the engine's choice; write the spec
 before the code. Rules capture can't settle (random formulas, edge cases,
@@ -48,6 +49,7 @@ in `.claude/settings.json`) blocks research notes and the program disks;
 ```bash
 cargo test                                              # no corpus needed
 ACSVM_CORPUS='D:\projects\ACSVM-research\corpus' cargo test --test corpus -- --nocapture
+ACSVM_PLAYTHROUGH='D:\projects\ACSVM-research\playthrough\runs\final.save.json' ACSVM_CORPUS=... cargo test --test corpus two_players   # the Phase 4 gate
 cargo test -p acs-engine --test golden                  # golden tests: the engine vs capture.md's counts; ACSVM_BLESS=1 rewrites traces/
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all

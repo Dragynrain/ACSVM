@@ -30,15 +30,15 @@ PHASES = [
         "Specs from the manual and the data, guesses tagged [unknown]: movement, inventory,",
         "creature turns and AI outside combat, the 15 spell actions. Walk mode plays them in the viewer."],
      "Gate: walk, carry, cast and meet creatures in a built-in adventure in the browser"),
-    ("Phase 3 \u00b7 Behavior capture harness", "now", [
+    ("Phase 3 \u00b7 Behavior capture harness", "done", [
         "VICE runs on scenario disks of our own, read off the screen, in parallel; clean-room research",
         "sets the random state. Settled so far: movement, weight, casting, Power drift, healing."],
      "Gate: one command runs a scenario in both and diffs them; Phase 2's guesses confirmed or fixed"),
-    ("Phase 4 \u00b7 Combat, formulas and hot-seat", "next", [
+    ("Phase 4 \u00b7 Combat, formulas and hot-seat", "done", [
         "Measure, or research and confirm, rule by rule: hit and damage, skill growth, stores, spawns,",
         "characters, saves. Random formulas get a research brief first. Hot-seat; golden tests in CI."],
      "Gate: golden tests pass, and two players can finish a built-in adventure start to finish"),
-    ("Phase 5 \u00b7 Modern client and audio", None, [
+    ("Phase 5 \u00b7 Modern client and audio", "next", [
         "Message log, panels, touch and accessibility; Smoothed and HD pack render modes.",
         "30 original sound and music cues; desktop builds."],
      "Gate: no layout breaks on laptop, 4K and tablet; HD packs load with a coverage report"),

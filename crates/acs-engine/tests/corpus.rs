@@ -633,3 +633,77 @@ fn creatures_in_every_room_follow_the_rules() {
     println!("residents by type: {types:?}");
     println!("{rooms_toured} rooms toured; total: {total:?}");
 }
+
+/// The Phase 4 gate (docs/design.md, Roadmap): two players finish *Rivers of
+/// Light*, the adventure that ships with ACS, from its start to its ending
+/// scene. Set `ACSVM_PLAYTHROUGH` to the save file `acs play` wrote for the
+/// walkthrough (kept outside the repo: the route is derived from EA's
+/// adventure) and `ACSVM_CORPUS` to the corpus holding the adventure;
+/// without both this test passes with a "skipped" note.
+///
+/// The save must restore without diverging, and replaying it must show each
+/// player the ending's two long messages (placements 39 and 38 of the
+/// CRYPT OF OSIRIS stack: the sealed thing found, born again), in that
+/// order, and end with both players alive on the world map, where the
+/// stack's tunnel leads.
+#[test]
+fn two_players_finish_rivers_of_light() {
+    let (Some(save), Some(advs)) = (std::env::var_os("ACSVM_PLAYTHROUGH"), corpus()) else {
+        eprintln!("skipped: ACSVM_PLAYTHROUGH or ACSVM_CORPUS not set");
+        return;
+    };
+    let save = SaveFile::from_json(&std::fs::read_to_string(&save).expect("reads the save")).expect("a save");
+    let (_, adv) = advs
+        .iter()
+        .find(|(_, a)| a.name == save.adventure.name)
+        .unwrap_or_else(|| panic!("{} not in the corpus", save.adventure.name));
+    assert_eq!(save.adventure.name, "RIVERS OF LIGHT");
+    let back = save.restore(adv).expect("restores");
+    assert!(
+        !back.adventure_changed,
+        "the adventure differs from the one played"
+    );
+    assert!(!back.diverged, "the replay diverged from the saved game");
+
+    // Replay command by command, noting whose command showed each message.
+    let (mut g, _) = Game::new(adv.clone(), save.seed, save.rules, save.first.clone());
+    assert!(
+        save.placements.is_empty(),
+        "a playthrough uses no test placements"
+    );
+    let mut seen: Vec<Vec<u16>> = vec![Vec::new(); 2];
+    for c in &save.commands {
+        let who = g.current();
+        for e in g.apply(c.clone()) {
+            if let Event::LongMessage { number, .. } = e {
+                if who < 2 {
+                    seen[who].push(number);
+                }
+            }
+        }
+    }
+    assert_eq!(g.players().len(), 2, "two players");
+    for (p, msgs) in seen.iter().enumerate() {
+        let i = msgs.iter().position(|&m| m == 39);
+        assert!(
+            i.is_some_and(|i| msgs[i + 1..].contains(&38)),
+            "player {} never saw the ending (messages 39 then 38): last seen {:?}",
+            p + 1,
+            &msgs[msgs.len().saturating_sub(6)..]
+        );
+        let pl = &g.players()[p];
+        assert!(pl.alive, "player {} died", p + 1);
+        assert!(
+            matches!(pl.at, Location::World { .. }),
+            "player {} not out on the map: {:?}",
+            p + 1,
+            pl.at
+        );
+    }
+    println!(
+        "Rivers of Light finished by two players: seed {}, {} commands, round {}",
+        save.seed,
+        save.commands.len(),
+        g.round()
+    );
+}
