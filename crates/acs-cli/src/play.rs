@@ -10,7 +10,9 @@ use crate::script::{sturdy, Action, Expect, Script, Sel, Step};
 use acs_core::model::{Adventure, Destination, ThingId};
 use acs_engine::{describe, Command, Dir, Event, Game, Location, Rules, SaveFile, Stat, Who};
 use serde_json::json;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::{Hash, Hasher};
 
 /// Lines of the engine's log kept for a failure report.
 const RECENT: usize = 30;
@@ -22,6 +24,8 @@ const WALK_TURNS: usize = 400;
 const WAIT_MAX: usize = 2_000;
 /// Door hops a `goto` tries at most.
 const HOPS_MAX: usize = 64;
+/// Doors a `goto`'s fallback route may add to what the first route left.
+const DETOUR: usize = 2;
 /// Turns an `attack` lasts unless told.
 const ATTACK_TURNS: u32 = 20;
 
@@ -59,6 +63,8 @@ pub fn play(adv: &Adventure, script: &Script, seed: u64, players: usize) -> Outc
         recent: VecDeque::new(),
         messages: Vec::new(),
         deaths: Vec::new(),
+        turns: vec![0; acs_engine::MAX_PLAYERS],
+        fresh: vec![true; acs_engine::MAX_PLAYERS],
     };
     d.trace
         .push(json!({"start": {"seed": seed, "players": count}}).to_string());
@@ -94,10 +100,10 @@ enum Goal {
     Square(u8, u8),
     /// Step onto the square and through the door or portal there.
     Door(u8, u8),
-    /// Stand beside the square.
+    /// Stand beside the square (never stepping onto it).
     Beside(u8, u8),
-    /// Step onto the square and take what lies there.
-    Take(u8, u8),
+    /// Stand beside the individual, wherever it is as the search goes.
+    Foe(Who),
 }
 
 /// A door in the graph `goto` searches: on `at` of `from`, into `to`.
@@ -115,6 +121,8 @@ struct Checkpoint {
     recent: VecDeque<String>,
     messages: Vec<u16>,
     deaths: Vec<usize>,
+    turns: Vec<usize>,
+    fresh: Vec<bool>,
 }
 
 struct Driver<'a> {
@@ -123,10 +131,16 @@ struct Driver<'a> {
     trace: Vec<String>,
     progress: Vec<String>,
     recent: VecDeque<String>,
-    /// Long messages shown since the last `expect`.
+    /// Long messages shown since the last action step began (`expect`s
+    /// and `as` keep them).
     messages: Vec<u16>,
     /// Players who died and haven't been accounted for.
     deaths: Vec<usize>,
+    /// Turns each player has ended.
+    turns: Vec<usize>,
+    /// Players whose script hasn't had a turn yet: a turn of theirs with
+    /// no moves left (the first after joining) is waited out.
+    fresh: Vec<bool>,
 }
 
 /// `(region, room)` of a place; the world map is (0, 0).
@@ -294,6 +308,43 @@ fn took(ev: &[Event], me: usize) -> bool {
     )
 }
 
+/// Whether `me` went through a door or portal in the step's own events
+/// (into another place or onto another square of the same room).
+fn took_door(ev: &[Event], me: usize) -> bool {
+    own_part(ev, me)
+        .iter()
+        .any(|e| matches!(e, Event::TookDoor { player, .. } if *player == me))
+}
+
+/// What `me` took in the step's own events, by name.
+fn taken(game: &Game, ev: &[Event], me: usize) -> String {
+    let names: Vec<String> = own_part(ev, me)
+        .iter()
+        .filter_map(|e| match e {
+            Event::PickedUp { player, thing } if *player == me => Some(thing_name(game, *thing)),
+            Event::GoldPickedUp { player, amount } if *player == me => Some(format!("{amount} gold")),
+            _ => None,
+        })
+        .collect();
+    names.join(", ")
+}
+
+/// What a walk's search tells states apart by besides the square: what
+/// the player carries and holds, and what the room's squares hold.
+fn fingerprint(game: &Game, me: usize) -> u64 {
+    let mut h = DefaultHasher::new();
+    let p = &game.players()[me];
+    (&p.possessions, p.gold, p.weapon, p.armor).hash(&mut h);
+    if let Location::Room { region, room, .. } = p.at {
+        if let Some(r) = game.region(region).and_then(|r| r.rooms.get(room as usize)) {
+            for it in &r.items {
+                (it.x, it.y, it.thing, it.parameter, it.flag, it.gold).hash(&mut h);
+            }
+        }
+    }
+    h.finish()
+}
+
 /// What in a step's own events a walk keeps away from: a death or lost
 /// Life Force, a store, a map encounter.
 fn harm(ev: &[Event], me: usize) -> Option<String> {
@@ -322,30 +373,45 @@ fn beside(game: &Game, a: Location, b: Location) -> bool {
 }
 
 /// A breadth-first search over `me`'s moves, each tried on a clone, until
-/// `goal`; turns that end on the way go on after the others wait. The
-/// commands to play (moves and the others' waits), or why it failed.
-fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
+/// `goal`; turns that end on the way go on after the others wait. A state
+/// is the square plus a fingerprint of what the player carries and what
+/// the room holds, so a square is visited again once a step changed the
+/// room (a take, a space's spell). The commands to play (moves and the
+/// others' waits), or why it failed.
+fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Command>, String> {
     struct Node {
         parent: Option<usize>,
         cmds: Vec<Command>,
     }
     let start = game.players()[me].at;
-    let target = match goal {
-        Goal::Square(x, y) | Goal::Door(x, y) | Goal::Beside(x, y) | Goal::Take(x, y) => with_xy(start, x, y),
+    let fixed = match goal {
+        Goal::Square(x, y) | Goal::Door(x, y) | Goal::Beside(x, y) => Some(with_xy(start, x, y)),
+        Goal::Foe(_) => None,
     };
-    let done_at = |at: Location| match goal {
-        Goal::Square(..) => at == target,
-        Goal::Door(..) | Goal::Take(..) => false,
-        Goal::Beside(..) => beside(game, at, target),
+    // Where the goal's square is in `g` (a foe's square moves).
+    let target_in = |g: &Game| match goal {
+        Goal::Foe(w) => g
+            .location(w)
+            .filter(|l| g.alive(w) && place_key(*l) == place_key(start)),
+        _ => fixed,
     };
-    if done_at(start) {
+    let done = |g: &Game, at: Location| match goal {
+        Goal::Square(..) => Some(at) == fixed,
+        Goal::Door(..) => false,
+        Goal::Beside(..) | Goal::Foe(_) => target_in(g).is_some_and(|t| beside(g, at, t)),
+    };
+    let Some(first_target) = target_in(game) else {
+        return Err("the foe is not in this room".into());
+    };
+    if done(game, start) {
         return Ok(Vec::new());
     }
     let mut nodes = vec![Node {
         parent: None,
         cmds: Vec::new(),
     }];
-    let mut reached: HashMap<Location, usize> = HashMap::from([(start, 0)]);
+    let mut reached: HashMap<(Location, u64), usize> = HashMap::from([((start, fingerprint(game, me)), 0)]);
+    let mut squares: HashSet<Location> = HashSet::from([start]);
     let mut refused: HashMap<Location, String> = HashMap::new();
     let mut frontier: Vec<(usize, Location, Game)> = vec![(0, start, game.clone())];
     let path = |nodes: &[Node], mut i: usize, last: Vec<Command>| {
@@ -359,30 +425,32 @@ fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
     while !frontier.is_empty() && nodes.len() < SEARCH_MAX {
         let mut next = Vec::new();
         for (i, at, g) in frontier {
+            let target = target_in(&g);
+            let print = fingerprint(&g, me);
             for &d in dirs(&g) {
                 let Some(sq) = neighbour(&g, at, d) else { continue };
-                if reached.contains_key(&sq) && sq != target {
+                let into_target = Some(sq) == target;
+                // A walk beside the square never steps onto it (that would
+                // take, trigger or attack what is there).
+                if into_target && matches!(goal, Goal::Beside(..) | Goal::Foe(_)) {
                     continue;
                 }
-                let into_target = sq == target;
+                if !into_target && reached.contains_key(&(sq, print)) {
+                    continue;
+                }
                 let mut c = g.clone();
                 let mut cmds = vec![Command::Move { dir: d }];
                 let mut ev = c.apply(Command::Move { dir: d });
-                if matches!(goal, Goal::Take(..)) && into_target {
-                    if took(&ev, me) {
-                        return Ok(path(&nodes, i, cmds));
-                    }
-                    let after = c.players()[me].at;
-                    let why =
-                        objection(&c, at, after, &ev, me).unwrap_or_else(|| "nothing is taken there".into());
-                    refused.insert(sq, why);
-                    continue;
-                }
                 // A take on the way: the same step again goes on (a stack
-                // gives up one thing a step).
+                // gives up one thing a step); with `avoid_takes` only on
+                // the target.
                 let mut harmed = None;
                 for _ in 0..16 {
                     if !(took(&ev, me) && c.players()[me].at == at) {
+                        break;
+                    }
+                    if avoid_takes && !into_target {
+                        harmed = Some(format!("it would take {}", taken(&c, &ev, me)));
                         break;
                     }
                     harmed = harm(&ev, me);
@@ -407,36 +475,27 @@ fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
                 }
                 let after = c.players()[me].at;
                 let objected = objection(&c, at, after, &ev, me);
-                let ok = match goal {
+                match goal {
                     // A walk's own target may hurt or be a door.
-                    Goal::Square(..) if into_target && after != at => Some(true),
+                    Goal::Square(..) if into_target && after != at => return Ok(path(&nodes, i, cmds)),
                     Goal::Door(..) if into_target => {
-                        if place_key(after) != place_key(at) {
-                            Some(true)
-                        } else {
-                            refused.insert(
-                                sq,
-                                objected
-                                    .clone()
-                                    .unwrap_or_else(|| "no door is taken there".into()),
-                            );
-                            Some(false)
+                        if took_door(&ev, me) {
+                            return Ok(path(&nodes, i, cmds));
                         }
+                        refused.insert(sq, objected.unwrap_or_else(|| "no door is taken there".into()));
+                        continue;
                     }
-                    Goal::Beside(..) if objected.is_none() && beside(&c, after, target) => Some(true),
-                    _ => None,
-                };
-                if ok == Some(true) {
-                    return Ok(path(&nodes, i, cmds));
-                }
-                if ok == Some(false) {
-                    continue;
+                    _ => {}
                 }
                 if let Some(why) = objected {
                     refused.entry(sq).or_insert(why);
                     continue;
                 }
-                if reached.contains_key(&after) {
+                if done(&c, after) {
+                    return Ok(path(&nodes, i, cmds));
+                }
+                let key = (after, fingerprint(&c, me));
+                if reached.contains_key(&key) {
                     continue;
                 }
                 if turn_ended(&ev, me) || c.current() != me {
@@ -455,15 +514,16 @@ fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
                     parent: Some(i),
                     cmds,
                 });
-                reached.insert(after, n);
+                reached.insert(key, n);
+                squares.insert(after);
                 next.push((n, after, c));
             }
         }
         frontier = next;
     }
     // Unreachable: say what was reachable, nearest first.
-    let (tx, ty) = target.xy();
-    let mut near: Vec<Location> = reached.keys().copied().collect();
+    let (tx, ty) = first_target.xy();
+    let mut near: Vec<Location> = squares.into_iter().collect();
     near.sort_by_key(|l| {
         let (x, y) = l.xy();
         let (dx, dy) = (x as i32 - tx as i32, y as i32 - ty as i32);
@@ -481,14 +541,17 @@ fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
         Goal::Square(..) => "square",
         Goal::Door(..) => "door",
         Goal::Beside(..) => "a square beside",
-        Goal::Take(..) => "a take at",
+        Goal::Foe(_) => "a square beside the foe on",
     };
     let mut msg = format!("{what} {tx},{ty} is unreachable from {}", place_name(game, start));
-    if let Some(why) = refused.get(&target) {
+    if avoid_takes {
+        msg.push_str(" avoiding takes");
+    }
+    if let Some(why) = refused.get(&first_target) {
         msg.push_str(&format!(" (stepping onto it: {why})"));
     }
     if nodes.len() >= SEARCH_MAX {
-        msg.push_str(&format!(" (search stopped after {SEARCH_MAX} squares)"));
+        msg.push_str(&format!(" (search stopped after {SEARCH_MAX} states)"));
     }
     msg.push_str(&format!(
         "; reachable: {} squares, nearest first: {}{}",
@@ -496,6 +559,18 @@ fn plan(game: &Game, me: usize, goal: Goal) -> Result<Vec<Command>, String> {
         list.join(" "),
         if near.len() > list.len() { " ..." } else { "" }
     ));
+    let mut takes: Vec<String> = refused
+        .iter()
+        .filter_map(|(l, why)| {
+            let what = why.strip_prefix("it would take ")?;
+            let (x, y) = l.xy();
+            Some(format!("{x},{y} ({what})"))
+        })
+        .collect();
+    takes.sort();
+    if !takes.is_empty() {
+        msg.push_str(&format!("; takes left alone: {}", takes.join(", ")));
+    }
     Err(msg)
 }
 
@@ -525,6 +600,11 @@ impl Driver<'_> {
                     who: Who::Player { player },
                     ..
                 } => self.deaths.push(*player),
+                Event::TurnEnded { player } => {
+                    if let Some(t) = self.turns.get_mut(*player) {
+                        *t += 1;
+                    }
+                }
                 _ => {}
             }
         }
@@ -554,6 +634,8 @@ impl Driver<'_> {
             recent: self.recent.clone(),
             messages: self.messages.clone(),
             deaths: self.deaths.clone(),
+            turns: self.turns.clone(),
+            fresh: self.fresh.clone(),
         }
     }
 
@@ -564,6 +646,8 @@ impl Driver<'_> {
         self.recent = c.recent;
         self.messages = c.messages;
         self.deaths = c.deaths;
+        self.turns = c.turns;
+        self.fresh = c.fresh;
     }
 
     /// Players 2.. join through "Add Someone" at the start; player 1 waits
@@ -587,7 +671,9 @@ impl Driver<'_> {
         Ok(())
     }
 
-    /// Waits for `me`'s turn, playing `Wait` for everyone else.
+    /// Waits for `me`'s turn, playing `Wait` for everyone else. The
+    /// first turn of a player's script is one with moves: one without
+    /// (the first after joining) is waited out.
     fn turn_for(&mut self, me: usize) -> Result<(), String> {
         for _ in 0..WAIT_MAX {
             if self.game.is_over() {
@@ -600,7 +686,13 @@ impl Driver<'_> {
                 return Err(format!("{} is dead", self.me_name(me)));
             }
             if self.game.current() == me {
-                return Ok(());
+                if !self.fresh[me] {
+                    return Ok(());
+                }
+                if p.moves_left > 0 {
+                    self.fresh[me] = false;
+                    return Ok(());
+                }
             }
             self.apply(Command::Wait);
         }
@@ -609,13 +701,26 @@ impl Driver<'_> {
 
     /// Walks `me` to `goal`, planning afresh at each of its turns. The
     /// events of the last step.
-    fn walk(&mut self, me: usize, goal: Goal) -> Result<Vec<Event>, String> {
+    fn walk(&mut self, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Event>, String> {
+        self.walk_turns(me, goal, avoid_takes, WALK_TURNS)?
+            .ok_or_else(|| format!("still walking after {WALK_TURNS} turns"))
+    }
+
+    /// `walk` for at most `turns` plans (one a turn); `None` when the goal
+    /// isn't reached by then.
+    fn walk_turns(
+        &mut self,
+        me: usize,
+        goal: Goal,
+        avoid_takes: bool,
+        turns: usize,
+    ) -> Result<Option<Vec<Event>>, String> {
         let mut last = Vec::new();
-        for _ in 0..WALK_TURNS {
+        for _ in 0..turns {
             self.turn_for(me)?;
-            let cmds = plan(&self.game, me, goal)?;
+            let cmds = plan(&self.game, me, goal, avoid_takes)?;
             if cmds.is_empty() {
-                return Ok(last);
+                return Ok(Some(last));
             }
             let n = cmds.len();
             for (i, cmd) in cmds.into_iter().enumerate() {
@@ -628,8 +733,8 @@ impl Driver<'_> {
                     last = ev.clone();
                 }
                 if i + 1 == n {
-                    if matches!(goal, Goal::Door(..) | Goal::Take(..)) {
-                        return Ok(last);
+                    if matches!(goal, Goal::Door(..)) {
+                        return Ok(Some(last));
                     }
                     break;
                 }
@@ -638,7 +743,7 @@ impl Driver<'_> {
                 }
             }
         }
-        Err(format!("still walking after {WALK_TURNS} turns"))
+        Ok(None)
     }
 
     fn at(&self, me: usize) -> Location {
@@ -688,34 +793,67 @@ impl Driver<'_> {
         Ok(self.apply(Command::Move { dir }))
     }
 
-    fn goto(&mut self, me: usize, region: u8, room: u8) -> Result<(), String> {
+    /// Walks through doors until in `(region, room)`. Each hop is a `door`
+    /// walk on the real game, rolled back when it fails or leads
+    /// elsewhere; the route is then searched again without that door. A
+    /// fallback route may be no longer than what the first route left
+    /// plus [`DETOUR`] doors, and never goes back through a place this
+    /// `goto` passed or, once in the target region, out of it.
+    fn goto(&mut self, me: usize, region: u8, room: u8, avoid_takes: bool) -> Result<(), String> {
         let want = (region, room);
         let mut bad: HashMap<Edge, String> = HashMap::new();
+        let mut been: HashSet<(u8, u8)> = HashSet::new();
+        let mut budget: Option<usize> = None;
+        let tried = |bad: &HashMap<Edge, String>| {
+            let mut t: Vec<String> = bad
+                .iter()
+                .map(|(e, why)| format!("door {},{} of {:?} to {:?}: {why}", e.at.0, e.at.1, e.from, e.to))
+                .collect();
+            t.sort();
+            if t.is_empty() {
+                String::new()
+            } else {
+                format!("; doors that didn't work: {}", t.join("; "))
+            }
+        };
         for _ in 0..HOPS_MAX {
             let here = place_key(self.at(me));
             if here == want {
                 return Ok(());
             }
-            let Some(route) = route(&self.game, here, want, &bad) else {
+            been.insert(here);
+            let stay = (want.0 != 0 && here.0 == want.0).then_some(want.0);
+            let Some(route) = route(&self.game, here, want, &bad, &been, stay) else {
                 let mut msg = format!(
                     "no door route from {} to region {region} room {room}",
                     place_name(&self.game, self.at(me))
                 );
-                if !bad.is_empty() {
-                    let tried: Vec<String> = bad
-                        .iter()
-                        .map(|(e, why)| {
-                            format!("door {},{} of {:?} to {:?}: {why}", e.at.0, e.at.1, e.from, e.to)
-                        })
-                        .collect();
-                    msg.push_str(&format!("; doors that didn't work: {}", tried.join("; ")));
+                if been.len() > 1 {
+                    msg.push_str(" that keeps out of the places already passed");
                 }
+                if stay.is_some() {
+                    msg.push_str(&format!(" without leaving region {region}"));
+                }
+                msg.push_str(&tried(&bad));
                 return Err(msg);
             };
+            match budget {
+                Some(b) if route.len() > b => {
+                    return Err(format!(
+                        "the only way on from {} is {} doors, more than the {b} the first route left room for \
+                         (it plus {DETOUR}){}",
+                        place_name(&self.game, self.at(me)),
+                        route.len(),
+                        tried(&bad)
+                    ));
+                }
+                Some(_) => {}
+                None => budget = Some(route.len() + DETOUR),
+            }
             let hop = route[0];
             let cp = self.checkpoint();
-            match self.walk(me, Goal::Door(hop.at.0, hop.at.1)) {
-                Ok(_) if place_key(self.at(me)) == hop.to => {}
+            match self.walk(me, Goal::Door(hop.at.0, hop.at.1), avoid_takes) {
+                Ok(_) if place_key(self.at(me)) == hop.to => budget = budget.map(|b| b.saturating_sub(1)),
                 Ok(_) => {
                     let why = format!("it led to {}", place_name(&self.game, self.at(me)));
                     self.rollback(cp);
@@ -803,7 +941,7 @@ impl Driver<'_> {
             Expect::Message(n) => {
                 if !self.messages.contains(&n) {
                     return Err(format!(
-                        "expected long message {n} since the last expect; shown: {:?}",
+                        "expected long message {n} in the last action step; shown: {:?}",
                         self.messages
                     ));
                 }
@@ -836,37 +974,52 @@ impl Driver<'_> {
     fn step_for(&mut self, me: usize, action: &Action) -> Result<(), String> {
         match *action {
             Action::As(_) => {}
-            Action::Walk(x, y) => {
-                self.walk(me, Goal::Square(x, y))?;
+            Action::Walk(x, y, avoid) => {
+                self.walk(me, Goal::Square(x, y), avoid)?;
             }
-            Action::Door(x, y) => {
-                let before = place_key(self.at(me));
-                self.walk(me, Goal::Door(x, y))?;
-                if place_key(self.at(me)) == before {
+            Action::Door(x, y, avoid) => {
+                let ev = self.walk(me, Goal::Door(x, y), avoid)?;
+                if !took_door(&ev, me) {
                     return Err(format!("no door was taken at {x},{y}"));
                 }
             }
-            Action::Goto { region, room, at } => {
-                self.goto(me, region, room)?;
+            Action::Goto {
+                region,
+                room,
+                at,
+                avoid,
+            } => {
+                self.goto(me, region, room, avoid)?;
                 if let Some((x, y)) = at {
-                    self.walk(me, Goal::Square(x, y))?;
+                    self.walk(me, Goal::Square(x, y), avoid)?;
                 }
             }
-            Action::Take(x, y) => {
+            Action::Take(x, y, avoid) => {
+                // A take leaves the taker on its own square: push into it
+                // from beside.
                 if self.at(me).xy() == (x, y) {
                     return Err(format!("already standing on {x},{y}: step off it first"));
                 }
-                let ev = self.walk(me, Goal::Take(x, y))?;
-                if !took(&ev, me) {
-                    return Err(format!("nothing was taken at {x},{y}"));
-                }
-            }
-            Action::Bump(x, y) => {
                 let sq = with_xy(self.at(me), x, y);
                 if !beside(&self.game, self.at(me), sq) {
-                    self.walk(me, Goal::Beside(x, y))?;
+                    self.walk(me, Goal::Beside(x, y), avoid)?;
                 }
-                self.push(me, sq)?;
+                let ev = self.push(me, with_xy(self.at(me), x, y))?;
+                if !took(&ev, me) {
+                    let why: Vec<String> = own_part(&ev, me)
+                        .iter()
+                        .filter(|e| !matches!(e, Event::TurnEnded { .. } | Event::TurnStarted { .. }))
+                        .map(|e| describe(&self.game, e))
+                        .collect();
+                    return Err(format!("nothing was taken at {x},{y}: {}", why.join(" ")));
+                }
+            }
+            Action::Bump(x, y, avoid) => {
+                let sq = with_xy(self.at(me), x, y);
+                if !beside(&self.game, self.at(me), sq) {
+                    self.walk(me, Goal::Beside(x, y), avoid)?;
+                }
+                self.push(me, with_xy(self.at(me), x, y))?;
             }
             Action::Attack(x, y, turns) => self.attack(me, x, y, turns.unwrap_or(ATTACK_TURNS))?,
             Action::Use(thing, at) => {
@@ -942,21 +1095,28 @@ impl Driver<'_> {
         );
         self.apply(Command::Restore);
         self.deaths.clear();
+        self.fresh.fill(true);
     }
 
+    /// Attacks whoever stands on `(x, y)`: that individual (by its `Who`),
+    /// followed wherever it goes in the room, one turn's walk at a time.
     fn attack(&mut self, me: usize, x: u8, y: u8, turns: u32) -> Result<(), String> {
         let who = self
             .who_at(me, x, y)
             .ok_or_else(|| format!("no one stands on {x},{y}"))?;
-        let mut used = 0;
+        let start = self.turns[me];
         for _ in 0..WAIT_MAX {
             if !self.game.alive(who) {
                 return Ok(());
             }
-            if used >= turns {
+            if self.turns[me] - start >= turns as usize {
                 self.progress.push(format!(
                     "  (attack stopped after {turns} turns; the foe still lives)"
                 ));
+                return Ok(());
+            }
+            self.turn_for(me)?;
+            if !self.game.alive(who) {
                 return Ok(());
             }
             let foe = self.game.location(who).ok_or("the foe is gone")?;
@@ -964,8 +1124,7 @@ impl Driver<'_> {
                 return Err(format!("the foe left for {}", place_name(&self.game, foe)));
             }
             if !beside(&self.game, self.at(me), foe) {
-                let (fx, fy) = foe.xy();
-                self.walk(me, Goal::Beside(fx, fy))?;
+                self.walk_turns(me, Goal::Foe(who), false, 1)?;
                 continue;
             }
             let ev = self.push(me, foe)?;
@@ -975,9 +1134,6 @@ impl Driver<'_> {
             {
                 let why: Vec<String> = ev.iter().map(|e| describe(&self.game, e)).collect();
                 return Err(format!("pushing into it didn't attack: {}", why.join(" ")));
-            }
-            if turn_ended(&ev, me) {
-                used += 1;
             }
         }
         Err("the attack never ended".into())
@@ -1027,6 +1183,11 @@ impl Driver<'_> {
                 steps.get(i + 1).map(|s| &s.action),
                 Some(Action::Expect(Expect::Dead))
             );
+            // Long messages are kept from the start of an action step
+            // through the `expect`s after it.
+            if !matches!(step.action, Action::Expect(_) | Action::As(_)) {
+                self.messages.clear();
+            }
             for &me in &players {
                 if me >= self.game.players().len() {
                     return Some(self.report(step, None, &format!("player {} is not in the game", me + 1)));
@@ -1058,17 +1219,22 @@ impl Driver<'_> {
                     self.progress.push(line);
                 }
             }
-            if matches!(step.action, Action::Expect(_)) {
-                self.messages.clear();
-            }
         }
         None
     }
 }
 
 /// The shortest door route from `from` to `to` over the doors the rooms
-/// and the world map hold now, leaving out `bad` ones.
-fn route(game: &Game, from: (u8, u8), to: (u8, u8), bad: &HashMap<Edge, String>) -> Option<Vec<Edge>> {
+/// and the world map hold now, leaving out `bad` ones, places in
+/// `closed` and, with `stay`, places outside that region.
+fn route(
+    game: &Game,
+    from: (u8, u8),
+    to: (u8, u8),
+    bad: &HashMap<Edge, String>,
+    closed: &HashSet<(u8, u8)>,
+    stay: Option<u8>,
+) -> Option<Vec<Edge>> {
     let mut prev: HashMap<(u8, u8), Edge> = HashMap::new();
     let mut seen: HashSet<(u8, u8)> = HashSet::from([from]);
     let mut queue = VecDeque::from([from]);
@@ -1085,7 +1251,11 @@ fn route(game: &Game, from: (u8, u8), to: (u8, u8), bad: &HashMap<Edge, String>)
             return Some(path);
         }
         for e in doors(game, here) {
-            if bad.contains_key(&e) || !seen.insert(e.to) {
+            if bad.contains_key(&e)
+                || closed.contains(&e.to)
+                || stay.is_some_and(|r| e.to.0 != r)
+                || !seen.insert(e.to)
+            {
                 continue;
             }
             prev.insert(e.to, e);

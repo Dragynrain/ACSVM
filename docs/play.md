@@ -36,7 +36,10 @@ Constitution and Life Force 20, Dexterity and Wisdom 15, Size 12, skills
 One step a line; `#` starts a comment. A step is for the players picked
 by the last `as`: `as 1`, `as 2`, ... or `as both` (every player in turn,
 player 1 first). The default is `as 1`. Whenever it is the turn of a
-player the step isn't for, the driver plays `Wait` for them.
+player the step isn't for, the driver plays `Wait` for them. Each
+player's script starts at a turn with moves: a turn of theirs with no
+moves left before their first step that needs one (the first after
+joining, say) is waited out, so no leading `wait` is needed.
 
 Squares are the room's own (walls included, 0,0 the top-left wall) or the
 world map's cell. THING is a master thing number or name (any case).
@@ -44,11 +47,11 @@ world map's cell. THING is a master thing number or name (any case).
 | Step | What it does |
 |---|---|
 | `walk X Y` | Walks to the square (see 3). |
-| `door X Y` | Walks onto the door or portal on the square and through it, then reports where the player is. |
-| `goto REGION ROOM [X Y]` | Walks through doors until in that room (region 0 room 0: the world map), then `walk X Y`. |
-| `take X Y` | Walks onto the square and takes what lies there (a step onto a carriable thing takes it). |
+| `door X Y` | Walks onto the door or portal on the square and through it (also one into another square of the same room), then reports where the player is. |
+| `goto REGION ROOM [X Y]` | Walks through doors until in that room (region 0 room 0: the world map), then `walk X Y` (see 3). |
+| `take X Y` | Walks beside the square and pushes into it once; the step succeeds when the player picks something up (a take leaves the taker on its own square). |
 | `bump X Y` | Walks beside the square and pushes into it once (an obstacle's spell, a store, a creature). |
-| `attack X Y [N]` | Pushes into whoever stands there, following it, until it dies or N of the player's turns pass (default 20; not a failure). |
+| `attack X Y [N]` | Attacks whoever stands there: that individual, followed wherever it goes in the room (the walk to it is planned afresh each turn), until it dies or N of the player's turns pass, walking ones included (default 20; not a failure). |
 | `use THING [X Y]`, `cast THING [X Y]` | `Use` / `Cast`, aimed at the square when given. |
 | `drop THING [DIR]` | `Drop`, on the own square or the one in `n`, `e`, `s`, `w` (`ne`.. too). |
 | `ready THING` | `Ready`. |
@@ -59,9 +62,13 @@ world map's cell. THING is a master thing number or name (any case).
 | `restore` | The death message's button: the game at the engine's restore point, then `Restore`. |
 | `expect at REGION ROOM X Y` | The player stands there (region 0 room 0: the map). |
 | `expect owns THING`, `expect not owns THING` | |
-| `expect message N` | Long message N was shown since the last `expect`. |
+| `expect message N` | Long message N was shown during the last action step (any step but `expect` and `as`); several `expect`s after it all read the same messages. |
 | `expect alive`, `expect dead` | |
 | `expect life >= N` | Also `<=`, `>`, `<`, `==`. |
+
+`walk`, `door`, `goto`, `take` and `bump` take `avoid-takes` after their
+numbers (`walk 5 3 avoid-takes`): the walk then never steps onto a square
+that would pick something up, except a `walk`'s own target (see 3).
 
 A refusal event (cast, drop, ready, store, retire) fails the step. A
 player's death fails the step it happens in, unless the next step is
@@ -74,8 +81,15 @@ clone of the game, so a square does what the engine says. A move is kept
 when the player moves and stays in the same room or on the map, and its
 own events (up to the end of the player's turn) hold no lost Life Force,
 death, store, map encounter or encounter area. The walk's own target may
-be any of those. A step that only takes a thing is followed by the same
-step again, so a walk takes what lies on its way. A turn that ends on the
+be any of those. A walk to beside a square (`take`, `bump`, `attack`)
+never steps onto that square. By default a step that only takes a thing
+is followed by the same step again, so a walk takes what lies on its way;
+with `avoid-takes` such a step is refused instead (the failure lists the
+takes it left alone). A search state is the square plus a fingerprint of
+what the player carries and what the room's squares hold, so a square is
+visited again once a step changed the room or the player's things (a
+key picked up, a space's spell that clears the way); the search stops at
+20,000 states. A turn that ends on the
 way goes on after the others' `Wait`s, so the search spans turns; the
 moves are played on the real game and the walk is planned again from the
 real state at each of the player's turns. The game is deterministic, so a
@@ -89,7 +103,12 @@ first.
 `goto` searches the door graph: the world map's doors and the room items
 with a destination, into rooms that aren't deleted. Each hop is a `door`
 walk tried on the real game and rolled back when it fails or leads
-elsewhere; that door is then left out and the route searched again.
+elsewhere; that door is then left out and the route searched again. The
+fallback is limited so a `goto` can't wander: a new route may be no longer
+than what the first route had left plus 2 doors, never goes back into a
+place this `goto` already passed through, and once the player is in the
+target region it never leaves it. When no route is left the step fails
+with the doors that didn't work and why.
 
 ## 4. Failure and output
 

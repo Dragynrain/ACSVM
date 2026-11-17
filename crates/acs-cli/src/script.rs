@@ -58,15 +58,17 @@ pub enum Expect {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     As(Sel),
-    Walk(u8, u8),
-    Door(u8, u8),
+    /// The `bool`s of the walking steps: `avoid-takes` was given.
+    Walk(u8, u8, bool),
+    Door(u8, u8, bool),
     Goto {
         region: u8,
         room: u8,
         at: Option<(u8, u8)>,
+        avoid: bool,
     },
-    Take(u8, u8),
-    Bump(u8, u8),
+    Take(u8, u8, bool),
+    Bump(u8, u8, bool),
     Attack(u8, u8, Option<u32>),
     Use(ThingId, Option<(u8, u8)>),
     Cast(ThingId, Option<(u8, u8)>),
@@ -277,8 +279,22 @@ fn setup(adv: &Adventure, w: &[String]) -> Result<(usize, PlayerSetup), String> 
     Ok((n - 1, s))
 }
 
+/// The option after a walking step's squares.
+const AVOID_TAKES: &str = "avoid-takes";
+
 fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
-    let (verb, rest) = (w[0].to_ascii_lowercase(), &w[1..]);
+    let (verb, mut rest) = (w[0].to_ascii_lowercase(), &w[1..]);
+    let mut avoid = false;
+    if matches!(verb.as_str(), "walk" | "door" | "goto" | "take" | "bump") {
+        if let Some((last, head)) = rest.split_last() {
+            if last.eq_ignore_ascii_case(AVOID_TAKES) {
+                avoid = true;
+                rest = head;
+            }
+        }
+    } else if rest.iter().any(|r| r.eq_ignore_ascii_case(AVOID_TAKES)) {
+        return Err(format!("{AVOID_TAKES} goes with walk, door, goto, take and bump"));
+    }
     Ok(match verb.as_str() {
         "as" => match rest {
             [s] if s.eq_ignore_ascii_case("both") => Action::As(Sel::Both),
@@ -293,32 +309,34 @@ fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
         },
         "walk" => {
             let (x, y) = xy(rest)?;
-            Action::Walk(x, y)
+            Action::Walk(x, y, avoid)
         }
         "door" => {
             let (x, y) = xy(rest)?;
-            Action::Door(x, y)
+            Action::Door(x, y, avoid)
         }
         "take" => {
             let (x, y) = xy(rest)?;
-            Action::Take(x, y)
+            Action::Take(x, y, avoid)
         }
         "bump" => {
             let (x, y) = xy(rest)?;
-            Action::Bump(x, y)
+            Action::Bump(x, y, avoid)
         }
         "goto" => match rest {
             [r, m] => Action::Goto {
                 region: num(r, "REGION")?,
                 room: num(m, "ROOM")?,
                 at: None,
+                avoid,
             },
             [r, m, x, y] => Action::Goto {
                 region: num(r, "REGION")?,
                 room: num(m, "ROOM")?,
                 at: Some((num(x, "X")?, num(y, "Y")?)),
+                avoid,
             },
-            _ => return Err("goto REGION ROOM [X Y]".into()),
+            _ => return Err("goto REGION ROOM [X Y] [avoid-takes]".into()),
         },
         "attack" => match rest {
             [x, y] => Action::Attack(num(x, "X")?, num(y, "Y")?, None),

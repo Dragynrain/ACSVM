@@ -5,15 +5,20 @@
 
 use crate::play::play;
 use crate::script::parse;
-use crate::test_fixture::{Fixture, RegionSpec, RoomSpec};
+use crate::test_fixture::{creature_record, Fixture, RegionSpec, RoomSpec};
 use acs_core::layout::world_map as wm;
+use acs_core::model::{
+    Access, Alignment, Destination, MapDoor, MapPoint, RoomItem, SpellAction, SpellActionKind, ThingKind,
+};
 use acs_core::{decode, Adventure, Platform};
-use acs_engine::{Location, SaveFile};
+use acs_engine::{Game, Location, SaveFile, Who};
 
 const KEY: u8 = 1; // treasure
 const LOCKED: u8 = 2; // portal, owners of KEY
 const DOOR: u8 = 3; // portal, anyone
 const PILLAR: u8 = 4; // obstacle
+const SWORD: u8 = 5; // melee weapon
+const SCROLL: u8 = 6; // a space showing long message 7 (set in the model)
 
 /// One region, three rooms:
 ///
@@ -24,6 +29,7 @@ const PILLAR: u8 = 4; // obstacle
 /// - FINAL 5x5: a door back to VAULT (0,2).
 ///
 /// World map: open grass, start (20,20), a map door at (20,19) into HALL.
+/// Resident slot 0 is a template creature, not in use.
 fn adventure() -> Adventure {
     let mut f = Fixture::new(Platform::C64);
     f.header("PLAYTEST", "", "");
@@ -31,6 +37,12 @@ fn adventure() -> Adventure {
     f.thing(LOCKED as usize, "LOCKED DOOR", [0x07, 5 | 2 << 6, 0, KEY]);
     f.thing(DOOR as usize, "DOOR", [0x27, 5, 0, 0]);
     f.thing(PILLAR as usize, "PILLAR", [0x0A, 8, 0, 0]);
+    f.thing(SWORD as usize, "SWORD", [0x04, 5, 10, 0]);
+    f.extended(None, 0, [5, 0, 20 | 0x40]);
+    f.thing(SCROLL as usize, "SCROLL", [0x01, 1, 1, 3]);
+    f.long_message(7, "AN OLD SCROLL");
+    let mut template = creature_record(10, 0x60, 70);
+    template[0x10] = 0x10;
     f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
     f.thing(128, "ROOM BORDER", [0x00, 9, 0, 0]);
     f.region(RegionSpec {
@@ -76,6 +88,7 @@ fn adventure() -> Adventure {
             [0x12, 0x12], // VAULT -> FINAL (1,2)
             [0x11, 0x42], // FINAL -> VAULT (4,2)
         ],
+        residents: vec![(0, "TEMPLATE", template)],
         ..Default::default()
     });
     let w = f.l.world_map;
@@ -86,7 +99,56 @@ fn adventure() -> Adventure {
     f.put(w + wm::START_X, &[20, 20]);
     f.put(w + wm::POINTS, &[20, 19]);
     f.put(w + wm::DOOR_DESTINATIONS, &[0x10, 0x22]);
-    decode(&f.build()).expect("decodes").adventure
+    let mut a = decode(&f.build()).expect("decodes").adventure;
+    a.regions[0].residents[0].in_use = false;
+    let t = &mut a.things[SCROLL as usize - 1];
+    t.kind = ThingKind::Space {
+        picture: 4,
+        access: Access::InvokeSpell {
+            action: SpellAction {
+                kind: SpellActionKind::LongMessage,
+                parameter: 7,
+            },
+        },
+    };
+    t.raw = [0; 4];
+    a
+}
+
+/// Puts `thing` on `(x, y)` of `room` (on top), through to `to` when given.
+fn put(a: &mut Adventure, room: usize, x: u8, y: u8, thing: u8, to: Option<Destination>) {
+    a.regions[0].rooms[room].items.insert(
+        0,
+        RoomItem {
+            x,
+            y,
+            thing: thing as u16,
+            // A carriable thing's count.
+            parameter: 1,
+            flag: false,
+            destination: to,
+            gold: None,
+        },
+    );
+}
+
+/// Takes away what lies on `(x, y)` of `room`.
+fn clear(a: &mut Adventure, room: usize, x: u8, y: u8) {
+    a.regions[0].rooms[room].items.retain(|it| (it.x, it.y) != (x, y));
+}
+
+fn room(room: u8, x: u8, y: u8) -> Location {
+    Location::Room {
+        region: 1,
+        room,
+        x,
+        y,
+    }
+}
+
+fn run(adv: &Adventure, script: &str, seed: u64) -> crate::play::Outcome {
+    let script = parse(script, adv).expect("parses");
+    play(adv, &script, seed, 1)
 }
 
 const WALKTHROUGH: &str = "\
@@ -158,14 +220,16 @@ fn two_players_reach_the_final_room() {
 fn a_locked_door_turns_back_the_keyless() {
     let adv = adventure();
     let script = parse(
-        "goto 1 0\ntake 3 2\ndrop key\nexpect not owns key\ndoor 7 2\n",
+        "goto 1 0\ntake 3 2\ndrop key\nexpect not owns key\ndoor 7 2 avoid-takes\n",
         &adv,
     )
     .expect("parses");
     let out = play(&adv, &script, 1, 1);
     let f = out.failure.expect("fails");
-    assert!(f.contains("line 5: door 7 2"), "{f}");
+    assert!(f.contains("line 5: door 7 2 avoid-takes"), "{f}");
     assert!(f.contains("door 7,2 is unreachable"), "{f}");
+    // The other key would have opened it.
+    assert!(f.contains("takes left alone: 3,4 (KEY)"), "{f}");
 }
 
 #[test]
@@ -204,4 +268,244 @@ fn script_errors_name_the_line() {
     // Names and numbers both name things; a trailing square is a target.
     let s = parse("use key 3 4\ndrop LOCKED DOOR e\nready 1\n", &adv).unwrap();
     assert_eq!(s.steps.len(), 3);
+}
+
+#[test]
+fn a_take_pushes_from_beside_and_the_taker_stays() {
+    let adv = adventure();
+    // 3,2 is beside the arrival; 3,4 is a walk away.
+    let out = run(&adv, "goto 1 0\ntake 3 2\nexpect at 1 0 2 2\ntake 3 4\n", 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    let p = &out.game.players()[0];
+    assert_eq!(p.count(KEY as u16), 2);
+    let (x, y) = p.at.xy();
+    assert!(
+        (x as i16 - 3).abs() + (y as i16 - 4).abs() == 1,
+        "beside 3,4: {x},{y}"
+    );
+    // Nothing there: the failure says what the push did.
+    let out = run(&adv, "goto 1 0\ntake 4 2\n", 1);
+    let f = out.failure.expect("fails");
+    assert!(f.contains("nothing was taken at 4,2"), "{f}");
+}
+
+#[test]
+fn a_joining_players_turn_without_moves_is_waited_out() {
+    let adv = adventure();
+    // BEN's wounds leave him no capacity, so his turns start with no
+    // moves until he heals. No leading `wait` for either player.
+    let out = run(
+        &adv,
+        "player 2 name=BEN strength=1 constitution=20 life=12\n\
+         as 2\nwalk 19 21\nexpect at 0 0 19 21\nas 1\nwalk 21 21\nexpect at 0 0 21 21\n",
+        2,
+    );
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+}
+
+#[test]
+fn a_portal_into_the_same_room_is_a_door() {
+    let mut adv = adventure();
+    put(
+        &mut adv,
+        0,
+        1,
+        4,
+        DOOR,
+        Some(Destination::Room {
+            region: 1,
+            room: 0,
+            x: 6,
+            y: 4,
+        }),
+    );
+    let out = run(&adv, "goto 1 0\ndoor 1 4\nexpect at 1 0 6 4\n", 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+}
+
+/// HALL with an aggressive enemy on 6,4 of Speed `speed` and Life Force
+/// `life`, coming for the player.
+fn with_brute(speed: u8, life: u8) -> Adventure {
+    let mut adv = adventure();
+    let mut c = adv.regions[0].residents[0].clone();
+    c.in_use = true;
+    c.name = "BRUTE".into();
+    c.number = 2;
+    c.region = 1;
+    c.room = 0;
+    (c.x, c.y) = (6, 4);
+    c.strategy.alignment = Alignment::Enemy;
+    c.strategy.aggressive = true;
+    c.strategy.brave = true;
+    c.speed = speed;
+    c.constitution = life;
+    c.life_force = life;
+    adv.regions[0].residents[1] = c;
+    adv
+}
+
+const BRUTE: Who = Who::Creature { region: 1, slot: 1 };
+
+#[test]
+fn an_attack_follows_the_foe_where_it_goes() {
+    let adv = with_brute(3, 6);
+    let script = "player 1 possessions=SWORD melee=127 strength=30\ngoto 1 0\nattack 6 4\nexpect alive\n";
+    for seed in 1..=4 {
+        let out = run(&adv, script, seed);
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+        assert!(!out.game.alive(BRUTE), "seed {seed}: the foe still lives");
+        assert!(
+            out.trace.iter().any(|l| l.contains("creature_moved")),
+            "seed {seed}: the foe never moved"
+        );
+    }
+    // A slow player meets the foe coming for it instead of walking to
+    // where it stood: at most 3 squares before the first blow.
+    let adv = with_brute(4, 60);
+    let script = "player 1 possessions=SWORD melee=80 strength=8 speed=3 life=63 constitution=63\n\
+                  goto 1 0\nattack 6 4 3\n";
+    for seed in 1..=3 {
+        let out = run(&adv, script, seed);
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+        let from = out
+            .trace
+            .iter()
+            .position(|l| l.contains("attack 6 4"))
+            .expect("the step");
+        let blow = out.trace[from..]
+            .iter()
+            .position(|l| l.contains("\"attacked\"") && l.contains("\"by\":{\"player\""))
+            .expect("the player attacks");
+        let moves = out.trace[from..from + blow]
+            .iter()
+            .filter(|l| l.contains("\"command\":\"move\"") && l.contains("\"event\":\"moved\""))
+            .count();
+        assert!(moves <= 3, "seed {seed}: {moves} squares before the first blow");
+    }
+}
+
+/// HALL with one key, in the corner 1,4 behind the arrival: the way to
+/// the locked door goes back over squares the search saw without it.
+fn key_in_the_corner() -> Adventure {
+    let mut adv = adventure();
+    clear(&mut adv, 0, 3, 2);
+    clear(&mut adv, 0, 3, 4);
+    put(&mut adv, 0, 1, 4, KEY, None);
+    adv
+}
+
+#[test]
+fn a_walk_goes_back_over_squares_once_the_room_changed() {
+    let adv = key_in_the_corner();
+    let out = run(
+        &adv,
+        "goto 1 0\ndoor 7 2\nexpect owns key\nexpect at 1 1 1 2\n",
+        1,
+    );
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+}
+
+#[test]
+fn avoid_takes_keeps_off_carriable_things() {
+    let adv = key_in_the_corner();
+    let out = run(&adv, "goto 1 0\ndoor 7 2 avoid-takes\n", 1);
+    let f = out.failure.expect("fails");
+    assert!(f.contains("door 7,2 is unreachable from HALL"), "{f}");
+    assert!(f.contains("avoiding takes"), "{f}");
+    assert!(f.contains("takes left alone: 1,4 (KEY)"), "{f}");
+    // A walk's own target is still taken.
+    let out = run(&adv, "goto 1 0\nwalk 1 4 avoid-takes\nexpect owns key\n", 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    // Any other walk leaves the key alone.
+    let out = run(&adv, "goto 1 0\nwalk 1 5 avoid-takes\n", 1);
+    assert!(out.failure.is_some(), "1,5 is the wall");
+    let out = run(
+        &adv,
+        "goto 1 0\nwalk 2 4 avoid-takes\nwalk 1 3 avoid-takes\nexpect not owns key\n",
+        1,
+    );
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    assert!(parse("wait 2 avoid-takes\n", &adv).is_err());
+}
+
+#[test]
+fn a_goto_fallback_stays_in_the_target_region_and_near_the_route() {
+    // A HALL door onto the map, and a map door at 22,20 into FINAL: a
+    // keyless way to VAULT, but only back over the map. No keys in HALL.
+    let keyless = || {
+        let mut adv = adventure();
+        clear(&mut adv, 0, 3, 2);
+        clear(&mut adv, 0, 3, 4);
+        adv
+    };
+    let mut adv = keyless();
+    put(
+        &mut adv,
+        0,
+        0,
+        3,
+        DOOR,
+        Some(Destination::WorldMap { x: 20, y: 21 }),
+    );
+    adv.world.tiles[20][22] = 12;
+    adv.world.doors.push(MapDoor {
+        index: 1,
+        at: MapPoint { x: 22, y: 20 },
+        destination: Destination::Room {
+            region: 1,
+            room: 2,
+            x: 1,
+            y: 2,
+        },
+        unknown_y_bit7: false,
+    });
+    let out = run(&adv, "goto 1 0\ngoto 1 1\n", 1);
+    let f = out.failure.expect("fails");
+    assert!(f.contains("line 2: goto 1 1"), "{f}");
+    assert!(f.contains("without leaving region 1"), "{f}");
+    assert!(f.contains("door 7,2 of (1, 0) to (1, 1)"), "{f}");
+    assert_eq!(place(&out.game), (1, 0), "still in HALL");
+
+    // A HALL door straight into FINAL: two doors instead of the one that
+    // failed is within the detour.
+    let mut adv = keyless();
+    put(
+        &mut adv,
+        0,
+        0,
+        3,
+        DOOR,
+        Some(Destination::Room {
+            region: 1,
+            room: 2,
+            x: 1,
+            y: 2,
+        }),
+    );
+    let out = run(&adv, "goto 1 0\ngoto 1 1\n", 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    assert_eq!(place(&out.game), (1, 1));
+}
+
+fn place(g: &Game) -> (u8, u8) {
+    match g.players()[0].at {
+        Location::Room { region, room, .. } => (region, room),
+        Location::World { .. } => (0, 0),
+    }
+}
+
+#[test]
+fn several_expects_read_the_last_actions_messages() {
+    let mut adv = adventure();
+    put(&mut adv, 0, 2, 3, SCROLL, None);
+    let out = run(
+        &adv,
+        "goto 1 0\nwalk 2 3\nexpect message 7\nexpect at 1 0 2 3\nexpect message 7\nwalk 2 2\nexpect message 7\n",
+        1,
+    );
+    let f = out.failure.expect("fails");
+    // The first two read the walk onto the scroll; the third the walk off.
+    assert!(f.contains("line 7: expect message 7"), "{f}");
+    assert!(f.contains("in the last action step; shown: []"), "{f}");
+    assert_eq!(out.game.players()[0].at, room(0, 2, 2));
 }
