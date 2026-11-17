@@ -637,7 +637,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::right("walk-info")
         .resizable(true)
         .default_size(340.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show_collapsible(ui, &mut show_info, |ui| {
             // Taller than the window on a short screen: it scrolls
             // (client 2).
@@ -731,13 +731,21 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     // (client 2, 3).
     let height = ui.ctx().content_rect().height();
     let narrow = ui.ctx().content_rect().width() < crate::app::NARROW;
+    // The board is 15 x 10 squares (3:2): on a tall window the log also
+    // takes the height the board can't use.
+    let left = ui.available_rect_before_wrap();
+    let spare = left.height() - left.width() * 2.0 / 3.0 - 8.0;
+    let share = height * if narrow { 0.16 } else { 0.22 };
     egui::Panel::bottom("walk-log")
         .resizable(true)
-        .default_size(height * if narrow { 0.16 } else { 0.22 })
+        .default_size(share.max(spare).min(height * 0.6))
         .size_range(48.0..=height * 0.6)
         .show(ui, |ui| {
             // Both ways: a long message's lines are never rewrapped.
+            // Held to the panel: content taller than it would otherwise
+            // grow the panel to its largest size.
             egui::ScrollArea::both()
+                .max_height(ui.available_height())
                 .stick_to_bottom(true)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {

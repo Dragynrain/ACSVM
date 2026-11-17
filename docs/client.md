@@ -37,10 +37,10 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
 | Area | Wide | Narrow |
 | --- | --- | --- |
 | Top bar | Menu and Info toggles, Open, Walk, Back, the adventure | The same; it wraps |
-| Menu (left) | Shown | Hidden until toggled |
+| Menu (left) | Shown; in walk mode only from 1500 points wide, so the board keeps its room | Hidden until toggled |
 | Board (centre) | The map or room, the tile scale fitted to what is left | The same |
-| Info column (right, walk mode) | Shown; scrolls when taller than the window | Hidden until toggled |
-| Message log (bottom, walk mode) | Shown, resizable, about a fifth of the height | Shown, shorter |
+| Info column (right) | Shown, 200 to 480 points and at most about a third of the window; long lines wrap; scrolls when taller than the window | Hidden until toggled |
+| Message log (bottom, walk mode) | Shown, resizable, about a fifth of the height, or all the height the 3:2 board can't use if that is more; at most 60% | Shown, a sixth, or the board's spare height |
 
 - Nothing clips: a column taller than its space scrolls, and a row wider
   than its space wraps.
@@ -51,8 +51,12 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
 
 **Checked sizes** (the gate, 10), in points: laptop 1280 x 800 and
 1366 x 768; 4K at 200% (1920 x 1080) and 150% (2560 x 1440); tablet
-1024 x 768 and 768 x 1024 (a browser's CSS pixels). `acs-viewer FILE --size WxH --view walk --screenshot OUT.png`
-renders one; screenshots of real adventures stay outside the repo.
+1024 x 768 and 768 x 1024 (a browser's CSS pixels).
+`acs-viewer FILE --size WxH --ppp 1 [--view V | --seed N --walk ...] --screenshot OUT.png`
+renders one. `--ppp 1` draws one pixel per point whatever the screen's
+own scale, so even 2560 x 1440 points fit on a 4K screen at 175%; the
+layout depends only on points. Screenshots of real adventures stay
+outside the repo.
 
 ## 3. The message log
 
@@ -122,7 +126,17 @@ an adventure: files are opened or dropped on the window.
 
 1. Layout: the message log in its own panel, the info column scrolling
    (2, 3). Done November 2026.
-2. A screenshot sweep at the checked sizes, fixing what breaks.
+2. A screenshot sweep at the checked sizes, fixing what breaks. Done
+   November 2026, every view at the six sizes (`--ppp 1`). Fixed: the
+   log panel kept a size from before the window's last resize (a
+   `--ppp` artifact, cleared once the size is reached); the menu
+   column squeezed the walk board below 1500 points; the info column
+   took up to 43% of a 1024-point window; the log left tall windows'
+   spare height empty. Left as they are: Original mode's whole-number
+   scale leaves the 40 x 40 world map at scale 1 when 2 is just out of
+   reach (Smoothed, step 5, scales freely); the creature list's
+   stats table is a fixed width, so long values wrap; the message list
+   is the original's 32-character column.
 3. Mouse targeting and the touch pad (4).
 4. Audio: the cue player with placeholder cues, then our 30 (6).
 5. Smoothed mode (5).

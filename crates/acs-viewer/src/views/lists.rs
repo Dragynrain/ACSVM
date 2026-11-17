@@ -12,7 +12,7 @@ pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::left("thing-list")
         .resizable(true)
         .default_size(280.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (i, t) in adv.things.iter().enumerate() {
@@ -109,7 +109,7 @@ pub fn creatures(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::left("creature-list")
         .resizable(true)
         .default_size(280.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for (i, c) in adv.creatures.iter().enumerate().filter(|(_, c)| c.in_use) {

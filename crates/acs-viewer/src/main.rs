@@ -40,6 +40,7 @@ fn main() -> eframe::Result {
     let start = app::Startup {
         path: args.file,
         view: args.view,
+        ppp: args.ppp.map(|p| (p, args.size.unwrap_or([1280.0, 800.0]))),
         screenshot: args.screenshot,
         place: args.place,
         load: args.load,

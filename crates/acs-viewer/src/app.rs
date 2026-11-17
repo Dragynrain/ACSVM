@@ -21,6 +21,17 @@ pub fn project_name() -> &'static str {
 
 /// Below this window width (in points) the side panels start hidden.
 pub(crate) const NARROW: f32 = 900.0;
+/// In walk mode the menu column shows by default only from this width,
+/// where the board still gets room beside it and the info column (client 2).
+const WALK_NAV: f32 = 1500.0;
+
+/// Whether the menu column shows when no button has fixed it.
+fn nav_default(doc: Option<&Doc>, width: f32) -> bool {
+    match doc {
+        Some(d) if d.view == View::Walk => width >= WALK_NAV,
+        _ => width >= NARROW,
+    }
+}
 
 /// What the central area shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,6 +173,8 @@ impl Doc {
 pub struct Startup {
     pub path: Option<std::path::PathBuf>,
     pub view: Option<View>,
+    /// Render at this many pixels per point, the window this many points.
+    pub ppp: Option<(f32, [f32; 2])>,
     /// Write a screenshot here after a few frames, then quit.
     pub screenshot: Option<std::path::PathBuf>,
     /// Walk mode: seed and commands to play before showing it.
@@ -185,11 +198,22 @@ pub struct Viewer {
     /// Pending screenshot: path and frames left to render first.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     capture: Option<(std::path::PathBuf, u32)>,
+    /// `--ppp`: the window size in points still to be reached. The first
+    /// frames run at the screen's scale, so panels remember sizes from a
+    /// different window; they are forgotten once this size is reached.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    resize_to: Option<egui::Vec2>,
 }
 
 impl Viewer {
     pub fn new(cc: &eframe::CreationContext<'_>, start: Startup) -> Self {
         cc.egui_ctx.set_theme(egui::Theme::Dark);
+        if let Some((ppp, size)) = start.ppp {
+            let native = cc.egui_ctx.native_pixels_per_point().unwrap_or(1.0);
+            cc.egui_ctx.set_zoom_factor(ppp / native);
+            cc.egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::InnerSize(size.into()));
+        }
         let mut v = Viewer {
             inbox: Arc::default(),
             doc: None,
@@ -197,6 +221,7 @@ impl Viewer {
             show_nav: None,
             show_info: None,
             capture: start.screenshot.map(|p| (p, 10)),
+            resize_to: start.ppp.map(|(_, size)| size.into()),
         };
         if let Some(p) = start.path {
             let bytes = std::fs::read(&p).map_err(|e| format!("cannot read {}: {e}", p.display()));
@@ -251,6 +276,17 @@ impl Viewer {
     /// and closes the window once it is written.
     #[cfg(not(target_arch = "wasm32"))]
     fn capture_tick(&mut self, ctx: &egui::Context) {
+        if let Some(size) = self.resize_to {
+            ctx.request_repaint();
+            if (ctx.content_rect().size() - size).length() > 1.0 {
+                return;
+            }
+            self.resize_to = None;
+            ctx.memory_mut(|m| m.data.clear());
+            if let Some((_, frames)) = &mut self.capture {
+                *frames = 10;
+            }
+        }
         let Some((path, frames)) = &mut self.capture else {
             return;
         };
@@ -360,7 +396,9 @@ impl Viewer {
         let narrow = ctx.content_rect().width() < NARROW;
         egui::MenuBar::new().ui(ui, |ui| {
             if self.doc.is_some() {
-                let nav = self.show_nav.unwrap_or(!narrow);
+                let nav = self
+                    .show_nav
+                    .unwrap_or_else(|| nav_default(self.doc.as_ref(), ctx.content_rect().width()));
                 if ui.selectable_label(nav, "Menu").clicked() {
                     self.show_nav = Some(!nav);
                 }
@@ -533,7 +571,10 @@ impl eframe::App for Viewer {
             }
             let narrow = ctx.content_rect().width() < NARROW;
             doc.show_info = self.show_info.unwrap_or(!narrow);
-            if self.show_nav.unwrap_or(!narrow) {
+            if self
+                .show_nav
+                .unwrap_or(nav_default(Some(doc), ctx.content_rect().width()))
+            {
                 egui::Panel::left("nav")
                     .resizable(true)
                     .default_size(220.0)

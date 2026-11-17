@@ -19,7 +19,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize, i: usize) {
     egui::Panel::right("room-info")
         .resizable(true)
         .default_size(300.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show_collapsible(ui, &mut show_info, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading(room.name.trim());

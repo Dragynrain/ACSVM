@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] [--screenshot OUT.png]`.
+//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] [--ppp F] [--screenshot OUT.png]`.
 //!
 //! `--screenshot` renders a few frames, writes the window as a PNG and exits;
 //! it is for documentation and checking the renderer at known window sizes.
@@ -16,6 +16,10 @@ pub struct Args {
     pub view: Option<View>,
     /// Window inner size in points.
     pub size: Option<[f32; 2]>,
+    /// Pixels per point to render at (`--ppp`), instead of the screen's
+    /// scale: a size too big for this screen at its scale still fits, and
+    /// the layout, which depends only on points, is the same.
+    pub ppp: Option<f32>,
     pub screenshot: Option<PathBuf>,
     /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
     pub seed: Option<u64>,
@@ -30,7 +34,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics] \
-[--size WxH] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --seed, --place and --walk open walk mode; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -45,6 +49,15 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
         match s.as_str() {
             "--view" => out.view = Some(parse_view(&value("--view")?)?),
             "--size" => out.size = Some(parse_size(&value("--size")?)?),
+            "--ppp" => {
+                let v = value("--ppp")?;
+                out.ppp = Some(
+                    v.parse()
+                        .ok()
+                        .filter(|p: &f32| *p >= 0.5 && *p <= 4.0)
+                        .ok_or(format!("bad --ppp {v:?} (0.5..4)"))?,
+                );
+            }
             "--screenshot" => out.screenshot = Some(PathBuf::from(value("--screenshot")?)),
             "--seed" => {
                 let v = value("--seed")?;
@@ -187,6 +200,9 @@ mod tests {
         assert!(p(&["--view", "region:0"]).is_err());
         assert!(p(&["--view", "attic"]).is_err());
         assert!(p(&["--size", "big"]).is_err());
+        assert_eq!(p(&["--ppp", "1.5"]).unwrap().ppp, Some(1.5));
+        assert!(p(&["--ppp", "9"]).is_err());
+        assert!(p(&["--ppp", "x"]).is_err());
         assert!(p(&["a.d64", "b.d64"]).is_err());
         assert!(p(&["--frobnicate"]).is_err());
     }

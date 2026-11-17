@@ -22,7 +22,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::Panel::right("world-info")
         .resizable(true)
         .default_size(300.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show_collapsible(ui, &mut show_info, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading(map.name.trim());
@@ -60,12 +60,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 for t in &map.terrain {
                     ui.horizontal(|ui| {
                         picture(ui, doc, Some(t.picture), 24.0);
-                        ui.label(format!(
-                            "{:>2} {} · {}",
-                            t.number,
-                            t.name.trim(),
-                            passability(t.passability, t.parameter, adv)
-                        ));
+                        // Wraps beside the picture in a narrow column.
+                        ui.add(
+                            egui::Label::new(format!(
+                                "{:>2} {} · {}",
+                                t.number,
+                                t.name.trim(),
+                                passability(t.passability, t.parameter, adv)
+                            ))
+                            .wrap(),
+                        );
                     });
                 }
             });

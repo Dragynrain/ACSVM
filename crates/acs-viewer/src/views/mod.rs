@@ -146,9 +146,12 @@ pub fn follow_row(ui: &mut egui::Ui, adv: &Adventure, d: &Destination) -> Option
     out
 }
 
-/// Width cap for the info and list panels, so long lines wrap instead of
-/// pushing the map aside.
-pub const PANEL_WIDTH: std::ops::RangeInclusive<f32> = 200.0..=480.0;
+/// A side column's width range: 200 to 480 points, and at most about a
+/// third of the window, so the board keeps its room;
+/// long lines wrap instead of pushing it aside (client 2).
+pub fn panel_width(ui: &egui::Ui) -> std::ops::RangeInclusive<f32> {
+    200.0..=(ui.ctx().content_rect().width() * 0.32).clamp(200.0, 480.0)
+}
 
 /// A picture about `points` wide, at a whole-number multiple of its pixels.
 pub fn picture(ui: &mut egui::Ui, doc: &Doc, picture: Option<u16>, points: f32) -> Response {

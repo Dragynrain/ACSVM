@@ -19,7 +19,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui, r: usize) {
     egui::Panel::right("region-info")
         .resizable(true)
         .default_size(300.0)
-        .size_range(PANEL_WIDTH)
+        .size_range(panel_width(ui))
         .show_collapsible(ui, &mut show_info, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading(format!("{} {}", r + 1, region.name.trim()));
