@@ -109,6 +109,101 @@ fn offset(from: Location, to: Location, (w, h): (i16, i16), wraps: bool) -> Opti
     }
 }
 
+/// The characters out of play by retiring (characters 7): the ones saved,
+/// which the engine has no roster for yet (7.3), so the front end keeps
+/// them and offers them back, and the slots retired, saved or destroyed.
+/// Built from the game's events, so a loaded game rebuilds it by replay.
+#[derive(Debug, Default, Clone)]
+struct Roster {
+    saved: Vec<Player>,
+    /// Slots whose character retired and that no newcomer has taken since.
+    gone: Vec<usize>,
+    /// A saved character asked back in, joining at the round's end.
+    joining: Option<String>,
+}
+
+impl Roster {
+    /// Takes in `cmd` and the events it brought, on `game` after them.
+    fn note(&mut self, cmd: &Command, game: &Game, events: &[Event]) {
+        if let Command::AddPlayer { setup } = cmd {
+            self.joining = Some(setup.name.clone());
+        }
+        for e in events {
+            match e {
+                Event::Retired { player, saved, .. } => {
+                    if !self.gone.contains(player) {
+                        self.gone.push(*player);
+                    }
+                    if let Some(p) = saved {
+                        self.saved.push(p.as_ref().clone());
+                    }
+                }
+                Event::PlayerAdded { player, .. } => {
+                    self.gone.retain(|s| s != player);
+                    // The round's one add: the saved character, or
+                    // someone added first that round (characters 6.4).
+                    let name = game.players().get(*player).map(|p| p.name.as_str());
+                    if name.is_some() && self.joining.take().as_deref() == name {
+                        if let Some(i) = self.saved.iter().position(|p| Some(p.name.as_str()) == name) {
+                            self.saved.remove(i);
+                        }
+                    }
+                }
+                // Refused, or dropped by a restore (characters 7.1).
+                Event::AddRefused | Event::Restored { .. } => self.joining = None,
+                _ => {}
+            }
+        }
+    }
+
+    /// The roster of a game played up to now: its commands replayed from
+    /// the start, the tool placements where they were made.
+    fn of(game: &Game) -> Roster {
+        let (mut g, ev) = Game::new(
+            game.adventure().clone(),
+            game.seed(),
+            game.rules(),
+            game.first_player().clone(),
+        );
+        let mut r = Roster::default();
+        r.note(&Command::Wait, &g, &ev);
+        let mut places = game.placements().iter().peekable();
+        for (i, cmd) in game.log().iter().enumerate() {
+            while let Some(p) = places.next_if(|p| p.after == i) {
+                g.place(p.player, p.at);
+            }
+            let ev = g.apply(cmd.clone());
+            r.note(cmd, &g, &ev);
+        }
+        r
+    }
+}
+
+/// A saved character as a newcomer (characters 7.3): the record the save
+/// kept. Joining starts it at the adventure's start with nothing readied
+/// (the engine's `add_player`).
+fn setup_of(p: &Player) -> acs_engine::PlayerSetup {
+    acs_engine::PlayerSetup {
+        name: p.name.clone(),
+        speed: p.speed,
+        strength: p.strength,
+        constitution: p.constitution,
+        life_force: p.life_force,
+        possessions: p.possessions.clone(),
+        gold: p.gold,
+        dexterity: p.dexterity,
+        wisdom: p.wisdom,
+        power: Some(p.power),
+        size: p.size,
+        dodge: p.dodge,
+        parry: p.parry,
+        armor_skill: p.armor_skill,
+        melee: p.melee,
+        missile: p.missile,
+        magic_defense: p.magic_defense,
+    }
+}
+
 pub struct Walk {
     pub game: Game,
     log: Vec<(Kind, String)>,
@@ -129,9 +224,10 @@ pub struct Walk {
     /// screen reader region has had (client 7).
     trimmed: usize,
     announced: usize,
-    /// Characters retired with Save (characters 7.3): the engine has no
-    /// roster yet, so the front end keeps them.
-    retired: Vec<Player>,
+    /// Characters out of play by retiring, and the ones saved.
+    roster: Roster,
+    /// Restart (with these rules) waits for a yes: it ends this game.
+    confirm: Option<Rules>,
     /// The current turn's bar was halved by a creature (creatures 2.6).
     hindered: bool,
     /// The game at the engine's last save point (`Game::save_point`), and
@@ -154,6 +250,7 @@ impl Walk {
         };
         let (game, ev) = Game::new(adv.clone(), seed, rules, first);
         let mut w = Walk::with(game.clone(), game);
+        w.roster.note(&Command::Wait, &w.game, &ev);
         let diagonal = if rules.diagonals {
             "Q E Z C or Home PgUp End PgDn go diagonally"
         } else {
@@ -181,7 +278,8 @@ impl Walk {
             cues: Vec::new(),
             trimmed: 0,
             announced: 0,
-            retired: Vec::new(),
+            roster: Roster::default(),
+            confirm: None,
             hindered: false,
             new_name: String::new(),
             idle: 0.0,
@@ -225,6 +323,8 @@ impl Walk {
         let save = SaveFile::from_json(text).map_err(|e| e.to_string())?;
         let r = save.restore(adv).map_err(|e| e.to_string())?;
         let mut w = Walk::with(r.game, r.autosave);
+        // The saved characters aren't in the file: the replay finds them.
+        w.roster = Roster::of(&w.game);
         w.note(format!(
             "Loaded a save: seed {}, {} commands replayed, the autosave after {}.",
             save.seed,
@@ -300,7 +400,8 @@ impl Walk {
         }
         let names: Vec<String> = self.game.players().iter().map(|p| p.name.clone()).collect();
         let was_over = self.game.is_over();
-        let ev = self.game.apply(cmd);
+        let ev = self.game.apply(cmd.clone());
+        self.roster.note(&cmd, &self.game, &ev);
         if !was_over && self.game.is_over() {
             // Nobody is left: the engine has cleared every player's record
             // (magic 7.4), so the log names them from before the command.
@@ -316,12 +417,6 @@ impl Walk {
         let point = self.game.save_point();
         if point == self.game.log().len() && point != self.save.log().len() {
             self.older = std::mem::replace(&mut self.save, self.game.clone());
-        }
-        // Characters 7.3: the front end keeps characters retired with Save.
-        for e in &ev {
-            if let Event::Retired { saved: Some(p), .. } = e {
-                self.retired.push(p.as_ref().clone());
-            }
         }
     }
 
@@ -533,6 +628,11 @@ impl Walk {
                 self.hindered = *hindered;
                 self.idle = 0.0;
                 self.drained = 0;
+                // A drop or cursor belongs to the turn it was asked in: the
+                // bar can drain that turn away (movement 2.4) and hand the
+                // next key to someone else.
+                self.pending_drop = None;
+                self.pending_aim = None;
             }
             let kind = match e {
                 Event::TurnStarted { .. } | Event::TurnEnded { .. } => Kind::Turn,
@@ -871,6 +971,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     let mut click: Option<Command> = None;
     let mut fire: Option<(Option<u16>, bool)> = None;
     let mut restart: Option<Rules> = None;
+    // Restart asked for, and the answer to the question it brings.
+    let mut ask: Option<Rules> = None;
+    let mut keep_playing = false;
     let mut resume = false;
     let mut save_game = false;
     let mut aim: Option<Aim> = None;
@@ -935,9 +1038,10 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves),
                 );
             }
-            party_panel(ui, g, &mut walk.new_name, &mut click);
+            party_panel(ui, g, &walk.roster.gone, &mut walk.new_name, &mut click);
             if !over {
-                actions_panel(ui, g, &walk.retired, walk.pending_aim.is_some(), &mut fire, &mut click);
+                actions_panel(ui, g, walk.pending_aim.is_some(), &mut fire, &mut click);
+                roster_panel(ui, g, &walk.roster, &mut click);
                 ui.separator();
                 stats_panel(ui, g);
                 inventory_panel(
@@ -950,10 +1054,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 );
                 creatures_panel(ui, g);
             } else {
-                if !walk.retired.is_empty() {
-                    let names: Vec<&str> = walk.retired.iter().map(|p| p.name.trim()).collect();
-                    ui.label(RichText::new(format!("Retired, saved: {}", names.join(", "))).weak());
-                }
+                roster_panel(ui, g, &walk.roster, &mut click);
                 ui.separator();
             }
             ui.horizontal_wrapped(|ui| {
@@ -965,7 +1066,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     )
                     .changed()
                 {
-                    restart = Some(rules);
+                    ask = Some(rules);
                 }
                 let mut pad = doc.pad.unwrap_or(walk.touch);
                 if ui
@@ -979,9 +1080,31 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     "The bar waits for you. Off: it drains while you do nothing, a step about every 7 seconds, as in the original.",
                 );
                 if ui.button("Restart").clicked() {
-                    restart = Some(g.rules());
+                    ask = Some(g.rules());
                 }
             });
+            // A new game ends this one, kept game and all: asked first.
+            if let Some(rules) = walk.confirm {
+                ui.group(|ui| {
+                    let what = if rules.diagonals != g.rules().diagonals {
+                        "Changing diagonal moves starts a new game."
+                    } else {
+                        "Start a new game?"
+                    };
+                    ui.label(
+                        RichText::new(format!("{what} This one ends; Save to file first to keep it."))
+                            .color(Color32::from_rgb(255, 215, 0)),
+                    );
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.button("New game").clicked() {
+                            restart = Some(rules);
+                        }
+                        if ui.button("Keep playing").clicked() {
+                            keep_playing = true;
+                        }
+                    });
+                });
+            }
             ui.horizontal_wrapped(|ui| {
                 let audio = &mut doc.audio;
                 let mut changed = ui
@@ -1035,8 +1158,11 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     if doc.pad.unwrap_or(walk.touch) {
         let fire = !walk.waiting() && walk.fire_ready();
         let waiting = walk.waiting();
+        // Diagonal arrows only where diagonal steps are on, or with a
+        // cursor up, which moves diagonally either way (client 4).
+        let diagonals = walk.game.rules().diagonals || walk.pending_aim.is_some();
         egui::Panel::bottom("walk-pad").show(ui, |ui| {
-            pad_key = touch_pad(ui, waiting, fire);
+            pad_key = touch_pad(ui, waiting, fire, diagonals);
         });
     }
 
@@ -1146,6 +1272,17 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     // New log lines for a screen reader (client 7).
     crate::live::announce(&walk.take_unannounced());
+    if keep_playing {
+        walk.confirm = None;
+    }
+    if let Some(rules) = ask {
+        // Nothing played yet: nothing to lose, no question.
+        if walk.game.log().is_empty() {
+            restart = Some(rules);
+        } else {
+            walk.confirm = Some(rules);
+        }
+    }
     if let Some(rules) = restart {
         doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
     }
@@ -1225,8 +1362,8 @@ enum PadKey {
 
 /// The on-screen pad (client 4): eight arrows round Wait on the left,
 /// and on the right Cancel while a drop or cursor waits and Fire when it
-/// needs no menu.
-fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool) -> Option<PadKey> {
+/// needs no menu. Without `diagonals` the corner keys are left empty.
+fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool, diagonals: bool) -> Option<PadKey> {
     const KEY: f32 = 52.0;
     const GAP: f32 = 4.0;
     let mut out = None;
@@ -1242,6 +1379,14 @@ fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool) -> Option<PadKey> {
             ] {
                 ui.horizontal(|ui| {
                     for d in row {
+                        let corner = d.is_some_and(|d| {
+                            let (dx, dy) = d.delta();
+                            dx != 0 && dy != 0
+                        });
+                        if corner && !diagonals {
+                            ui.allocate_exact_size(egui::vec2(KEY, KEY), egui::Sense::hover());
+                            continue;
+                        }
                         if pad_key(ui, KEY, d) {
                             out = Some(PadKey::Key(d.map_or(Command::Wait, |dir| Command::Move { dir })));
                         }
@@ -1353,7 +1498,13 @@ fn bar(ui: &mut egui::Ui, fraction: f32, fill: Option<Color32>, caption: String)
     }
 }
 
-fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut Option<Command>) {
+fn party_panel(
+    ui: &mut egui::Ui,
+    g: &Game,
+    gone: &[usize],
+    new_name: &mut String,
+    click: &mut Option<Command>,
+) {
     let players = g.players();
     if players.len() > 1 && !g.is_over() {
         for (i, p) in players.iter().enumerate() {
@@ -1371,6 +1522,8 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
                 ui.label(name);
                 let state = if p.alive {
                     format!("LF {} · {}", p.life_force, place_name(g, p.at))
+                } else if gone.contains(&i) {
+                    "retired".into()
                 } else {
                     "dead".into()
                 };
@@ -1414,7 +1567,6 @@ fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut O
 fn actions_panel(
     ui: &mut egui::Ui,
     g: &Game,
-    retired: &[Player],
     aiming: bool,
     fire: &mut Option<(Option<u16>, bool)>,
     click: &mut Option<Command>,
@@ -1488,9 +1640,42 @@ fn actions_panel(
             }
         });
     });
-    if !retired.is_empty() {
-        let names: Vec<&str> = retired.iter().map(|p| p.name.trim()).collect();
-        ui.label(RichText::new(format!("Retired, saved: {}", names.join(", "))).weak());
+}
+
+/// The characters retired with Save (characters 7.3, 7.6): as on the
+/// original's add-player screen, each can come back in, joining at the
+/// round's end like anyone added (6.2).
+fn roster_panel(ui: &mut egui::Ui, g: &Game, roster: &Roster, click: &mut Option<Command>) {
+    if roster.saved.is_empty() {
+        return;
+    }
+    let living = g.players().iter().filter(|p| p.alive).count();
+    let room = living < acs_engine::MAX_PLAYERS;
+    ui.label(RichText::new("Retired, saved:").weak());
+    for p in &roster.saved {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!(
+                "{} · LF {} · {} gold",
+                p.name.trim(),
+                p.life_force,
+                p.gold
+            ));
+            let waiting = roster.joining.is_some();
+            let b = ui
+                .add_enabled(room && !waiting, egui::Button::new("Rejoin").small())
+                .on_hover_text("Joins at the start point at the end of the round, with what was carried.")
+                .on_disabled_hover_text(if waiting {
+                    "Someone is already joining this round."
+                } else {
+                    "4 characters already play."
+                });
+            if b.clicked() {
+                *click = Some(Command::AddPlayer { setup: setup_of(p) });
+            }
+        });
+    }
+    if let Some(name) = &roster.joining {
+        ui.label(RichText::new(format!("{} joins at the end of the round.", name.trim())).weak());
     }
 }
 
@@ -2441,6 +2626,50 @@ mod tests {
             "{lines:#?}"
         );
         assert!(!lines.iter().any(|l| l.contains("player 1")), "{lines:#?}");
+    }
+
+    /// Characters 7.3, 7.6: a character retired with Save is kept, shown as
+    /// retired, found again in a loaded game, and can come back in.
+    #[test]
+    fn a_saved_character_can_rejoin_and_survives_a_load() {
+        let mut w = in_a_room();
+        w.apply(Command::Retire { save: true });
+        w.apply(Command::Wait);
+        assert!(w.game.is_over());
+        assert_eq!(w.roster.saved.len(), 1);
+        assert_eq!(w.roster.gone, vec![0]);
+        // A load rebuilds the roster by replay.
+        let (_, text) = w.save_file(w.game.adventure());
+        let loaded = Walk::from_save(w.game.adventure(), &text).expect("loads");
+        assert_eq!(loaded.roster.saved, w.roster.saved);
+        assert_eq!(loaded.roster.gone, vec![0]);
+        // Rejoining takes the character off the list once it is in.
+        let setup = setup_of(&w.roster.saved[0]);
+        w.apply(Command::AddPlayer { setup });
+        for _ in 0..3 {
+            if w.roster.joining.is_none() {
+                break;
+            }
+            w.apply(Command::Wait);
+        }
+        assert!(!w.game.is_over());
+        assert!(w.roster.saved.is_empty(), "{:?}", w.roster);
+        assert!(w.roster.gone.is_empty());
+        assert_eq!(w.game.players()[0].name, "PLAYER 1");
+        assert!(Roster::of(&w.game).saved.is_empty());
+    }
+
+    /// A drop or cursor waiting when the turn ends is dropped with it: the
+    /// next turn's keys are that turn's player's own.
+    #[test]
+    fn a_waiting_drop_or_cursor_ends_with_the_turn() {
+        let mut w = in_a_room();
+        w.pending_drop = Some(GOLD);
+        w.apply(Command::Wait);
+        assert_eq!(w.pending_drop, None);
+        assert!(w.start_aim(Aim::Fire(None)));
+        w.apply(Command::Wait);
+        assert_eq!(w.pending_aim, None);
     }
 
     /// Two presses that arrive in one frame are two commands, in order.

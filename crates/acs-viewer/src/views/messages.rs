@@ -14,7 +14,8 @@ pub enum Tab {
 
 pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     egui::CentralPanel::default_margins().show(ui, |ui| {
-        ui.horizontal(|ui| {
+        // The tabs wrap on a narrow window rather than run off it.
+        ui.horizontal_wrapped(|ui| {
             for (t, name) in [
                 (Tab::Intro, "Intro"),
                 (Tab::Long, "Long messages"),
@@ -25,7 +26,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         });
         ui.separator();
         let adv = &doc.decoded.adventure;
-        egui::ScrollArea::vertical().show(ui, |ui| match doc.message_tab {
+        // Both ways: the messages keep their stored lines (never rewrapped),
+        // so on a narrow window their ends are reached by scrolling.
+        egui::ScrollArea::both().show(ui, |ui| match doc.message_tab {
             Tab::Intro => {
                 ui.label(RichText::new(format!("{}\n{}", adv.name, adv.byline)).strong());
                 ui.add_space(6.0);

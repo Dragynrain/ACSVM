@@ -6,30 +6,48 @@ use super::*;
 use acs_core::model::{Creature, ThingKind};
 use egui::RichText;
 
+/// A list view's list: a column on the left, or on a window too narrow
+/// for the details beside it, a strip across the top (client 2).
+fn list_panel(id: &str, ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+    let rect = ui.ctx().content_rect();
+    if rect.width() < STACKED {
+        egui::Panel::top(id.to_owned())
+            .resizable(true)
+            .default_size(rect.height() * 0.3)
+            .size_range(80.0..=rect.height() * 0.6)
+            .show(ui, add);
+    } else {
+        egui::Panel::left(id.to_owned())
+            .resizable(true)
+            .default_size(280.0)
+            .size_range(list_width(ui))
+            .show(ui, add);
+    }
+}
+
+/// Below this window width (points) the list goes above the details.
+const STACKED: f32 = 600.0;
+
 pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
     let adv = &doc.decoded.adventure;
     let mut pick = None;
-    egui::Panel::left("thing-list")
-        .resizable(true)
-        .default_size(280.0)
-        .size_range(list_width(ui))
-        .show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for (i, t) in adv.things.iter().enumerate() {
-                    if matches!(t.kind, ThingKind::Undefined) {
-                        continue;
-                    }
-                    ui.horizontal(|ui| {
-                        picture(ui, doc, t.kind.picture(), 24.0);
-                        let text = format!("{:>3} {} · {}", t.number, t.name.trim(), t.kind.type_name());
-                        let entry = egui::Button::selectable(doc.thing == i, text.clone()).truncate();
-                        if ui.add(entry).on_hover_text(text).clicked() {
-                            pick = Some(i);
-                        }
-                    });
+    list_panel("thing-list", ui, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for (i, t) in adv.things.iter().enumerate() {
+                if matches!(t.kind, ThingKind::Undefined) {
+                    continue;
                 }
-            });
+                ui.horizontal(|ui| {
+                    picture(ui, doc, t.kind.picture(), 24.0);
+                    let text = format!("{:>3} {} · {}", t.number, t.name.trim(), t.kind.type_name());
+                    let entry = egui::Button::selectable(doc.thing == i, text.clone()).truncate();
+                    if ui.add(entry).on_hover_text(text).clicked() {
+                        pick = Some(i);
+                    }
+                });
+            }
         });
+    });
     let mut action = None;
     egui::CentralPanel::default_margins().show(ui, |ui| {
         let Some(t) = adv.things.get(doc.thing) else {
@@ -107,25 +125,21 @@ fn placements(adv: &Adventure, number: u16) -> Vec<(usize, usize, u8, u8)> {
 pub fn creatures(doc: &mut Doc, ui: &mut egui::Ui) {
     let adv = &doc.decoded.adventure;
     let mut pick = None;
-    egui::Panel::left("creature-list")
-        .resizable(true)
-        .default_size(280.0)
-        .size_range(list_width(ui))
-        .show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for (i, c) in adv.creatures.iter().enumerate().filter(|(_, c)| c.in_use) {
-                    ui.horizontal(|ui| {
-                        picture(ui, doc, c.picture, 24.0);
-                        if ui
-                            .selectable_label(doc.creature == i, format!("{:>3} {}", c.number, c.name.trim()))
-                            .clicked()
-                        {
-                            pick = Some(i);
-                        }
-                    });
-                }
-            });
+    list_panel("creature-list", ui, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for (i, c) in adv.creatures.iter().enumerate().filter(|(_, c)| c.in_use) {
+                ui.horizontal(|ui| {
+                    picture(ui, doc, c.picture, 24.0);
+                    if ui
+                        .selectable_label(doc.creature == i, format!("{:>3} {}", c.number, c.name.trim()))
+                        .clicked()
+                    {
+                        pick = Some(i);
+                    }
+                });
+            }
         });
+    });
     egui::CentralPanel::default_margins().show(ui, |ui| {
         let Some(c) = adv.creatures.get(doc.creature) else {
             return;
@@ -147,7 +161,8 @@ pub fn creatures(doc: &mut Doc, ui: &mut egui::Ui) {
                 });
             });
             ui.separator();
-            stats(ui, adv, c);
+            // The table keeps its rows whole; a narrow window scrolls it.
+            egui::ScrollArea::horizontal().show(ui, |ui| stats(ui, adv, c));
             ui.separator();
             json(ui, c);
         });

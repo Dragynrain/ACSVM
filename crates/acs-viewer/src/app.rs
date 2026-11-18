@@ -728,6 +728,8 @@ impl Viewer {
                 }
             });
             bar_separator(ui);
+            // Narrow, the bar keeps to what matters: a phone at large
+            // text would otherwise give it a quarter of the screen (client 2).
             let name = doc.decoded.adventure.name.clone();
             let place = format!("{} · {}", doc.decoded.adventure.platform, doc.file_name);
             let errors = doc.decoded.errors().count();
@@ -742,12 +744,14 @@ impl Viewer {
                 if ui.button(text).clicked() {
                     doc.go(View::Diagnostics);
                 }
-            } else {
+            } else if !narrow {
                 ui.label(RichText::new("no diagnostics").weak());
             }
             // Last, so on a narrow bar they give way, elided (client 2).
             ui.add(egui::Label::new(RichText::new(name).strong()).truncate());
-            ui.add(egui::Label::new(place).truncate());
+            if !narrow {
+                ui.add(egui::Label::new(place).truncate());
+            }
         }
     }
 
@@ -939,8 +943,12 @@ impl eframe::App for Viewer {
         for f in incoming {
             self.open(&ctx, f);
         }
+        // Not while typing: there Backspace deletes a letter (the focus is
+        // last frame's, which is the one the key was typed into).
+        let typing = ctx.memory(|m| m.focused().is_some());
         if ctx.input(|i| {
-            i.key_pressed(egui::Key::Backspace) || i.pointer.button_pressed(egui::PointerButton::Extra1)
+            (i.key_pressed(egui::Key::Backspace) && !typing)
+                || i.pointer.button_pressed(egui::PointerButton::Extra1)
         }) {
             if let Some(d) = &mut self.doc {
                 d.back();
