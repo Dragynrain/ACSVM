@@ -47,6 +47,50 @@ enum Kind {
     Message,
 }
 
+/// Where the message log scrolls to (client 3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LogJump {
+    /// The line with this number, counted from the first ever logged
+    /// (`trimmed` plus its index), to the top, for this many more frames:
+    /// two, as the panels can still settle on the first.
+    Top(usize, u8),
+    /// The last line, and the log follows new lines again.
+    Bottom,
+    /// Shown a message's top; the next lines bring the log back down.
+    Held,
+}
+
+/// An Extended long message as paragraphs (content 3.7): a line break
+/// inside one is a space, so the log wraps it to its own width; a blank
+/// line still parts two.
+fn paragraphs(text: &str) -> String {
+    let mut out: Vec<String> = vec![String::new()];
+    for line in text.lines().map(str::trim) {
+        let p = out.last_mut().expect("never empty");
+        if line.is_empty() {
+            if !p.is_empty() {
+                out.push(String::new());
+            }
+        } else {
+            if !p.is_empty() {
+                p.push(' ');
+            }
+            p.push_str(line);
+        }
+    }
+    out.retain(|p| !p.is_empty());
+    out.join(
+        "
+
+",
+    )
+}
+
+/// "1 command", "2 commands".
+fn commands(n: usize) -> String {
+    format!("{n} command{}", if n == 1 { "" } else { "s" })
+}
+
 /// What a target cursor sends (client 4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Aim {
@@ -182,6 +226,10 @@ impl Roster {
 pub struct Walk {
     pub game: Game,
     log: Vec<(Kind, String)>,
+    /// Where the log scrolls next frame (client 3): a new long message's
+    /// first line to the top, so its title is read first, then back to
+    /// the bottom with the next lines.
+    log_jump: Option<LogJump>,
     /// A drop waiting for its square: the next direction key (or Space for
     /// the player's own square) sends it; Escape cancels.
     pending_drop: Option<u16>,
@@ -246,6 +294,7 @@ impl Walk {
             older: save.clone(),
             save,
             log: Vec::new(),
+            log_jump: None,
             pending_drop: None,
             gold_amount: 1,
             pending_aim: None,
@@ -301,10 +350,10 @@ impl Walk {
         // The saved characters aren't in the file: the replay finds them.
         w.roster = Roster::of(&w.game);
         w.note(format!(
-            "Loaded a save: seed {}, {} commands replayed, the autosave after {}.",
+            "Loaded a save: seed {}, {} replayed, the autosave after {}.",
             save.seed,
-            save.commands.len(),
-            save.autosave
+            commands(save.commands.len()),
+            commands(save.autosave)
         ));
         if r.adventure_changed {
             w.log.push((
@@ -595,7 +644,10 @@ impl Walk {
     }
 
     fn record_lines(&mut self, events: &[Event], lines: Vec<String>) {
-        for (e, line) in events.iter().zip(lines) {
+        let before = self.trimmed + self.log.len();
+        let mut message = None;
+        let extended = self.game.adventure().profile == acs_core::Profile::Extended;
+        for (e, mut line) in events.iter().zip(lines) {
             if let Event::Music { number } = e {
                 self.cues.push(*number);
             }
@@ -681,7 +733,21 @@ impl Walk {
                 | Event::CreatureUsedUp { .. } => Kind::Creature,
                 _ => Kind::Note,
             };
+            if kind == Kind::Message && extended {
+                line = paragraphs(&line);
+            }
+            if kind == Kind::Message && message.is_none() {
+                message = Some(self.trimmed + self.log.len());
+            }
             self.log.push((kind, line));
+        }
+        if let Some(n) = message {
+            self.log_jump = Some(LogJump::Top(n, 2));
+        } else if matches!(self.log_jump, Some(LogJump::Top(..) | LogJump::Held))
+            && self.trimmed + self.log.len() > before
+        {
+            // Held at a message, and this is what happened next.
+            self.log_jump = Some(LogJump::Bottom);
         }
         if self.log.len() > LOG_MAX {
             self.trimmed += self.log.len() - LOG_MAX;
@@ -1123,7 +1189,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     load_game = true;
                 }
             });
-            ui.label(RichText::new(format!("seed {} · {} commands", g.seed(), g.log().len())).weak());
+            ui.label(RichText::new(format!("seed {} · {}", g.seed(), commands(g.log().len()))).weak());
             });
         });
 
@@ -1155,7 +1221,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         .default_size(share.max(spare).min(height * 0.6))
         .size_range(48.0..=height * 0.6)
         .show(ui, |ui| {
-            // Both ways: a long message's lines are never rewrapped.
+            // Both ways: a Classic long message's lines are never rewrapped.
             // Held to the panel: content taller than it would otherwise
             // grow the panel to its largest size.
             // Ordinary lines wrap to what is in view, not to the widest
@@ -1169,7 +1235,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     let access = crate::access::Access::get(ui.ctx());
                     // The kit font at 2x (client 7.1).
                     let font = crate::fonts::kit(ui.ctx(), 22.0, false);
-                    for (kind, line) in &walk.log {
+                    // An Extended adventure's long messages wrap, keeping
+                    // their line breaks (content 3.7); only a Classic one's
+                    // 8 stored lines are never rewrapped (magic 3.10).
+                    let classic = walk.game.adventure().profile == acs_core::Profile::Classic;
+                    let jump = walk.log_jump;
+                    let last = walk.log.len().saturating_sub(1);
+                    for (i, (kind, line)) in walk.log.iter().enumerate() {
                         // A symbol as well as a colour (client 7).
                         let t = match kind_mark(*kind, &access) {
                             Some((sym, colour)) => RichText::new(format!("{sym} {line}")).color(colour),
@@ -1182,16 +1254,34 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             _ => t,
                         };
                         let t = t.font(font.clone());
-                        if *kind == Kind::Message {
-                            // A long message keeps its stored lines (magic
-                            // 3.10): shown as they are, never rewrapped.
-                            ui.add(egui::Label::new(t).extend());
+                        let rect = if *kind == Kind::Message && classic {
+                            ui.add(egui::Label::new(t).extend()).rect
                         } else {
-                            ui.allocate_ui(egui::vec2(visible, 0.0), |ui| ui.label(t));
+                            ui.allocate_ui(egui::vec2(visible, 0.0), |ui| ui.label(t))
+                                .response
+                                .rect
+                        };
+                        let align = match jump {
+                            Some(LogJump::Top(n, _)) if n == walk.trimmed + i => Some(egui::Align::TOP),
+                            Some(LogJump::Bottom) if i == last => Some(egui::Align::BOTTOM),
+                            _ => None,
+                        };
+                        if let Some(align) = align {
+                            ui.scroll_to_rect_animation(
+                                rect,
+                                Some(align),
+                                egui::style::ScrollAnimation::none(),
+                            );
                         }
                     }
                 });
         });
+    // Once only, so the log can be scrolled by hand after it.
+    walk.log_jump = match walk.log_jump {
+        Some(LogJump::Top(n, 2)) => Some(LogJump::Top(n, 1)),
+        Some(LogJump::Top(..) | LogJump::Held) => Some(LogJump::Held),
+        _ => None,
+    };
 
     if walk.game.store_visit().is_some() {
         store_window(ui.ctx(), &walk.game, &mut click);
@@ -2390,6 +2480,44 @@ mod tests {
             Some(format!("line {}", LOG_MAX + 2).as_str())
         );
         assert_eq!(got.len(), LOG_MAX);
+    }
+
+    #[test]
+    fn a_long_message_scrolls_to_its_top_then_the_next_lines_to_the_bottom() {
+        let a = adventure();
+        let mut w = Walk::new(&a, 3, Rules::default());
+        w.note("before".into());
+        let at = w.trimmed + w.log.len();
+        w.record(&[
+            Event::LongMessage {
+                number: 1,
+                text: "TITLE\nbody".into(),
+            },
+            Event::Music { number: 3 },
+        ]);
+        assert_eq!(w.log_jump, Some(LogJump::Top(at, 2)));
+        // Drawn once: held there, so the log can be scrolled by hand.
+        w.log_jump = Some(LogJump::Held);
+        w.record(&[]);
+        assert_eq!(w.log_jump, Some(LogJump::Held));
+        w.record(&[Event::Music { number: 4 }]);
+        assert_eq!(w.log_jump, Some(LogJump::Bottom));
+        assert_eq!(
+            paragraphs(
+                "TITLE
+
+one two
+three
+
+
+end"
+            ),
+            "TITLE
+
+one two three
+
+end"
+        );
     }
 
     #[test]

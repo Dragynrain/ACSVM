@@ -42,7 +42,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             } else {
                 ""
             };
-            format!("{}'s turn ({moves} moves{h}).", who(player))
+            format!("{}'s turn ({}{h}).", who(player), moves_word(*moves))
         }
         Event::TurnEnded { player } => format!("{}'s turn ends.", who(player)),
         Event::PlayerAdded { player, at } => {
@@ -273,7 +273,11 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             }
         }
         Event::CreatureTurn { region, slot, moves } => {
-            format!("{}'s turn ({moves} moves).", creature(game, *region, *slot))
+            format!(
+                "{}'s turn ({}).",
+                creature(game, *region, *slot),
+                moves_word(*moves)
+            )
         }
         Event::CreatureMoved { region, slot, to, .. } => {
             format!("{} moves to {}.", creature(game, *region, *slot), place(game, to))
@@ -808,4 +812,10 @@ fn place(game: &Game, at: &Location) -> String {
             format!("{} {x},{y}", room_name(game, region, room))
         }
     }
+}
+
+/// "1 move", "2 moves".
+fn moves_word(n: impl Into<u32>) -> String {
+    let n = n.into();
+    format!("{n} move{}", if n == 1 { "" } else { "s" })
 }

@@ -46,8 +46,10 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
   than its space wraps.
 - The message log is always visible in walk mode, whatever else is
   hidden: it replaces the original's press-to-acknowledge messages (3).
-  A long message keeps its stored lines and the log scrolls sideways for
-  it; every other line wraps to the log's visible width.
+  A Classic long message keeps its stored lines and the log scrolls
+  sideways for it; every other line, an Extended adventure's long
+  messages too (content 3.7, line breaks kept), wraps to the log's
+  visible width.
 - The board keeps at least the room's 15 x 10 squares at scale 1; below
   that the window's minimum size (480 x 320) stops shrinking.
 
@@ -64,8 +66,9 @@ outside the repo.
 
 Every event the engine returns becomes a line (`describe`), coloured by
 kind: turns and steps dim, blocks orange, doors blue, spells violet,
-items green, creatures yellow, foes red. A long message keeps its stored
-lines and is never rewrapped (magic 3.10). The log keeps the last 500
+items green, creatures yellow, foes red. A Classic long message keeps its
+stored lines and is never rewrapped (magic 3.10); an Extended one wraps,
+keeping its line breaks (content 3.7). The log keeps the last 500
 lines and sticks to the bottom unless scrolled up.
 
 Later in the phase: a filter by kind, and the font size option (7).

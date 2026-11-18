@@ -309,6 +309,9 @@ locked = "THE GATE IS BARRED."
 
 Long and short messages are numbered from 1 in file order. Text is
 UTF-8 up to 4,000 characters (design.md, "Limits"); the client wraps it.
+A long message is paragraphs: a single line break inside one is a space,
+so the source can be hard-wrapped at any width; a blank line starts a
+new paragraph.
 
 ### 3.8 The world
 
