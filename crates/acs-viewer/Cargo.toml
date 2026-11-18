@@ -17,6 +17,11 @@ windows-gui = []
 name = "acs-viewer"
 path = "src/main.rs"
 
+# build.rs builds the sample adventures and embeds them (docs/content.md 7).
+[build-dependencies]
+acs-build.workspace = true
+acs-bundle.workspace = true
+
 [dependencies]
 acs-core.workspace = true
 acs-engine.workspace = true

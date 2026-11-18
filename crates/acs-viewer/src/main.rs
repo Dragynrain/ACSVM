@@ -18,6 +18,7 @@ mod cli;
 mod hdpack;
 mod live;
 mod load;
+mod samples;
 mod savefile;
 mod smooth;
 mod tiles;

@@ -108,7 +108,7 @@ other way.
 | Original | The adventure's pixels, whole-number scaling (now) |
 | Smoothed | The original tiles upscaled 4x once at load (Scale2x twice), drawn with linear filtering and mipmaps at any scale |
 | HD pack | Replacement art for tiles whose hash a pack lists; the rest Smoothed |
-| Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art. A room square is drawn in layers, wall or floor, then its top thing, then a resident (`scene::layers`), so art with transparent parts stands on the floor |
+| Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art. A room square is drawn in layers (`scene::layers`): wall or floor, the nearest space under the top thing (the ground it stands on), the top thing, then a resident, so art with transparent parts stands on its ground; anything else in the stack stays hidden, as in the original |
 
 **Smoothed.** Every picture, at its display size (16 x 16; a C64
 picture's pixels already doubled in width), goes through Scale2x twice
@@ -259,8 +259,9 @@ builds them as workflow artifacts only.
   with it, and the platform's notes: macOS builds are unsigned (open the
   app with right-click, Open, the first time); Linux needs X11 or
   Wayland, OpenGL and ALSA.
-- None bundle an adventure or any EA material; files are opened or
-  dropped on the window. The forbidden-file check runs on the tree the
+- None bundle any EA material; the player's files are opened or
+  dropped on the window. Our own sample adventures are built in
+  (content.md 7). The forbidden-file check runs on the tree the
   release is built from.
 
 ## 9. Order of work

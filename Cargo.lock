@@ -82,6 +82,7 @@ dependencies = [
 name = "acs-viewer"
 version = "0.1.0"
 dependencies = [
+ "acs-build",
  "acs-bundle",
  "acs-core",
  "acs-engine",

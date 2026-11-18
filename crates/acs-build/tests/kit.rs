@@ -271,3 +271,29 @@ fn the_whole_pirate_kit_builds() {
     assert_eq!(a.creatures.len(), 53);
     assert_eq!(a.pictures.len(), 202 + 1);
 }
+
+/// scene::layers (client.md 5): a thing is drawn over the space it
+/// stands on, but what lies hidden between them stays hidden.
+#[test]
+fn a_thing_stands_on_its_ground_and_hides_what_is_under_it() {
+    use acs_core::scene::{self, RoomScene};
+    let f = folder("").with(
+        "regions/01-port.toml",
+        &PORT.replace(
+            "\"b\" = \"barrels\"",
+            "\"b\" = [\"barrels\", \"cutlass\", \"sand\"]",
+        ),
+    );
+    let a = built(&f).adventure;
+    let region = &a.regions[0];
+    let quay = &region.rooms[0];
+    let s = RoomScene::new(region, quay);
+    let pic = |thing: &str| {
+        let t = a.things.iter().find(|t| t.name == thing).unwrap();
+        t.kind.picture().unwrap()
+    };
+    let layers = scene::layers(&a, region, quay, s.square(2, 1).unwrap());
+    let floor = scene::floor_picture(&a).unwrap();
+    assert_eq!(layers, vec![floor, pic("SAND"), pic("BARRELS")]);
+    assert!(!layers.contains(&pic("CUTLASS")));
+}

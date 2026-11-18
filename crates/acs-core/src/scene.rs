@@ -15,7 +15,7 @@
 //! - Resident creatures stand on top of everything.
 //! - Rooms lie on a region grid in squares; neighbours share a wall line.
 
-use crate::model::{Adventure, PictureId, Region, Room, ThingId};
+use crate::model::{Adventure, PictureId, Region, Room, ThingId, ThingKind};
 
 /// Master thing whose picture is the floor of every room.
 pub const FLOOR_THING: ThingId = 127;
@@ -135,25 +135,45 @@ pub fn thing_picture(adv: &Adventure, number: ThingId) -> Option<PictureId> {
         .and_then(|t| t.kind.picture())
 }
 
-/// The floor picture: master thing 127's.
-/// A square's pictures from the bottom up: its wall or floor, the top
-/// thing with a picture, then a resident. [`shown`] is the last of them;
-/// the rest show through art with transparent parts (Native HD, HD packs).
+/// A square's pictures from the bottom up: its wall or floor, the ground
+/// the top thing stands on (the nearest space under it), the top thing
+/// with a picture, then a resident. [`shown`] is the last of them; the
+/// rest show through art with transparent parts (Native HD, HD packs).
+/// Other things in the stack stay hidden, as the original hides them.
 pub fn layers(adv: &Adventure, region: &Region, room: &Room, sq: &Square) -> Vec<PictureId> {
-    let mut out = Vec::with_capacity(3);
+    let mut out = Vec::with_capacity(4);
     out.extend(match sq.base {
         Base::Wall => Some(room.wall_picture),
         Base::Floor => floor_picture(adv),
     });
-    out.extend(
-        sq.items
-            .iter()
-            .find_map(|&i| thing_picture(adv, room.items[i].thing)),
-    );
+    let top = sq
+        .items
+        .iter()
+        .enumerate()
+        .find_map(|(k, &i)| thing_picture(adv, room.items[i].thing).map(|p| (k, p)));
+    if let Some((k, pic)) = top {
+        let is_space = |i: usize| {
+            let n = room.items[i].thing as usize;
+            matches!(
+                adv.things.get(n.wrapping_sub(1)).map(|t| &t.kind),
+                Some(ThingKind::Space { .. } | ThingKind::CustomSpace { .. })
+            )
+        };
+        if !is_space(sq.items[k]) {
+            out.extend(
+                sq.items[k + 1..]
+                    .iter()
+                    .find(|&&i| is_space(i))
+                    .and_then(|&i| thing_picture(adv, room.items[i].thing)),
+            );
+        }
+        out.push(pic);
+    }
     out.extend(sq.residents.first().and_then(|&r| region.residents[r].picture));
     out
 }
 
+/// The floor picture: master thing 127's.
 pub fn floor_picture(adv: &Adventure) -> Option<PictureId> {
     thing_picture(adv, FLOOR_THING)
 }

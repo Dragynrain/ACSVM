@@ -553,9 +553,21 @@ Pardon* will be too if it is published.
 
 ## 7. The front door
 
-The browser build opens on a title screen of our own with the sample
-adventures to pick, plus the existing open-a-file path for the
-player's own disks. Nothing EA's is bundled (client.md 8).
+The viewer opens on a **title screen** when no adventure is open: the
+project's name, the sample adventures to play, and the way to open the
+player's own files (a drop or Open..., original disks and bundles
+alike, read on the machine and never uploaded).
+
+- **Samples are built in.** The viewer's `build.rs` builds each sample's
+  source folder (`adventures/NAME`, with its kit) with `acs-build` and
+  embeds the bundle (*First Voyage*: about 60 KB, against a 5 MB wasm
+  file), so the browser and the desktop builds carry the same samples
+  with nothing to fetch or package. A sample that doesn't build fails
+  the viewer's build. [choice]
+- **Play** opens the sample in walk mode, ready for Add Someone; it is
+  an ordinary bundle from there (saves, the Look menu, the lists).
+- Only our own adventures are built in (CC BY-SA 4.0); nothing of EA's
+  is (client.md 8).
 
 ## 8. Order of work
 
@@ -597,6 +609,7 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    --ignored` writes them as WAV files.
 6. *The King's Pardon* (6), with its replay test, in its own private
    project; its walkthrough test runs there, not in this repository's CI.
-7. The front door (7).
+7. The front door (7). Done November 2026: `crates/acs-viewer/build.rs`
+   and `samples.rs`, the title screen in `app.rs`.
 8. The other three kits (4).
 9. The playtest, then 1.0 (1).

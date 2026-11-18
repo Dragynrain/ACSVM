@@ -228,6 +228,9 @@ pub struct Viewer {
     pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
     /// The Options menu (client 7).
     access: crate::access::Access,
+    /// A sample chosen on the title screen: open it in walk mode
+    /// (content 7).
+    play_next: bool,
 }
 
 impl Viewer {
@@ -253,6 +256,7 @@ impl Viewer {
                 colour_blind: start.colour_blind,
                 reduce_motion: crate::live::system_reduced_motion(),
             },
+            play_next: false,
         };
         v.access.set(&cc.egui_ctx);
         // The pack first, so the adventure opens with it.
@@ -421,6 +425,9 @@ impl Viewer {
                 if let Some(pack) = &self.pack {
                     Self::apply_pack(ctx, pack, &mut doc);
                 }
+                if std::mem::take(&mut self.play_next) {
+                    doc.go(View::Walk);
+                }
                 // A bundle's own art is its default look (content 2).
                 if let Some(art) = &art {
                     doc.tiles.set_native(ctx, art);
@@ -429,7 +436,10 @@ impl Viewer {
                 self.doc = Some(doc);
                 self.error = None;
             }
-            Err(e) => self.error = Some(format!("{}: {e}", file.name)),
+            Err(e) => {
+                self.play_next = false;
+                self.error = Some(format!("{}: {e}", file.name));
+            }
         }
     }
 
@@ -666,12 +676,34 @@ impl Viewer {
         });
     }
 
-    fn empty_state(&self, ui: &mut egui::Ui) {
+    /// The title screen (content 7): the samples to play, then the
+    /// player's own files.
+    fn empty_state(&mut self, ui: &mut egui::Ui) {
         ui.vertical_centered(|ui| {
-            ui.add_space(ui.available_height() * 0.3);
-            ui.heading(format!("{} viewer", project_name()));
-            ui.add_space(8.0);
-            ui.label("Drag a C64 .d64 disk image or a PC ADVEN.FPY / ADVEN.HRD here, or use Open….");
+            ui.add_space(ui.available_height() * 0.2);
+            ui.heading(project_name());
+            ui.add_space(16.0);
+            ui.label(RichText::new("Play a sample adventure").strong());
+            ui.add_space(4.0);
+            for s in crate::samples::SAMPLES {
+                ui.horizontal(|ui| {
+                    // Centre the row: the button and its line of text.
+                    let w = (ui.available_width() - 520.0).max(0.0) / 2.0;
+                    ui.add_space(w);
+                    if ui.button(RichText::new(format!("Play {}", s.name)).strong()).clicked() {
+                        self.play_next = true;
+                        self.inbox.lock().unwrap().push(Incoming {
+                            name: s.file.to_string(),
+                            bytes: Ok(s.bytes.to_vec()),
+                        });
+                        ui.ctx().request_repaint();
+                    }
+                    ui.label(RichText::new(s.about).weak());
+                });
+            }
+            ui.add_space(20.0);
+            ui.label(RichText::new("Or open your own").strong());
+            ui.label("Drag a C64 .d64 disk image, a PC ADVEN.FPY / ADVEN.HRD or an .advx bundle here, or use Open….");
             ui.label(RichText::new("The file is read on this machine and never uploaded.").weak());
             if let Some(p) = &self.pack {
                 ui.label(format!(
