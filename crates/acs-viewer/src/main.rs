@@ -15,6 +15,7 @@ mod app;
 mod audio;
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
+mod fonts;
 mod hdpack;
 mod live;
 mod load;

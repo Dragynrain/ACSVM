@@ -742,6 +742,9 @@ outlined atlas for text over pictures (`font-outline.png`, 1 px `outline0`),
   lines.
 - **Ink:** `outline0` on parchment (`sand0`), or `sand0` outlined in
   `outline1` on dark sea.
+- **In the viewer (November 2026):** `--ttf-only` writes the font and its
+  bold as outline TTFs, each pixel a square (`crates/acs-viewer/assets`),
+  which the viewer draws at whole multiples of its pixel (client.md 7.1).
 
 ## 13. Mood ramps
 

@@ -11,6 +11,9 @@ SOURCE: blocks of '= C' (C a character, or 'space') followed by equal rows of
   font.json         per glyph: x, y, w in the atlas; cell height, baseline, advance gap
   font.bdf          bitmap font for other tools
   preview.png       sample text at --scale in the kit's ink colours
+  font.ttf, font-bold.ttf  the same glyphs as outlines, each pixel a square
+                    (the viewer's UI font, docs/client.md 7.1); --ttf-only
+                    writes just these two
 """
 import argparse, json
 from pathlib import Path
@@ -49,6 +52,59 @@ def embolden(glyphs):
     return out
 
 
+PX = 100  # font units per pixel
+
+
+def write_ttf(glyphs, h, path, family, style):
+    """An outline font of `glyphs`: each lit pixel a square of PX units, a
+    row's runs merged into rectangles. Ascent and descent are the cell's
+    rows above and below the baseline, so a renderer sizing by
+    ascent - descent (egui) maps one pixel to size / h, crisp when the size
+    is a whole multiple of h pixels."""
+    from fontTools.fontBuilder import FontBuilder
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    chars = sorted(glyphs, key=ord)
+    names = [".notdef"] + [f"uni{ord(c):04X}" for c in chars]
+    fb = FontBuilder(unitsPerEm=h * PX, isTTF=True)
+    fb.setupGlyphOrder(names)
+    fb.setupCharacterMap({ord(c): f"uni{ord(c):04X}" for c in chars})
+    shapes, metrics = {}, {}
+    pen = TTGlyphPen(None)
+    shapes[".notdef"] = pen.glyph()
+    metrics[".notdef"] = (PX * 4, 0)
+    for c in chars:
+        rows = glyphs[c]
+        pen = TTGlyphPen(None)
+        for r, row in enumerate(rows):
+            top = (BASELINE - r) * PX
+            x = 0
+            while x < len(row):
+                if row[x] != "#":
+                    x += 1
+                    continue
+                x0 = x
+                while x < len(row) and row[x] == "#":
+                    x += 1
+                # Clockwise, as TrueType wants outer contours.
+                pen.moveTo((x0 * PX, top - PX))
+                pen.lineTo((x0 * PX, top))
+                pen.lineTo((x * PX, top))
+                pen.lineTo((x * PX, top - PX))
+                pen.closePath()
+        shapes[f"uni{ord(c):04X}"] = pen.glyph()
+        metrics[f"uni{ord(c):04X}"] = ((len(rows[0]) + GAP) * PX, 0)
+    fb.setupGlyf(shapes)
+    fb.setupHorizontalMetrics(metrics)
+    ascent, descent = BASELINE * PX, (h - BASELINE) * PX
+    fb.setupHorizontalHeader(ascent=ascent, descent=-descent, lineGap=(LINE - h) * PX)
+    fb.setupNameTable({"familyName": family, "styleName": style})
+    fb.setupOS2(sTypoAscender=ascent, sTypoDescender=-descent, sTypoLineGap=(LINE - h) * PX,
+                usWinAscent=ascent, usWinDescent=descent)
+    fb.setupPost()
+    fb.save(str(path))
+
+
 def draw(text, glyphs, h, ink, outline=None):
     lines = text.split("\n")
     width = max(sum(len(glyphs[c][0]) + GAP for c in ln) for ln in lines) + 2
@@ -79,12 +135,18 @@ def main():
                     "Sabine Duroc gives you 12 doubloons (and a map)!\nLife Force 18/20  Gold 340  [Ready: cutlass]\n"
                     "Ça, señor! Garçon, où est l'équipage? Größe Æsir Øresund ¿Qué? «déjà vu» £5 ±3°")
     ap.add_argument("--title", default="The King's Pardon")
+    ap.add_argument("--ttf-only", action="store_true")
     a = ap.parse_args(); out = Path(a.outdir); out.mkdir(parents=True, exist_ok=True)
     glyphs, h = load(a.source)
     chars = [chr(c) for c in list(range(32, 127)) + list(range(160, 256))]
     missing = [c for c in chars if c not in glyphs]
     assert not missing, f"missing glyphs: {missing}"
     bold = embolden(glyphs)
+    write_ttf({c: glyphs[c] for c in chars}, h, out / "font.ttf", "ACSVM Pirates", "Regular")
+    write_ttf({c: bold[c] for c in chars}, h, out / "font-bold.ttf", "ACSVM Pirates", "Bold")
+    if a.ttf_only:
+        print(len(chars), "glyphs, height", h, "-> font.ttf, font-bold.ttf in", out)
+        return
     cw = max(len(g[0]) for g in bold.values()) + 2
     cols, rows = 16, (len(chars) + 15) // 16
     meta = {"height": h, "baseline": BASELINE, "line": LINE, "gap": GAP, "glyphs": {}, "bold": {}}

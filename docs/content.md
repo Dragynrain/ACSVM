@@ -572,6 +572,11 @@ alike, read on the machine and never uploaded).
   an ordinary bundle from there (saves, the Look menu, the lists).
 - Only our own adventures are built in (CC BY-SA 4.0); nothing of EA's
   is (client.md 8).
+- The title screen shows the pirate kit's title art (the flat 32-colour
+  version, `docs/art/pirates-style.md` 8) at the largest whole scale that
+  fits, with the project's name in the sky in the bold UI font, gold
+  with a dark outline; then the samples and the open-a-file text in the
+  UI font (client.md 7.1).
 
 ## 8. Order of work
 
@@ -614,7 +619,9 @@ alike, read on the machine and never uploaded).
 6. *The King's Pardon* (6), with its replay test, in its own private
    project; its walkthrough test runs there, not in this repository's CI.
 7. The front door (7). Done November 2026: `crates/acs-viewer/build.rs`
-   and `samples.rs`, the title screen in `app.rs`.
+   and `samples.rs`, the title screen in `app.rs` with the kit's title
+   art (the *Magpie*, `assets/title.png`) lettered in the bold UI font,
+   and the UI font in the log (client.md 7.1).
 8. The playtest, then 1.0 (1).
 
 More starter kits are after 1.0 (4).

@@ -980,6 +980,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     let access = crate::access::Access::get(ui.ctx());
+                    // The kit font at 2x (client 7.1).
+                    let font = crate::fonts::kit(ui.ctx(), 22.0, false);
                     for (kind, line) in &walk.log {
                         // A symbol as well as a colour (client 7).
                         let t = match kind_mark(*kind, &access) {
@@ -988,13 +990,15 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                         };
                         let t = match kind {
                             Kind::Turn | Kind::Step => t.weak(),
-                            Kind::Message => t.italics(),
+                            // Not italics: a slanted pixel font blurs.
+                            Kind::Message => t.color(Color32::from_rgb(251, 241, 207)),
                             _ => t,
                         };
+                        let t = t.font(font.clone());
                         if *kind == Kind::Message {
                             // A long message keeps its stored lines (magic
                             // 3.10): shown as they are, never rewrapped.
-                            ui.add(egui::Label::new(t.monospace()).extend());
+                            ui.add(egui::Label::new(t).extend());
                         } else {
                             ui.label(t);
                         }

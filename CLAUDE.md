@@ -78,6 +78,7 @@ python scripts/quilt.py OUTDIR TEX.png...   # seamless texture; flatten.py: flat
 python scripts/palsnap.py docs/art/pirates-palette.json OUTDIR IMG.png... --sheet s.png  # snap to kit ramps
 python scripts/tidy.py docs/art/pirates-palette.json OUTDIR TILE.png... --sheet s.png  # specks, strays, outline
 python scripts/font.py docs/art/pirates-font.txt OUTDIR   # UI font atlas, BDF, preview (docs/art/pirates-style.md 12)
+python scripts/font.py docs/art/pirates-font.txt crates/acs-viewer/assets --ttf-only   # the viewer's UI font TTFs (client.md 7.1)
 python scripts/mood.py|emissive.py|normals.py|animate.py|variants.py ...   # moods, glow, normals, animation, recolours (pirates-style.md 13-17; --help)
 python scripts/kitfolder.py PACK.json PACK.png kits/NAME --skip kp   # a kit folder's art from a packed kit (content.md 4.1)
 python scripts/kitcreatures.py   # kits/pirates/creatures.toml from its table

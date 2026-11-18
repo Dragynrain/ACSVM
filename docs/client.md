@@ -236,6 +236,22 @@ hidden live region (`role="log"`, `aria-live="polite"`) that keeps the
 last 50 lines, so a screen reader reads play as it happens. The desktop
 build has no screen reader support yet.
 
+### 7.1 The UI font
+
+The kit's pixel font (`docs/art/pirates-style.md` 12) is the game's
+voice: the message log, the title screen and its lettering. Menus,
+lists and the stats keep egui's font, where density matters more.
+`scripts/font.py --ttf-only` writes it as outline fonts
+(`crates/acs-viewer/assets/font.ttf`, `font-bold.ttf`), each glyph
+pixel a square and the em the 11-row cell, and `fonts.rs` loads them
+with hinting and sub-pixel placement off. A size is always a whole
+multiple of the font's pixel on the screen (`fonts::kit`: the wanted
+size times the text-size option, rounded to a multiple of 11 physical
+pixels, at least 1x), so the text stays crisp at any scale; the log is
+at 2x. Long messages keep their stored lines (3), and are told apart by
+colour, not italics, which a pixel font can't slant cleanly. Characters
+outside Latin-1 fall back to egui's font.
+
 ## 8. Builds
 
 The web build stays on Pages (`scripts/web.sh build`). Desktop builds come

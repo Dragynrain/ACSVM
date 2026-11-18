@@ -231,11 +231,14 @@ pub struct Viewer {
     /// A sample chosen on the title screen: open it in walk mode
     /// (content 7).
     play_next: bool,
+    /// The title art, made when the title screen first shows.
+    title: Option<egui::TextureHandle>,
 }
 
 impl Viewer {
     pub fn new(cc: &eframe::CreationContext<'_>, start: Startup) -> Self {
         cc.egui_ctx.set_theme(egui::Theme::Dark);
+        crate::fonts::install(&cc.egui_ctx);
         if let Some((ppp, size)) = start.ppp {
             let native = cc.egui_ctx.native_pixels_per_point().unwrap_or(1.0);
             cc.egui_ctx.set_zoom_factor(ppp / native);
@@ -257,6 +260,7 @@ impl Viewer {
                 reduce_motion: crate::live::system_reduced_motion(),
             },
             play_next: false,
+            title: None,
         };
         v.access.set(&cc.egui_ctx);
         // The pack first, so the adventure opens with it.
@@ -676,45 +680,87 @@ impl Viewer {
         });
     }
 
-    /// The title screen (content 7): the samples to play, then the
-    /// player's own files.
+    /// The title screen (content 7): the kit's title art lettered with
+    /// the project's name, the samples to play, then the player's own
+    /// files. Text in the kit font (client 7.1).
     fn empty_state(&mut self, ui: &mut egui::Ui) {
-        ui.vertical_centered(|ui| {
-            ui.add_space(ui.available_height() * 0.2);
-            ui.heading(project_name());
-            ui.add_space(16.0);
-            ui.label(RichText::new("Play a sample adventure").strong());
-            ui.add_space(4.0);
-            for s in crate::samples::SAMPLES {
-                ui.horizontal(|ui| {
-                    // Centre the row: the button and its line of text.
-                    let w = (ui.available_width() - 520.0).max(0.0) / 2.0;
-                    ui.add_space(w);
-                    if ui.button(RichText::new(format!("Play {}", s.name)).strong()).clicked() {
+        let ctx = ui.ctx().clone();
+        let tex = self.title.get_or_insert_with(|| title_texture(&ctx)).clone();
+        let kit = |pt: f32| crate::fonts::kit(&ctx, pt, false);
+        let ink = Color32::from_rgb(251, 241, 207);
+        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(16.0);
+                // The art at the largest whole multiple of its pixels that
+                // fits (whole physical pixels, like the tiles).
+                let ppp = ctx.pixels_per_point();
+                let [w, h] = tex.size().map(|v| v as f32);
+                let room = (ui.available_width() * 0.9).min(ui.available_height() * 0.55 * w / h);
+                let scale = ((room * ppp / w).floor().max(1.0)) / ppp;
+                let size = egui::vec2(w * scale, h * scale);
+                let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+                ui.painter().image(
+                    tex.id(),
+                    rect,
+                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+                // The name in the open sky: bold, gold, outlined (pirates-style 12).
+                let font = crate::fonts::kit(&ctx, size.y * 0.14, true);
+                let at = egui::pos2(rect.center().x, rect.top() + size.y * 0.2);
+                let px = font.size / 11.0;
+                for (dx, dy) in [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)] {
+                    ui.painter().text(
+                        at + egui::vec2(dx * px, dy * px),
+                        egui::Align2::CENTER_CENTER,
+                        project_name(),
+                        font.clone(),
+                        Color32::from_rgb(28, 20, 25),
+                    );
+                }
+                ui.painter().text(
+                    at,
+                    egui::Align2::CENTER_CENTER,
+                    project_name(),
+                    font,
+                    Color32::from_rgb(246, 222, 74),
+                );
+
+                ui.add_space(18.0);
+                ui.label(RichText::new("Play a sample adventure").font(kit(22.0)).color(ink));
+                ui.add_space(6.0);
+                for s in crate::samples::SAMPLES {
+                    let button = egui::Button::new(RichText::new(format!("Play {}", s.name)).font(kit(22.0)));
+                    if ui.add(button).clicked() {
                         self.play_next = true;
                         self.inbox.lock().unwrap().push(Incoming {
                             name: s.file.to_string(),
                             bytes: Ok(s.bytes.to_vec()),
                         });
-                        ui.ctx().request_repaint();
+                        ctx.request_repaint();
                     }
-                    ui.label(RichText::new(s.about).weak());
-                });
-            }
-            ui.add_space(20.0);
-            ui.label(RichText::new("Or open your own").strong());
-            ui.label("Drag a C64 .d64 disk image, a PC ADVEN.FPY / ADVEN.HRD or an .advx bundle here, or use Open….");
-            ui.label(RichText::new("The file is read on this machine and never uploaded.").weak());
-            if let Some(p) = &self.pack {
-                ui.label(format!(
-                    "HD pack loaded: {}. Open an adventure to use it.",
-                    p.name
-                ));
-            }
-            if let Some(e) = &self.error {
-                ui.add_space(12.0);
-                ui.colored_label(Color32::LIGHT_RED, e);
-            }
+                    ui.label(RichText::new(s.about).font(kit(22.0)).weak());
+                    ui.add_space(6.0);
+                }
+                ui.add_space(14.0);
+                ui.label(RichText::new("Or open your own").font(kit(22.0)).color(ink));
+                ui.label(
+                    RichText::new("Drag a C64 .d64 disk image, a PC ADVEN.FPY / ADVEN.HRD or an .advx bundle here, or use Open...")
+                        .font(kit(22.0)),
+                );
+                ui.label(
+                    RichText::new("The file is read on this machine and never uploaded.")
+                        .font(kit(22.0))
+                        .weak(),
+                );
+                if let Some(p) = &self.pack {
+                    ui.label(format!("HD pack loaded: {}. Open an adventure to use it.", p.name));
+                }
+                if let Some(e) = &self.error {
+                    ui.add_space(12.0);
+                    ui.colored_label(Color32::LIGHT_RED, e);
+                }
+            });
         });
     }
 }
@@ -788,4 +834,20 @@ impl eframe::App for Viewer {
             );
         }
     }
+}
+
+/// The kit's title art (pirates-style 8: the *Magpie* off the island, no
+/// lettering), nearest-filtered so its flat bands stay sharp.
+fn title_texture(ctx: &egui::Context) -> egui::TextureHandle {
+    let bytes: &[u8] = include_bytes!("../assets/title.png");
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
+    let mut reader = decoder.read_info().expect("the title art is a PNG");
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let frame = reader.next_frame(&mut buf).expect("the title art decodes");
+    let image = egui::ColorImage::from_rgba_unmultiplied(
+        [frame.width as usize, frame.height as usize],
+        &buf[..frame.buffer_size()],
+    );
+    ctx.load_texture("title", image, egui::TextureOptions::NEAREST)
 }
