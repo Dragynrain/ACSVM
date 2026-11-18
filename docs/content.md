@@ -540,11 +540,16 @@ noise bursts (bright to dull), each with its own length.
   strikes back but never chases, so the fight is where the player
   chooses it), a logbook gives the sea chant, and a chest of coin on a
   success stack (winning 1.2) ends it.
-- ***The King's Pardon***, mid-size, on the pirate kit; its story,
-  design and script are their own project (`D:\Projects\KingsPardon`),
-  and only the built adventure's source comes into this repository.
+- ***The King's Pardon***, mid-size, on the pirate kit. Its story,
+  design, script and **buildable source** are their own project
+  (`D:\Projects\KingsPardon`), kept private for now (the maintainer's
+  call, November 2026): built with `acs build` against `kits/pirates`,
+  its bundle and walkthrough stay out of this repository. Whether it
+  ships with 1.0, and so the gate's "both sample adventures" (1), is
+  open until it is published.
 
-Both under CC BY-SA 4.0, both also test fixtures.
+*First Voyage* is under CC BY-SA 4.0 and a test fixture; *The King's
+Pardon* will be too if it is published.
 
 ## 7. The front door
 
@@ -590,7 +595,8 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    a person:
    `ACSVM_CUES_DIR=DIR cargo test -p acs-viewer write_cues_as_wav --
    --ignored` writes them as WAV files.
-6. *The King's Pardon* (6), with its replay test.
+6. *The King's Pardon* (6), with its replay test, in its own private
+   project; its walkthrough test runs there, not in this repository's CI.
 7. The front door (7).
 8. The other three kits (4).
 9. The playtest, then 1.0 (1).
