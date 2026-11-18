@@ -418,7 +418,11 @@ rest of `limits.residents_per_region` are free slots for arrivals.
 
 ## 4. Starter kits
 
-Four kits (design.md, Kit 4): pirates first, then the three runners-up.
+**For 1.0, one kit: pirates** (design.md, Kit 4), which both sample
+adventures use. The others (the design's fantasy, spy and mystery and
+sci-fi kits, and the pirate kit's runners-up) come after 1.0, when an
+adventure needs them; what 1.0 needs is the pirate kit and adventures
+loading from bundles.
 A kit is a library an adventure builds on: pictures, things and
 creatures, all under CC BY-SA 4.0, in `kits/NAME/` in the repository.
 
@@ -611,5 +615,6 @@ alike, read on the machine and never uploaded).
    project; its walkthrough test runs there, not in this repository's CI.
 7. The front door (7). Done November 2026: `crates/acs-viewer/build.rs`
    and `samples.rs`, the title screen in `app.rs`.
-8. The other three kits (4).
-9. The playtest, then 1.0 (1).
+8. The playtest, then 1.0 (1).
+
+More starter kits are after 1.0 (4).

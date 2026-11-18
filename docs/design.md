@@ -410,7 +410,7 @@ Nineteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
 | 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |
 | 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
-| 17 | Original asset kits | Four starter kits at 128 px (pirates first, then fantasy, spy and mystery, sci-fi; about 110 tiles each, more where an adventure declares a higher picture limit), UI font, title art, two sample adventures | L |
+| 17 | Original asset kits | The pirate starter kit for 1.0 (about 110 tiles, more where an adventure declares a higher picture limit), UI font, title art, sample adventures; the fantasy, spy and mystery and sci-fi kits after 1.0 | L |
 | 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
 | 19 | Extended format | Classic and Extended profiles, a limits block and feature list, wider typed ids, the zip bundle, one validator | M |
 
