@@ -9,7 +9,7 @@
 //! a death can be undone the original's way.
 
 use super::*;
-use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
+use acs_core::model::{Alignment, Creature, MagicDefense, PictureId, ThingKind};
 use acs_core::reflow::Shown;
 use acs_core::scene::{self, RoomScene};
 use acs_engine::characters::{Mark, Rating};
@@ -22,6 +22,10 @@ use egui::{Key, Modifiers, RichText};
 
 #[path = "store.rs"]
 mod store;
+
+#[path = "newchar.rs"]
+mod newchar;
+pub use newchar::{show_new_character, NewCharacter};
 
 /// The world map window the original shows: 15 wide, 10 high.
 const MAP_VIEW: (u8, u8) = (15, 10);
@@ -272,8 +276,9 @@ pub struct Walk {
     /// button restores the earlier one (`Game::restore_point`).
     save: Game,
     older: Game,
-    /// The name typed for the next "Add Someone".
+    /// The name typed and picture chosen for the next "Add Someone".
     new_name: String,
+    new_picture: Option<PictureId>,
     /// Idle seconds this turn, and the steps they have drained so far.
     idle: f64,
     drained: u32,
@@ -281,9 +286,15 @@ pub struct Walk {
 
 impl Walk {
     pub fn new(adv: &Adventure, seed: u64, rules: Rules) -> Self {
-        // Characters 1: the first character is rolled like any other.
+        Walk::create(adv, seed, rules, "PLAYER 1", None)
+    }
+
+    /// A game whose first character, rolled like any other (characters
+    /// 1), is named `name` and has `picture` (characters 2.4).
+    pub fn create(adv: &Adventure, seed: u64, rules: Rules, name: &str, picture: Option<PictureId>) -> Self {
         let first = Newcomer::Create {
-            create: "PLAYER 1".into(),
+            create: name.into(),
+            picture,
         };
         let (game, ev) = Game::new(adv.clone(), seed, rules, first);
         let mut w = Walk::with(game.clone(), game);
@@ -324,6 +335,7 @@ impl Walk {
             confirm: None,
             hindered: false,
             new_name: String::new(),
+            new_picture: None,
             idle: 0.0,
             drained: 0,
         }
@@ -910,6 +922,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                 },
                 "add" => Command::CreatePlayer {
                     name: parts.next().unwrap_or("someone").to_ascii_uppercase(),
+                    picture: None,
                 },
                 d => Command::Move {
                     dir: parse_dir(d).ok_or_else(bad)?,
@@ -1007,8 +1020,10 @@ fn key_commands(ctx: &egui::Context) -> Vec<Command> {
 }
 
 pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
+    // A new game begins with its character (client 4.2).
     if doc.walk.is_none() {
-        doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), Rules::default()));
+        show_new_character(doc, ui);
+        return;
     }
     {
         let walk = doc.walk.as_mut().unwrap();
@@ -1133,7 +1148,14 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves),
                 );
             }
-            party_panel(ui, g, &walk.roster.gone, &mut walk.new_name, &mut click);
+            party_panel(
+                ui,
+                &doc.tiles,
+                g,
+                &walk.roster.gone,
+                (&mut walk.new_name, &mut walk.new_picture),
+                &mut click,
+            );
             if !over {
                 actions_panel(ui, g, walk.pending_aim.is_some(), &mut fire, &mut click);
                 roster_panel(ui, g, &walk.roster, &mut click);
@@ -1414,7 +1436,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         }
     }
     if let Some(rules) = restart {
-        doc.walk = Some(Walk::new(&doc.decoded.adventure, fresh_seed(), rules));
+        // A new game: a new character first (client 4.2).
+        doc.walk = None;
+        doc.creating = Some(NewCharacter::new(&doc.decoded.adventure, rules));
     }
 }
 
@@ -1629,9 +1653,10 @@ fn bar(ui: &mut egui::Ui, fraction: f32, fill: Option<Color32>, caption: String)
 
 fn party_panel(
     ui: &mut egui::Ui,
+    tiles: &crate::tiles::Tiles,
     g: &Game,
     gone: &[usize],
-    new_name: &mut String,
+    (new_name, new_picture): (&mut String, &mut Option<PictureId>),
     click: &mut Option<Command>,
 ) {
     let players = g.players();
@@ -1662,6 +1687,27 @@ fn party_panel(
     }
     let living = players.iter().filter(|p| p.alive).count();
     ui.horizontal_wrapped(|ui| {
+        // The newcomer's picture (characters 2.4): a button showing it,
+        // opening the grid to choose from.
+        let adv = g.adventure();
+        let shown = acs_engine::characters::picture_of(adv, *new_picture);
+        let side = ui.spacing().interact_size.y;
+        let (rect, resp) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::click());
+        tiles.paint(ui.painter(), scene::floor_picture(adv), rect);
+        tiles.paint(ui.painter(), shown, rect);
+        ui.painter().rect_stroke(
+            rect,
+            2.0,
+            ui.visuals().widgets.inactive.bg_stroke,
+            egui::StrokeKind::Inside,
+        );
+        let resp = resp.on_hover_text("The newcomer's picture: click to choose.");
+        egui::Popup::menu(&resp).show(|ui| {
+            ui.set_max_width(320.0);
+            if newchar::picture_grid(ui, tiles, adv, new_picture, 36.0) {
+                ui.close();
+            }
+        });
         ui.add(
             egui::TextEdit::singleline(new_name)
                 .char_limit(acs_engine::NAME_MAX)
@@ -1683,8 +1729,12 @@ fn party_panel(
             } else {
                 typed
             };
-            *click = Some(Command::CreatePlayer { name });
+            *click = Some(Command::CreatePlayer {
+                name,
+                picture: *new_picture,
+            });
             new_name.clear();
+            *new_picture = None;
         }
     });
 }
@@ -2192,20 +2242,79 @@ fn marker(painter: &egui::Painter, rect: Rect, player: usize, current: bool, nes
     }
 }
 
-/// Draws every living player for which `cell` gives a square in view.
-/// Players on one square (all of them at the start, movement 1.2) nest:
-/// the current player outermost, the others inside in joining order.
-fn markers(painter: &egui::Painter, g: &Game, cell: impl Fn(Location) -> Option<Rect>) {
+/// A player's badge (client 4.2): a disc in the player's colour with its
+/// number, in corner `corner` of its square (0 top left, then clockwise).
+fn badge(painter: &egui::Painter, rect: Rect, player: usize, corner: usize) {
+    let r = (rect.width().min(rect.height()) * 0.17).max(4.0);
+    let at = match corner % 4 {
+        0 => rect.left_top() + egui::vec2(r, r),
+        1 => rect.right_top() + egui::vec2(-r, r),
+        2 => rect.right_bottom() + egui::vec2(-r, -r),
+        _ => rect.left_bottom() + egui::vec2(r, -r),
+    };
+    let colour = player_colour(painter.ctx(), player);
+    painter.circle_filled(at, r, Color32::from_black_alpha(200));
+    painter.circle_stroke(at, r - 0.5, Stroke::new((r * 0.25).max(1.0), colour));
+    if r >= 5.0 {
+        let font = egui::FontId::proportional(r * 1.3);
+        painter.text(
+            at,
+            egui::Align2::CENTER_CENTER,
+            (player + 1).to_string(),
+            font,
+            colour,
+        );
+    }
+}
+
+/// Draws every living player for which `cell` gives a square in view: its
+/// picture (characters 2.4) with its badge, the current player's square
+/// outlined when more than one plays (client 4.2). Players sharing a square
+/// (all of them at the start, movement 1.2) show the topmost's picture,
+/// the current player's if it is there, and every badge. With no picture
+/// to show, the ring marker.
+fn markers(
+    painter: &egui::Painter,
+    tiles: &crate::tiles::Tiles,
+    g: &Game,
+    cell: impl Fn(Location) -> Option<Rect>,
+) {
     let many = g.players().len() > 1;
     let mut order = vec![g.current()];
     order.extend((0..g.players().len()).filter(|&i| i != g.current()));
     let mut drawn: Vec<Location> = Vec::new();
     for i in order {
         let p = &g.players()[i];
-        if let Some(rect) = cell(p.at).filter(|_| p.alive) {
-            let nest = drawn.iter().filter(|&&at| at == p.at).count();
-            drawn.push(p.at);
-            marker(painter, rect, i, many && i == g.current(), nest);
+        let Some(rect) = cell(p.at).filter(|_| p.alive) else {
+            continue;
+        };
+        let nest = drawn.iter().filter(|&&at| at == p.at).count();
+        drawn.push(p.at);
+        let picture = acs_engine::characters::picture_of(g.adventure(), p.picture);
+        match picture.filter(|&pic| tiles.get(pic).is_some()) {
+            Some(pic) => {
+                if nest == 0 {
+                    tiles.paint(painter, Some(pic), rect);
+                    if many && i == g.current() {
+                        painter.rect_stroke(
+                            rect.shrink(1.0),
+                            0.0,
+                            Stroke::new(3.0, Color32::BLACK),
+                            egui::StrokeKind::Inside,
+                        );
+                        painter.rect_stroke(
+                            rect.shrink(1.5),
+                            0.0,
+                            Stroke::new(1.5, Color32::WHITE),
+                            egui::StrokeKind::Inside,
+                        );
+                    }
+                }
+                if many {
+                    badge(painter, rect, i, nest);
+                }
+            }
+            None => marker(painter, rect, i, many && i == g.current(), nest),
         }
     }
 }
@@ -2232,7 +2341,7 @@ fn draw_map(
             tiles.paint(&painter, pic, grid.cell_rect(i, j));
         }
     }
-    markers(&painter, g, |at| {
+    markers(&painter, tiles, g, |at| {
         let Location::World { x, y } = at else { return None };
         win.cell((x, y)).map(|(i, j)| grid.cell_rect(i as u32, j as u32))
     });
@@ -2370,7 +2479,7 @@ fn draw_room(
         let at = cell.right_top() + egui::vec2(-rad * 1.4, rad * 1.4);
         alignment_mark(&painter, at, rad, c.strategy.alignment);
     }
-    markers(&painter, g, |at| match at {
+    markers(&painter, tiles, g, |at| match at {
         Location::Room {
             region: rg,
             room: rm,

@@ -55,6 +55,10 @@ pub struct Adventure {
     pub long_messages: Vec<String>,
     /// Short message slots 1..=80 (index 0 is slot 1), 3 lines each.
     pub short_messages: Vec<String>,
+    /// Extended: the pictures a new character may take (characters 2.4,
+    /// content 3.2); empty for Classic, which offers its creatures'.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_pictures: Vec<PictureId>,
 }
 
 /// Genre theme stored with the adventure (one of the three builder sets).

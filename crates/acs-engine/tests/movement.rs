@@ -450,11 +450,17 @@ fn a_full_game_refuses_at_the_round_end_without_a_roll() {
     // Same game, with and without the refused request: same draws.
     let mut h = g.clone();
     assert_eq!(
-        g.apply(Command::CreatePlayer { name: "FIVE".into() }),
+        g.apply(Command::CreatePlayer {
+            name: "FIVE".into(),
+            picture: None
+        }),
         vec![Event::AddRequested]
     );
     assert_eq!(
-        h.apply(Command::CreatePlayer { name: "   NO".into() }),
+        h.apply(Command::CreatePlayer {
+            name: "   NO".into(),
+            picture: None
+        }),
         vec![Event::NameRefused]
     );
     let mut eg = Vec::new();
@@ -477,7 +483,10 @@ fn a_name_of_three_leading_spaces_is_asked_again() {
     let mut g = game(Platform::Pc);
     for name in ["", "   ", "        ABCDEFG", "@[]X"] {
         assert_eq!(
-            g.apply(Command::CreatePlayer { name: name.into() }),
+            g.apply(Command::CreatePlayer {
+                name: name.into(),
+                picture: None
+            }),
             vec![Event::NameRefused],
             "{name:?}"
         );
@@ -496,7 +505,10 @@ fn a_name_of_three_leading_spaces_is_asked_again() {
     assert_eq!(g.players().len(), 1);
     // Two leading spaces are a name.
     assert_eq!(
-        g.apply(Command::CreatePlayer { name: "  X".into() }),
+        g.apply(Command::CreatePlayer {
+            name: "  X".into(),
+            picture: None
+        }),
         vec![Event::AddRequested]
     );
     g.apply(Command::Wait);
@@ -511,6 +523,7 @@ fn created_and_joining_characters() {
     let adv = adventure(Platform::Pc);
     let first = acs_engine::Newcomer::Create {
         create: "Rolled 0ne!".into(),
+        picture: None,
     };
     let (mut g, _) = Game::new(adv.clone(), 5, Rules::default(), first.clone());
     let p = g.players()[0].clone();
@@ -521,7 +534,10 @@ fn created_and_joining_characters() {
     );
     assert_eq!(p.speed, 5 + p.dexterity / 7);
     // Each joins at its round's end, one a round (characters 6.2, 6.4).
-    g.apply(Command::CreatePlayer { name: "two".into() });
+    g.apply(Command::CreatePlayer {
+        name: "two".into(),
+        picture: None,
+    });
     until_added(&mut g);
     g.apply(Command::AddPlayer {
         setup: PlayerSetup {
@@ -538,6 +554,71 @@ fn created_and_joining_characters() {
     assert_eq!((saved.power, saved.life_force), (5, 3));
     let r = Game::replay(adv, 5, Rules::default(), first, g.log());
     assert_eq!(r.players(), g.players());
+}
+
+/// Characters 2.4: the pictures offered (an Extended list first, else
+/// the master creatures', else every picture), the one chosen kept on the
+/// record and through a save, none chosen left unwritten (the first
+/// offered), and the rolls the same whatever the picture.
+#[test]
+fn a_new_character_keeps_its_picture() {
+    use acs_engine::characters::{picture_of, player_pictures};
+    let mut adv = adventure(Platform::Pc);
+    for c in adv.creatures.iter_mut() {
+        c.in_use = false;
+    }
+    let all = player_pictures(&adv);
+    assert_eq!(all.len(), adv.pictures.len(), "no creatures: every picture");
+    adv.creatures[0].in_use = true;
+    adv.creatures[0].picture = Some(9);
+    adv.creatures[1].in_use = true;
+    adv.creatures[1].picture = Some(4);
+    adv.creatures[2].in_use = true;
+    adv.creatures[2].picture = Some(9);
+    assert_eq!(
+        player_pictures(&adv),
+        [4, 9],
+        "the creatures' pictures, once each, in order"
+    );
+    assert_eq!(picture_of(&adv, None), Some(4));
+    assert_eq!(picture_of(&adv, Some(7)), Some(7));
+    let mut own = adv.clone();
+    own.player_pictures = vec![12, 3, 999];
+    assert_eq!(
+        player_pictures(&own),
+        [12, 3],
+        "an own list, past the pictures dropped"
+    );
+
+    let first = |picture| acs_engine::Newcomer::Create {
+        create: "LOOK".into(),
+        picture,
+    };
+    let (plain, _) = Game::new(adv.clone(), 9, Rules::default(), first(None));
+    let (mut g, _) = Game::new(adv.clone(), 9, Rules::default(), first(Some(9)));
+    let (a, b) = (&plain.players()[0], &g.players()[0]);
+    assert_eq!((a.picture, b.picture), (None, Some(9)));
+    assert_eq!(
+        (a.strength, a.dodge, a.melee),
+        (b.strength, b.dodge, b.melee),
+        "same rolls"
+    );
+    // Unwritten when none: a game without one serializes as before.
+    assert!(!serde_json::to_string(a).unwrap().contains("picture"));
+    g.apply(Command::CreatePlayer {
+        name: "TWO".into(),
+        picture: Some(4),
+    });
+    until_added(&mut g);
+    assert_eq!(g.players()[1].picture, Some(4));
+    let save = SaveFile::new(&g, &adv, &g);
+    let back = SaveFile::from_json(&save.to_json())
+        .unwrap()
+        .restore(&adv)
+        .unwrap();
+    assert_eq!(back.game.players()[0].picture, Some(9));
+    assert_eq!(back.game.players()[1].picture, Some(4));
+    assert!(!back.diverged);
 }
 
 /// The synthetic tests were written with diagonal steps allowed and keep
@@ -1915,6 +1996,7 @@ fn saved_walk() -> (Game, Game, Adventure) {
     let a = adventure(Platform::C64);
     let first = Newcomer::Create {
         create: "SAVER".into(),
+        picture: None,
     };
     let (mut g, _) = Game::new(a.clone(), 77, Rules { diagonals: true }, first);
     g.place(0, Location::World { x: 20, y: 20 });

@@ -202,6 +202,7 @@ impl Decoder<'_> {
             regions,
             long_messages,
             short_messages,
+            player_pictures: Vec::new(),
         })
     }
 

@@ -141,6 +141,7 @@ theme = "fantasy"                 # fantasy | spy_mystery | sci_fi: the endless 
 palette = ["black", "brown", "light cyan", "white"]   # PC colour names, Classic pixels only
 classes = ["PIRATE", "NAVY", "ISLANDER"]              # creature classes, in order
 kit = "../../kits/pirates"        # optional: a starter kit (4.2)
+player_pictures = ["captainf", "captainm", "deckhand"]   # optional: the new character's choice (characters 2.4)
 
 [limits]                          # caps above Classic's; the rest stay Classic's
 pictures = 160

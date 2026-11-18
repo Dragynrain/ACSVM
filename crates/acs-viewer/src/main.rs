@@ -43,11 +43,7 @@ fn main() -> eframe::Result {
         }
     };
     let title = format!("{} viewer", app::project_name());
-    let walking = args.seed.is_some()
-        || args.walk.is_some()
-        || args.place.is_some()
-        || args.save.is_some()
-        || args.view == Some(app::View::Walk);
+    let walking = args.seed.is_some() || args.walk.is_some() || args.place.is_some() || args.save.is_some();
     let start = app::Startup {
         path: args.file,
         view: args.view,

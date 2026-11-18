@@ -913,12 +913,14 @@ mod characters {
         let mut g = fresh(&a, 1, named("T", 6, &[]));
         assert_eq!(
             g.apply(Command::CreatePlayer {
-                name: "        ABCDEFG".into()
+                name: "        ABCDEFG".into(),
+                picture: None,
             }),
             [Event::NameRefused]
         );
         g.apply(Command::CreatePlayer {
             name: "A?B:C@D\"EFGHIJKLMNOPQ".into(),
+            picture: None,
         });
         let ev = g.apply(Command::Wait);
         assert_eq!(added(&ev), [1]);
@@ -939,7 +941,10 @@ mod characters {
             until_turn_of(&mut g, 0);
         }
         assert_eq!(g.players().len(), 4);
-        g.apply(Command::CreatePlayer { name: "N".into() });
+        g.apply(Command::CreatePlayer {
+            name: "N".into(),
+            picture: None,
+        });
         let mut ev = Vec::new();
         for _ in 0..4 {
             ev.extend(g.apply(Command::Wait));
@@ -1217,13 +1222,22 @@ mod characters {
         let a = base(Platform::C64);
         for case in ['a', 'c'] {
             let mut g = t_and_u(&a, named("T", 6, &[]));
-            let mut ev = g.apply(Command::CreatePlayer { name: "N".into() });
+            let mut ev = g.apply(Command::CreatePlayer {
+                name: "N".into(),
+                picture: None,
+            });
             if case == 'a' {
-                ev.extend(g.apply(Command::CreatePlayer { name: "M".into() }));
+                ev.extend(g.apply(Command::CreatePlayer {
+                    name: "M".into(),
+                    picture: None,
+                }));
             }
             ev.extend(g.apply(Command::Wait));
             if case == 'c' {
-                ev.extend(g.apply(Command::CreatePlayer { name: "M".into() }));
+                ev.extend(g.apply(Command::CreatePlayer {
+                    name: "M".into(),
+                    picture: None,
+                }));
             }
             assert_eq!(ev.iter().filter(|e| **e == Event::AddRequested).count(), 2);
             ev.extend(g.apply(Command::Wait));
@@ -1257,8 +1271,14 @@ mod characters {
         });
         assert!(has(&ev, |e| matches!(e, Event::Died { .. })), "{ev:?}");
         assert_eq!(g.current(), 1);
-        g.apply(Command::CreatePlayer { name: "N".into() });
-        g.apply(Command::CreatePlayer { name: "M".into() });
+        g.apply(Command::CreatePlayer {
+            name: "N".into(),
+            picture: None,
+        });
+        g.apply(Command::CreatePlayer {
+            name: "M".into(),
+            picture: None,
+        });
         let ev = g.apply(Command::Wait);
         let changed = ev.iter().position(|e| matches!(e, Event::LivingChanged { .. }));
         let joined = ev.iter().position(|e| matches!(e, Event::PlayerAdded { .. }));
@@ -3024,7 +3044,10 @@ mod saves {
             let ev = if roster {
                 g.apply(add(named("N", 6, &[])))
             } else {
-                g.apply(Command::CreatePlayer { name: "N".into() })
+                g.apply(Command::CreatePlayer {
+                    name: "N".into(),
+                    picture: None,
+                })
             };
             assert!(!g.is_over());
             assert_eq!(g.visiting(), 0);
@@ -3089,7 +3112,10 @@ mod saves {
         let r0 = r0.expect("a room visit");
         assert_eq!((g.round(), g.visiting(), g.current()), (r0, 1, 0));
         assert_eq!(
-            g.apply(Command::CreatePlayer { name: "N".into() }),
+            g.apply(Command::CreatePlayer {
+                name: "N".into(),
+                picture: None
+            }),
             [Event::AddRequested]
         );
         let ev = g.apply(Command::Wait);
@@ -3125,7 +3151,10 @@ mod saves {
         assert!(r.players().iter().all(|p| p.name != "N"), "{:?}", r.players());
 
         let mut g = fresh(&a, 1, me());
-        g.apply(Command::CreatePlayer { name: "N".into() });
+        g.apply(Command::CreatePlayer {
+            name: "N".into(),
+            picture: None,
+        });
         let ev = g.apply(Command::Wait);
         assert_eq!(added(&ev), [1]);
         assert!(saves(&ev).is_empty(), "{ev:?}");
@@ -3163,7 +3192,13 @@ mod saves {
                 let (name, newcomer) = if roster {
                     ("U", add(named("U", 6, &[])))
                 } else {
-                    ("N", Command::CreatePlayer { name: "N".into() })
+                    (
+                        "N",
+                        Command::CreatePlayer {
+                            name: "N".into(),
+                            picture: None,
+                        },
+                    )
                 };
                 let cmds = if save_first {
                     [Command::SaveGame, newcomer]
@@ -3216,7 +3251,10 @@ mod saves {
             let newcomer = if roster {
                 add(me())
             } else {
-                Command::CreatePlayer { name: "N".into() }
+                Command::CreatePlayer {
+                    name: "N".into(),
+                    picture: None,
+                }
             };
             assert_eq!(g.apply(newcomer), [Event::AddRequested]);
             let mut ev = g.apply(Command::Wait);
@@ -3275,7 +3313,10 @@ mod saves {
         for twice in [false, true] {
             let mut g = fresh(&a, 1, me());
             for name in ["U", "V", "W"] {
-                g.apply(Command::CreatePlayer { name: name.into() });
+                g.apply(Command::CreatePlayer {
+                    name: name.into(),
+                    picture: None,
+                });
                 until_turn_of(&mut g, 0);
                 g.apply(Command::Wait);
                 until_turn_of(&mut g, 0);
@@ -3284,7 +3325,10 @@ mod saves {
             assert_eq!(g.save_point(), 0);
             for _ in 0..1 + twice as usize {
                 assert_eq!(
-                    g.apply(Command::CreatePlayer { name: "N".into() }),
+                    g.apply(Command::CreatePlayer {
+                        name: "N".into(),
+                        picture: None
+                    }),
                     [Event::AddRequested]
                 );
             }

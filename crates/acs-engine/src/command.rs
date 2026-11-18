@@ -3,7 +3,7 @@
 //! What a player asks for: [`Command`]s, the replay log.
 
 use crate::{Dir, Player, PlayerSetup, Who};
-use acs_core::model::ThingId;
+use acs_core::model::{PictureId, ThingId};
 use serde::{Deserialize, Serialize};
 
 /// What a player asks for. Commands are the replay log.
@@ -24,7 +24,13 @@ pub enum Command {
     /// "Add Someone", "Create New Player": a new character is rolled
     /// (characters 1) and joins at the adventure's start; in play, rolled
     /// at the round's end (characters 6.2).
-    CreatePlayer { name: String },
+    /// `picture`: the one chosen (characters 2.4), none for the first
+    /// offered; written only when chosen (saves 2.1).
+    CreatePlayer {
+        name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        picture: Option<PictureId>,
+    },
     /// "Add Someone" with a character retired with Save, chosen from the
     /// adventure's own list (characters 3.1): `player` is the record its
     /// `Retired` carried. It comes back as saved, gear readied, where it
@@ -150,6 +156,7 @@ mod tests {
             missile: 22,
             magic_defense: acs_core::model::MagicDefense::None,
             alive: true,
+            picture: None,
         };
         let cmd = Command::Rejoin {
             player: Box::new(p.clone()),

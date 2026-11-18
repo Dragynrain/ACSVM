@@ -163,6 +163,29 @@ player first moves), and Escape or **Leave the store** leaves from
 anywhere. Walking about the store sends nothing to the engine: only Buy,
 Sell and LeaveStore (stores 3.8). [choice]
 
+### 4.2 A new character
+
+A new game opens on a **New character** window over the board
+(characters 1, 2.4) before anything is played: the rolled ratings, as
+the info column shows them; a name (up to 15 characters, folded as
+characters 5 says, PLAYER 1 when left empty); and the pictures offered
+(`characters::player_pictures`), one to click, the first chosen to
+begin. **Begin** starts the game with them (`Newcomer::Create`).
+**Roll again** rolls a new character with a new seed: beyond the
+original, which rolls once, but nothing has been played yet. [choice]
+The rolls don't depend on the name or picture (characters 1.1), so the
+window shows the game's own roll. Restart opens it again.
+
+**Add Someone** (characters 6) has the same name box and a picture
+button beside it, opening the pictures to pick from; the ratings are
+rolled when the character joins, at the round's end (characters 6.2),
+and show in the info column then.
+
+On the board each player is its picture, with a small badge in its
+player's colour and number at the square's corner, and the current
+player's square outlined in white when more than one plays. Players
+sharing a square show the topmost's picture and every badge.
+
 **Options > Simplify shops** (off by default, kept with the options,
 7.2) shows a store as a plain list instead: what it sells at its prices,
 what it would buy for what, and the way out; a step then leaves the

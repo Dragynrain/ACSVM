@@ -89,8 +89,10 @@ pub struct Doc {
     pub note: Option<String>,
     /// Whether the info panel of map and room views is shown.
     pub show_info: bool,
-    /// The walk-mode game, started on first use.
+    /// The walk-mode game, begun from the New character screen.
     pub walk: Option<views::walk::Walk>,
+    /// That screen while a new game's character is made (client 4.2).
+    pub creating: Option<views::walk::NewCharacter>,
     /// A view asked for the file picker (Load from file…).
     pub pick: bool,
     /// Walk mode's bar never drains (design.md, Play options).
@@ -127,6 +129,7 @@ impl Doc {
             note: None,
             show_info: true,
             walk: None,
+            creating: None,
             pick: false,
             turn_based: false,
             pad: None,

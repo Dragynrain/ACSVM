@@ -1756,7 +1756,10 @@ fn a_created_add_saves_nothing_and_ends_no_visit() {
         for _ in 0..3 {
             wait(&mut g);
         }
-        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        g.apply(Command::CreatePlayer {
+            name: "NEW".into(),
+            picture: None,
+        });
         let ev = wait(&mut g);
         assert!(ev
             .iter()
@@ -1781,7 +1784,10 @@ fn a_created_add_saves_nothing_and_ends_no_visit() {
         let (point, round) = (g.save_point(), g.round());
         assert_eq!(point, g.log().len());
         assert_eq!((g.visiting(), g.current()), (1, 0));
-        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        g.apply(Command::CreatePlayer {
+            name: "NEW".into(),
+            picture: None,
+        });
         let ev = wait(&mut g);
         assert!(
             ev.iter().any(|e| matches!(e, Event::PlayerAdded { .. })),
@@ -1816,7 +1822,10 @@ fn a_refused_add_saves_nothing() {
             let point = g.save_point();
             g.apply(Command::AddPlayer { setup: frail() });
             if twice {
-                g.apply(Command::CreatePlayer { name: "TWO".into() });
+                g.apply(Command::CreatePlayer {
+                    name: "TWO".into(),
+                    picture: None,
+                });
             }
             let mut ev = Vec::new();
             while !ev.contains(&Event::AddRefused) {
@@ -1861,7 +1870,10 @@ fn an_add_and_another_save_in_one_round() {
                         },
                     }
                 } else {
-                    Command::CreatePlayer { name: "NEW".into() }
+                    Command::CreatePlayer {
+                        name: "NEW".into(),
+                        picture: None,
+                    }
                 };
                 let retiring = matches!(other, Command::Retire { .. });
                 // SAVE GAME asked after the add here, before it otherwise.
@@ -2002,7 +2014,10 @@ fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
         assert_eq!(saved(&ev), [(round, None), (round, Some(0))], "{ev:?}");
         assert_eq!(g.save_point(), g.log().len());
         assert_eq!(g.players()[0].name, "FRAIL");
-        let ev = h.apply(Command::CreatePlayer { name: "NEW".into() });
+        let ev = h.apply(Command::CreatePlayer {
+            name: "NEW".into(),
+            picture: None,
+        });
         assert_eq!(saved(&ev), [(round, Some(0))], "{ev:?}");
         assert_eq!(h.save_point(), h.log().len());
     });

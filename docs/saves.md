@@ -88,6 +88,11 @@ dropped file is recognised by its `format` field, not its name.
   record its `Retired` event carried. A version 4 save has no `rejoin`
   and loads as it is, its commands meaning the same. Saving again writes
   version 5.
+  Added within version 5 (characters 2.4): `create_player` and the
+  first player's `create` take an optional `"picture":N`, the picture
+  chosen, written only when chosen. It changes no rule, so a save
+  without it loads and replays as before, and an engine that ignores it
+  plays the same game.
 - **4** (creatures 2.2.6): `restore` (`{"command":"restore"}`, the death
   message's button) is new, logged where play resumed from the autosave
   (1.4). A version 3 save is loaded as it is: it has no `restore`, its

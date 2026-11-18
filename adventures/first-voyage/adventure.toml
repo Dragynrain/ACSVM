@@ -8,6 +8,8 @@ byline = "ACSVM contributors"
 license = "CC BY-SA 4.0"
 credits = ["Story and design: ACSVM contributors", "Art: the ACSVM pirate kit"]
 kit = "../../kits/pirates"
+# A new character's looks (characters 2.4), the first the one it has.
+player_pictures = ["captainf", "captainm", "deckhand", "boarder", "gunner", "fisher", "diver"]
 theme = "fantasy"
 palette = ["black", "blue", "brown", "yellow"]
 intro = """

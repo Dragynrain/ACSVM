@@ -275,13 +275,12 @@ pub(super) fn draw_store(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, walk: &
         }
     }
     let (px, py) = walk.screen.at;
-    marker(
-        &painter,
-        grid.cell_rect(px as u32, py as u32),
-        g.current(),
-        false,
-        0,
-    );
+    let cell = grid.cell_rect(px as u32, py as u32);
+    let picture = acs_engine::characters::picture_of(a, g.current_player().picture);
+    match picture.filter(|&p| tiles.get(p).is_some()) {
+        Some(pic) => tiles.paint(&painter, Some(pic), cell),
+        None => marker(&painter, cell, g.current(), false, 0),
+    }
     // What is under the pointer, so a shelf can be read without a push.
     let hover = hovered_cell(&resp, &grid);
     if let Some((x, y)) = hover {

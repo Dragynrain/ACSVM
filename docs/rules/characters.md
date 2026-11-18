@@ -81,7 +81,18 @@ holds Constitution with magic defense in the top two bits.
    [research; capture: rr13 `create`, all 256]
 3. It starts on the world map's start cell ([movement](movement.md) 1.2)
    with the first picture unless another is chosen. [manual; research]
-   **Engine:** the same; pictures are the viewer's.
+4. **The picture.** After the roll the player picks the character's
+   picture, then types its name (1.1). [manual; research] Which pictures
+   are offered is [unknown] (capture 8 below). **Engine:**
+   `characters::player_pictures`: an Extended adventure's own list
+   (`player_pictures`, content.md 3.2), else every picture a creature of
+   the master list uses, in picture order, else every picture. A new
+   character keeps the one chosen (`CreatePlayer { name, picture }`,
+   `Newcomer::Create`) in its record (`Player::picture`); none chosen is
+   the first offered, read by the front end (`Player::picture` stays
+   `None`, so a game without choices fingerprints as before). The picture
+   changes no rule: it retires and rejoins with the character, and a
+   front end that ignores it plays the same game.
 
 ## 3. Joining with a saved character
 
@@ -591,3 +602,5 @@ holds Constitution with magic defense in the top two bits.
 7. A saved character joined from the own list (3.1): where it stands,
    its weapon and armor readied, in a room and on the map; and with its
    saved square taken by another player or a creature since.
+8. The new character's picture (2.4): which pictures the original
+   offers, in what order, and which is first.

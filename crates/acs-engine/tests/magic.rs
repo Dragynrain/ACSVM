@@ -2012,7 +2012,10 @@ fn after_all_players_dead_a_new_player_takes_the_first_dead_slot() {
             },
         );
         assert!(mv(&mut h, Dir::E).contains(&Event::AllPlayersDead));
-        let ev = h.apply(Command::CreatePlayer { name: "ROLL".into() });
+        let ev = h.apply(Command::CreatePlayer {
+            name: "ROLL".into(),
+            picture: None,
+        });
         assert!(ev
             .iter()
             .any(|e| matches!(e, Event::PlayerAdded { player: 0, .. })));

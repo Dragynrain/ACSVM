@@ -1870,7 +1870,10 @@ fn the_last_player_retiring_leaves_nobody_in_play_and_a_newcomer_takes_the_slot(
         // 7.6: the add-player screen of a game's start.
         assert!(ev.contains(&Event::AllPlayersDead));
         assert!(g.is_over());
-        g.apply(Command::CreatePlayer { name: "NEW".into() });
+        g.apply(Command::CreatePlayer {
+            name: "NEW".into(),
+            picture: None,
+        });
         assert!(!g.is_over());
         assert_eq!(g.players().len(), 1);
         assert_eq!(g.players()[0].name, "NEW");
@@ -1878,7 +1881,10 @@ fn the_last_player_retiring_leaves_nobody_in_play_and_a_newcomer_takes_the_slot(
         // filled at once.
         let mut g = start(adventure(p), 0, 2, 3);
         g.apply(Command::Retire { save: false });
-        g.apply(Command::CreatePlayer { name: "NEXT".into() });
+        g.apply(Command::CreatePlayer {
+            name: "NEXT".into(),
+            picture: None,
+        });
         let ev = g.apply(Command::Wait);
         let retired = ev.iter().position(|e| matches!(e, Event::Retired { .. }));
         let added = ev

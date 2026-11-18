@@ -5,8 +5,8 @@
 use crate::magic::{PendingSummon, Vitals};
 use crate::rng::Rng;
 use crate::{Command, Event, Location, Rules, Who};
-use acs_core::model::ThingId;
 use acs_core::model::{Adventure, MagicDefense, Region, Room, Thing};
+use acs_core::model::{PictureId, ThingId};
 use serde::{Deserialize, Serialize};
 
 /// Speed of a character made by [`PlayerSetup::default`]: the top of the
@@ -86,6 +86,9 @@ pub struct PlayerSetup {
     pub missile: u8,
     #[serde(default = "no_defense")]
     pub magic_defense: MagicDefense,
+    /// The picture (characters 2.4); none for the first offered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<PictureId>,
 }
 
 impl Default for PlayerSetup {
@@ -108,6 +111,7 @@ impl Default for PlayerSetup {
             melee: DEFAULT_SKILL,
             missile: DEFAULT_MISSILE,
             magic_defense: MagicDefense::None,
+            picture: None,
         }
     }
 }
@@ -120,6 +124,9 @@ pub enum Newcomer {
     Join(PlayerSetup),
     Create {
         create: String,
+        /// The picture chosen (characters 2.4); none for the first offered.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        picture: Option<PictureId>,
     },
     /// A record saved by a Retire with Save, back from the roster
     /// (characters 3.1); its own key keeps it apart from `Join`.
@@ -184,6 +191,11 @@ pub struct Player {
     /// False once Life Force reached 0 (magic 7.4).
     #[serde(default = "yes")]
     pub alive: bool,
+    /// The picture chosen (characters 2.4); none for the first offered
+    /// (`characters::player_pictures`). Not written when none, so a game
+    /// without one fingerprints as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picture: Option<PictureId>,
 }
 
 impl Player {
@@ -214,6 +226,7 @@ impl Player {
             missile: 0,
             magic_defense: MagicDefense::None,
             alive: false,
+            picture: None,
         }
     }
 
@@ -381,7 +394,10 @@ fn rooms_of(players: &[Player], region: u8) -> Vec<u8> {
 fn newcomer(cmd: Command) -> Option<Newcomer> {
     match cmd {
         Command::AddPlayer { setup } => Some(Newcomer::Join(setup)),
-        Command::CreatePlayer { name } => Some(Newcomer::Create { create: name }),
+        Command::CreatePlayer { name, picture } => Some(Newcomer::Create {
+            create: name,
+            picture,
+        }),
         Command::Rejoin { player } => Some(Newcomer::Rejoin { rejoin: player }),
         _ => None,
     }
@@ -521,7 +537,13 @@ impl Game {
             Command::Idle => self.idle(&mut ev),
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.request_add(Newcomer::Join(setup), &mut ev),
-            Command::CreatePlayer { name } => self.request_add(Newcomer::Create { create: name }, &mut ev),
+            Command::CreatePlayer { name, picture } => self.request_add(
+                Newcomer::Create {
+                    create: name,
+                    picture,
+                },
+                &mut ev,
+            ),
             Command::Rejoin { player } => self.request_add(Newcomer::Rejoin { rejoin: player }, &mut ev),
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
@@ -947,7 +969,7 @@ impl Game {
     fn name_ok(&self, n: &Newcomer, ev: &mut Vec<Event>) -> bool {
         let name = match n {
             Newcomer::Join(s) => &s.name,
-            Newcomer::Create { create } => create,
+            Newcomer::Create { create, .. } => create,
             Newcomer::Rejoin { rejoin } => &rejoin.name,
         };
         let ok = !crate::characters::name_refused(name);
@@ -994,7 +1016,10 @@ impl Game {
     fn join(&mut self, n: Newcomer, ev: &mut Vec<Event>) {
         let setup = match n {
             Newcomer::Join(setup) => setup,
-            Newcomer::Create { create } => PlayerSetup::roll(&create, &mut self.rng),
+            Newcomer::Create { create, picture } => PlayerSetup {
+                picture,
+                ..PlayerSetup::roll(&create, &mut self.rng)
+            },
             Newcomer::Rejoin { rejoin } => return self.rejoin(*rejoin, ev),
         };
         self.add_player(setup, ev);
@@ -1022,6 +1047,7 @@ impl Game {
             melee: saved.melee,
             missile: saved.missile,
             magic_defense: saved.magic_defense,
+            picture: saved.picture,
         };
         setup.possessions.retain(|&t| t != crate::inventory::GOLD);
         let at = self.free_place(saved.at);
@@ -1107,6 +1133,7 @@ impl Game {
             missile: setup.missile,
             magic_defense: setup.magic_defense,
             alive: true,
+            picture: setup.picture,
         };
         let index = match slot {
             Some(i) => {

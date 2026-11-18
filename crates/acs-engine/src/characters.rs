@@ -7,7 +7,7 @@ use crate::game::{Game, PlayerSetup, NAME_MAX};
 use crate::inventory::GOLD;
 use crate::rng::Rng;
 use crate::{Event, Location, Who};
-use acs_core::model::{MagicDefense, ThingId, ThingKind};
+use acs_core::model::{Adventure, MagicDefense, PictureId, ThingId, ThingKind};
 use serde::{Deserialize, Serialize};
 
 /// Wisdom from which a new character has magic defense level 1
@@ -58,8 +58,42 @@ impl PlayerSetup {
             } else {
                 MagicDefense::None
             },
+            picture: None,
         }
     }
+}
+
+/// The pictures a new character may take (characters 2.4), the first the
+/// one it has when none is chosen: an Extended adventure's own list, else
+/// every picture a creature of the master list uses, in picture order,
+/// else every picture.
+pub fn player_pictures(adv: &Adventure) -> Vec<PictureId> {
+    let count = adv.pictures.len();
+    let ok = |p: &PictureId| (*p as usize) < count;
+    let own: Vec<PictureId> = adv.player_pictures.iter().copied().filter(ok).collect();
+    if !own.is_empty() {
+        return own;
+    }
+    let mut used: Vec<PictureId> = adv
+        .creatures
+        .iter()
+        .filter(|c| c.in_use)
+        .filter_map(|c| c.picture)
+        .filter(ok)
+        .collect();
+    used.sort_unstable();
+    used.dedup();
+    if used.is_empty() {
+        (0..count as PictureId).collect()
+    } else {
+        used
+    }
+}
+
+/// The picture `player` shows (characters 2.4): its own, else the first
+/// offered.
+pub fn picture_of(adv: &Adventure, picture: Option<PictureId>) -> Option<PictureId> {
+    picture.or_else(|| player_pictures(adv).first().copied())
 }
 
 /// One typed key as name entry keeps it (characters 5.3): letters of either

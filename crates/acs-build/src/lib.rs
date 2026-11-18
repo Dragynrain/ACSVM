@@ -319,7 +319,13 @@ impl<'a> Build<'a> {
         let mut words = HashSet::new();
         for (name, t) in &tables {
             if !name.starts_with("kit/") {
-                strings(&Value::Table(t.clone()), &mut words);
+                let mut t = t.clone();
+                // A player picture names a picture, not a kit entry that
+                // happens to share its key.
+                if name == ADVENTURE {
+                    t.remove("player_pictures");
+                }
+                strings(&Value::Table(t), &mut words);
             }
         }
         let own_keys: HashSet<String> = own_things
@@ -341,7 +347,28 @@ impl<'a> Build<'a> {
         }
         let things_list = merge(kit_things, own_things, &words);
         let creatures_list = merge(kit_creatures, own_creatures, &words);
+        if let Some(v) = adv_t.get("player_pictures") {
+            strings(v, &mut words);
+        }
         let (pictures, art) = self.pictures(tables.get(PICTURES), tables.get(KIT), &words)?;
+        // A new character's pictures (content 3.2, characters 2.4).
+        let player_pictures: Vec<u16> = a
+            .array("player_pictures")
+            .iter()
+            .filter_map(|v| match v.as_str() {
+                Some(k) => {
+                    let p = self.pictures.get(k).copied();
+                    if p.is_none() {
+                        a.err(format!("player_pictures: no picture {k:?}"));
+                    }
+                    p
+                }
+                None => {
+                    a.err("player_pictures: should be a list of picture names");
+                    None
+                }
+            })
+            .collect();
         let (long_messages, short_messages) = match tables.get(MESSAGES) {
             Some(t) => self.messages(t),
             None => (Vec::new(), Vec::new()),
@@ -385,6 +412,7 @@ impl<'a> Build<'a> {
             regions,
             long_messages,
             short_messages,
+            player_pictures,
         };
         for v in limits::check(&adventure) {
             self.p.push(ADVENTURE, "limits", v.to_string());

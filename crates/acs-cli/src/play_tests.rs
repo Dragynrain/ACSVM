@@ -525,6 +525,10 @@ fn first_voyage_plays_to_the_end() {
             p.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
         ),
     };
+    // Its own looks for a new character (characters 2.4), and naming them
+    // takes no kit creature in with them.
+    assert_eq!(adv.player_pictures.len(), 7);
+    assert_eq!(adv.creatures.iter().filter(|c| c.in_use).count(), 1);
     let text = std::fs::read_to_string(dir.join("walkthrough.txt")).unwrap();
     let script = parse(&text, &adv).unwrap_or_else(|e| panic!("{e}"));
     for seed in 1..=8 {
