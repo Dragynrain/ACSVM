@@ -600,8 +600,10 @@ alike, read on the machine and never uploaded).
    is used goes in; an entry replaced; the whole kit builds; a kit
    adventure plays). Seen in the viewer: transparent HD art needs what
    it stands on drawn under it, so room squares are drawn as layers
-   (`acs_core::scene::layers`: wall or floor, top thing, resident). Left
-   for the art side: the store tile's background is opaque white.
+   (`acs_core::scene::layers`: wall or floor, top thing, resident). The
+   store tile's background was opaque parchment, a card over the floor:
+   the parchment joined to its border is now clear (November 2026; the
+   research folder's sources and pack too).
 4. The tutorial (6), with its replay test. Done November 2026:
    `adventures/first-voyage` (two regions, four rooms, built on the
    pirate kit), its `walkthrough.txt`, and the test
