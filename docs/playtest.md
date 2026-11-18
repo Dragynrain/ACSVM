@@ -42,7 +42,7 @@ Use **Help > Report a problem...** in the viewer, or open
 at the foot of the title screen and in the Help menu (for example
 `0.1.0 (abc1234)`).
 
-**A save file helps most.** In walk mode, **Save game** writes the
+**A save file helps most.** In walk mode, **Save to file…** writes the
 seed and every command played, so we can replay your game move for
 move up to the problem. For First Voyage, attach it to the issue. For
 an EA adventure or someone else's fan adventure, please don't attach

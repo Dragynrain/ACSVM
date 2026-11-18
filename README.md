@@ -85,8 +85,8 @@ chosen; after a death, Resume from last save goes back to it (after a death
 in a round that also saved, to the save before that round).
 As in the original, the movement bar drains while you do nothing (a step
 about every 7 seconds); tick Turn-based to make it wait for you instead.
-Save game writes a small save file (the seed and the moves played,
-[docs/saves.md](docs/saves.md)); Load game, or dropping the file on the
+Save to file… writes a small save file (the seed and the moves played,
+[docs/saves.md](docs/saves.md)); Load from file…, or dropping the file on the
 window, replays it over the same adventure. The adventure is not in the
 save, so a save can go with a bug report.
 

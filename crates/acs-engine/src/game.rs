@@ -903,6 +903,15 @@ impl Game {
         self.players[player].life_force = life_force;
     }
 
+    /// Tool hook: renames a player. Not replayed. A front end uses it on a
+    /// copy to name, in its log, players whose records were cleared when
+    /// nobody was left (magic 7.4).
+    pub fn set_name(&mut self, player: usize, name: String) {
+        if let Some(p) = self.players.get_mut(player) {
+            p.name = name;
+        }
+    }
+
     /// Test and tool hook: gives a player a thing. Not replayed.
     pub fn give(&mut self, player: usize, thing: ThingId) {
         let p = &mut self.players[player];

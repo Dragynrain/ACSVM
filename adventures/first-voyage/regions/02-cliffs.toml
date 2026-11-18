@@ -44,6 +44,6 @@ D.....#
 [room.legend]
 "#" = "wall"
 "." = "floor"
-"b" = "logbook"
+"b" = ["logbook", "logbook_gift", "logbook_words"]
 "G" = ["coin_chest", "win_space", "win_theme", "win_words", "win_fanfare"]
 "D" = { thing = "cave_passage_caverock", to = "cliffs.mouth" }

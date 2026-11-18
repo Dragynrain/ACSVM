@@ -31,14 +31,30 @@ picture = "bones"
 bump = true
 spell = { action = "long_message", message = "fight" }
 
+# The logbook's stack, as under the chest: bumping the book runs the two
+# spaces below it, which give the chant and then explain casting it.
 [[thing]]
 key = "logbook"
 name = "OLD LOGBOOK"
 type = "obstacle"
 picture = "book"
 bump = true
-spell = { action = "give", thing = "sea_chant" }
+spell = { action = "activate_all" }
 spell_message = "learned"
+
+[[thing]]
+key = "logbook_gift"
+name = "OLD LOGBOOK"
+type = "space"
+picture = "room_roomfloor"
+access = { spell = { action = "give", thing = "sea_chant" } }
+
+[[thing]]
+key = "logbook_words"
+name = "OLD LOGBOOK"
+type = "space"
+picture = "room_roomfloor"
+access = { spell = { action = "long_message", message = "chant" } }
 
 # The success stack under the chest (winning 1.2): stepping onto the
 # square once the chest is taken runs the rest.
@@ -46,26 +62,26 @@ spell_message = "learned"
 key = "win_space"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_fsand"
+picture = "room_roomfloor"
 access = { spell = { action = "activate_all" } }
 
 [[thing]]
 key = "win_theme"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_fsand"
+picture = "room_roomfloor"
 access = { spell = { action = "play_music", music = 28 } }
 
 [[thing]]
 key = "win_words"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_fsand"
+picture = "room_roomfloor"
 access = { spell = { action = "long_message", message = "win" } }
 
 [[thing]]
 key = "win_fanfare"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_fsand"
+picture = "room_roomfloor"
 access = { spell = { action = "play_music", music = 11 } }

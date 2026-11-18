@@ -37,15 +37,17 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
 | Area | Wide | Narrow |
 | --- | --- | --- |
 | Top bar | Menu and Info toggles, Open, Walk, Back, the adventure | The same; it wraps |
-| Menu (left) | Shown; in walk mode only from 1500 points wide, so the board keeps its room | Hidden until toggled |
+| Menu (left) | Shown; in walk mode only from 1500 points wide, so the board keeps its room | Hidden until toggled; opening it closes Info |
 | Board (centre) | The map or room, the tile scale fitted to what is left | The same |
-| Info column (right) | Shown, 200 to 480 points and at most about a third of the window; long lines wrap; scrolls when taller than the window | Hidden until toggled |
+| Info column (right) | Shown, 200 to 480 points and at most about a third of the window; long lines and rows of buttons wrap; scrolls when taller than the window | Hidden until toggled; opening it closes the Menu |
 | Message log (bottom, walk mode) | Shown, resizable, about a fifth of the height, or all the height the 3:2 board can't use if that is more; at most 60% | Shown, a sixth, or the board's spare height |
 
 - Nothing clips: a column taller than its space scrolls, and a row wider
   than its space wraps.
 - The message log is always visible in walk mode, whatever else is
   hidden: it replaces the original's press-to-acknowledge messages (3).
+  A long message keeps its stored lines and the log scrolls sideways for
+  it; every other line wraps to the log's visible width.
 - The board keeps at least the room's 15 x 10 squares at scale 1; below
   that the window's minimum size (480 x 320) stops shrinking.
 
@@ -71,7 +73,7 @@ Later in the phase: a filter by kind, and the font size option (7).
 ## 4. Input
 
 - **Keyboard** (now): the original's eight directions and its commands
-  (`key_command`, walk.rs).
+  (`key_commands`, walk.rs: every press in a frame, in order).
 - **Mouse and taps** on the board (a tap is a click). What a click on a
   square does depends on what is waiting:
   - Nothing waiting: a square beside the player (any of the eight,

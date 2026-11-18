@@ -150,8 +150,8 @@ dropped file is recognised by its `format` field, not its name.
 
 ## 4. Front ends
 
-1. The viewer's walk mode has **Save game** (writes the file: a save
-   dialog on the desktop, a download in the browser) and **Load game** (a
+1. The viewer's walk mode has **Save to file…** (writes the file: a save
+   dialog on the desktop, a download in the browser) and **Load from file…** (a
    file picker). Dropping a save file on the window loads it into the open
    adventure's walk. Its **SAVE GAME** button is the original's menu entry,
    the logged command of 1.4, not a file; **Resume from last save** goes

@@ -154,9 +154,14 @@ impl Walk {
         };
         let (game, ev) = Game::new(adv.clone(), seed, rules, first);
         let mut w = Walk::with(game.clone(), game);
+        let diagonal = if rules.diagonals {
+            "Q E Z C or Home PgUp End PgDn go diagonally"
+        } else {
+            "diagonal steps (Q E Z C) are off, as in the original: tick Diagonal moves for them"
+        };
         w.note(format!(
-            "Seed {seed}. Arrows/WASD move, Q E Z C or Home PgUp End PgDn go diagonally, Space waits. \
-             To drop, click Drop, then a direction (Space = here, Esc = cancel). \
+            "Seed {seed}. Arrows/WASD or a click on a square beside you move; {diagonal}. \
+             Space ends the turn. To drop, click Drop, then a direction (Space = here, Esc = cancel). \
              Cast and Use ask for a target. Add Someone brings in up to 4 characters, who take turns."
         ));
         w.record(&ev);
@@ -279,8 +284,20 @@ impl Walk {
                 *r = self.game.current_player().at.region();
             }
         }
+        let names: Vec<String> = self.game.players().iter().map(|p| p.name.clone()).collect();
+        let was_over = self.game.is_over();
         let ev = self.game.apply(cmd);
-        self.record(&ev);
+        if !was_over && self.game.is_over() {
+            // Nobody is left: the engine has cleared every player's record
+            // (magic 7.4), so the log names them from before the command.
+            let mut named = self.game.clone();
+            for (i, n) in names.into_iter().enumerate() {
+                named.set_name(i, n);
+            }
+            self.record_in(&named, &ev);
+        } else {
+            self.record(&ev);
+        }
         // The engine saved during this command: keep the game as it is now.
         let point = self.game.save_point();
         if point == self.game.log().len() && point != self.save.log().len() {
@@ -483,7 +500,18 @@ impl Walk {
     }
 
     fn record(&mut self, events: &[Event]) {
-        for e in events {
+        let lines = events.iter().map(|e| describe(&self.game, e)).collect();
+        self.record_lines(events, lines);
+    }
+
+    /// As `record`, with the log lines written against `game`.
+    fn record_in(&mut self, game: &Game, events: &[Event]) {
+        let lines = events.iter().map(|e| describe(game, e)).collect();
+        self.record_lines(events, lines);
+    }
+
+    fn record_lines(&mut self, events: &[Event], lines: Vec<String>) {
+        for (e, line) in events.iter().zip(lines) {
             if let Event::Music { number } = e {
                 self.cues.push(*number);
             }
@@ -564,7 +592,7 @@ impl Walk {
                 | Event::CreatureUsedUp { .. } => Kind::Creature,
                 _ => Kind::Note,
             };
-            self.log.push((kind, describe(&self.game, e)));
+            self.log.push((kind, line));
         }
         if self.log.len() > LOG_MAX {
             self.trimmed += self.log.len() - LOG_MAX;
@@ -705,7 +733,7 @@ fn parse_dir(s: &str) -> Option<Dir> {
     })
 }
 
-fn key_command(ctx: &egui::Context) -> Option<Command> {
+fn key_commands(ctx: &egui::Context) -> Vec<Command> {
     const KEYS: [(Key, Option<Dir>); 23] = [
         (Key::ArrowUp, Some(Dir::N)),
         (Key::ArrowDown, Some(Dir::S)),
@@ -739,23 +767,41 @@ fn key_command(ctx: &egui::Context) -> Option<Command> {
     ];
     // Text fields keep their keys.
     if ctx.memory(|m| m.focused().is_some()) {
-        return None;
+        return Vec::new();
     }
+    let command = |key: Key| {
+        KEYS.iter()
+            .find(|&&(k, _)| k == key)
+            .map(|&(_, d)| d.map_or(Command::Wait, |dir| Command::Move { dir }))
+            .or_else(|| {
+                DIAGONAL_DIGITS
+                    .iter()
+                    .find(|&&(k, _)| k == key)
+                    .map(|&(_, dir)| Command::Move { dir })
+            })
+    };
+    // Every press in the frame, in order: on a slow frame two quick
+    // presses arrive together, and both are steps.
     ctx.input_mut(|i| {
-        for (k, d) in KEYS {
-            if i.consume_key(Modifiers::NONE, k) {
-                return Some(match d {
-                    Some(dir) => Command::Move { dir },
-                    None => Command::Wait,
-                });
+        let mut out = Vec::new();
+        i.events.retain(|e| {
+            if let egui::Event::Key {
+                key,
+                pressed: true,
+                modifiers,
+                ..
+            } = e
+            {
+                if modifiers.matches_logically(Modifiers::NONE) {
+                    if let Some(cmd) = command(*key) {
+                        out.push(cmd);
+                        return false;
+                    }
+                }
             }
-        }
-        for (k, dir) in DIAGONAL_DIGITS {
-            if i.consume_key(Modifiers::NONE, k) {
-                return Some(Command::Move { dir });
-            }
-        }
-        None
+            true
+        });
+        out
     })
 }
 
@@ -790,7 +836,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         if touched || keyed || ui.ctx().input(|i| i.pointer.any_pressed()) {
             doc.audio.unlock();
         }
-        if let Some(cmd) = key_command(ui.ctx()) {
+        for cmd in key_commands(ui.ctx()) {
             walk.key(cmd);
         }
         // The original's bar drains while the player does nothing
@@ -828,14 +874,21 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             let g = &walk.game;
             let p = g.current_player();
-            let heading = if g.players().len() > 1 {
-                format!("{}'s turn", p.name)
+            // Nobody in play: the engine has cleared every record (magic
+            // 7.4), so there is no one to show, only the ways back in.
+            let over = g.is_over();
+            if over {
+                ui.heading("Nobody in play");
             } else {
-                p.name.clone()
-            };
-            ui.heading(RichText::new(heading).color(player_colour(ui.ctx(), g.current())));
-            ui.label(place_name(g, p.at));
-            if g.is_over() || !p.alive {
+                let heading = if g.players().len() > 1 {
+                    format!("{}'s turn", p.name)
+                } else {
+                    p.name.clone()
+                };
+                ui.heading(RichText::new(heading).color(player_colour(ui.ctx(), g.current())));
+                ui.label(place_name(g, p.at));
+            }
+            if over || !p.alive {
                 ui.label(
                     RichText::new("Nobody in play. Resume from the last save, or add someone.")
                         .color(Color32::from_rgb(255, 110, 110)),
@@ -860,23 +913,33 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             } else {
                 walk.drain_part() as f32
             };
-            ui.add(
-                egui::ProgressBar::new((p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32)
-                    .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
-            );
+            if !over {
+                ui.add(
+                    egui::ProgressBar::new((p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32)
+                        .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
+                );
+            }
             party_panel(ui, g, &mut walk.new_name, &mut click);
-            actions_panel(ui, g, &walk.retired, walk.pending_aim.is_some(), &mut fire, &mut click);
-            ui.separator();
-            stats_panel(ui, g);
-            inventory_panel(
-                ui,
-                g,
-                &mut walk.pending_drop,
-                &mut walk.gold_amount,
-                &mut aim,
-                &mut click,
-            );
-            creatures_panel(ui, g);
+            if !over {
+                actions_panel(ui, g, &walk.retired, walk.pending_aim.is_some(), &mut fire, &mut click);
+                ui.separator();
+                stats_panel(ui, g);
+                inventory_panel(
+                    ui,
+                    g,
+                    &mut walk.pending_drop,
+                    &mut walk.gold_amount,
+                    &mut aim,
+                    &mut click,
+                );
+                creatures_panel(ui, g);
+            } else {
+                if !walk.retired.is_empty() {
+                    let names: Vec<&str> = walk.retired.iter().map(|p| p.name.trim()).collect();
+                    ui.label(RichText::new(format!("Retired, saved: {}", names.join(", "))).weak());
+                }
+                ui.separator();
+            }
             ui.horizontal_wrapped(|ui| {
                 let mut rules = g.rules();
                 if ui
@@ -920,7 +983,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             });
             ui.horizontal_wrapped(|ui| {
                 if ui
-                    .button("Save game")
+                    .button("Save to file…")
                     .on_hover_text(
                         "Writes the seed and the commands played (docs/saves.md); \
                          load it over the same adventure.",
@@ -930,7 +993,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     save_game = true;
                 }
                 if ui
-                    .button("Load game…")
+                    .button("Load from file…")
                     .on_hover_text("Opens a save file; dropping one on the window works too.")
                     .clicked()
                 {
@@ -969,6 +1032,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             // Both ways: a long message's lines are never rewrapped.
             // Held to the panel: content taller than it would otherwise
             // grow the panel to its largest size.
+            // Ordinary lines wrap to what is in view, not to the widest
+            // long message, which would run them past the panel's edge.
+            let visible = ui.available_width();
             egui::ScrollArea::both()
                 .max_height(ui.available_height())
                 .stick_to_bottom(true)
@@ -995,7 +1061,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             // 3.10): shown as they are, never rewrapped.
                             ui.add(egui::Label::new(t).extend());
                         } else {
-                            ui.label(t);
+                            ui.allocate_ui(egui::vec2(visible, 0.0), |ui| ui.label(t));
                         }
                     }
                 });
@@ -1245,9 +1311,9 @@ fn kind_mark(kind: Kind, a: &crate::access::Access) -> Option<(&'static str, Col
 /// the new character joins at the start point on the next round.
 fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut Option<Command>) {
     let players = g.players();
-    if players.len() > 1 {
+    if players.len() > 1 && !g.is_over() {
         for (i, p) in players.iter().enumerate() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
                 ui.painter()
                     .circle_filled(rect.center(), 5.0, player_colour(ui.ctx(), i));
@@ -1329,7 +1395,7 @@ fn actions_panel(
                 .color(Color32::from_rgb(255, 215, 0)),
         );
     }
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let in_room = matches!(p.at, Location::Room { .. });
         if p.weapon.is_some_and(missile) || !in_room {
             if ui.button("Fire").clicked() {
@@ -1356,7 +1422,7 @@ fn actions_panel(
         if ui
             .button("SAVE GAME")
             .on_hover_text(
-                "The menu's SAVE GAME: the game is saved at the end of this round,                  and a death goes back there. The turn goes on.",
+                "The menu's SAVE GAME: the game is saved at the end of this round, and a death goes back there. The turn goes on.",
             )
             .clicked()
         {
@@ -1430,7 +1496,7 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
     };
     ui.label(
         RichText::new(format!(
-            "Str {}{} · Dex {}{} · Size {}{} · Speed {}{} · Melee {}{} · Missile {}{} · Dodge {}{} · Parry {}{} · Armor {}{} · magic defense {defense}",
+            "Str {}{} · Dex {}{} · Size {}{} · Speed {}{} · Melee {}{} · Missile {}{} · Dodge {}{} · Parry {}{} · Armor skill {}{} · magic defense {defense}",
             p.strength,
             m(Strength),
             p.dexterity,
@@ -1537,7 +1603,7 @@ fn inventory_panel(
         );
     }
     if p.gold > 0 {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(format!("{} {}", p.gold, name(GOLD)));
             ui.add(egui::DragValue::new(gold_amount).range(1..=inventory::PILE_LIMIT.min(p.gold)));
             if ui.small_button("Drop").clicked() {
@@ -1553,7 +1619,7 @@ fn inventory_panel(
     }
     for t in things {
         let kind = a.things.get(t as usize - 1).map(|t| &t.kind);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let count = p.count(t);
             let mut label = if count > 1 {
                 format!("{count} x {}", name(t))
@@ -1661,7 +1727,7 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         } else {
             ""
         };
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
             alignment_mark(ui.painter(), rect.center(), 5.0, c.strategy.alignment);
             ui.label(format!("{name}{random} · {},{}", c.x, c.y));
@@ -2313,5 +2379,49 @@ mod tests {
         let wraps = MapWindow::new((40, 30), true, (0, 0), (15, 10));
         assert_eq!(wraps.cell((0, 0)), Some((7, 5)));
         assert_eq!(wraps.square(0, 0), Some((33, 25)));
+    }
+
+    /// The log names a player who retires last by name, though the engine
+    /// clears every record once nobody is left (magic 7.4).
+    #[test]
+    fn the_last_player_to_retire_is_named_in_the_log() {
+        let mut w = in_a_room();
+        w.apply(Command::Retire { save: true });
+        w.apply(Command::Wait);
+        assert!(w.game.is_over());
+        let lines: Vec<&str> = w.log.iter().map(|(_, l)| l.as_str()).collect();
+        assert!(
+            lines.iter().any(|l| l.starts_with("PLAYER 1 retires")),
+            "{lines:#?}"
+        );
+        assert!(!lines.iter().any(|l| l.contains("player 1")), "{lines:#?}");
+    }
+
+    /// Two presses that arrive in one frame are two commands, in order.
+    #[test]
+    fn every_key_press_in_a_frame_counts() {
+        let ctx = egui::Context::default();
+        let press = |key| egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        };
+        let input = egui::RawInput {
+            events: vec![press(Key::ArrowUp), press(Key::ArrowLeft), press(Key::Space)],
+            ..Default::default()
+        };
+        let mut got = Vec::new();
+        let mut out = ctx.run_ui(input, |ui| got = key_commands(ui.ctx()));
+        out.textures_delta.clear();
+        assert_eq!(
+            got,
+            vec![
+                Command::Move { dir: Dir::N },
+                Command::Move { dir: Dir::W },
+                Command::Wait
+            ]
+        );
     }
 }

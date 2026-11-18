@@ -42,6 +42,15 @@ fn nav_default(doc: Option<&Doc>, width: f32) -> bool {
     }
 }
 
+/// The top bar's divider: one row high, where `ui.separator()` in a
+/// wrapping row would take all the height left.
+fn bar_separator(ui: &mut egui::Ui) {
+    let h = ui.spacing().interact_size.y;
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(6.0, h), egui::Sense::hover());
+    let stroke = ui.visuals().widgets.noninteractive.bg_stroke;
+    ui.painter().vline(rect.center().x, rect.y_range(), stroke);
+}
+
 /// What the central area shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
@@ -82,7 +91,7 @@ pub struct Doc {
     pub show_info: bool,
     /// The walk-mode game, started on first use.
     pub walk: Option<views::walk::Walk>,
-    /// A view asked for the file picker (Load game).
+    /// A view asked for the file picker (Load from file…).
     pub pick: bool,
     /// Walk mode's bar never drains (design.md, Play options).
     pub turn_based: bool,
@@ -514,6 +523,9 @@ impl Viewer {
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        // Narrow (client 2): the bar wraps onto more rows rather than run
+        // off the window, which would also widen every panel below it.
+        let wrapping = egui::Layout::left_to_right(egui::Align::Center).with_main_wrap(true);
         egui::MenuBar::new().ui(ui, |ui| {
             // Fullscreen takes its place on the right first, so the rest
             // fits in what is left and never runs under it (client 2).
@@ -527,30 +539,42 @@ impl Viewer {
                 {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!full));
                 }
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.with_layout(wrapping, |ui| {
                     self.top_bar_left(ui, &ctx);
                 });
             });
             #[cfg(target_arch = "wasm32")]
-            self.top_bar_left(ui, &ctx);
+            ui.with_layout(wrapping, |ui| {
+                self.top_bar_left(ui, &ctx);
+            });
         });
     }
 
     /// The top bar's toggles, menus and the open adventure.
     fn top_bar_left(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        // A wrapping row would also wrap a button's own words.
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
         let narrow = ctx.content_rect().width() < NARROW;
         if self.doc.is_some() {
             let nav = self
                 .show_nav
                 .unwrap_or_else(|| nav_default(self.doc.as_ref(), ctx.content_rect().width()));
+            let info = self.show_info.unwrap_or(!narrow);
+            // On a narrow window the two columns don't fit beside each
+            // other and the board: opening one closes the other (client 2).
             if ui.selectable_label(nav, "Menu").clicked() {
                 self.show_nav = Some(!nav);
+                if narrow && !nav {
+                    self.show_info = Some(false);
+                }
             }
-            let info = self.show_info.unwrap_or(!narrow);
             if ui.selectable_label(info, "Info").clicked() {
                 self.show_info = Some(!info);
+                if narrow && !info {
+                    self.show_nav = Some(false);
+                }
             }
-            ui.separator();
+            bar_separator(ui);
         }
         if ui.button("Open…").clicked() {
             self.pick_file(ctx);
@@ -581,7 +605,7 @@ impl Viewer {
                 ctx.open_url(egui::OpenUrl::new_tab(GUIDE_URL));
                 ui.close();
             }
-            ui.separator();
+            bar_separator(ui);
             ui.label(RichText::new(format!("Build {}", build_stamp())).weak());
         });
         if let Some(doc) = &mut self.doc {
@@ -606,7 +630,7 @@ impl Viewer {
                     }
                 }
             });
-            ui.separator();
+            bar_separator(ui);
             let name = doc.decoded.adventure.name.clone();
             let place = format!("{} · {}", doc.decoded.adventure.platform, doc.file_name);
             let errors = doc.decoded.errors().count();
