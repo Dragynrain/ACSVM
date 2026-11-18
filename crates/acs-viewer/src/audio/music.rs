@@ -50,61 +50,84 @@ const fn score(bpm: f32, voices: &'static [(Inst, &'static str)]) -> Cue {
 
 use Inst::*;
 
-/// Cue `n` (1..=30).
+/// Cue `n` (1..=30), after the brief in content 5.1.
 pub fn cue(n: u8) -> Cue {
     match n {
         // --- Effects -----------------------------------------------------
-        1 => score(240.0, &[(Bell, "c6:2 g6:6")]),
-        2 => score(200.0, &[(Pulse, "g5:1 c6:5"), (Bell, "g5:1 c6:5")]),
-        3 => score(280.0, &[(Square, "b5:1 e6:5")]),
-        4 => Cue::Sweep {
-            inst: Pulse,
-            from: 110.0,
-            to: 70.0,
-            secs: 0.6,
-        },
-        5 => Cue::Sweep {
-            inst: Sine,
-            from: 120.0,
-            to: 40.0,
-            secs: 0.25,
-        },
-        6 => Cue::Noise {
-            secs: 0.5,
-            boom: false,
-        },
-        7 => Cue::Sweep {
-            inst: Square,
-            from: 300.0,
-            to: 1800.0,
-            secs: 0.3,
-        },
-        8 => Cue::Sweep {
-            inst: Pulse,
-            from: 600.0,
-            to: 150.0,
-            secs: 0.6,
-        },
-        9 => score(240.0, &[(Square, "a5:2 e5 a5 e5")]),
-        10 => score(240.0, &[(Bell, "c4:14")]),
-        11 => Cue::Noise {
+        // 1 A cannon boom.
+        1 => Cue::Noise {
             secs: 0.8,
             boom: true,
         },
-        12 => score(300.0, &[(Drums, "s:1 s s s s s s s s s k:4")]),
+        // 2 A ship's bell, rung hard.
+        2 => score(300.0, &[(Bell, "c5:2 c5 c5 c5:6")]),
+        // 3 A pop and a fizz.
+        3 => score(300.0, &[(Drums, "k:1 h h h h h h h h h")]),
+        // 4 A shrill bone whistle.
+        4 => Cue::Sweep {
+            inst: Sine,
+            from: 1800.0,
+            to: 2200.0,
+            secs: 0.5,
+        },
+        // 5 A splash and a crack of timber.
+        5 => Cue::Noise {
+            secs: 0.6,
+            boom: false,
+        },
+        // 6 A wooden crash.
+        6 => score(260.0, &[(Drums, "k:1 s k s s k s:3")]),
+        // 7 A heavy lock turning.
+        7 => score(200.0, &[(Drums, "h:2 r:1 h:1 k:6")]),
+        // 8 Coins counted onto a desk.
+        8 => score(300.0, &[(Square, "e6:1 r b5 r e6 r b5 r g6:4")]),
+        // 9 A squawk.
+        9 => Cue::Sweep {
+            inst: Pulse,
+            from: 700.0,
+            to: 1500.0,
+            secs: 0.25,
+        },
+        // 10 A steam hiss.
+        10 => Cue::Noise {
+            secs: 0.9,
+            boom: false,
+        },
+        // 11 A soft rising chime.
+        11 => score(240.0, &[(Bell, "c6:2 e6 g6 c7:6")]),
+        // 12 A low cold drone.
+        12 => Cue::Sweep {
+            inst: Sine,
+            from: 70.0,
+            to: 62.0,
+            secs: 0.95,
+        },
 
         // --- Themes ------------------------------------------------------
-        // 13 Victory fanfare.
+        // 13 A bright sea-shanty opening, once: G major.
         13 => score(
-            120.0,
+            112.0,
             &[
-                (Pulse, "c5:2 c5 c5 e5:6 r:2 g5 g5 g5 c6:12 r:4"),
-                (Triangle, "c3:6 r:2 e3:4 r:2 g3:6 c3:12 r:4"),
-                (Drums, "s:2 s s k:6 r:2 s s s k:12 r:4"),
+                (Pulse, "d5:4 g5:2 g5 g5:4 b5 | a5:2 g5 f#5 e5 d5:8 | e5:4 c5 d5 b4 | a4:4 d5 g4:8"),
+                (Triangle, "g3:8 d3 | d3 a2 | c3 g2 | d3 g2"),
+                (Drums, "k:4 s k s | k s k s | k s k s | k s k s"),
             ],
         ),
-        // 14 Endless voyage (loops): D dorian, a rolling sea tune.
+        // 14 An easy harbour tune (loops): G major, unhurried.
         14 => score(
+            100.0,
+            &[
+                (
+                    Triangle,
+                    "g4:4 b4 d5 b4 | c5 e5 d5:8 | b4:4 d5 g5 f#5 | e5 d5 b4:8 | \
+                     c5:4 e5 g5 e5 | d5 b4 a4:8 | b4:4 a4 g4 a4 | g4:12 r:4",
+                ),
+                (Sine, "g3:8 d3 | c3 g2 | g3 d3 | c3 g2 | c3 g2 | d3 a2 | d3 d3 | g2:12 r:4"),
+                (Drums, "k:8 h | k h | k h | k h | k h | k h | k h | k:12 r:4"),
+            ],
+        ),
+        // 15 Sailing, steady (loops): D dorian, a rolling sea tune.
+        15 => score(
             104.0,
             &[
                 (
@@ -123,147 +146,110 @@ pub fn cue(n: u8) -> Cue {
                 ),
             ],
         ),
-        // 15 Endless intrigue (loops): A minor, a creeping bass.
-        15 => score(
-            96.0,
-            &[
-                (
-                    Square,
-                    "r:8 e5:2 r c5 r | d5:6 c5:2 b4:8 | r:8 e5:2 r g5 r | f5:6 e5:2 d5:8 | \
-                     r:4 c5:2 d5 e5:4 f5 | e5:8 c5 | b4:4 d5 g#5:8 | a5:4 e5 a4 r",
-                ),
-                (
-                    Sine,
-                    "a2:2 r a2 c3 e3 r d3 c3 | a2 r a2 c3 e3 r d3 c3 | a2 r a2 c3 e3 r d3 c3 | a2 r a2 c3 e3 r d3 c3 | \
-                     f2 r f2 a2 c3 r b2 a2 | f2 r f2 a2 c3 r b2 a2 | e2 r e2 g#2 b2 r d3 b2 | a2 r a2 c3 e3 r:6",
-                ),
-                (
-                    Drums,
-                    "h:2 r h r h r h r | h r h r h r h r | h r h r h r h r | h r h r h r h r | \
-                     h r h r h r h r | h r h r h r h r | h r h r h r h r | h r h r h r:6",
-                ),
-            ],
-        ),
-        // 16 Endless stars (loops): arpeggios over slow chords.
+        // 16 Dripping, slow, uneasy (loops): a drone and falling drops.
         16 => score(
-            120.0,
+            72.0,
             &[
-                (
-                    Pulse,
-                    "c5:1 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 | \
-                     c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 | \
-                     ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 | \
-                     ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 ab4 eb5 bb5 eb5 | \
-                     bb4 f5 c6 f5 bb4 f5 c6 f5 bb4 f5 c6 f5 bb4 f5 c6 f5 | \
-                     bb4 f5 c6 f5 bb4 f5 c6 f5 bb4 f5 c6 f5 bb4 f5 c6 f5 | \
-                     c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 | \
-                     c5 g5 d6 g5 c5 g5 d6 g5 c5 g5 d6 g5 r:4",
-                ),
-                (Sine, "c4:16 | e4 | ab3 | c4 | bb3 | d4 | g3 | c4:12 r:4"),
+                (Sine, "e2:16 | e2 | f2 | e2 | d2 | e2:12 r:4"),
+                (Triangle, "b3:16 | c4 | a3 | b3 | a3 | g#3:12 r:4"),
                 (
                     Bell,
-                    "r:16 | g5:4 e5 d5:8 | r:16 | eb5:4 c5 bb4:8 | r:16 | f5:4 d5 c5:8 | r:8 g5 | c6:12 r:4",
+                    "r:6 b5:2 r:8 | r:10 g5:2 r:4 | r:4 c6:2 r:10 | r:8 b5:2 r e5 r | r:12 f5:2 r | e5:4 r:12",
                 ),
             ],
         ),
-        // 17 Endless danger (loops): E minor, driving eighths.
+        // 17 Low and tense (loops), the finale's bed: A minor.
         17 => score(
-            140.0,
+            90.0,
             &[
                 (
-                    Pulse,
-                    "e5:4 g5 b5 a5:2 g5 | f#5:4 e5 b4:8 | c5:4 e5 g5 f#5:2 e5 | d5:4 e5 c5:8 | \
-                     d5:4 f#5 a5 g5:2 f#5 | e5:4 d5 a4:8 | b4:2 c5 d#5:4 f#5 a5 | e5:4 b4:2 e5 e5:4 r",
+                    Sine,
+                    "a1:2 a1 a1 a1 a1 a1 a1 a1 | a1 a1 a1 a1 a1 a1 a1 a1 | f1 f1 f1 f1 f1 f1 f1 f1 | f1 f1 f1 f1 f1 f1 f1 f1 | \
+                     d2 d2 d2 d2 d2 d2 d2 d2 | d2 d2 d2 d2 d2 d2 d2 d2 | e1 e1 e1 e1 e1 e1 e1 e1 | e1 e1 e1 e1 e1:4 r",
                 ),
                 (
                     Square,
-                    "e2:2 e2 e3 e2 e2 e3 e2 d3 | e2 e2 e3 e2 e2 e3 e2 d3 | c2 c2 c3 c2 c2 c3 c2 b2 | c2 c2 c3 c2 c2 c3 c2 b2 | \
-                     d2 d2 d3 d2 d2 d3 d2 a2 | d2 d2 d3 d2 d2 d3 d2 a2 | b1 b1 b2 b1 b1 b2 b1 d#3 | e2 e2 e3 e2 e2:4 r",
+                    "r:12 e4:4 | r:12 e4:4 | r:12 f4:4 | r:12 c4:4 | r:12 d4:4 | r:12 f4:4 | r:8 e4:4 g#4 | a4:8 r",
                 ),
-                (
-                    Drums,
-                    "k:2 h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h k k s h | \
-                     k h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h k:4 r",
-                ),
+                (Drums, "k:4 r k h | k r k h | k r k h | k r k h | k r k h | k r k h | k r k h | k r k r"),
             ],
         ),
-        // 18 Sea shanty: G major.
+        // 18 The mansion: stately, a little too sweet. D major.
         18 => score(
-            112.0,
-            &[
-                (Pulse, "d5:4 g5:2 g5 g5:4 b5 | a5:2 g5 f#5 e5 d5:8 | e5:4 c5 d5 b4 | a4:4 d5 g4:8"),
-                (Triangle, "g3:8 d3 | d3 a2 | c3 g2 | d3 g2"),
-                (Drums, "k:4 s k s | k s k s | k s k s | k s k s"),
-            ],
-        ),
-        // 19 Lament: A minor, slow.
-        19 => score(
-            80.0,
-            &[
-                (Triangle, "e5:6 d5:2 c5:8 | b4:4 c5 a4 g#4 | a4:12 r:4"),
-                (Sine, "a3:16 | e3 | a2:12 r:4"),
-            ],
-        ),
-        // 20 Triumph march: C major.
-        20 => score(
-            116.0,
-            &[
-                (Pulse, "g4:3 g4:1 c5:4 e5 g5 | f5:3 e5:1 d5:4 g4:8 | a4:3 b4:1 c5:4 d5 e5 | c5:12 r:4"),
-                (Triangle, "c3:4 g3 c3 g3 | g2 d3 g2 d3 | f2 c3 g2 b2 | c3:12 r:4"),
-                (Drums, "k:4 s:2 s k:4 s | k:4 s:2 s k:4 s | k:4 s:2 s k:4 s | k:4 s k r"),
-            ],
-        ),
-        // 21 Mystery sting.
-        21 => score(
-            90.0,
-            &[(Bell, "e5:2 r f5 r b5:8 | a#4:12 r:4"), (Sine, "e2:16 | f2:12 r:4")],
-        ),
-        // 22 Lullaby: F major.
-        22 => score(
-            84.0,
-            &[
-                (Triangle, "c5:4 a4 f4:8 | g4:4 a4 c5 a4 | f4:12 r:4"),
-                (Sine, "f3:16 | c3 | f2:12 r:4"),
-            ],
-        ),
-        // 23 Tavern jig: D major.
-        23 => score(
-            140.0,
-            &[
-                (
-                    Pulse,
-                    "a4:2 d5 d5 f#5 e5 d5 c#5 e5 | a5 f#5 e5 d5 c#5 a4 b4 c#5 | \
-                     d5 f#5 a5 f#5 g5 e5 c#5 e5 | d5:4 a4 d5 r",
-                ),
-                (Triangle, "d3:4 a3 d3 a3 | a2 e3 a2 e3 | d3 a3 a2 e3 | d3 a2 d3 r"),
-                (Drums, "k:2 h s h k h s h | k h s h k h s h | k h s h k h s h | k:4 s k r"),
-            ],
-        ),
-        // 24 Dread.
-        24 => score(
-            60.0,
-            &[(Sine, "c2:16 | c#2:12 r:4"), (Bell, "r:4 g4 r f#4 | c4:12 r:4")],
-        ),
-        // 25 Discovery: a climbing arpeggio.
-        25 => score(
-            100.0,
-            &[
-                (Pulse, "c5:1 e5 g5 c6 d5 f#5 a5 d6 e5 g#5 b5 e6 f#5 a#5 c#6 f#6 | g6:12 r:4"),
-                (Bell, "r:16 | g5:12 r:4"),
-                (Sine, "c3:4 d3 e3 f#3 | g3:12 r:4"),
-            ],
-        ),
-        // 26 Royal court: D major, stately.
-        26 => score(
             88.0,
             &[
                 (Square, "d5:4 d5:2 e5 f#5:4 d5 | a5:6 g5:2 f#5:4 e5 | d5:12 r:4"),
+                (Bell, "d6:4 d6:2 e6 f#6:4 d6 | a6:6 g6:2 f#6:4 e6 | d6:12 r:4"),
                 (Triangle, "d3:8 a2 | d3:4 c#3 b2 a2 | d2:12 r:4"),
                 (Drums, "k:8 s | k s | k:12 r:4"),
             ],
         ),
-        // 27 Chase: E minor, fast.
-        27 => score(
+        // 19 Gullwreck Cay: brassy and loud. C major.
+        19 => score(
+            116.0,
+            &[
+                (Pulse, "g4:3 g4:1 c5:4 e5 g5 | f5:3 e5:1 d5:4 g4:8 | a4:3 b4:1 c5:4 d5 e5 | c5:12 r:4"),
+                (Square, "e4:3 e4:1 g4:4 c5 e5 | d5:3 c5:1 b4:4 d4:8 | f4:3 g4:1 a4:4 b4 c5 | g4:12 r:4"),
+                (Triangle, "c3:4 g3 c3 g3 | g2 d3 g2 d3 | f2 c3 g2 b2 | c3:12 r:4"),
+                (Drums, "k:4 s:2 s k:4 s | k:4 s:2 s k:4 s | k:4 s:2 s k:4 s | k:4 s k r"),
+            ],
+        ),
+        // 20 The Saltmarsh: sly and plucked. A minor.
+        20 => score(
+            108.0,
+            &[
+                (
+                    Square,
+                    "a4:1 r c5 r e5:2 r d5:1 r c5 r b4:2 r | a4:1 r c5 r e5:2 r g5:1 r f5 r e5:2 r | \
+                     f5:1 r e5 r d5:2 r e5:1 r c5 r b4:2 r | a4:2 r e4 r a4:4 r",
+                ),
+                (Triangle, "a2:2 r e2 r a2 r e2 r | a2 r e2 r a2 r e2 r | d2 r a2 r e2 r b2 r | a2:4 e2 a2 r"),
+            ],
+        ),
+        // 21 Twin Hulls: two tunes arguing, then agreeing.
+        21 => score(
+            120.0,
+            &[
+                (Pulse, "c5:2 e5 g5 e5 c5:8 | r:16 | c5:2 e5 g5 c6 g5:8 | c5:12 r:4"),
+                (Square, "r:16 | a4:2 c#5 e5 c#5 a4:8 | a4:2 c#5 e5 a5 e5:8 | c5:12 r:4"),
+                (Triangle, "c3:8 g2 | a2 e2 | c3 a2 | c3:12 r:4"),
+                (Drums, "k:4 s k s | k s k s | k:2 k s k k s k s | k:4 s k r"),
+            ],
+        ),
+        // 22 Fort Teal: a navy march gone ragged. C minor, limping.
+        22 => score(
+            104.0,
+            &[
+                (
+                    Square,
+                    "c5:3 c5:1 eb5:4 g5:3 r:1 f5:4 | eb5:3 d5:1 c5:4 r:2 g4 g4:4 | \
+                     ab4:3 bb4:1 c5:4 d5:2 r eb5:4 | c5:6 b4:2 c5:4 r",
+                ),
+                (Triangle, "c3:4 g2 c3 g2 | c3 g2 c3 r | f2 c3 g2 d3 | c3:12 r:4"),
+                (Drums, "k:4 s:2 s k:4 r | k:4 s:2 r k:4 s | k:4 r:2 s k:4 s:2 r | k:4 s k r"),
+            ],
+        ),
+        // 23 Ama Reef: drums and voices, calm. Pentatonic.
+        23 => score(
+            92.0,
+            &[
+                (Sine, "e4:4 g4 a4:8 | g4:4 e4 d4:8 | e4:4 g4 b4 a4 | g4:4 e4 e4:4 r"),
+                (Triangle, "c4:8 d4 | b3 a3 | c4 d4 | e4:12 r:4"),
+                (Drums, "k:4 h:2 h k:4 h | k:4 h:2 h k:4 h | k:4 h:2 h k:4 h | k:4 h:2 h k:4 r"),
+            ],
+        ),
+        // 24 The Constance: underwater, hollow.
+        24 => score(
+            66.0,
+            &[(Sine, "c3:16 | ab2 | c3:12 r:4"), (Bell, "r:8 eb5 | r:4 c5:8 r:4 | g4:12 r:4")],
+        ),
+        // 25 The vault reveal: a single held sting.
+        25 => score(
+            60.0,
+            &[(Square, "r:2 c#5:14"), (Bell, "c#4:16"), (Sine, "c#2:16")],
+        ),
+        // 26 The alarm's chase: fast, E minor.
+        26 => score(
             160.0,
             &[
                 (
@@ -278,31 +264,35 @@ pub fn cue(n: u8) -> Cue {
                 (Drums, "k:2 s k s k s k s | k s k s k s k s | k s k s k s k s | k:4 s k r"),
             ],
         ),
-        // 28 Farewell: C major, gentle.
-        28 => score(
+        // 27 Vail on the quarterdeck: the mansion tune in D minor.
+        27 => score(
             76.0,
             &[
-                (Triangle, "g5:4 e5 d5 c5 | a4 c5 d5:8 | c5:12 r:4"),
-                (Sine, "c3:8 a2 | f2 g2 | c2:12 r:4"),
+                (Square, "d5:4 d5:2 e5 f5:4 d5 | a5:6 g5:2 f5:4 e5 | d5:12 r:4"),
+                (Triangle, "d3:8 a2 | d3:4 c3 bb2 a2 | d2:12 r:4"),
+                (Drums, "k:8 s | k s | k:12 r:4"),
             ],
         ),
-        // 29 Ghostly waltz: A minor, three beats to the bar.
+        // 28 Ending A: the intro tune, slower and free.
+        28 => score(
+            84.0,
+            &[
+                (Triangle, "d5:4 g5:2 g5 g5:4 b5 | a5:2 g5 f#5 e5 d5:8 | e5:4 c5 d5 b4 | a4:4 d5 g4:8"),
+                (Sine, "g3:16 | d3 | c3:8 g2 | d3 g2"),
+            ],
+        ),
+        // 29 Ending B: the mansion tune, played by you, alone.
         29 => score(
-            132.0,
+            96.0,
             &[
-                (Bell, "a4:4 c5 e5 | a5:8 g#5:4 | f5:4 d5 b4 | e5:8 r:4"),
-                (Sine, "a2:4 e3 e3 | a2 e3 e3 | d2 a2 a2 | e2:8 r:4"),
+                (Triangle, "d5:4 d5:2 e5 f#5:4 d5 | a5:6 g5:2 f#5:4 e5 | d5:12 r:4"),
+                (Sine, "d3:16 | a2 | d3:12 r:4"),
             ],
         ),
-        // 30 Homecoming: C major, the finale.
+        // 30 A player's death: short and sad. A minor.
         30 => score(
-            100.0,
-            &[
-                (Pulse, "c5:4 e5 g5 e5 | f5 a5 g5:8 | e5:4 g5 c6 b5 | c6:12 r:4"),
-                (Triangle, "c3:8 g2 | f2 c3 | a2 g2 | c3:12 r:4"),
-                (Bell, "r:16 | r:8 e6 | r:16 | g6:12 r:4"),
-                (Drums, "k:4 h s h | k h s h | k h s h | k s k r"),
-            ],
+            80.0,
+            &[(Triangle, "e5:6 d5:2 c5:8 | b4:4 g#4 a4 r"), (Sine, "a3:16 | e3:12 r:4")],
         ),
         _ => score(120.0, &[]),
     }

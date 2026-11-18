@@ -486,31 +486,33 @@ compositions, GPL as code); `synth.rs` renders them.
 
 ### 5.1 The set
 
-Effects 1-12 last under a second; themes 13-30 are short pieces of 3 to
+Effects 1-12 last under a second; themes 13-30 are short pieces of 4 to
 12 seconds, except 14-17, which loop until other music plays (magic
-3.11) and run 13 to 21 seconds before they repeat. 14, 15 and 16 are the
-endless themes the adventure's genre picks (`Theme::music_number`).
+3.11) and run 13 to 21 seconds before they repeat. Each cue's feel is
+the brief *The King's Pardon*'s design gives it (its "Music" table, the
+first adventure to use them all); the cues stay general enough for any
+adventure. 14, 15 and 16 are also the endless themes an adventure's
+genre picks (`Theme::music_number`).
 
 | # | Cue | | # | Cue |
 | --- | --- | --- | --- | --- |
-| 1 | Chime | | 16 | Endless stars (loops; sci-fi) |
-| 2 | Ta-da | | 17 | Endless danger (loops; a fight) |
-| 3 | Coin | | 18 | Sea shanty |
-| 4 | Creak | | 19 | Lament |
-| 5 | Thud | | 20 | Triumph march |
-| 6 | Splash | | 21 | Mystery sting |
-| 7 | Zap | | 22 | Lullaby |
-| 8 | Curse | | 23 | Tavern jig |
-| 9 | Alarm | | 24 | Dread |
-| 10 | Gong | | 25 | Discovery |
-| 11 | Cannon | | 26 | Royal court |
-| 12 | Drum roll | | 27 | Chase |
-| 13 | Victory fanfare | | 28 | Farewell |
-| 14 | Endless voyage (loops; fantasy) | | 29 | Ghostly waltz |
-| 15 | Endless intrigue (loops; spy and mystery) | | 30 | Homecoming |
+| 1 | A cannon boom | | 16 | Dripping, slow, uneasy (loops) |
+| 2 | A ship's bell, rung hard | | 17 | Low and tense (loops) |
+| 3 | A pop and a fizz | | 18 | Stately, a little too sweet |
+| 4 | A shrill bone whistle | | 19 | Brassy and loud |
+| 5 | A splash and a crack of timber | | 20 | Sly, plucked |
+| 6 | A wooden crash | | 21 | Two tunes arguing |
+| 7 | A heavy lock turning | | 22 | A navy march gone ragged |
+| 8 | Coins counted onto a desk | | 23 | Drums and voices, calm |
+| 9 | A squawk | | 24 | Underwater, hollow |
+| 10 | A steam hiss | | 25 | A single held sting |
+| 11 | A soft rising chime | | 26 | Fast, a chase |
+| 12 | A low cold drone | | 27 | 18's tune in a minor key |
+| 13 | A bright sea-shanty opening | | 28 | 13's tune, slower and free |
+| 14 | An easy harbour tune (loops) | | 29 | 18's tune, played alone |
+| 15 | Sailing, steady (loops) | | 30 | Short and sad |
 
-A designer picks by mood; the names are ours and appear nowhere in an
-adventure, which stores only the number.
+A designer picks by feel; the adventure stores only the number.
 
 ### 5.2 Scores
 
@@ -583,7 +585,9 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    2.7), so the build places them with 1 (3.9).
 5. The 30 cues (5). Done November 2026: `audio/music.rs` (scores,
    checked to parse and to agree bar for bar), `audio/synth.rs`
-   (instruments, sweeps, noise). Not yet heard by a person:
+   (instruments, sweeps, noise), after *The King's Pardon*'s music
+   brief (5.1; a first set ignored it and was redone). Not yet heard by
+   a person:
    `ACSVM_CUES_DIR=DIR cargo test -p acs-viewer write_cues_as_wav --
    --ignored` writes them as WAV files.
 6. *The King's Pardon* (6), with its replay test.

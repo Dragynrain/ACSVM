@@ -54,7 +54,7 @@ key = "win_theme"
 name = "SANDY HOLLOW"
 type = "space"
 picture = "room_fsand"
-access = { spell = { action = "play_music", music = 14 } }
+access = { spell = { action = "play_music", music = 28 } }
 
 [[thing]]
 key = "win_words"
@@ -68,4 +68,4 @@ key = "win_fanfare"
 name = "SANDY HOLLOW"
 type = "space"
 picture = "room_fsand"
-access = { spell = { action = "play_music", music = 2 } }
+access = { spell = { action = "play_music", music = 11 } }
