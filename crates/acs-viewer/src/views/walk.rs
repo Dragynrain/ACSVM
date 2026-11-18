@@ -79,8 +79,8 @@ impl Aim {
 
 /// Where `to` lies from `from`: in the same room, or both on a map `n`
 /// squares each way (the shorter way round where it wraps).
-fn offset(from: Location, to: Location, n: i16, wraps: bool) -> Option<(i16, i16)> {
-    let near = |d: i16| {
+fn offset(from: Location, to: Location, (w, h): (i16, i16), wraps: bool) -> Option<(i16, i16)> {
+    let near = |d: i16, n: i16| {
         if wraps && n > 0 {
             let d = d.rem_euclid(n);
             if d > n / 2 {
@@ -94,7 +94,7 @@ fn offset(from: Location, to: Location, n: i16, wraps: bool) -> Option<(i16, i16
     };
     match (from, to) {
         (Location::World { x, y }, Location::World { x: tx, y: ty }) => {
-            Some((near(tx as i16 - x as i16), near(ty as i16 - y as i16)))
+            Some((near(tx as i16 - x as i16, w), near(ty as i16 - y as i16, h)))
         }
         (
             Location::Room { region, room, x, y },
@@ -475,12 +475,7 @@ impl Walk {
     /// or both are on the map (across the wraparound where it wraps).
     fn offset(&self, at: Location) -> Option<(i16, i16)> {
         let world = &self.game.adventure().world;
-        offset(
-            self.game.current_player().at,
-            at,
-            world.tiles.len() as i16,
-            world.wraps,
-        )
+        offset(self.game.current_player().at, at, map_size(world), world.wraps)
     }
 
     fn note(&mut self, s: String) {
@@ -1793,47 +1788,99 @@ fn draw_map(
     py: u8,
 ) -> Option<(Location, bool)> {
     let map = &g.adventure().world;
-    let n = map.tiles.len() as i16;
-    let (cols, rows) = (MAP_VIEW.0 as i16, MAP_VIEW.1 as i16);
-    let (cx, cy) = (px as i16 - cols / 2, py as i16 - rows / 2);
-    // Without wraparound the window stops at the map edges.
-    let (ox, oy) = if map.wraps {
-        (cx, cy)
-    } else {
-        (cx.clamp(0, (n - cols).max(0)), cy.clamp(0, (n - rows).max(0)))
-    };
-    let (resp, painter, grid) = canvas(ui, cols as u32, rows as u32, tiles);
+    let win = MapWindow::new(map_size(map), map.wraps, (px, py), MAP_VIEW);
+    let (cols, rows) = (MAP_VIEW.0 as u32, MAP_VIEW.1 as u32);
+    let (resp, painter, grid) = canvas(ui, cols, rows, tiles);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     for j in 0..rows {
         for i in 0..cols {
-            let (mx, my) = ((ox + i).rem_euclid(n.max(1)), (oy + j).rem_euclid(n.max(1)));
+            let Some((mx, my)) = win.square(i as i16, j as i16) else {
+                continue;
+            };
             let t = map.tiles[my as usize][mx as usize];
             let pic = map.terrain.get(t as usize).map(|t| t.picture);
-            tiles.paint(&painter, pic, grid.cell_rect(i as u32, j as u32));
+            tiles.paint(&painter, pic, grid.cell_rect(i, j));
         }
     }
     markers(&painter, g, |at| {
         let Location::World { x, y } = at else { return None };
-        let (mi, mj) = (
-            (x as i16 - ox).rem_euclid(n.max(1)),
-            (y as i16 - oy).rem_euclid(n.max(1)),
-        );
-        (mi < cols && mj < rows).then(|| grid.cell_rect(mi as u32, mj as u32))
+        win.cell((x, y)).map(|(i, j)| grid.cell_rect(i as u32, j as u32))
     });
     // The square under the pointer, and whether it was clicked (client 4).
-    hovered_cell(&resp, &grid).map(|(i, j)| {
-        let (mx, my) = (
-            (ox + i as i16).rem_euclid(n.max(1)),
-            (oy + j as i16).rem_euclid(n.max(1)),
-        );
-        (
-            Location::World {
-                x: mx as u8,
-                y: my as u8,
-            },
-            resp.clicked(),
-        )
+    hovered_cell(&resp, &grid).and_then(|(i, j)| {
+        let (mx, my) = win.square(i as i16, j as i16)?;
+        Some((Location::World { x: mx, y: my }, resp.clicked()))
     })
+}
+
+/// The world map's width and height in squares (it need not be square).
+fn map_size(map: &acs_core::model::WorldMap) -> (i16, i16) {
+    let h = map.tiles.len() as i16;
+    let w = map.tiles.first().map_or(0, Vec::len) as i16;
+    (w, h)
+}
+
+/// Which map square each cell of walk mode's map window shows (client 4).
+/// A map that wraps is centred on the player and repeats across its edges;
+/// one that doesn't stops at its edges, and is centred in the window, with
+/// empty cells around it, where it is smaller than the window.
+#[derive(Debug, Clone, Copy)]
+struct MapWindow {
+    size: (i16, i16),
+    wraps: bool,
+    /// The window's columns and rows.
+    view: (i16, i16),
+    /// The map square under the window's top-left cell (may lie outside).
+    origin: (i16, i16),
+}
+
+impl MapWindow {
+    fn new(size: (i16, i16), wraps: bool, (px, py): (u8, u8), (cols, rows): (u8, u8)) -> Self {
+        let axis = |n: i16, p: u8, view: u8| {
+            let (p, view) = (p as i16, view as i16);
+            if wraps {
+                p - view / 2
+            } else if n <= view {
+                -((view - n) / 2)
+            } else {
+                (p - view / 2).clamp(0, n - view)
+            }
+        };
+        let origin = (axis(size.0, px, cols), axis(size.1, py, rows));
+        MapWindow {
+            size,
+            wraps,
+            view: (cols as i16, rows as i16),
+            origin,
+        }
+    }
+
+    /// The map square shown in cell `(i, j)`, if any.
+    fn square(&self, i: i16, j: i16) -> Option<(u8, u8)> {
+        let (w, h) = self.size;
+        if w <= 0 || h <= 0 {
+            return None;
+        }
+        let (x, y) = (self.origin.0 + i, self.origin.1 + j);
+        if self.wraps {
+            Some((x.rem_euclid(w) as u8, y.rem_euclid(h) as u8))
+        } else {
+            ((0..w).contains(&x) && (0..h).contains(&y)).then_some((x as u8, y as u8))
+        }
+    }
+
+    /// The window cell that shows map square `(x, y)`, if it is in view
+    /// (where the map wraps, the copy nearest the window's top left).
+    fn cell(&self, (x, y): (u8, u8)) -> Option<(i16, i16)> {
+        let (w, h) = self.size;
+        let (mut i, mut j) = (x as i16 - self.origin.0, y as i16 - self.origin.1);
+        if self.wraps && w > 0 && h > 0 {
+            i = i.rem_euclid(w);
+            j = j.rem_euclid(h);
+        }
+        let (cols, rows) = self.view;
+        ((0..cols).contains(&i) && (0..rows).contains(&j)).then_some((i, j))
+    }
 }
 
 /// The picture a room square shows. An encounter area's door item on top
@@ -2227,9 +2274,44 @@ mod tests {
     #[test]
     fn map_offsets_take_the_short_way_round_where_it_wraps() {
         let at = |x, y| Location::World { x, y };
-        assert_eq!(offset(at(0, 0), at(39, 1), 40, true), Some((-1, 1)));
-        assert_eq!(offset(at(0, 0), at(39, 1), 40, false), Some((39, 1)));
-        assert_eq!(offset(at(39, 39), at(0, 0), 40, true), Some((1, 1)));
-        assert_eq!(offset(at(5, 5), sq(5, 5), 40, true), None);
+        assert_eq!(offset(at(0, 0), at(39, 1), (40, 40), true), Some((-1, 1)));
+        assert_eq!(offset(at(0, 0), at(39, 1), (40, 40), false), Some((39, 1)));
+        assert_eq!(offset(at(39, 39), at(0, 0), (40, 40), true), Some((1, 1)));
+        assert_eq!(offset(at(5, 5), sq(5, 5), (40, 40), true), None);
+        // A map wider than it is tall wraps on each axis by its own size.
+        assert_eq!(offset(at(0, 0), at(9, 5), (10, 6), true), Some((-1, -1)));
+    }
+
+    /// Client 4: a map that doesn't wrap and is smaller than the window is
+    /// shown once, centred, its own width wide (First Voyage's 10 x 6 map
+    /// was drawn 6 wide and repeated, hiding the cave at 7,1).
+    #[test]
+    fn a_small_map_that_does_not_wrap_is_shown_once_and_whole() {
+        let win = MapWindow::new((10, 6), false, (6, 2), (15, 10));
+        let shown: Vec<(u8, u8)> = (0..10)
+            .flat_map(|j| (0..15).map(move |i| (i, j)))
+            .filter_map(|(i, j)| win.square(i, j))
+            .collect();
+        assert_eq!(shown.len(), 60, "every square once");
+        assert!(shown.contains(&(7, 1)));
+        // Centred: 2 empty columns left of it, 2 empty rows above.
+        assert_eq!(win.square(2, 2), Some((0, 0)));
+        assert_eq!(win.square(1, 2), None);
+        assert_eq!(win.square(12, 7), None);
+        // The player at 6,2 is drawn on 6,2, and clicking there finds it.
+        let (i, j) = win.cell((6, 2)).unwrap();
+        assert_eq!(win.square(i, j), Some((6, 2)));
+    }
+
+    /// Client 4: a large map that doesn't wrap scrolls with the player and
+    /// stops at its edges; one that wraps centres on the player.
+    #[test]
+    fn the_map_window_follows_the_player() {
+        let edge = MapWindow::new((40, 30), false, (39, 0), (15, 10));
+        assert_eq!(edge.square(14, 0), Some((39, 0)));
+        assert_eq!(edge.cell((39, 0)), Some((14, 0)));
+        let wraps = MapWindow::new((40, 30), true, (0, 0), (15, 10));
+        assert_eq!(wraps.cell((0, 0)), Some((7, 5)));
+        assert_eq!(wraps.square(0, 0), Some((33, 25)));
     }
 }
