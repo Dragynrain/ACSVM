@@ -13,9 +13,11 @@ The door in the east wall leads to the trader."""
 
 store = """THE TRADER
 
-Walk into the counter to trade. Gold buys what the trader stocks, and you
-can sell what you carry. A leather jerkin will turn a blow or two:
-buy one, then wear it as your armour.
+Walk into the counter to go inside. The trader's goods sit on shelves:
+walk the aisles and into a shelf to see what it holds and its price, and
+press Space to buy. Press Space before you move to sell what you carry.
+A leather jerkin will turn a blow or two: buy one, walk out through
+either door at the sides, then ready it as your armour.
 
 When you are ready, leave the dock by the south gangway and follow the
 beach north to the cliffs."""
