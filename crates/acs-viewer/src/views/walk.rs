@@ -306,7 +306,7 @@ impl Walk {
         };
         w.note(format!(
             "Seed {seed}. Arrows/WASD or a click on a square beside you move; {diagonal}. \
-             Space ends the turn. To drop, click Drop, then a direction (Space = here, Esc = cancel). \
+             Space rests (ends the turn, a chance to heal each move left). To drop, click Drop, then a direction (Space = here, Esc = cancel). \
              Cast and Use ask for a target. Add Someone brings in up to 4 characters, who take turns."
         ));
         w.record(&ev);
@@ -859,7 +859,7 @@ pub fn parse_commands(s: &str) -> Result<Vec<Command>, String> {
                 }))
             };
             Ok(match head {
-                "wait" => Command::Wait,
+                "wait" | "rest" => Command::Wait,
                 "idle" => Command::Idle,
                 "drop" => Command::Drop {
                     thing: num(parts.next())?,
@@ -1188,7 +1188,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 let mut pad = doc.pad.unwrap_or(walk.touch);
                 if ui
                     .checkbox(&mut pad, "On-screen pad")
-                    .on_hover_text("Arrows and Wait on the board; shows by itself after a touch.")
+                    .on_hover_text("Arrows and Rest on the board; shows by itself after a touch.")
                     .changed()
                 {
                     doc.pad = Some(pad);
@@ -1513,7 +1513,7 @@ enum PadKey {
     Fire,
 }
 
-/// The on-screen pad (client 4): eight arrows round Wait on the left,
+/// The on-screen pad (client 4): eight arrows round Rest on the left,
 /// and on the right Cancel while a drop or cursor waits and Fire when it
 /// needs no menu. Without `diagonals` the corner keys are left empty.
 fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool, diagonals: bool) -> Option<PadKey> {
@@ -1540,7 +1540,7 @@ fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool, diagonals: bool) -> O
                             ui.allocate_exact_size(egui::vec2(KEY, KEY), egui::Sense::hover());
                             continue;
                         }
-                        if pad_key(ui, KEY, d) {
+                        if pad_key(ui, KEY, d, if waiting { "OK" } else { "Rest" }) {
                             out = Some(PadKey::Key(d.map_or(Command::Wait, |dir| Command::Move { dir })));
                         }
                     }
@@ -1566,8 +1566,10 @@ fn touch_pad(ui: &mut egui::Ui, waiting: bool, fire: bool, diagonals: bool) -> O
     out
 }
 
-/// One of the pad's square keys: an arrow, or Wait for `None`.
-fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>) -> bool {
+/// One of the pad's square keys: an arrow, or for `None` the centre key
+/// (`Wait`), labelled `centre`: Rest (magic 5.6), or OK while a drop or
+/// the cursor waits for it.
+fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>, centre: &str) -> bool {
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::click());
     let fill = if resp.is_pointer_button_down_on() {
         ui.visuals().selection.bg_fill
@@ -1593,7 +1595,7 @@ fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>) -> bool {
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
-                "Wait",
+                centre,
                 egui::FontId::proportional(14.0),
                 ink,
             );
@@ -1601,7 +1603,7 @@ fn pad_key(ui: &mut egui::Ui, size: f32, dir: Option<Dir>) -> bool {
     }
     let label = match dir {
         Some(d) => format!("{d:?}"),
-        None => "Wait".into(),
+        None => centre.into(),
     };
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
     resp.clicked()
@@ -1793,6 +1795,15 @@ fn actions_panel(
                     }
                 }
             });
+        }
+        if ui
+            .add_enabled(!aiming, egui::Button::new("Rest"))
+            .on_hover_text(
+                "The menu's REST: the moves left go at once, each a chance to heal 1 Life Force (up to Constitution), and the turn ends. Space does the same.",
+            )
+            .clicked()
+        {
+            *click = Some(Command::Wait);
         }
         if ui
             .button("SAVE GAME")
@@ -2632,6 +2643,11 @@ mod tests {
         let (_, text) = w.save_file(&a);
         assert_eq!(Walk::from_save(&a, &text).unwrap().game, w.game);
         assert_eq!(parse_commands("save").unwrap(), [Command::SaveGame]);
+        // The menu's REST is Wait (magic 5.6).
+        assert_eq!(
+            parse_commands("rest,wait").unwrap(),
+            [Command::Wait, Command::Wait]
+        );
     }
 
     #[test]

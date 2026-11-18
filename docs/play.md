@@ -56,7 +56,7 @@ world map's cell. THING is a master thing number or name (any case).
 | `use THING [X Y]`, `cast THING [X Y]` | `Use` / `Cast`, aimed at the square when given. |
 | `drop THING [DIR]` | `Drop`, on the own square or the one in `n`, `e`, `s`, `w` (`ne`.. too). |
 | `ready THING` | `Ready`. |
-| `wait [N]`, `idle [N]` | `Wait` (the rest of the turn) or `Idle` (one move), N times. |
+| `wait [N]` or `rest [N]`, `idle [N]` | `Wait`, the menu's REST (the rest of the turn, magic 5.6), or `Idle` (one move), N times. |
 | `buy THING`, `sell THING`, `leave` | In an open store (`bump` it first); any other step leaves it, as the engine does. |
 | `save` | SAVE GAME. |
 | `retire save\|destroy` | RETIRE. |

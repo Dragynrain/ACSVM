@@ -4353,3 +4353,44 @@ In this order (planned November 2026):
 
    No new addresses: `$397C` (the region visited), T's record and
    possession bytes, the slot's bytes and the room list are section 9's.
+46. **REST, 2026-11-18** (ours, no research pass: [magic](rules/magic.md)
+   5.6, combat.md 8.8.1's menu). `ACSVM-research/capture/runs/rr42/` (the
+   harness binary in `bin/`, `env.sh` with `sc`; `case.sh` and `mem.sh`
+   as rr41's; `rest1.txt` opens the menu, one press south (REST, first
+   of the second row), the button, and looks at the next turns;
+   `menu.txt` stops on REST and saves `on-rest.vsf`; `py_rate.py` and
+   `py_rolls.py` read the `mem` runs, a draw's face as raw / 42, the
+   0..5 roll of a Speed 6 turn). Cases built by `case.sh`, T Speed 6 and
+   Constitution 40 at its first room turn on 4,4: `r1` alone (Life Force
+   22 by then, healed from the 10 set), `r2` with EE an aggressive enemy
+   on 10,4, `r3` with EE beside on 5,4, `r4` at Life Force 40; `r1-map`
+   from `r1/start.vsf`, T's turn on the world map. `mem` runs: the
+   random state 0..15 (`m-rest`, `m-idle`, `m-rest-ee`) or 0..7
+   (`m-full`, `m-map`), `--draws`, `--until-refill`, the button pressed
+   25k from `on-rest.vsf`.
+   - **REST plays out the turn's moves left as idle moves, at once, and
+     the turn ends.** No message, no button. In every run the moves byte
+     (`$719A`) fell 5, 4, .. 0 about 20,000 instructions apart (a
+     drained idle move takes about 1.85M), the round counter moved on and
+     the next turn began with its bar refilled (`r1-a`: round 14 to 15,
+     the moves 6). **One draw each move**, of 0..5, the turn's full moves
+     less 1 (a 6 drawn again as usual), and **Life Force +1 exactly at
+     the draws of 0**: 80 moves and 15 gains over `m-rest`'s 16 runs,
+     every gain after a 0 and every 0 below Constitution a gain. That is
+     magic 5.3.1's idle-move roll, the same as `m-idle` (the same turn
+     left to drain: 80 moves, 21 gains, one draw each); the draw after
+     the last move and the next turn's die come as in a drained turn.
+   - **At full Life Force** (`m-full`, 40 of 40): the same draws, no
+     gain. **Beside a foe** (`r3-a`, the turn halved, 1 move left): no
+     refusal, unlike FIRE (combat 8.8.2); the move went, Life Force +1,
+     EE's turn came (`$71FA` 16). **A foe in the room** (`m-rest-ee`):
+     as `m-rest`. **On the world map** (`m-map`): the menu has REST and
+     it does the same, one draw each of the 4 moves left.
+   - **So REST is the turn waited out, without the wait.** The manual's
+     "6 times as long" without resting is real time: a drained turn heals
+     the same, but the bar drains a move about every 7 seconds (movement
+     2.4), and a walked move takes no roll. Engine: `Wait` already played
+     the moves left as idle moves with their rolls (magic 5.3);
+     **confirmed**, and `Wait` is REST by name now.
+
+   No new addresses.

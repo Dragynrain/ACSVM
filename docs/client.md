@@ -120,7 +120,8 @@ lines stay in the event]
   the direction keys, sent with Space or Enter, cancelled with Escape.
 - **Touch**: an on-screen pad in its own strip along the bottom of the
   window, under the thumbs and never over the board: eight arrows round
-  a Wait key on the left, each 52 points; on the right, while a drop or
+  a Rest key on the left (the menu's REST, magic 5.6; OK while a drop
+  or cursor waits for it), each 52 points; on the right, while a drop or
   a cursor waits, a Cancel key, and on the map or holding a missile
   weapon, a Fire key. It shows when the last input was a touch, and
   hides on the next key press; the info column's "On-screen pad" option

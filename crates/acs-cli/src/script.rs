@@ -390,7 +390,7 @@ fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
         "ready" => Action::Ready(thing(adv, rest)?),
         "buy" => Action::Buy(thing(adv, rest)?),
         "sell" => Action::Sell(thing(adv, rest)?),
-        "wait" => Action::Wait(count(rest)?),
+        "wait" | "rest" => Action::Wait(count(rest)?),
         "idle" => Action::Idle(count(rest)?),
         "leave" if rest.is_empty() => Action::Leave,
         "save" if rest.is_empty() => Action::Save,

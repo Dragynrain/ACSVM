@@ -989,7 +989,7 @@ const WELCOME: &[(&str, &str)] = &[
 /// How to play (client 7.3): first, for an adventure still in Explore.
 const EXPLORE: (&str, &str) = ("You are in Explore", "Look over the adventure as its designer built it: the Menu on the left lists the world map, regions, rooms, things and creatures. To play, press Start playing below, or Walk in the top bar.");
 const PLAY: &[(&str, &str)] = &[
-    ("Moving", "Arrow keys, WASD or the number pad move you one square, and so does a click on a square beside you. Walk into a door to go through it, into a creature to fight it, onto a thing to pick it up. Space or Enter passes the rest of your turn. On a touch screen a pad appears."),
+    ("Moving", "Arrow keys, WASD or the number pad move you one square, and so does a click on a square beside you. Walk into a door to go through it, into a creature to fight it, onto a thing to pick it up. Space or Enter rests: the rest of your turn passes at once, each move left a chance to heal (the menu's REST, also a button). On a touch screen a pad appears."),
     ("Everything else: the Info column", "The column on the right (Info in the top bar shows or hides it) holds your actions: Fire for a bow or thrown weapon, Save Game and Retire at the top; then your stats; then what you carry, each with Ready, Drop, Cast or Use; then the creatures near you."),
     ("Time runs as in the original", "Your move bar drains while you do nothing, about a step every seven seconds. Tick Turn-based in the Info column to make it wait for you."),
     ("The log", "The strip at the bottom tells what happens: fights, finds, doors, and the adventure's own messages."),

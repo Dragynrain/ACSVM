@@ -1160,8 +1160,9 @@ impl Game {
         }
     }
 
-    /// "Wait": the rest of the turn's moves go as idle moves, each with its
-    /// healing roll (magic 5.3), and the turn ends.
+    /// "Wait", the menu's REST (magic 5.6): the rest of the turn's moves go
+    /// as idle moves, each with its healing roll (magic 5.3), and the turn
+    /// ends.
     fn wait_out(&mut self, ev: &mut Vec<Event>) {
         let p = &self.players[self.current];
         let (left, full) = (p.moves_left, p.turn_moves);

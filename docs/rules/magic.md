@@ -526,8 +526,7 @@ after it is used (items always work, 4.2).
    without the save; [capture: rr24 `c4-save`, `c4-idle`, capture.md
    10.28]); creatures roll for the moves their turn
    leaves unused ([research, unconfirmed]: the researcher read that
-   creatures share the players' turn routine). Rest comes with a later
-   rule set.
+   creatures share the players' turn routine). REST is 5.6.
 4. These run for players and creatures alike, on their own turns, so
    creatures in rooms no player visits stand still in time, as they do in
    everything else (creatures 2.3), until their next turn, when they catch
@@ -594,6 +593,21 @@ after it is used (items always work, 4.2).
    needs nothing more. The byte does not touch the turn's other rolls: the
    engine's rolls have no timing in them, and the extra point is 5.3.2's
    die, which it already rolls.
+6. **REST.** The menu's REST (the first of its second row) is the way the
+   manual gives to restore Life Force up to Constitution; without it the
+   same healing takes 6 times as long. [manual] On the C64 REST plays out
+   the moves left in the turn as idle moves, at once, each with 5.3.1's
+   roll of 0 to (the turn's full moves - 1), healing 1 on a 0 below
+   Constitution, and then the turn ends; no message, no move of its own.
+   The rolls are drawn at full Life Force too. It is offered in rooms and
+   on the world map, and a foe beside does not stop it (unlike FIRE,
+   [combat](combat.md) 8.8.2). [capture: rr42, 56 runs, capture.md 10.46;
+   ours, no research pass, 2026-11-18] So a rest heals no more than a
+   turn left to drain: what is 6 times faster is the clock, the drain
+   taking a move about every 7 seconds ([movement](movement.md) 2.4), and
+   a walked move taking no roll at all. **Engine:** `Command::Wait` is
+   REST: the moves left as idle moves with their rolls, then the turn's
+   end (5.3). A front end names it REST.
 
 ## 6. Creatures and magic
 
@@ -800,7 +814,6 @@ Melee and Armor skill 30, Missile 15) are only for tests and tools.
 - **Combat:** done for melee in [combat.md](combat.md) (blows lowering
   Life Force and Power, magic defense in fights, creatures turning hostile
   when hurt, death in battle by section 7).
-- **Rest:** healing 6 times faster than section 5.3.
 - **Stores** (specced in [stores.md](stores.md)) and the world map
   encounter areas ([encounters](encounters.md)): what a summons does
   there is not known. **Engine:** as in any room of a region.

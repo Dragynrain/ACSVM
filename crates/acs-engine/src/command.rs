@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 pub enum Command {
     /// One step for the player whose turn it is.
     Move { dir: Dir },
-    /// End the current turn now: the rest of the bar goes as idle moves.
+    /// The menu's REST (magic 5.6): the rest of the bar goes at once as
+    /// idle moves, each with its healing roll, and the turn ends.
     Wait,
     /// The real-time drain (movement 2.4): one step of the bar went while
     /// the player did nothing. One idle move; the turn ends with the last.
