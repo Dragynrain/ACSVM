@@ -446,6 +446,8 @@ pub struct Resident {
     pub alignment: u8,
     pub aggressive: bool,
     pub brave: bool,
+    /// The Mimics choice: bit 7 of record byte 0x09 (format notes).
+    pub mimic: bool,
     /// Its room in region 1 (0 the test room, 1 the side room).
     pub room: u8,
     /// Gold carried (the wealth count).
@@ -460,7 +462,7 @@ pub struct Resident {
 
 impl Resident {
     /// `key=value` pairs separated by commas: `x`, `y`, `align` (thief,
-    /// neutral, enemy, friend), `aggressive` and `brave` (0 or 1), `room`
+    /// neutral, enemy, friend), `aggressive`, `brave` and `mimic` (0 or 1), `room`
     /// (0 or 1), `gold` (wealth), `carry` (treasure weights joined by `+`),
     /// `sword` (the power of our melee weapon, owned and held),
     /// and any stat `Player::with` takes. Default: a Speed 3 peaceful, cautious
@@ -472,6 +474,7 @@ impl Resident {
             alignment: 3,
             aggressive: false,
             brave: false,
+            mimic: false,
             room: 0,
             wealth: 0,
             carry: Vec::new(),
@@ -500,6 +503,7 @@ impl Resident {
                 }
                 "aggressive" => r.aggressive = flag()?,
                 "brave" => r.brave = flag()?,
+                "mimic" => r.mimic = flag()?,
                 "room" => r.room = num()?,
                 "sword" => r.sword = Some(num()?.min(31)),
                 "gold" => r.wealth = v.parse().map_err(|_| format!("{kv}: bad number"))?,
@@ -533,6 +537,9 @@ impl Resident {
         r[0x10] = 1 << 4 | (self.room & 0x0F);
         r[0x12..0x14].copy_from_slice(&self.wealth.to_le_bytes());
         r[0x16] = picture + 2;
+        if self.mimic {
+            r[0x09] |= 0x80;
+        }
         for k in 0..self.carry.len() {
             own(&mut r, first_carry + k as u8);
         }

@@ -217,3 +217,27 @@ fn other_entries_are_ignored() {
     let bytes = zip_of(&[(MANIFEST, &m), (ADVENTURE, &a), ("audio/readme.txt", b"later")]);
     assert!(read(&bytes).is_ok());
 }
+
+/// Winning 4.5: the endings feature is listed exactly when there are
+/// endings.
+#[test]
+fn the_endings_feature_goes_with_endings() {
+    let ending = acs_core::model::Ending {
+        region: 1,
+        room: 0,
+        thing: 1,
+        message: 1,
+    };
+    let mut b = bundle(false);
+    b.adventure.endings = vec![ending];
+    b.manifest = Manifest::new(&b.adventure, "CC BY-SA 4.0");
+    assert_eq!(b.manifest.features, ["endings"]);
+    assert_eq!(read(&write(&b).unwrap()).unwrap().adventure.endings, [ending]);
+    b.manifest.features.clear();
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("isn't listed"), "{e}");
+    let mut b = bundle(false);
+    b.manifest.features = vec!["endings".into()];
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("no endings"), "{e}");
+}

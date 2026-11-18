@@ -212,7 +212,13 @@ holds Constitution with magic defense in the top two bits.
    **Engine:** a front end that offers players from another adventure
    applies 3.3 when it builds the setup, for any disk, the adventure's own
    included, and checks no identity; the engine has no rosters or disks
-   yet, so 3.2, 3.4 and 3.5 are the front end's when they come.
+   yet, so 3.2, 3.4 and 3.5 are the front end's: the viewer keeps every
+   character retired with Save, with the adventure it was saved in, as
+   its other adventure disk ([client](../client.md) 7.2), offers those
+   of other adventures in Add Someone, builds the setup by 3.3
+   (`characters::from_another_adventure`) with the picture chosen for
+   newcomers (3.2.4), and takes the character off its list once it has
+   joined (3.4). There are no disk prompts (3.2.1, 3.2.2, 3.2.5).
 
 ## 4. The profile's marks
 

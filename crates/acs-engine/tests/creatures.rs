@@ -2726,3 +2726,74 @@ fn a_creatures_bump_of_a_custom_obstacle_follows_its_bits() {
         }
     });
 }
+
+#[test]
+fn a_mimic_becomes_the_players_copy_once_and_drops_its_gold() {
+    // 4.5 (capture.md 10.47): at its first turn with the player in its
+    // room, a mimic takes the player's ratings, gear and things, keeps its
+    // own Life Force, place and strategy, and drops its gold on its square
+    // with its first move; a later change in the player is not copied.
+    both(|p| {
+        let mut a = adventure(p);
+        put(&mut a, 1, spec(0, 8, 3, Alignment::Enemy, false));
+        let c = &mut a.regions[0].residents[1];
+        c.mimic = true;
+        c.speed = 3;
+        c.strength = 5;
+        c.constitution = 12;
+        c.life_force = 12;
+        c.wealth = 7;
+        c.possessions = vec![Possession { thing: GEM, count: 1 }];
+        let mut control = a.clone();
+        control.regions[0].residents[1].mimic = false;
+        let mut g = start(a, 0, 1, 1);
+        let ev = wait(&mut g);
+        assert!(ev.iter().any(|e| matches!(
+            e,
+            Event::CreatureMimicked {
+                slot: 1,
+                player: 0,
+                ..
+            }
+        )));
+        let t = g.players()[0].clone();
+        let c = g.creature(1, 1).unwrap();
+        assert_eq!(
+            (
+                c.speed,
+                c.strength,
+                c.constitution,
+                c.dexterity,
+                c.wisdom,
+                c.melee,
+                c.dodge
+            ),
+            (
+                t.speed,
+                t.strength,
+                t.constitution,
+                t.dexterity,
+                t.wisdom,
+                t.melee,
+                t.dodge
+            )
+        );
+        assert_eq!(c.life_force, 12, "its own Life Force");
+        assert_eq!(c.strategy.alignment, Alignment::Enemy);
+        assert!(
+            c.possessions.is_empty(),
+            "its gem is gone: the player carries nothing"
+        );
+        // Its gold, on its own square (its goal may take it back later).
+        assert_eq!(dropped_at(&ev, 1, GOLD), Some((8, 3)));
+        // Once only.
+        let ev = wait(&mut g);
+        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureMimicked { .. })));
+        // Without the Mimics choice nothing is copied.
+        let mut g = start(control, 0, 1, 1);
+        let ev = wait(&mut g);
+        assert!(!ev.iter().any(|e| matches!(e, Event::CreatureMimicked { .. })));
+        let c = g.creature(1, 1).unwrap();
+        assert_eq!((c.strength, c.wealth), (5, 7));
+    });
+}

@@ -52,6 +52,8 @@ pub enum Expect {
     Message(u16),
     Alive,
     Dead,
+    /// The adventure won (winning 4), by this player.
+    Won,
     Life(Cmp, u8),
     /// In an encounter area (that one, 1..=4, when given).
     Area(Option<u8>),
@@ -423,6 +425,7 @@ fn expect(adv: &Adventure, w: &[String]) -> Result<Expect, String> {
             _ => return Err("expect message N".into()),
         },
         "alive" if rest.is_empty() => Expect::Alive,
+        "won" if rest.is_empty() => Expect::Won,
         "area" => match rest {
             [] => Expect::Area(None),
             [n] => {

@@ -30,3 +30,9 @@ picture = "door_cavepass"
 [floor]
 picture = "room_roomfloor"
 wall = "room_palisade"
+
+# The end (winning 4): the sandy hollow under the chest.
+[[ending]]
+trigger = "win_space"
+room = "cliffs.hollow"
+message = "win"

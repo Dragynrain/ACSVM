@@ -69,7 +69,10 @@ items green, creatures yellow, foes red. Long messages wrap as
 paragraphs (3.1). The log keeps the last 500 lines and sticks to the
 bottom unless scrolled up.
 
-Later in the phase: a filter by kind, and the font size option (7).
+A row of checkboxes over the log filters it by kind: turns and steps,
+doors, spells, items, creatures, foes, blocks and notes, all shown at
+first; long messages always show. The filter is the session's, not
+kept. The text size is an option (7).
 
 ### 3.1 Long messages
 
@@ -98,6 +101,17 @@ lines stay in the event]
 - A message laid out as a picture or a table (a run of three spaces
   inside a line, a line drawn only in symbols, or bytes that aren't text)
   keeps its stored lines and is shown line for line.
+
+### 3.2 The end
+
+An adventure with endings (winning 4) is won when the engine says
+`AdventureWon`. The log says who won, and an end screen opens over the
+board: the adventure's name, the ending's long message as paragraphs,
+who won and the bundle's credits, with **New game** (the New character
+screen, client 4.2) and **Look around**, which closes it to show the
+board as play ended; the info column then offers **Show the ending**.
+Play is over: the bar stops, and the info column keeps only the options,
+Restart and the save buttons.
 
 ## 4. Input
 
@@ -359,7 +373,13 @@ Play First Voyage, or the same disk or bundle) picks the game up where
 it was left, with a line in the log saying so; Restart starts a new one,
 which is then the one kept. Another adventure starts fresh and doesn't
 touch the kept game until it is played. The help windows' marks (7.3)
-are kept too. Panel sizes are not kept. A
+are kept too. So are the characters retired with Save in any
+adventure, each with the adventure it was saved in: the original's
+other adventure disk (characters 3.2). Add Someone lists the ones from
+other adventures under "From another adventure"; one joins by
+characters 3.3 (its ratings, no things, at least 1,000 gold, on the
+map's start cell) and leaves the list. Its own adventure gets it back
+with Rejoin instead, from the game's own list. Panel sizes are not kept. A
 screenshot run or a scripted walk (`--screenshot`, `--walk`, `--load`)
 neither reads nor writes any of it, and `--text-size` and
 `--colour-blind` win over the kept options.

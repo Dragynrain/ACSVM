@@ -59,6 +59,36 @@ enum Kind {
     },
 }
 
+impl Kind {
+    /// The log filter's group (client 3): `None` for a long message, which
+    /// always shows.
+    fn group(self) -> Option<usize> {
+        Some(match self {
+            Kind::Turn | Kind::Step => 0,
+            Kind::Door => 1,
+            Kind::Spell => 2,
+            Kind::Item => 3,
+            Kind::Creature => 4,
+            Kind::Foe => 5,
+            Kind::Block => 6,
+            Kind::Note => 7,
+            Kind::Message { .. } => return None,
+        })
+    }
+}
+
+/// The log filter's groups (client 3), by `Kind::group`.
+const LOG_GROUPS: [&str; 8] = [
+    "Turns",
+    "Doors",
+    "Spells",
+    "Items",
+    "Creatures",
+    "Foes",
+    "Blocks",
+    "Notes",
+];
+
 /// Where the message log scrolls to (client 3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LogJump {
@@ -163,6 +193,16 @@ fn offset(from: Location, to: Location, (w, h): (i16, i16), wraps: bool) -> Opti
         ) if (region, room) == (r2, m2) => Some((tx as i16 - x as i16, ty as i16 - y as i16)),
         _ => None,
     }
+}
+
+/// A character retired with Save, kept between sessions with the
+/// adventure it was saved in (characters 3.2): offered to other adventures.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SavedCharacter {
+    /// The adventure's fingerprint (`save::fingerprint`) and name.
+    pub adventure: String,
+    pub adventure_name: String,
+    pub player: Player,
 }
 
 /// The characters out of play by retiring (characters 7): the ones saved,
@@ -276,6 +316,21 @@ pub struct Walk {
     /// button restores the earlier one (`Game::restore_point`).
     save: Game,
     older: Game,
+    /// Characters saved in other adventures, offered by Add Someone
+    /// (characters 3.2; the viewer's kept list), and the one that joined,
+    /// for the list to drop (3.4).
+    pub others: Vec<SavedCharacter>,
+    /// Names of characters of this adventure that came back by Rejoin,
+    /// for the kept list to drop (3.1: choosing one clears it).
+    rejoined: Vec<String>,
+    pending_other: Option<SavedCharacter>,
+    joined_other: Option<SavedCharacter>,
+    /// The adventure's fingerprint, worked out once.
+    print: std::cell::OnceCell<String>,
+    /// The end screen was put aside (winning 4.6).
+    ending_closed: bool,
+    /// The log filter (client 3): the groups hidden, by `Kind::group`.
+    log_hidden: [bool; LOG_GROUPS.len()],
     /// The name typed and picture chosen for the next "Add Someone".
     new_name: String,
     new_picture: Option<PictureId>,
@@ -334,6 +389,13 @@ impl Walk {
             simple_shops: false,
             confirm: None,
             hindered: false,
+            others: Vec::new(),
+            log_hidden: [false; LOG_GROUPS.len()],
+            ending_closed: false,
+            rejoined: Vec::new(),
+            pending_other: None,
+            joined_other: None,
+            print: std::cell::OnceCell::new(),
             new_name: String::new(),
             new_picture: None,
             idle: 0.0,
@@ -410,6 +472,66 @@ impl Walk {
         Ok(w)
     }
 
+    /// The adventure's fingerprint (`save::fingerprint`).
+    pub fn fingerprint(&self) -> &str {
+        self.print
+            .get_or_init(|| acs_engine::save::fingerprint(self.game.adventure()))
+    }
+
+    /// This game's characters retired with Save (characters 3.1).
+    pub fn saved_characters(&self) -> &[Player] {
+        &self.roster.saved
+    }
+
+    /// Asks a character from another adventure in (characters 3.2, 3.3):
+    /// `AddPlayer` with what it keeps, the picture chosen for newcomers.
+    /// One saved in an earlier game of this adventure comes back as saved
+    /// (3.1, `Rejoin`).
+    fn add_other(&mut self, c: SavedCharacter) {
+        let cmd = if c.adventure == self.fingerprint() {
+            Command::Rejoin {
+                player: Box::new(c.player.clone()),
+            }
+        } else {
+            let setup = acs_engine::characters::from_another_adventure(&c.player, self.new_picture);
+            self.new_picture = None;
+            Command::AddPlayer { setup }
+        };
+        self.pending_other = Some(c);
+        self.apply(cmd);
+    }
+
+    /// A pending character from another adventure joined, or its add was
+    /// refused or undone.
+    fn note_other(&mut self, events: &[Event]) {
+        let Some(name) = self.pending_other.as_ref().map(|c| c.player.name.clone()) else {
+            return;
+        };
+        for e in events {
+            match e {
+                Event::PlayerAdded { player, .. }
+                    if self.game.players().get(*player).is_some_and(|p| p.name == name) =>
+                {
+                    self.joined_other = self.pending_other.take();
+                    let joined = self.joined_other.clone();
+                    self.others.retain(|k| Some(k) != joined.as_ref());
+                }
+                Event::AddRefused | Event::Restored { .. } => self.pending_other = None,
+                _ => {}
+            }
+        }
+    }
+
+    /// Characters of this adventure back in by Rejoin since last asked.
+    pub fn take_rejoined(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.rejoined)
+    }
+
+    /// A character from another adventure that joined since last asked.
+    pub fn take_joined_other(&mut self) -> Option<SavedCharacter> {
+        self.joined_other.take()
+    }
+
     /// The seed and the number of commands played: what changes when the
     /// game moves on or starts again.
     pub fn mark(&self) -> (u64, usize) {
@@ -460,7 +582,21 @@ impl Walk {
         let names: Vec<String> = self.game.players().iter().map(|p| p.name.clone()).collect();
         let was_over = self.game.is_over();
         let ev = self.game.apply(cmd.clone());
+        let joining = self.roster.joining.clone().or(match &cmd {
+            Command::Rejoin { player } => Some(player.name.clone()),
+            _ => None,
+        });
         self.roster.note(&cmd, &self.game, &ev);
+        if let Some(name) = joining.filter(|_| self.roster.joining.is_none()) {
+            let added = ev.iter().any(|e| {
+                matches!(e, Event::PlayerAdded { player, .. }
+                    if self.game.players().get(*player).is_some_and(|p| p.name == name))
+            });
+            if added {
+                self.rejoined.push(name);
+            }
+        }
+        self.note_other(&ev);
         if !was_over && self.game.is_over() {
             // Nobody is left: the engine has cleared every player's record
             // (magic 7.4), so the log names them from before the command.
@@ -779,6 +915,7 @@ impl Walk {
                 | Event::CreatureGoldPickedUp { .. }
                 | Event::CreatureDropped { .. }
                 | Event::CreatureReadied { .. }
+                | Event::CreatureMimicked { .. }
                 | Event::CreatureUsedUp { .. } => Kind::Creature,
                 _ => Kind::Note,
             };
@@ -1069,6 +1206,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         let ctx = ui.ctx();
         let paused = doc.turn_based
             || walk.game.is_over()
+            || walk.game.won().is_some()
             || walk.game.store_visit().is_some()
             || ctx.memory(|m| m.focused().is_some())
             || !ctx.input(|i| i.focused);
@@ -1079,6 +1217,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         }
     }
     let mut click: Option<Command> = None;
+    let mut other: Option<SavedCharacter> = None;
     let mut fire: Option<(Option<u16>, bool)> = None;
     let mut restart: Option<Rules> = None;
     // Restart asked for, and the answer to the question it brings.
@@ -1115,13 +1254,22 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 ui.heading(RichText::new(heading).color(player_colour(ui.ctx(), g.current())));
                 ui.label(place_name(g, p.at));
             }
+            // Winning 4.3: play is over; only a new game or the end screen.
+            let won = g.won().is_some();
+            if won {
+                ui.label(RichText::new("The adventure is won.").color(Color32::from_rgb(255, 215, 0)));
+                if walk.ending_closed && ui.button("Show the ending").clicked() {
+                    walk.ending_closed = false;
+                }
+            }
             if over || !p.alive {
                 ui.label(
                     RichText::new("Nobody in play. Resume from the last save, or add someone.")
                         .color(Color32::from_rgb(255, 110, 110)),
                 );
             }
-            if ui
+            if !won
+                && ui
                 .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
                 .on_hover_text(
                     "The original saves when a visit to another region begins, and at the end of a round in which SAVE GAME was chosen or a player retired with Save.",
@@ -1140,7 +1288,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             } else {
                 walk.drain_part() as f32
             };
-            if !over {
+            if !over && !won {
                 bar(
                     ui,
                     (p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32,
@@ -1148,17 +1296,20 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves),
                 );
             }
-            party_panel(
-                ui,
-                &doc.tiles,
-                g,
-                &walk.roster.gone,
-                (&mut walk.new_name, &mut walk.new_picture),
-                &mut click,
-            );
-            if !over {
+            if !won {
+                party_panel(
+                    ui,
+                    &doc.tiles,
+                    g,
+                    &walk.roster.gone,
+                    (&mut walk.new_name, &mut walk.new_picture),
+                    &mut click,
+                );
+            }
+            if !over && !won {
                 actions_panel(ui, g, walk.pending_aim.is_some(), &mut fire, &mut click);
                 roster_panel(ui, g, &walk.roster, &mut click);
+                others_panel(ui, g, walk.fingerprint(), &walk.others, walk.pending_other.as_ref(), &mut other);
                 ui.separator();
                 stats_panel(ui, g);
                 inventory_panel(
@@ -1172,6 +1323,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 creatures_panel(ui, g);
             } else {
                 roster_panel(ui, g, &walk.roster, &mut click);
+                others_panel(ui, g, walk.fingerprint(), &walk.others, walk.pending_other.as_ref(), &mut other);
                 ui.separator();
             }
             ui.horizontal_wrapped(|ui| {
@@ -1303,6 +1455,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             // Ordinary lines wrap to what is in view, not to the widest
             // long message, which would run them past the panel's edge.
             let visible = ui.available_width();
+            // The filter by kind (client 3): long messages always show.
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("Show:").weak().small());
+                for (g, name) in LOG_GROUPS.iter().enumerate() {
+                    let mut on = !walk.log_hidden[g];
+                    if ui.checkbox(&mut on, RichText::new(*name).small()).changed() {
+                        walk.log_hidden[g] = !on;
+                    }
+                }
+            });
             egui::ScrollArea::both()
                 .max_height(ui.available_height())
                 .stick_to_bottom(true)
@@ -1316,6 +1478,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     let jump = walk.log_jump;
                     let last = walk.log.len().saturating_sub(1);
                     for (i, (kind, line)) in walk.log.iter().enumerate() {
+                        if kind.group().is_some_and(|g| walk.log_hidden[g]) {
+                            continue;
+                        }
                         // A symbol as well as a colour (client 7).
                         let t = match kind_mark(*kind, &access) {
                             Some((sym, colour)) => RichText::new(format!("{sym} {line}")).color(colour),
@@ -1364,6 +1529,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     } else if walk.game.store_visit().is_some() {
         store_window(ui.ctx(), &walk.game, &mut click);
     }
+    // Winning 4.6: the end screen, until put aside to look at the board.
+    if walk.game.won().is_some() && !walk.ending_closed {
+        ending_window(
+            ui.ctx(),
+            &walk.game,
+            &doc.credits,
+            &mut restart,
+            &mut walk.ending_closed,
+        );
+    }
 
     let board = egui::CentralPanel::no_frame().show(ui, |ui| {
         if screen {
@@ -1395,6 +1570,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     if let Some(cmd) = click {
         walk.apply(cmd);
+    }
+    if let Some(c) = other {
+        walk.add_other(c);
     }
     if let Some((weapon, aim)) = fire {
         walk.start_fire(weapon, aim);
@@ -1440,6 +1618,68 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         doc.walk = None;
         doc.creating = Some(NewCharacter::new(&doc.decoded.adventure, rules));
     }
+}
+
+/// The end screen (winning 4.6): the ending's long message as paragraphs,
+/// who won, the bundle's credits, and a new game or a last look around.
+fn ending_window(
+    ctx: &egui::Context,
+    g: &Game,
+    credits: &[String],
+    restart: &mut Option<Rules>,
+    closed: &mut bool,
+) {
+    let Some(w) = g.won() else { return };
+    let adv = g.adventure();
+    let text = adv
+        .endings
+        .get(w.ending)
+        .and_then(|e| adv.long_messages.get(usize::from(e.message).wrapping_sub(1)))
+        .map(|t| paragraphs(t))
+        .unwrap_or_default();
+    let who = g.players().get(w.player).map_or("", |p| p.name.trim());
+    let font = crate::fonts::kit(ctx, 22.0, false);
+    egui::Window::new(RichText::new("The end").strong())
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+        .max_width((ctx.content_rect().width() - 32.0).clamp(200.0, 560.0))
+        .show(ctx, |ui| {
+            ui.label(
+                RichText::new(adv.name.trim())
+                    .font(font.clone())
+                    .color(Color32::from_rgb(255, 215, 0)),
+            );
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(text)
+                    .font(font)
+                    .color(Color32::from_rgb(251, 241, 207)),
+            );
+            ui.add_space(6.0);
+            if !who.is_empty() {
+                ui.label(format!("Won by {who}."));
+            }
+            if !credits.is_empty() {
+                ui.add_space(4.0);
+                for c in credits {
+                    ui.label(RichText::new(c).weak());
+                }
+            }
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("New game").clicked() {
+                    *restart = Some(g.rules());
+                }
+                if ui
+                    .button("Look around")
+                    .on_hover_text("Close this and see the board as it ended; play is over.")
+                    .clicked()
+                {
+                    *closed = true;
+                }
+            });
+        });
 }
 
 /// The open store as a list (Options > Simplify shops; the store screen,
@@ -1871,6 +2111,71 @@ fn roster_panel(ui: &mut egui::Ui, g: &Game, roster: &Roster, click: &mut Option
     if let Some(name) = &roster.joining {
         ui.label(RichText::new(format!("{} joins at the end of the round.", name.trim())).weak());
     }
+}
+
+/// Characters retired with Save in other adventures (characters 3.2,
+/// 3.3): each joins at the start cell with its ratings, no things, and at
+/// least 1,000 gold, taking the picture chosen above.
+fn others_panel(
+    ui: &mut egui::Ui,
+    g: &Game,
+    print: &str,
+    others: &[SavedCharacter],
+    pending: Option<&SavedCharacter>,
+    out: &mut Option<SavedCharacter>,
+) {
+    if others.is_empty() {
+        return;
+    }
+    let living = g.players().iter().filter(|p| p.alive).count();
+    let room = living < acs_engine::MAX_PLAYERS;
+    for (own, heading) in [
+        (true, "Saved in earlier games:"),
+        (false, "From another adventure:"),
+    ] {
+        let list: Vec<&SavedCharacter> = others.iter().filter(|c| (c.adventure == print) == own).collect();
+        if list.is_empty() {
+            continue;
+        }
+        ui.label(RichText::new(heading).weak());
+        for c in list {
+            other_row(ui, c, own, room && pending.is_none(), out);
+        }
+    }
+    if let Some(c) = pending {
+        ui.label(RichText::new(format!("{} joins at the end of the round.", c.player.name.trim())).weak());
+    }
+}
+
+/// One kept character and its Join button (`others_panel`): one from an
+/// earlier game of this adventure as saved (3.1), one from another as 3.3
+/// makes it.
+fn other_row(ui: &mut egui::Ui, c: &SavedCharacter, own: bool, open: bool, out: &mut Option<SavedCharacter>) {
+    ui.horizontal_wrapped(|ui| {
+        let p = &c.player;
+        if own {
+            ui.label(format!("{} · LF {} · {} gold", p.name.trim(), p.life_force, p.gold));
+        } else {
+            ui.label(format!(
+                "{} ({}) · LF {} · {} gold",
+                p.name.trim(),
+                c.adventure_name,
+                p.life_force,
+                p.gold.max(acs_engine::characters::STRANGER_GOLD)
+            ));
+        }
+        let b = ui
+            .add_enabled(open, egui::Button::new("Join").small())
+            .on_hover_text(if own {
+                "Joins as saved: where it retired, with its gear readied (at the start point if that square is taken). It leaves the list."
+            } else {
+                "Joins at the start point with its ratings, Life Force and Power, but none of its things, and at least 1,000 gold. It leaves the list."
+            })
+            .on_disabled_hover_text("Someone is already joining, or 4 characters already play.");
+        if b.clicked() {
+            *out = Some(c.clone());
+        }
+    });
 }
 
 /// Life Force, Power and the other ratings spells change (magic 3, 5).
@@ -3062,6 +3367,49 @@ end"
         assert_eq!(w.game.players()[0].name, "PLAYER 1");
         assert_eq!(w.game.players()[0].at, place, "back where it retired");
         assert!(Roster::of(&w.game).saved.is_empty());
+        // The kept list (characters 3.1) hears of it, once.
+        assert_eq!(w.take_rejoined(), ["PLAYER 1"]);
+        assert!(w.take_rejoined().is_empty());
+    }
+
+    /// Characters 3.2-3.4: a character saved in another adventure joins
+    /// at the start with its ratings, nothing carried and 1,000 gold, and
+    /// leaves the list once it is in.
+    #[test]
+    fn a_character_from_another_adventure_joins_as_a_stranger() {
+        let mut w = in_a_room();
+        let mut p = w.game.players()[0].clone();
+        p.name = "VISITOR".into();
+        p.strength = 17;
+        p.gold = 300;
+        p.possessions = vec![1];
+        let c = SavedCharacter {
+            adventure: "elsewhere".into(),
+            adventure_name: "ELSEWHERE".into(),
+            player: p,
+        };
+        w.others = vec![c.clone()];
+        w.add_other(c.clone());
+        for _ in 0..3 {
+            if w.pending_other.is_none() {
+                break;
+            }
+            w.apply(Command::Wait);
+        }
+        assert_eq!(w.take_joined_other(), Some(c));
+        assert!(w.others.is_empty());
+        let v = w
+            .game
+            .players()
+            .iter()
+            .find(|p| p.name == "VISITOR")
+            .expect("joined");
+        assert_eq!((v.strength, v.gold), (17, 1_000));
+        assert!(v.possessions.is_empty());
+        assert!(
+            matches!(v.at, Location::World { .. }),
+            "on the map, not where it was"
+        );
     }
 
     /// A drop or cursor waiting when the turn ends is dropped with it: the

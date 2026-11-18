@@ -104,6 +104,8 @@ pub struct Doc {
     pub audio: crate::audio::Audio,
     /// The session's HD pack (client 5).
     pub pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
+    /// A bundle's credits, shown on the end screen (winning 4.6).
+    pub credits: Vec<String>,
 }
 
 impl Doc {
@@ -135,6 +137,7 @@ impl Doc {
             pad: None,
             audio: Default::default(),
             pack: None,
+            credits: Vec::new(),
         }
     }
 
@@ -243,6 +246,9 @@ struct Kept {
     welcomed: bool,
     /// "Don't show this again" on How to play.
     no_play_help: bool,
+    /// Characters retired with Save, from every adventure played: the
+    /// original's other adventure disk (characters 3.2).
+    characters: Vec<views::walk::SavedCharacter>,
 }
 
 /// The last game: its save file (docs/saves.md), resumed when the same
@@ -296,6 +302,8 @@ pub struct Viewer {
     keep: bool,
     kept_sound: Option<(bool, f32)>,
     kept_game: Option<KeptGame>,
+    /// The kept characters (`Kept::characters`), this session's included.
+    characters: Vec<views::walk::SavedCharacter>,
     /// The open file and the game's seed and command count when last
     /// kept, so an unchanged game isn't written again.
     kept_mark: Option<(String, (u64, usize))>,
@@ -337,6 +345,7 @@ impl Viewer {
             keep,
             kept_sound: None,
             kept_game: None,
+            characters: Vec::new(),
             kept_mark: None,
         };
         if v.keep {
@@ -350,6 +359,7 @@ impl Viewer {
             }
             v.kept_sound = kept.sound;
             v.kept_game = kept.game;
+            v.characters = kept.characters;
             v.welcomed = kept.welcomed;
             v.no_play_help = kept.no_play_help;
             // The first visit opens on the welcome (client 7.3).
@@ -502,6 +512,49 @@ impl Viewer {
         }
     }
 
+    /// Characters 3.2: the open game's characters retired with Save join
+    /// the kept list (one entry per adventure and name, the latest), a
+    /// kept character that joined leaves it (3.4), and the walk is offered
+    /// the rest but this game's own.
+    fn sync_characters(&mut self) {
+        let Some(walk) = self.doc.as_mut().and_then(|d| d.walk.as_mut()) else {
+            return;
+        };
+        if let Some(c) = walk.take_joined_other() {
+            self.characters.retain(|k| k != &c);
+        }
+        let print = walk.fingerprint().to_string();
+        for name in walk.take_rejoined() {
+            self.characters
+                .retain(|k| k.adventure != print || k.player.name != name);
+        }
+        let adv = walk.game.adventure();
+        for p in walk.saved_characters() {
+            let c = views::walk::SavedCharacter {
+                adventure: print.clone(),
+                adventure_name: adv.name.trim().to_string(),
+                player: p.clone(),
+            };
+            match self
+                .characters
+                .iter_mut()
+                .find(|k| k.adventure == c.adventure && k.player.name == c.player.name)
+            {
+                Some(k) => *k = c,
+                None => self.characters.push(c),
+            }
+        }
+        // This game's own list has its own; earlier games' of this
+        // adventure come back by Rejoin, other adventures' by 3.3.
+        let own: Vec<String> = walk.saved_characters().iter().map(|p| p.name.clone()).collect();
+        walk.others = self
+            .characters
+            .iter()
+            .filter(|k| k.adventure != print || !own.contains(&k.player.name))
+            .cloned()
+            .collect();
+    }
+
     /// What to keep now: the options, the sound and the open game.
     fn kept(&mut self) -> Kept {
         if let Some(doc) = &self.doc {
@@ -524,6 +577,7 @@ impl Viewer {
             game: self.kept_game.clone(),
             welcomed: self.welcomed,
             no_play_help: self.no_play_help,
+            characters: self.characters.clone(),
         }
     }
 
@@ -564,11 +618,16 @@ impl Viewer {
             return;
         }
         match file.bytes.and_then(|b| load::load(&file.name, b)) {
-            Ok(load::Loaded { decoded, art }) => {
+            Ok(load::Loaded {
+                decoded,
+                art,
+                credits,
+            }) => {
                 for d in &decoded.diagnostics {
                     log::warn!("{}: {d}", file.name);
                 }
                 let mut doc = Doc::new(ctx, file.name, decoded);
+                doc.credits = credits;
                 if let Some(pack) = &self.pack {
                     Self::apply_pack(ctx, pack, &mut doc);
                 }
@@ -1128,6 +1187,7 @@ impl eframe::App for Viewer {
         }
 
         self.access.set(&ctx);
+        self.sync_characters();
         egui::Panel::top("top").show(ui, |ui| self.top_bar(ui));
 
         if let Some(doc) = &mut self.doc {

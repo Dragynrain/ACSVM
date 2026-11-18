@@ -59,6 +59,23 @@ pub struct Adventure {
     /// content 3.2); empty for Classic, which offers its creatures'.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub player_pictures: Vec<PictureId>,
+    /// Extended, the `endings` rule feature (winning 4): the triggers
+    /// that win the game. Empty for Classic.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub endings: Vec<Ending>,
+}
+
+/// One way to win (winning 4): the trigger thing placed in a room, and the
+/// long message the end screen shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Ending {
+    /// Region 1-based and room 0-based, as the engine's places.
+    pub region: u8,
+    pub room: u8,
+    /// A space, custom space, obstacle, custom obstacle or portal.
+    pub thing: ThingId,
+    /// Long message 1..=255.
+    pub message: u8,
 }
 
 /// Genre theme stored with the adventure (one of the three builder sets).

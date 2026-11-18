@@ -1016,6 +1016,11 @@ impl Driver<'_> {
                     return Err(format!("expected {name} alive"));
                 }
             }
+            Expect::Won => {
+                if self.game.won().map(|w| w.player) != Some(me) {
+                    return Err(format!("expected {name} to have won the adventure"));
+                }
+            }
             Expect::Dead => {
                 if p.alive {
                     return Err(format!("expected {name} dead"));

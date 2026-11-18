@@ -90,6 +90,37 @@ pub fn player_pictures(adv: &Adventure) -> Vec<PictureId> {
     }
 }
 
+/// The least gold a player from another adventure brings (3.3).
+pub const STRANGER_GOLD: u16 = 1_000;
+
+/// 3.3: a character saved in another adventure, as it joins this one:
+/// every trait and skill, Life Force, Power and magic defense kept; no
+/// possessions, nothing readied, the map's start cell; gold raised to at
+/// least 1,000. `picture` is the one chosen here (3.2.4), none for the
+/// first offered.
+pub fn from_another_adventure(p: &crate::Player, picture: Option<PictureId>) -> PlayerSetup {
+    PlayerSetup {
+        name: p.name.clone(),
+        speed: p.speed,
+        strength: p.strength,
+        constitution: p.constitution,
+        life_force: p.life_force,
+        possessions: Vec::new(),
+        gold: p.gold.max(STRANGER_GOLD),
+        dexterity: p.dexterity,
+        wisdom: p.wisdom,
+        power: Some(p.power),
+        size: p.size,
+        dodge: p.dodge,
+        parry: p.parry,
+        armor_skill: p.armor_skill,
+        melee: p.melee,
+        missile: p.missile,
+        magic_defense: p.magic_defense,
+        picture,
+    }
+}
+
 /// The picture `player` shows (characters 2.4): its own, else the first
 /// offered.
 pub fn picture_of(adv: &Adventure, picture: Option<PictureId>) -> Option<PictureId> {
@@ -289,6 +320,28 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 3.3: ratings kept, things and readied gear dropped, gold at least
+    /// 1,000 (1,500 stays 1,500, 300 becomes 1,000).
+    #[test]
+    fn a_stranger_keeps_its_ratings_and_brings_at_least_1000_gold() {
+        let mut p = crate::Player {
+            name: "T".into(),
+            ..crate::Player::cleared()
+        };
+        p.strength = 17;
+        p.life_force = 5;
+        p.power = 31;
+        p.possessions = vec![3, 5];
+        p.weapon = Some(3);
+        p.gold = 300;
+        let s = from_another_adventure(&p, Some(4));
+        assert_eq!((s.strength, s.life_force, s.power), (17, 5, Some(31)));
+        assert!(s.possessions.is_empty());
+        assert_eq!((s.gold, s.picture), (1_000, Some(4)));
+        p.gold = 1_500;
+        assert_eq!(from_another_adventure(&p, None).gold, 1_500);
+    }
 
     #[test]
     fn derived_ratings_follow_the_traits() {

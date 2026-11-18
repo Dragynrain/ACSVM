@@ -4394,3 +4394,39 @@ In this order (planned November 2026):
      **confirmed**, and `Wait` is REST by name now.
 
    No new addresses.
+47. **Mimics, 2026-11-18** (ours, no research pass:
+   [creatures](rules/creatures.md) 4.5). `ACSVM-research/capture/runs/rr43/`
+   (the harness binary in `bin/`, `env.sh`, `case.sh` and `mem.sh` as
+   rr42's; `py_rec.py` and `py_rec2.py` list a `mem` run's changes by
+   record byte, dropping values undone within 60,000 instructions).
+   Harness: `scenario --creature ..,mimic=1` sets bit 7 of the record's
+   byte 0x09. T Speed 6, Constitution and Life Force 40, Strength 20,
+   Dexterity 18, Wisdom and Power 17, Size 14, Dodge 50, Parry 40, Melee
+   60, Missile 30; MM an aggressive enemy of Speed 3, Constitution and
+   Life Force 12, the rest 5 or 10, two squares east of T on 4,4. `mem`
+   runs watch slot 0 (`$E1A3`, 37 bytes), slot 1 and T's record
+   (`$F59F`) with `--ram` (without it the bytes under the ROMs read
+   passing values).
+   - `m1` (mimic) and `m0` (control), 4 states each, 40M instructions:
+     at MM's first turn, after the round byte (+12) was noted and before
+     its first step, **slot 0 took T's bytes** +0 to +2, +5 to +10, +12,
+     +15, +17 and +22 (the picture), and +4's low four bits (Speed 6) with
+     its own top four kept (102), and +9 with its own bit 7 (188), in all
+     4 runs; +3 (Life Force 12), +13 and +14 (the square) stayed. That
+     turn it stepped 3 times, its old Speed; its third turn 6. Nothing in
+     the control.
+   - `m3`: AA, a friend, beside MM on 11,4, MM 6 squares from T: MM
+     copied T, not AA.
+   - `m2`: T with Armor skill 25, holding our blade and wearing our mail:
+     MM took +8 (25), +20 and +21 (the blade and mail) and T's possession
+     bits (+31, +34).
+   - `x1e`, `x1f`: from after the copy, T's Strength set to 25 and
+     Dexterity to 25: MM's next two turns copied nothing.
+   - `m4`, `m5` (control), `m6`, `m7` (control): T with 300 gold, MM with
+     7 (and in `m6`, `m7` one of our treasures). The mimic kept 7, then
+     **dropped its 7 gold as a pile on its own square** (the room's list,
+     `$E583`) about 540,000 instructions after the copy, then took 2 steps
+     (3 without gold); its treasure's bit went with the copy and nothing
+     else reached the room's list. The controls kept both.
+
+   No new addresses.

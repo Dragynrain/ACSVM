@@ -79,27 +79,46 @@ adventures.
 3. Saving, retiring and resuming work as before ([magic](magic.md) 7.4,
    [movement](movement.md) 6.6).
 
-## 4. Extended: the `endings` rule feature (proposed)
+## 4. Extended: the `endings` rule feature
 
-Our own adventures want a real ending: a credits screen, a "won" flag in the
-save, and an end to replays. That is a rule feature, so it is opt-in and
-named in the bundle's `features` list.
+Our own adventures want a real ending: an end screen, a won state in the
+save, and an end to play. That is a rule feature, so it is opt-in and
+named in the bundle's `features` list (`endings`, content 2). Decided for
+1.0 (2026-11-18), the one rule feature 1.0 ships.
 
-1. The adventure lists one or more **endings**. Each names a trigger thing
-   (a space, custom space, obstacle or portal placed in a room) and a long
-   message to show.
-2. When the trigger's spell runs for a player (passing an owner-only space,
-   bumping an obstacle, taking a door), the engine emits `AdventureWon` with
-   the ending's index and the player, after the stack's own events.
-3. After `AdventureWon` the game ignores further commands, like after
-   `AllPlayersDead`. The save records which ending was reached.
-4. Every Classic way of reaching the trigger still works. An engine without
-   the feature plays the adventure the Classic way, with the ending as an
-   ordinary message, so the feature only adds the end state.
-
-Each ending is just a placed thing plus a message, so the Classic data model
-holds it and only the `endings` list is new. It gets a `MODEL_VERSION` bump
-when it is implemented.
+1. The adventure lists one or more **endings**. Each names a **trigger**:
+   a master thing of kind space, custom space, obstacle, custom obstacle
+   or portal, placed in a given room (region and room), and a long
+   message, the ending's own text.
+2. When a spell held by the trigger runs for a player there (as the thing
+   stepped on, bumped or passed: the spell sources space, custom space,
+   obstacle, custom obstacle and portal, in that room), the game is won:
+   after the command's own events, the stack's included, the engine
+   emits `AdventureWon` with the ending's index and the player. A trigger
+   with no spell never fires, and a creature setting it off doesn't win.
+   A trigger lower in a stack that an Activate All above it runs counts
+   (it runs as the space or obstacle it is), so the trigger may sit
+   anywhere in an ending's stack. The first ending in the list that
+   matches is the one won.
+3. After `AdventureWon` the game ignores every further command and logs
+   none (`Game::won` gives the ending and the player). A save is a replay
+   (saves 1), so it brings the won state back by itself.
+4. Every Classic way of reaching the trigger still works, and the
+   trigger's spell still runs first. An engine without the feature plays
+   the adventure the Classic way, with the ending as an ordinary message,
+   so the feature only adds the end state.
+5. **The model.** `Adventure::endings`: each `{ region, room, thing,
+   message }` (region 1-based and room 0-based as the engine's places,
+   the message 1-based). Empty for Classic and not written when empty.
+   **No `MODEL_VERSION` bump** (the plan had one): the field is new and
+   optional, so no field changes meaning, as with `player_pictures`; and
+   a bump would change every adventure's fingerprint and leave every save
+   reading as made over another adventure (saves 2). A bundle with
+   endings must list `endings` in `features`, and one listing it must
+   have endings.
+6. **The front end** shows the ending's message as the end screen, with
+   the bundle's credits, and offers a new game; the board stays as it
+   was.
 
 ## Captures needed
 

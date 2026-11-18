@@ -386,6 +386,33 @@ impl Game {
     // ---- the effects ---------------------------------------------------------
 
     /// Runs one spell: the event with its message first, then the effect.
+    /// Winning 4.2: a player setting off an ending's trigger in its room
+    /// (as a space, custom space, obstacle, custom obstacle or portal, not
+    /// from a stack) wins once the command is done; the first ending
+    /// listed that matches.
+    fn check_ending(&mut self, s: &Spell) {
+        let Who::Player { player } = s.by else {
+            return;
+        };
+        use SpellSource::*;
+        if self.pending_win.is_some()
+            || !matches!(s.source, Space | CustomSpace | Obstacle | CustomObstacle | Portal)
+        {
+            return;
+        }
+        let Location::Room { region, room, .. } = s.on else {
+            return;
+        };
+        if let Some(ending) = self
+            .adv
+            .endings
+            .iter()
+            .position(|e| (e.region, e.room, e.thing) == (region, room, s.thing))
+        {
+            self.pending_win = Some(crate::game::Won { ending, player });
+        }
+    }
+
     pub(crate) fn run_spell(&mut self, s: Spell, ev: &mut Vec<Event>) {
         use SpellActionKind::*;
         let individual = acts_on_individual(s.action.kind);
@@ -397,6 +424,7 @@ impl Game {
             action: s.action,
             message: s.message.clone(),
         });
+        self.check_ending(&s);
         if individual && !self.alive(s.target) {
             return;
         }

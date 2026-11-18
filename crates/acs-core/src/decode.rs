@@ -203,6 +203,7 @@ impl Decoder<'_> {
             long_messages,
             short_messages,
             player_pictures: Vec::new(),
+            endings: Vec::new(),
         })
     }
 

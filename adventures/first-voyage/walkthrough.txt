@@ -49,3 +49,4 @@ take 3 4
 expect owns chest of coin
 walk 3 4
 expect message 5
+expect won

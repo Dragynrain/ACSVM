@@ -737,6 +737,35 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
 4. **Smart or dumb** (Wisdom above 14, below 6, chance in between) matters
    for casting and for a hurt neutral turning enemy: the magic and combat
    rules. Not used here.
+5. **Mimics.** A creature with the Mimics choice mirrors the opponents it
+   meets. [manual] The choice is bit 7 of record byte 0x09 (format
+   notes). [data] On the C64, at the mimic's first turn with the player
+   in its room, after its moves for the turn are set (an enemy of Speed
+   3 copying a player of Speed 6 took 3 steps that turn and 6 the next
+   unhindered one), its record becomes the player's: Constitution with
+   its magic defense, Strength, Dexterity, Speed, Wisdom, Power, Size,
+   Dodge, Parry, Armor skill, Melee, Missile, the weapon held, the armor
+   worn, every possession bit and the picture, and the round of its last
+   turn (5.5 of [magic](magic.md)) becomes the player's 0. It keeps its
+   own Life Force, square, room, strategy (alignment, aggressive and
+   brave) and its Mimics bit. Things it owned that the player doesn't
+   are gone, not dropped. Its gold is not the player's: it **drops all
+   its gold** on its own square as the turn's first action, a move (2
+   steps after it against 3 without gold), and owns none. The copy is
+   made from a distance (2 and 6 squares off, before any step), and of
+   the player, not of a friend standing beside it. **Once:** a player's
+   Strength and Dexterity raised after the copy were not copied at the
+   mimic's next two turns. [capture: rr43, 18 runs, capture.md 10.47;
+   ours, no research pass, 2026-11-18] Without the choice the same
+   creature copies nothing (the control in every case). Not run, the
+   engine's choices standing [unknown]: which player is copied when
+   several are in the room (**Engine:** the lowest-numbered living one);
+   whether "once" is per visit or for good, and where the program keeps
+   it (**Engine:** for good, the creature's mimic flag cleared); a
+   friendly or peaceful mimic (**Engine:** any mimic copies); whether the
+   gold drop draws for its square (**Engine:** its own square, no draw).
+   **Engine:** so (`ai.rs`, `mimic_copy`), with an event
+   `CreatureMimicked`.
 
 ## 5. Where a creature may step
 
@@ -1227,7 +1256,6 @@ creatures replay exactly.
 ## 10. Left for later
 
 - **Combat:** melee and missile fire are in [combat](combat.md).
-- **Mimics** copy the opponent they meet: combat.
 
 ## Captures needed
 

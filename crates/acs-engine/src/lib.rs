@@ -51,7 +51,7 @@ pub use event::{
     BlockReason, CastRefusal, DropRefusal, Event, FireRefusal, ReadyRefusal, RemovalReason, Slot,
     SpellSource, Who,
 };
-pub use game::{Game, Newcomer, Player, PlayerSetup, MAX_PLAYERS, NAME_MAX};
+pub use game::{Game, Newcomer, Player, PlayerSetup, Won, MAX_PLAYERS, NAME_MAX};
 pub use rng::Rng;
 pub use save::{Restored, SaveError, SaveFile};
 pub use view::{BuyOffer, SellOffer, StoreOffers};

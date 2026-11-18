@@ -2938,3 +2938,63 @@ fn a_long_message_keeps_its_stored_lines() {
         assert_eq!(describe(&g, &ev[i]).lines().count(), 3);
     });
 }
+
+#[test]
+fn an_endings_trigger_wins_after_its_spell_and_play_stops() {
+    // Winning 4.2, 4.3: the player stepping onto the trigger in its room
+    // wins once the command's events are out, its spell first; from then
+    // every command is ignored and none logged.
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 1, TUNE, 0);
+        a.endings = vec![acs_core::model::Ending {
+            region: 1,
+            room: 0,
+            thing: TUNE,
+            message: 7,
+        }];
+        let mut g = start(a.clone(), 2, 1, setup());
+        let ev = mv(&mut g, Dir::E);
+        let music = ev.iter().position(|e| matches!(e, Event::Music { .. }));
+        assert!(music.is_some(), "{ev:?}");
+        assert_eq!(ev.last(), Some(&Event::AdventureWon { ending: 0, player: 0 }));
+        assert_eq!(g.won(), Some(acs_engine::Won { ending: 0, player: 0 }));
+        let logged = g.log().len();
+        assert!(mv(&mut g, Dir::W).is_empty());
+        assert!(g.apply(Command::Wait).is_empty());
+        assert_eq!(g.log().len(), logged);
+        assert_eq!(g.current_player().at, hall(3, 1));
+    });
+}
+
+#[test]
+fn an_ending_under_activate_all_wins_but_not_in_another_room() {
+    // Winning 4.2: a trigger an Activate All above it runs counts; the
+    // same thing set off in a room the ending doesn't name doesn't.
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 1, TUNE, 0);
+        put_item(&mut a, 0, 3, 1, DOALL, 0);
+        a.endings = vec![acs_core::model::Ending {
+            region: 1,
+            room: 0,
+            thing: TUNE,
+            message: 7,
+        }];
+        let mut g = start(a.clone(), 2, 1, setup());
+        let ev = mv(&mut g, Dir::E);
+        assert!(ev.contains(&Event::Music { number: 13 }), "{ev:?}");
+        assert_eq!(g.won().map(|w| w.ending), Some(0), "{ev:?}");
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 1, TUNE, 0);
+        a.endings = vec![acs_core::model::Ending {
+            region: 1,
+            room: 1,
+            thing: TUNE,
+            message: 7,
+        }];
+        let mut g = start(a, 2, 1, setup());
+        mv(&mut g, Dir::E);
+        assert_eq!(g.won(), None);
+    });
+}

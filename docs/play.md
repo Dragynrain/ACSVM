@@ -65,6 +65,7 @@ world map's cell. THING is a master thing number or name (any case).
 | `expect owns THING`, `expect not owns THING` | |
 | `expect message N` | Long message N was shown during the last action step (any step but `expect` and `as`); several `expect`s after it all read the same messages. |
 | `expect alive`, `expect dead` | |
+| `expect won` | The adventure won (winning 4) by this player. |
 | `expect area [N]` | The player stands in an encounter area (area N). |
 | `expect life >= N` | Also `<=`, `>`, `<`, `==`. |
 

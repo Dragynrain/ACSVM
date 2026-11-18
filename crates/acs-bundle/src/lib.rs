@@ -28,7 +28,10 @@ pub const ART: &str = "art/pictures.png";
 
 /// Rule features this engine knows (design.md, "What stays fixed in v1").
 /// None yet.
-pub const KNOWN_FEATURES: &[&str] = &[];
+pub const KNOWN_FEATURES: &[&str] = &[ENDINGS];
+
+/// The end state (winning 4): listed exactly when the model has endings.
+pub const ENDINGS: &str = "endings";
 
 /// `bundle.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,7 +52,8 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    /// A manifest for `adv` with no art, credits or features.
+    /// A manifest for `adv` with no art or credits; its features are the
+    /// ones its model needs (`endings` when it has endings).
     pub fn new(adv: &Adventure, license: &str) -> Manifest {
         Manifest {
             format: FORMAT.into(),
@@ -58,7 +62,11 @@ impl Manifest {
             byline: adv.byline.clone(),
             license: license.into(),
             credits: Vec::new(),
-            features: Vec::new(),
+            features: if adv.endings.is_empty() {
+                Vec::new()
+            } else {
+                vec![ENDINGS.into()]
+            },
             art: None,
         }
     }
@@ -197,6 +205,18 @@ pub fn read(bytes: &[u8]) -> Result<Bundle, BundleError> {
     }
 
     let adventure = adventure(&adventure_bytes)?;
+    // Winning 4.5: the feature is listed exactly when there are endings.
+    let listed = manifest.features.iter().any(|f| f == ENDINGS);
+    if listed != !adventure.endings.is_empty() {
+        return Err(bad(
+            MANIFEST,
+            if listed {
+                "lists the endings feature, but the adventure has no endings"
+            } else {
+                "the adventure has endings, but the endings feature isn't listed"
+            },
+        ));
+    }
     let art = match (&manifest.art, art_bytes) {
         (Some(m), Some(png)) => Some(art(m, &png, &adventure)?),
         (None, None) => None,

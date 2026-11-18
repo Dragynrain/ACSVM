@@ -9,7 +9,8 @@ and the source format; each section is written before its code, like
 
 The rules don't change in this phase. Our adventures play under the
 Extended profile (design.md, "Extended adventures"): the same rules as
-Classic with larger caps, and no rule features in 1.0.
+Classic with larger caps, and one rule feature in 1.0: `endings`, the
+end state (winning 4, decided 2026-11-18).
 
 ## 1. The gate
 
@@ -59,8 +60,9 @@ scene pictures) that older readers skip. A path with `..`, a leading
 - `name`, `byline`, `license` and `credits` are free text for the open
   dialog and the title screen; the model's own `name` and `byline` are
   what the game shows in play. `credits` may be empty.
-- `features` names rule extensions (design.md). The engine knows none
-  yet, so a bundle listing any is refused with the names it lacks.
+- `features` names rule extensions (design.md). The engine knows one,
+  `endings` (winning 4), listed exactly when the model has endings; a
+  bundle listing any other is refused with the names it lacks.
 - `art` is present exactly when `art/pictures.png` is. `tile` is 16 to
   512 pixels; place `at` sits in the atlas as in an HD pack (client.md
   5): column `at % (width / tile)`, row `at / (width / tile)`.
@@ -158,7 +160,16 @@ picture = "cave_passage"
 [floor]                           # thing 127, and the wall rooms default to
 picture = "sand_floor"            # default: the blank picture
 wall = "plank_wall"
+
+[[ending]]                        # optional, any number: winning 4
+trigger = "win_space"             # a space, custom space, obstacle, custom obstacle or portal
+room = "cliffs.hollow"            # a room it is placed in ("region.room")
+message = "win"                   # a long message key: the end screen's text
 ```
+
+Endings make the bundle list the `endings` feature. Each trigger must be
+placed in its room and hold a spell (a space's or portal's `access =
+{ spell = .. }`, the others' `spell`), or the build fails.
 
 The model's `limits` are `Limits::CLASSIC` with `[limits]` laid over it
 (field names as in `Limits`), each value within `Limits::EXTENDED`; its

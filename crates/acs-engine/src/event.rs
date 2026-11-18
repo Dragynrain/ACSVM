@@ -385,6 +385,12 @@ pub enum Event {
         slot: usize,
         thing: ThingId,
     },
+    /// A mimic took on `player`'s ratings, gear and looks (creatures 4.5).
+    CreatureMimicked {
+        region: u8,
+        slot: usize,
+        player: usize,
+    },
     /// A melee attack starts (combat 3): `weapon` in hand, `blows` to
     /// strike. Its blows follow; it ends the attacker's turn.
     Attacked {
@@ -616,6 +622,13 @@ pub enum Event {
     /// No player is left in play (all dead or retired); the game takes no
     /// more commands but adding a player (magic 7.4, characters 7.6).
     AllPlayersDead,
+    /// The adventure is won (winning 4): `ending` is the index in the
+    /// adventure's endings, `player` who set its trigger off. Last of its
+    /// command's events; play stops.
+    AdventureWon {
+        ending: usize,
+        player: usize,
+    },
     /// RETIRE taken: the player retires at the end of the round
     /// (characters 7.1).
     RetireRequested {

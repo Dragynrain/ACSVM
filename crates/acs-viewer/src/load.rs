@@ -28,6 +28,8 @@ pub fn guess_platform(name: &str, len: usize) -> Platform {
 pub struct Loaded {
     pub decoded: Decoded,
     pub art: Option<acs_bundle::Art>,
+    /// A bundle's credits (content 2), for the end screen (winning 4.6).
+    pub credits: Vec<String>,
 }
 
 /// Decodes `bytes`, an original file or an Extended bundle (content 2);
@@ -41,12 +43,17 @@ pub fn load(name: &str, bytes: Vec<u8>) -> Result<Loaded, String> {
                 diagnostics: Vec::new(),
             },
             art: b.art,
+            credits: b.manifest.credits,
         });
     }
     let platform = guess_platform(name, bytes.len());
     let image = Image::from_bytes(platform, bytes).map_err(|e| e.to_string())?;
     let decoded = decode(&image).map_err(|e| e.to_string())?;
-    Ok(Loaded { decoded, art: None })
+    Ok(Loaded {
+        decoded,
+        art: None,
+        credits: Vec::new(),
+    })
 }
 
 /// The text of a save file (docs/saves.md 2), or `None` for anything else:

@@ -457,3 +457,33 @@ fn missing_files_are_reported() {
     f.files.remove("world.toml");
     has(&problems(f), "world.toml: missing");
 }
+
+/// Content 3.2, winning 4: `[[ending]]` names a placed trigger holding a
+/// spell, and the bundle lists the endings feature.
+#[test]
+fn endings_name_a_placed_trigger_with_a_spell() {
+    let bell = "\n[[thing]]\nkey = \"bell\"\nname = \"BELL\"\ntype = \"space\"\npicture = \"sand\"\naccess = { spell = { action = \"play_music\", music = 11 } }\n";
+    let hut = COVE
+        .replace("#.s.#", "#bs.#")
+        .replace("\"s\" = \"trader\"", "\"s\" = \"trader\"\n\"b\" = \"bell\"");
+    let with = |ending: &str| {
+        folder()
+            .with("things.toml", &format!("{THINGS}{bell}"))
+            .with("regions/01-cove.toml", &hut)
+            .with("adventure.toml", &format!("{ADVENTURE}\n{ending}"))
+    };
+    let ok = "[[ending]]\ntrigger = \"bell\"\nroom = \"cove.hut\"\nmessage = \"welcome\"\n";
+    let b = build(&with(ok)).expect("builds");
+    assert_eq!(b.adventure.endings.len(), 1);
+    let e = b.adventure.endings[0];
+    assert_eq!((e.region, e.room, e.message), (1, 1, 1));
+    assert_eq!(b.manifest.features, ["endings"]);
+    let p = problems(with(&ok.replace("cove.hut", "cove.beach")));
+    has(&p, "is not placed in cove.beach");
+    let p = problems(with(&ok.replace("\"bell\"", "\"door\"")));
+    has(&p, "holds no spell");
+    let p = problems(with(&ok.replace("\"bell\"", "\"cutlass\"")));
+    has(&p, "is not a space");
+    let p = problems(with(&ok.replace("\"welcome\"", "\"nope\"")));
+    has(&p, "no long message");
+}

@@ -771,7 +771,6 @@ misses a player that came into the room after the firer (8.8.2).
 
 - Firing's open points (section 8, "Not run"), and the engine's choices
   there.
-- **Mimics** copying their opponent.
 - Fights in encounter areas ([encounters](encounters.md)): the bit cleared
   with a copy's Power. (A dead copy drops what it carries and its gold as
   anywhere: encounters 4.4, captured.)

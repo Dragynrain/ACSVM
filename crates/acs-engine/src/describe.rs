@@ -335,6 +335,10 @@ pub fn describe(game: &Game, ev: &Event) -> String {
         } => {
             format!("{} readies {}.", creature(game, *region, *slot), thing(*t))
         }
+        Event::CreatureMimicked { region, slot, player } => {
+            let name = game.players().get(*player).map_or("someone", |p| p.name.trim());
+            format!("{} becomes the image of {name}.", creature(game, *region, *slot))
+        }
         Event::Attacked {
             by,
             target,
@@ -623,6 +627,10 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             }
         }
         Event::AllPlayersDead => "Nobody is left in play. Resume from the last save, or add a player.".into(),
+        Event::AdventureWon { player, .. } => {
+            let name = game.players().get(*player).map_or("Someone", |p| p.name.trim());
+            format!("{name} has won the adventure!")
+        }
         Event::RetireRequested { player } => {
             format!("{} will retire at the end of the round.", who(player))
         }

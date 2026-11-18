@@ -244,6 +244,14 @@ impl Player {
     }
 }
 
+/// An ending reached (winning 4): its index in `Adventure::endings` and the
+/// player who set it off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Won {
+    pub ending: usize,
+    pub player: usize,
+}
+
 /// A game in progress. Cloning it is a snapshot (what an autosave keeps).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Game {
@@ -279,6 +287,13 @@ pub struct Game {
     /// Every player is dead (magic 7.4).
     #[serde(default)]
     pub(crate) over: bool,
+    /// The adventure won (winning 4): every command is ignored from then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) won: Option<Won>,
+    /// An ending's trigger fired during the command under way: announced
+    /// after the command's own events (winning 4.2).
+    #[serde(skip)]
+    pub(crate) pending_win: Option<Won>,
     /// Who moves when (creatures 2.2).
     #[serde(default)]
     pub(crate) sched: Schedule,
@@ -430,6 +445,8 @@ impl Game {
             vitals: Vec::new(),
             summons: Vec::new(),
             over: false,
+            won: None,
+            pending_win: None,
             sched: Schedule::default(),
             reversals: Vec::new(),
             store: None,
@@ -476,7 +493,24 @@ impl Game {
     /// accepted, and it starts a new cycle (creatures 2.2.6); and the
     /// button (`Restore`) on the game at an all-dead save, which reports
     /// nobody in play again (2.2.7).
+    /// Once the adventure is won (winning 4.3), every command is ignored
+    /// and none logged.
     pub fn apply(&mut self, cmd: Command) -> Vec<Event> {
+        if self.won.is_some() {
+            return Vec::new();
+        }
+        let mut ev = self.apply_command(cmd);
+        if let Some(w) = self.pending_win.take() {
+            self.won = Some(w);
+            ev.push(Event::AdventureWon {
+                ending: w.ending,
+                player: w.player,
+            });
+        }
+        ev
+    }
+
+    fn apply_command(&mut self, cmd: Command) -> Vec<Event> {
         let mut ev = Vec::new();
         if self.over {
             // Creatures 2.2.7, magic 7.4: the button played on the game at
@@ -567,6 +601,11 @@ impl Game {
     /// True once no player is left alive.
     pub fn is_over(&self) -> bool {
         self.over
+    }
+
+    /// The ending reached and who reached it, once won (winning 4.3).
+    pub fn won(&self) -> Option<Won> {
+        self.won
     }
 
     /// Commands played when the game was last saved (creatures 2.2.7,

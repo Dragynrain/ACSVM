@@ -170,6 +170,14 @@ impl Game {
         self.turn_die(me, ev);
         ev.push(Event::CreatureTurn { region, slot, moves });
         let mut left = moves;
+        // 4.5: a mimic copies the player in its room, once, after its
+        // moves are set; then it drops its gold, a move.
+        if c.mimic && self.mimic_copy(region, slot, ev) && self.mimic_drop_gold(region, slot, ev) {
+            left = left.saturating_sub(1);
+            if left == 0 {
+                return Some((0, full));
+            }
+        }
         // Magic 6.3: casting takes the whole turn. 6.5: a use costs two
         // moves and the turn goes on, ending with none left (4.3).
         match self.creature_magic(region, slot, ev) {
@@ -1013,6 +1021,88 @@ impl Game {
                 return (nx, ny);
             }
         }
+    }
+
+    /// 4.5: a mimic with a living player in its room becomes that player's
+    /// copy (the lowest-numbered such player): every rating, Constitution
+    /// and magic defense included, the weapon held, the armor worn, what it
+    /// carries and its picture; it keeps its own Life Force, place,
+    /// strategy, name and gold. Its last-turn round becomes 0, a player's.
+    /// **Engine:** once: the mimic flag is cleared. True if it copied.
+    fn mimic_copy(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
+        let Some(c) = self.creature(region, slot) else {
+            return false;
+        };
+        let room = c.room;
+        let Some((n, p)) = self.players.iter().enumerate().find(|(_, p)| {
+            p.alive && matches!(p.at, Location::Room { region: r, room: m, .. } if r == region && m == room)
+        }) else {
+            return false;
+        };
+        let p = p.clone();
+        let picture = crate::characters::picture_of(&self.adv, p.picture);
+        let Some(cm) = self.creature_mut(region, slot) else {
+            return false;
+        };
+        cm.constitution = p.constitution;
+        cm.strength = p.strength;
+        cm.dexterity = p.dexterity;
+        cm.speed = p.speed;
+        cm.wisdom = p.wisdom;
+        cm.power = p.power;
+        cm.size = p.size;
+        cm.dodge = p.dodge;
+        cm.parry = p.parry;
+        cm.armor_skill = p.armor_skill;
+        cm.melee = p.melee;
+        cm.missile = p.missile;
+        cm.magic_defense = p.magic_defense;
+        cm.weapon = p.weapon.unwrap_or(0);
+        cm.armor = p.armor.unwrap_or(0);
+        cm.possessions.clear();
+        for &t in &p.possessions {
+            add_possession(cm, t);
+        }
+        if picture.is_some() {
+            cm.picture = picture;
+        }
+        cm.last_turn_round = 0;
+        cm.mimic = false;
+        ev.push(Event::CreatureMimicked {
+            region,
+            slot,
+            player: n,
+        });
+        true
+    }
+
+    /// 4.5: after the copy a mimic drops all its gold on its own square,
+    /// as its turn's first action. True if it had gold.
+    fn mimic_drop_gold(&mut self, region: u8, slot: usize, ev: &mut Vec<Event>) -> bool {
+        let Some(c) = self.creature(region, slot).cloned() else {
+            return false;
+        };
+        if c.wealth == 0 {
+            return false;
+        }
+        if let Some(cm) = self.creature_mut(region, slot) {
+            cm.wealth = 0;
+        }
+        self.put_gold(region, c.room, c.x, c.y, c.wealth);
+        let at = Location::Room {
+            region,
+            room: c.room,
+            x: c.x,
+            y: c.y,
+        };
+        ev.push(Event::CreatureDropped {
+            region,
+            slot,
+            thing: GOLD,
+            amount: c.wealth,
+            at: Some(at),
+        });
+        true
     }
 
     /// 8.1: one drop a turn while overburdened (8.1.2: Speed above 0 and

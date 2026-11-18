@@ -386,6 +386,7 @@ impl<'a> Build<'a> {
             .enumerate()
             .map(|(i, (f, t))| self.region(f, t, i as u8 + 1))
             .collect();
+        let endings = self.endings(&a, &things, &regions);
         a.done();
         let world = WorldMap {
             exit_points: self.exit_points.clone(),
@@ -413,6 +414,7 @@ impl<'a> Build<'a> {
             long_messages,
             short_messages,
             player_pictures,
+            endings,
         };
         for v in limits::check(&adventure) {
             self.p.push(ADVENTURE, "limits", v.to_string());
@@ -753,6 +755,72 @@ impl<'a> Build<'a> {
                 None
             }
         }
+    }
+
+    /// `[[ending]]` (content 3.2, winning 4): a trigger thing placed in a
+    /// room and holding a spell, and the end screen's long message.
+    fn endings(&self, a: &Obj, things: &[Thing], regions: &[Region]) -> Vec<Ending> {
+        let mut out = Vec::new();
+        for (i, v) in a.array("ending").iter().enumerate() {
+            let Some(t) = v.as_table() else {
+                a.err("ending: should be a list of tables");
+                continue;
+            };
+            let o = a.child(t, format!("ending {}", i + 1));
+            let trigger = o.need_str("trigger");
+            let room = o.need_str("room");
+            let message = o.need_str("message");
+            o.done();
+            let (Some(trigger), Some(room), Some(message)) = (trigger, room, message) else {
+                continue;
+            };
+            let Some((thing, _)) = self.thing_ref(&o, "trigger", trigger) else {
+                continue;
+            };
+            let Some(r) = self.rooms.get(room) else {
+                o.err(format!("room: no room {room:?}"));
+                continue;
+            };
+            let Some(&message) = self.long.get(message) else {
+                o.err(format!("message: no long message {message:?}"));
+                continue;
+            };
+            let spell = match things.get(usize::from(thing) - 1).map(|t| &t.kind) {
+                Some(ThingKind::Space { access, .. } | ThingKind::Portal { access, .. }) => {
+                    matches!(access, Access::InvokeSpell { .. })
+                }
+                Some(
+                    ThingKind::CustomSpace { action, .. }
+                    | ThingKind::Obstacle { action, .. }
+                    | ThingKind::CustomObstacle { action, .. },
+                ) => action.kind != SpellActionKind::Nothing,
+                _ => {
+                    o.err(format!(
+                        "trigger: {trigger:?} is not a space, custom space, obstacle, custom obstacle or portal"
+                    ));
+                    continue;
+                }
+            };
+            if !spell {
+                o.err(format!(
+                    "trigger: {trigger:?} holds no spell, so it can never fire"
+                ));
+            }
+            let placed = regions
+                .get(usize::from(r.region) - 1)
+                .and_then(|g| g.rooms.get(usize::from(r.room)))
+                .is_some_and(|m| m.items.iter().any(|it| it.thing == thing));
+            if !placed {
+                o.err(format!("trigger: {trigger:?} is not placed in {room}"));
+            }
+            out.push(Ending {
+                region: r.region,
+                room: r.room,
+                thing,
+                message: message.min(255) as u8,
+            });
+        }
+        out
     }
 
     // -------------------------------------------------------------------
