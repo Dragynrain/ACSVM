@@ -4,6 +4,7 @@
 //! played one at a time through `cpal` on the desktop and in the browser.
 
 pub mod cues;
+pub mod music;
 pub mod synth;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};

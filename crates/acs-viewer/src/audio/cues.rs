@@ -7,6 +7,7 @@
 pub const CUES: u8 = 30;
 
 /// Choices 13-30 are themes, 1-12 effects (magic 3.11).
+#[cfg(test)]
 pub fn is_theme(n: u8) -> bool {
     (13..=CUES).contains(&n)
 }

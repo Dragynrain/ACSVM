@@ -478,8 +478,56 @@ from the original's builder sets (design.md, "Our own spy"):
 
 ## 5. Audio
 
-The 30 original cues (client.md 6), replacing the placeholders made in
-code: 12 effects and 18 themes, 4 of them looping. To be specified.
+The 30 Play Music cues (client.md 6), composed for this project and made
+in code at start-up: no audio file ships, and nothing is taken from the
+original's music, whose names and tunes stay unknown to us. The scores
+are text in `crates/acs-viewer/src/audio/music.rs` (CC BY-SA 4.0 as
+compositions, GPL as code); `synth.rs` renders them.
+
+### 5.1 The set
+
+Effects 1-12 last under a second; themes 13-30 are short pieces of 3 to
+12 seconds, except 14-17, which loop until other music plays (magic
+3.11) and run 13 to 21 seconds before they repeat. 14, 15 and 16 are the
+endless themes the adventure's genre picks (`Theme::music_number`).
+
+| # | Cue | | # | Cue |
+| --- | --- | --- | --- | --- |
+| 1 | Chime | | 16 | Endless stars (loops; sci-fi) |
+| 2 | Ta-da | | 17 | Endless danger (loops; a fight) |
+| 3 | Coin | | 18 | Sea shanty |
+| 4 | Creak | | 19 | Lament |
+| 5 | Thud | | 20 | Triumph march |
+| 6 | Splash | | 21 | Mystery sting |
+| 7 | Zap | | 22 | Lullaby |
+| 8 | Curse | | 23 | Tavern jig |
+| 9 | Alarm | | 24 | Dread |
+| 10 | Gong | | 25 | Discovery |
+| 11 | Cannon | | 26 | Royal court |
+| 12 | Drum roll | | 27 | Chase |
+| 13 | Victory fanfare | | 28 | Farewell |
+| 14 | Endless voyage (loops; fantasy) | | 29 | Ghostly waltz |
+| 15 | Endless intrigue (loops; spy and mystery) | | 30 | Homecoming |
+
+A designer picks by mood; the names are ours and appear nowhere in an
+adventure, which stores only the number.
+
+### 5.2 Scores
+
+A score is a tempo and voices, each an instrument and a line of notes.
+A note is a pitch and a length in sixteenths, `c#5:4` (C sharp in
+octave 5, a quarter note; a length left out repeats the last one); `r`
+is a rest; `|` marks a bar and is ignored. Drum voices write `k` (kick),
+`s` (snare) and `h` (hat) for pitches. Every voice of a score is the
+same length (a test adds them up), and every note fades out inside its
+own length, so a looping theme ends in silence and repeats without a
+click.
+
+Instruments: pulse (a quarter-width square, the lead), square, triangle
+(bass and soft leads), sine (pads and low bass), bell (two partials,
+decaying) and the three drums (a falling sine, two noises). Effects that
+aren't tunes are sweeps (a pitch gliding between two frequencies) and
+noise bursts (bright to dull), each with its own length.
 
 ## 6. Sample adventures
 
@@ -533,7 +581,11 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    plays it to the congratulations on eight seeds. Found on the way: a
    carriable placed with parameter 0 gives nothing when taken (inventory
    2.7), so the build places them with 1 (3.9).
-5. The 30 cues (5).
+5. The 30 cues (5). Done November 2026: `audio/music.rs` (scores,
+   checked to parse and to agree bar for bar), `audio/synth.rs`
+   (instruments, sweeps, noise). Not yet heard by a person:
+   `ACSVM_CUES_DIR=DIR cargo test -p acs-viewer write_cues_as_wav --
+   --ignored` writes them as WAV files.
 6. *The King's Pardon* (6), with its replay test.
 7. The front door (7).
 8. The other three kits (4).

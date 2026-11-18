@@ -189,12 +189,11 @@ while another plays mixes with it or replaces it is [unknown]; **the
 client's choice:** one cue at a time, and a new one replaces whatever
 plays, a looping theme included. Every other cue plays once and stops.
 
-**Cues.** 30 cues of our own (Phase 6 makes the finished set). Until
-then the client makes placeholders in code, so nothing is shipped or
-copied: effects are short sounds under a second (sweeps, blips, noise
-bursts), each choice its own; themes are short tunes of a few seconds
-on a pentatonic scale, each choice its own seed; the looping themes end
-on silence, so they repeat without a click. The original's own audio,
+**Cues.** 30 cues of our own, composed for the project (content.md 5):
+scores in `audio/music.rs`, rendered by `audio/synth.rs` when the
+output opens, so nothing is shipped or copied. Effects 1-12 are under a
+second; themes are short pieces, and the looping ones (14-17) end on
+silence, so they repeat without a click. The original's own audio,
 read from the user's disk, can come later through research.
 
 **Output.** `cpal`, on the desktop and in the browser (its Web Audio
