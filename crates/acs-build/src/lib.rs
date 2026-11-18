@@ -400,6 +400,7 @@ impl<'a> Build<'a> {
             limits: self.limits,
             name: header.name,
             byline: header.byline.clone(),
+            no_intro_page: header.intro.trim().is_empty(),
             intro: header.intro,
             theme: header.theme,
             palette: self.palette.clone(),

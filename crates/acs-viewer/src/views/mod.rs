@@ -5,6 +5,7 @@
 pub mod diagnostics;
 pub mod lists;
 pub mod messages;
+pub mod opening;
 mod pack;
 pub mod region;
 pub mod room;

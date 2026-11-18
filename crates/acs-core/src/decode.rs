@@ -111,6 +111,7 @@ impl Decoder<'_> {
         let byline = self.ascii(a + adv::BYLINE, adv::BYLINE_LEN, "byline", "byline")?;
         let intro = self.ascii(l.intro, layout::INTRO_LEN, "intro", "intro")?;
         let theme = Theme::from_code(self.b.u8(a + adv::THEME, "theme")?);
+        let no_intro_page = self.b.u8(a + adv::INTRO_PAGE, "intro page")? == 0;
 
         let palette = decode_palette(&self.b, l, &mut self.diags)?;
         let pictures = decode_pictures(&self.b, l)?;
@@ -191,6 +192,7 @@ impl Decoder<'_> {
             byline: byline.trim().to_string(),
             intro: lines(&intro, 32),
             theme,
+            no_intro_page,
             palette,
             pictures,
             things,

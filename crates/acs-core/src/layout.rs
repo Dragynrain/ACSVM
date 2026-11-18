@@ -134,6 +134,9 @@ pub mod adventure {
     /// 15 region names, 20 bytes each.
     pub const REGION_NAMES: usize = 0x241;
     pub const REGION_NAME_LEN: usize = 20;
+    /// Nonzero: the intro page shows when play starts (format notes;
+    /// capture.md 10.48). 1 in every corpus adventure, 0 on a blank disk.
+    pub const INTRO_PAGE: usize = 0x36D;
     /// Theme: 0 fantasy, 1 spy/mystery, 2 sci-fi.
     pub const THEME: usize = 0x36E;
 }

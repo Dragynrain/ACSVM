@@ -105,7 +105,7 @@ enum LogJump {
 /// An Extended long message as paragraphs (content 3.7): a line break
 /// inside one is a space, so the log wraps it to its own width; a blank
 /// line still parts two.
-fn paragraphs(text: &str) -> String {
+pub(crate) fn paragraphs(text: &str) -> String {
     let mut out: Vec<String> = vec![String::new()];
     for line in text.lines().map(str::trim) {
         let p = out.last_mut().expect("never empty");
@@ -1157,6 +1157,11 @@ fn key_commands(ctx: &egui::Context) -> Vec<Command> {
 }
 
 pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
+    // Play opens with the title and the intro (client 3.3).
+    if doc.opening.is_some() {
+        super::opening::show(doc, ui);
+        return;
+    }
     // A new game begins with its character (client 4.2).
     if doc.walk.is_none() {
         show_new_character(doc, ui);
@@ -1617,6 +1622,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         // A new game: a new character first (client 4.2).
         doc.walk = None;
         doc.creating = Some(NewCharacter::new(&doc.decoded.adventure, rules));
+        doc.opening = Some(super::opening::Opening::Title);
     }
 }
 
@@ -2833,7 +2839,7 @@ fn draw_room(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     use crate::test_fixture as common;
@@ -3054,7 +3060,7 @@ end"
 
     /// One region with one room 10 x 7 (inside 1..8 x 1..5); the player
     /// on its square 3,3.
-    fn in_a_room() -> Walk {
+    pub(crate) fn in_a_room() -> Walk {
         use acs_core::layout::world_map as wm;
         let mut f = common::Fixture::new(acs_core::Platform::Pc);
         f.header("CLICKS", "", "");

@@ -361,6 +361,12 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   are open only to its owners. So a spell slot with code 15 serves as an
   uncastable key item. The decoder keeps it as `invalid(15)`, with no
   warning (a known trick, not a fault); other invalid codes still warn.
+- **Intro page byte (header +0x36D)**: 1 in all 15 corpus adventures, 0
+  on the blank disk EA's program makes. Not 0 (1, 2 and 128 tried), the
+  C64 shows the intro page between the title screen and the add-player
+  screen, even with the intro text blank; 0, it skips the page, intro
+  text or not (capture.md 10.48). Presumably set when the editor saves
+  an intro. The model keeps a 0 as `no_intro_page`.
 - Theme byte (header +0x36E): 0, 1 or 2 in the corpus. Following AcsLib's
   music list it selects Endless Fantasy, Spy/Mystery or Sci-Fi. Unverified.
 

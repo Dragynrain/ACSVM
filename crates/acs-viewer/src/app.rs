@@ -106,6 +106,9 @@ pub struct Doc {
     pub pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
     /// A bundle's credits, shown on the end screen (winning 4.6).
     pub credits: Vec<String>,
+    /// The title screen or intro page still to show before play (client
+    /// 3.3): set when the adventure opens and on a new game.
+    pub opening: Option<views::opening::Opening>,
 }
 
 impl Doc {
@@ -138,6 +141,7 @@ impl Doc {
             audio: Default::default(),
             pack: None,
             credits: Vec::new(),
+            opening: Some(views::opening::Opening::Title),
         }
     }
 
@@ -404,6 +408,7 @@ impl Viewer {
             walk.take_unannounced();
             doc.walk = Some(walk);
             doc.view = View::Walk;
+            doc.opening = None;
         }
         if let (true, Some(doc)) = (start.pad, &mut v.doc) {
             doc.pad = Some(true);
@@ -610,6 +615,8 @@ impl Viewer {
                     Ok(walk) => {
                         doc.walk = Some(walk);
                         doc.go(View::Walk);
+                        // A loaded save goes straight to the board (client 3.3).
+                        doc.opening = None;
                         None
                     }
                     Err(e) => Some(format!("{}: {e}", file.name)),

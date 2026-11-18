@@ -36,6 +36,12 @@ pub struct Adventure {
     pub name: String,
     pub byline: String,
     pub intro: String,
+    /// Header byte +0x36D was 0: the original shows no intro page when
+    /// play starts (client 3.3, capture.md 10.48). False, and not written,
+    /// for every corpus adventure; an Extended one shows its intro page
+    /// when it has intro text.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_intro_page: bool,
     /// The adventure's genre theme; it picks the "endless" background music.
     pub theme: Theme,
     pub palette: Palette,

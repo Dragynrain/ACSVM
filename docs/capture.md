@@ -4430,3 +4430,31 @@ In this order (planned November 2026):
      else reached the room's list. The controls kept both.
 
    No new addresses.
+48. **The title screen and the intro page, 2026-11-18** (ours, no
+   research pass: [client](client.md) 3.3, format notes).
+   `ACSVM-research/capture/runs/rr44/` (the harness binary in `bin/`,
+   `env.sh`; `intro.txt` and `intro2.txt` are `start-retired.txt` and
+   `start-scenario.txt` with a screenshot after every press,
+   `intro3.txt` the first three; `graft.py OUT LO HI` lays Jadeworld's
+   disk bytes LO..HI over our `i2` disk). Our scenario disks with an
+   intro of ours (`scenario --long-message 255:TEXT`, which is the
+   intro's slot): from the main menu's "put your adventure disk in",
+   the **title screen** (the adventure's name, "by", the byline, the
+   program's credit line, "press button to continue"), then the
+   add-player screen: **no intro**, with a retired player (`i1`) or a
+   new one (`i2`). A copy of Baber's *Jadeworld* (`j1`): the title
+   screen, then an **intro page** (the adventure's name in a box at the
+   top, the intro's eight lines in a frame, "press button to
+   continue"), then the add-player screen; the same on that copy played
+   once and saved (`j2`). Jadeworld with its intro text blanked (`j3`):
+   the page, empty. So a flag shows it, not the text. Grafts of
+   Jadeworld's bytes over `i2`: its whole adventure header (`g-hdr`,
+   + 0x000 to + 0x500 of the block at `0x1C400`) shows our intro text
+   under its name; the late messages and intro block (`g-tail`) does
+   not; halving (`h0`..`h3`, `k0`..`k3`) leaves + 0x340 to + 0x380, and
+   **header + 0x36D alone** (`b36d`, 0 to Jadeworld's 1) shows the page;
+   the theme byte + 0x36E (`b36e`) and + 0x36F to + 0x380 (`b36f`) do
+   not. Set to 2 and to 128 (`v2`, `v128`): shown. Every corpus
+   adventure has 1, the blank disk EA's program makes 0.
+
+   No new addresses (a disk byte, format notes).

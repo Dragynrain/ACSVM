@@ -113,6 +113,19 @@ board as play ended; the info column then offers **Show the ending**.
 Play is over: the bar stops, and the info column keeps only the options,
 Restart and the save buttons.
 
+### 3.3 The opening
+
+Play opens as on the original (capture.md 10.48): when walk mode starts
+a game (a new one, or the one kept from last time), a **title screen** shows
+the adventure's name and byline; then, unless the adventure says not to
+(`no_intro_page`: a Classic header byte of 0; for our own adventures, no
+intro text), the **intro page**: the name in a box above the intro's
+text in a frame, an Extended intro as paragraphs and a Classic one line
+for line. Space, Enter, a click or a tap goes on; then the New
+character screen (4.2) for a new game, or the board. The original's
+own credit line is not copied. A save loaded from a file, and a
+scripted walk (`--walk`, `--load`), go straight to the board.
+
 ## 4. Input
 
 - **Keyboard** (now): the original's eight directions and its commands
