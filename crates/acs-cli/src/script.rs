@@ -53,13 +53,21 @@ pub enum Expect {
     Alive,
     Dead,
     Life(Cmp, u8),
+    /// In an encounter area (that one, 1..=4, when given).
+    Area(Option<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     As(Sel),
     /// The `bool`s of the walking steps: `avoid-takes` was given.
-    Walk(u8, u8, bool),
+    Walk {
+        x: u8,
+        y: u8,
+        avoid: bool,
+        /// `encounter`: drawn into an encounter area on the way.
+        encounter: bool,
+    },
     Door(u8, u8, bool),
     Goto {
         region: u8,
@@ -70,6 +78,7 @@ pub enum Action {
     Take(u8, u8, bool),
     Bump(u8, u8, bool),
     Attack(u8, u8, Option<u32>),
+    Fire(u8, u8, Option<u32>),
     Use(ThingId, Option<(u8, u8)>),
     Cast(ThingId, Option<(u8, u8)>),
     Drop(ThingId, Option<Dir>),
@@ -279,21 +288,32 @@ fn setup(adv: &Adventure, w: &[String]) -> Result<(usize, PlayerSetup), String> 
     Ok((n - 1, s))
 }
 
-/// The option after a walking step's squares.
+/// The options after a walking step's squares.
 const AVOID_TAKES: &str = "avoid-takes";
+const ENCOUNTER: &str = "encounter";
 
 fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
     let (verb, mut rest) = (w[0].to_ascii_lowercase(), &w[1..]);
     let mut avoid = false;
+    let mut encounter = false;
     if matches!(verb.as_str(), "walk" | "door" | "goto" | "take" | "bump") {
-        if let Some((last, head)) = rest.split_last() {
-            if last.eq_ignore_ascii_case(AVOID_TAKES) {
+        while let Some((last, head)) = rest.split_last() {
+            if last.eq_ignore_ascii_case(AVOID_TAKES) && !avoid {
                 avoid = true;
-                rest = head;
+            } else if last.eq_ignore_ascii_case(ENCOUNTER) && !encounter && verb == "walk" {
+                encounter = true;
+            } else {
+                break;
             }
+            rest = head;
         }
     } else if rest.iter().any(|r| r.eq_ignore_ascii_case(AVOID_TAKES)) {
         return Err(format!("{AVOID_TAKES} goes with walk, door, goto, take and bump"));
+    }
+    if matches!(verb.as_str(), "door" | "goto" | "take" | "bump")
+        && rest.iter().any(|r| r.eq_ignore_ascii_case(ENCOUNTER))
+    {
+        return Err(format!("{ENCOUNTER} goes with walk"));
     }
     Ok(match verb.as_str() {
         "as" => match rest {
@@ -309,7 +329,12 @@ fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
         },
         "walk" => {
             let (x, y) = xy(rest)?;
-            Action::Walk(x, y, avoid)
+            Action::Walk {
+                x,
+                y,
+                avoid,
+                encounter,
+            }
         }
         "door" => {
             let (x, y) = xy(rest)?;
@@ -342,6 +367,11 @@ fn step(adv: &Adventure, w: &[String]) -> Result<Action, String> {
             [x, y] => Action::Attack(num(x, "X")?, num(y, "Y")?, None),
             [x, y, n] => Action::Attack(num(x, "X")?, num(y, "Y")?, Some(num(n, "N")?)),
             _ => return Err("attack X Y [N]".into()),
+        },
+        "fire" => match rest {
+            [x, y] => Action::Fire(num(x, "X")?, num(y, "Y")?, None),
+            [x, y, n] => Action::Fire(num(x, "X")?, num(y, "Y")?, Some(num(n, "N")?)),
+            _ => return Err("fire X Y [N]".into()),
         },
         "use" => {
             let (t, at) = thing_at(adv, rest)?;
@@ -393,6 +423,17 @@ fn expect(adv: &Adventure, w: &[String]) -> Result<Expect, String> {
             _ => return Err("expect message N".into()),
         },
         "alive" if rest.is_empty() => Expect::Alive,
+        "area" => match rest {
+            [] => Expect::Area(None),
+            [n] => {
+                let n: u8 = num(n, "area")?;
+                if !(1..=4).contains(&n) {
+                    return Err(format!("area {n} is not 1..=4"));
+                }
+                Expect::Area(Some(n))
+            }
+            _ => return Err("expect area [N]".into()),
+        },
         "dead" if rest.is_empty() => Expect::Dead,
         "life" => match rest {
             [op, n] => {
@@ -408,7 +449,7 @@ fn expect(adv: &Adventure, w: &[String]) -> Result<Expect, String> {
             }
             _ => return Err("expect life >= N".into()),
         },
-        _ => return Err("expect at|owns|not owns|message|alive|dead|life ...".into()),
+        _ => return Err("expect at|owns|not owns|message|alive|dead|life|area ...".into()),
     })
 }
 

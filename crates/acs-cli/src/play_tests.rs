@@ -8,7 +8,8 @@ use crate::script::parse;
 use crate::test_fixture::{creature_record, Fixture, RegionSpec, RoomSpec};
 use acs_core::layout::world_map as wm;
 use acs_core::model::{
-    Access, Alignment, Destination, MapDoor, MapPoint, RoomItem, SpellAction, SpellActionKind, ThingKind,
+    Access, Alignment, Carry, Destination, MapDoor, MapPoint, RoomItem, SpellAction, SpellActionKind,
+    ThingKind, WeaponStats, WorldCreature,
 };
 use acs_core::{decode, Adventure, Platform};
 use acs_engine::{Game, Location, SaveFile, Who};
@@ -531,4 +532,167 @@ fn first_voyage_plays_to_the_end() {
         assert_eq!(out.failure, None, "seed {seed}:\n{}", out.progress.join("\n"));
         assert!(out.game.players()[0].alive, "seed {seed}");
     }
+}
+
+const BOW: u16 = 8;
+
+/// `with_brute`, the player holding a bow of range 12 (thing 8).
+fn with_bow(speed: u8, life: u8) -> Adventure {
+    let mut adv = with_brute(speed, life);
+    let t = &mut adv.things[BOW as usize - 1];
+    t.name = "BOW".into();
+    t.kind = ThingKind::MissileWeapon {
+        picture: 7,
+        disappears_after_use: false,
+        carry: Carry { weight: 5, value: 10 },
+        stats: WeaponStats {
+            power: 10,
+            range: Some(12),
+            break_chance: 0,
+            attack_adjustment: 0,
+            usable_by_anyone: true,
+            magic: false,
+        },
+    };
+    t.raw = [0; 4];
+    adv
+}
+
+#[test]
+fn a_fire_shoots_the_foe_until_it_dies() {
+    // A brute that holds its ground on 6,4 of HALL.
+    let mut adv = with_bow(3, 6);
+    adv.regions[0].residents[1].strategy.aggressive = false;
+    let script =
+        "player 1 possessions=BOW missile=127 dexterity=30\ngoto 1 0\nready BOW\nfire 6 4\nexpect alive\n";
+    for seed in 1..=4 {
+        let out = run(&adv, script, seed);
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+        assert!(!out.game.alive(BRUTE), "seed {seed}: the foe still lives");
+        assert!(out.trace.iter().any(|l| l.contains("\"fired\"")), "seed {seed}");
+        assert!(
+            !out.trace
+                .iter()
+                .any(|l| l.contains("\"command\":\"move\"") && l.contains("\"attacked\"")),
+            "seed {seed}: no blows"
+        );
+    }
+    // N turns: one volley, the foe (Life Force 60) still standing.
+    let adv = {
+        let mut a = with_bow(3, 60);
+        a.regions[0].residents[1].strategy.aggressive = false;
+        a
+    };
+    let out = run(
+        &adv,
+        "player 1 possessions=BOW\ngoto 1 0\nready BOW\nfire 6 4 1\n",
+        1,
+    );
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    assert!(out.game.alive(BRUTE));
+    assert_eq!(out.trace.iter().filter(|l| l.contains("\"fired\"")).count(), 1);
+    assert!(out
+        .progress
+        .iter()
+        .any(|l| l.contains("fire stopped after 1 turns")));
+}
+
+#[test]
+fn a_refused_fire_fails_with_the_engines_reason() {
+    // The brute beside the arrival (2,2): FIRE is refused.
+    let mut adv = with_bow(3, 60);
+    (adv.regions[0].residents[1].x, adv.regions[0].residents[1].y) = (2, 3);
+    let out = run(
+        &adv,
+        "player 1 possessions=BOW\ngoto 1 0\nready BOW\nfire 2 3\n",
+        1,
+    );
+    let f = out.failure.expect("fails");
+    assert!(f.contains("line 4: fire 2 3"), "{f}");
+    assert!(
+        f.contains("refused: PLAYER 1 may not use a missile weapon while next to BRUTE"),
+        "{f}"
+    );
+    // No missile weapon held: the engine's NONE.
+    let mut adv = with_bow(3, 60);
+    adv.regions[0].residents[1].strategy.aggressive = false;
+    let out = run(&adv, "goto 1 0\nfire 6 4\n", 1);
+    let f = out.failure.expect("fails");
+    assert!(f.contains("no missile weapon is readied"), "{f}");
+    assert!(parse("fire 6\n", &adv).is_err());
+}
+
+/// The world map's grass rolls a brute (record 0, on 2,3 of its area) at
+/// `chance` percent a step.
+fn with_sea_brute(chance: u8) -> Adventure {
+    let mut adv = with_brute(3, 6);
+    let mut c = adv.regions[0].residents[1].clone();
+    adv.regions[0].residents[1].in_use = false;
+    c.region = 0;
+    adv.world.random_creatures[0] = WorldCreature {
+        creature: c,
+        terrain: 0,
+        chance,
+    };
+    adv
+}
+
+#[test]
+fn a_walk_into_an_encounter_stays_in_its_area() {
+    let adv = with_sea_brute(60);
+    // A plain walk steers round encounters it can't avoid, and fails.
+    let out = run(&adv, "walk 25 20\n", 1);
+    assert!(out.failure.is_some(), "{}", out.progress.join("\n"));
+    let script = "player 1 possessions=SWORD melee=127 strength=30\n\
+                  walk 25 20 encounter\nexpect area 1\nexpect area\nattack 2 3\nexpect area 1\nexpect alive\n";
+    for seed in 1..=4 {
+        let out = run(&adv, script, seed);
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+        let copy = Who::Creature { region: 0, slot: 8 };
+        assert!(!out.game.alive(copy), "seed {seed}: the copy still lives");
+        // The encounter came on the way east, not behind the player.
+        let entered = out
+            .trace
+            .iter()
+            .find(|l| l.contains("\"entered_area\""))
+            .expect("entered an area");
+        let v: serde_json::Value = serde_json::from_str(entered).unwrap();
+        let from = v["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["event"] == "entered_area")
+            .map(|e| (e["from"]["x"].as_u64().unwrap(), e["from"]["y"].as_u64().unwrap()))
+            .unwrap();
+        assert!(
+            (21..=25).contains(&from.0) && from.1 == 20,
+            "seed {seed}: drawn in off the way at {from:?}"
+        );
+    }
+    // No encounter on the way: the step fails, saying so.
+    let out = run(&with_sea_brute(0), "walk 22 20 encounter\n", 1);
+    let f = out.failure.expect("fails");
+    assert!(f.contains("reached 22,20 with no encounter on the way"), "{f}");
+    let out = run(&with_sea_brute(0), "walk 22 20\nexpect area\n", 1);
+    assert!(out.failure.expect("fails").contains("in an encounter area"));
+    assert!(parse(
+        "walk 3 3 avoid-takes encounter\nwalk 3 3 encounter avoid-takes\n",
+        &adv
+    )
+    .is_ok());
+    assert!(parse("door 3 3 encounter\n", &adv).is_err());
+    assert!(parse("expect area 5\n", &adv).is_err());
+}
+
+#[test]
+fn a_fire_finds_the_encounter_copy_in_its_area() {
+    let mut adv = with_sea_brute(60);
+    let t = with_bow(3, 6).things[BOW as usize - 1].clone();
+    adv.things[BOW as usize - 1] = t;
+    adv.world.random_creatures[0].creature.strategy.aggressive = false;
+    let script = "player 1 possessions=BOW missile=127 dexterity=30\nready BOW\n\
+                  walk 25 20 encounter\nfire 2 3\nexpect alive\n";
+    let out = run(&adv, script, 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
+    assert!(!out.game.alive(Who::Creature { region: 0, slot: 8 }));
 }

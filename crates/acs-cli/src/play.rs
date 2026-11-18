@@ -104,6 +104,9 @@ enum Goal {
     Beside(u8, u8),
     /// Stand beside the individual, wherever it is as the search goes.
     Foe(Who),
+    /// Be drawn into an encounter area on the way to the square, or stand
+    /// on it (`walk ... encounter`, play.md 3.2).
+    Encounter(u8, u8),
 }
 
 /// A door in the graph `goto` searches: on `at` of `from`, into `to`.
@@ -148,6 +151,30 @@ fn place_key(at: Location) -> (u8, u8) {
     match at {
         Location::World { .. } => (0, 0),
         Location::Room { region, room, .. } => (region, room),
+    }
+}
+
+/// Whether `at` is in one of the world map's encounter areas (rooms 1.. of
+/// region 0).
+fn in_area(at: Location) -> bool {
+    matches!(at, Location::Room { region: 0, room, .. } if room >= 1)
+}
+
+/// Moves from `a` to `b` in the same place with nothing in the way:
+/// diagonals or not as the rules say, across the map's wrap when it
+/// wraps.
+fn distance(game: &Game, a: Location, b: Location) -> usize {
+    let ((ax, ay), (bx, by)) = (a.xy(), b.xy());
+    let (mut dx, mut dy) = ((ax as i32 - bx as i32).abs(), (ay as i32 - by as i32).abs());
+    if matches!(a, Location::World { .. }) && game.adventure().world.wraps {
+        let tiles = &game.adventure().world.tiles;
+        let (w, h) = (tiles.first().map_or(0, Vec::len) as i32, tiles.len() as i32);
+        (dx, dy) = (dx.min(w - dx), dy.min(h - dy));
+    }
+    if game.rules().diagonals {
+        dx.max(dy) as usize
+    } else {
+        (dx + dy) as usize
     }
 }
 
@@ -385,7 +412,9 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
     }
     let start = game.players()[me].at;
     let fixed = match goal {
-        Goal::Square(x, y) | Goal::Door(x, y) | Goal::Beside(x, y) => Some(with_xy(start, x, y)),
+        Goal::Square(x, y) | Goal::Door(x, y) | Goal::Beside(x, y) | Goal::Encounter(x, y) => {
+            Some(with_xy(start, x, y))
+        }
         Goal::Foe(_) => None,
     };
     // Where the goal's square is in `g` (a foe's square moves).
@@ -399,6 +428,7 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
         Goal::Square(..) => Some(at) == fixed,
         Goal::Door(..) => false,
         Goal::Beside(..) | Goal::Foe(_) => target_in(g).is_some_and(|t| beside(g, at, t)),
+        Goal::Encounter(..) => in_area(at) || Some(at) == fixed,
     };
     let Some(first_target) = target_in(game) else {
         return Err("the foe is not in this room".into());
@@ -422,7 +452,17 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
         }
         parts.into_iter().rev().flatten().collect::<Vec<_>>()
     };
+    // An encounter walk's best end so far (play.md 3.2): moves to it plus
+    // the moves left to the target, whether it is the target reached with
+    // no encounter (which loses ties), and the commands.
+    let mut best: Option<(usize, bool, Vec<Command>)> = None;
+    let mut level = 0;
     while !frontier.is_empty() && nodes.len() < SEARCH_MAX {
+        // Ends from here on are at least `level + 1` moves away: none can
+        // beat what was found.
+        if best.as_ref().is_some_and(|b| (b.0, b.1) <= (level + 1, false)) {
+            break;
+        }
         let mut next = Vec::new();
         for (i, at, g) in frontier {
             let target = target_in(&g);
@@ -475,6 +515,24 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
                 }
                 let after = c.players()[me].at;
                 let objected = objection(&c, at, after, &ev, me);
+                if let (Goal::Encounter(..), Some(t)) = (goal, fixed) {
+                    let end = if in_area(after) {
+                        let dies = own_part(&ev, me).iter().any(
+                            |e| matches!(e, Event::Died { who, .. } if *who == Who::Player { player: me }),
+                        );
+                        (!dies).then(|| (level + 1 + distance(&c, sq, t), false))
+                    } else if into_target && after != at {
+                        Some((level + 1, true))
+                    } else {
+                        None
+                    };
+                    if let Some(key) = end {
+                        if best.as_ref().is_none_or(|b| key < (b.0, b.1)) {
+                            best = Some((key.0, key.1, path(&nodes, i, cmds)));
+                        }
+                        continue;
+                    }
+                }
                 match goal {
                     // A walk's own target may hurt or be a door.
                     Goal::Square(..) if into_target && after != at => return Ok(path(&nodes, i, cmds)),
@@ -520,6 +578,10 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
             }
         }
         frontier = next;
+        level += 1;
+    }
+    if let Some((_, _, cmds)) = best {
+        return Ok(cmds);
     }
     // Unreachable: say what was reachable, nearest first.
     let (tx, ty) = first_target.xy();
@@ -538,7 +600,7 @@ fn plan(game: &Game, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Com
         })
         .collect();
     let what = match goal {
-        Goal::Square(..) => "square",
+        Goal::Square(..) | Goal::Encounter(..) => "square",
         Goal::Door(..) => "door",
         Goal::Beside(..) => "a square beside",
         Goal::Foe(_) => "a square beside the foe on",
@@ -728,6 +790,9 @@ impl Driver<'_> {
                 let ev = self.apply(cmd);
                 if !self.deaths.is_empty() {
                     return Err("a player died on the way".into());
+                }
+                if matches!(goal, Goal::Encounter(..)) && in_area(self.at(me)) {
+                    return Ok(Some(ev));
                 }
                 if mine {
                     last = ev.clone();
@@ -957,6 +1022,19 @@ impl Driver<'_> {
                 }
                 self.deaths.retain(|&d| d != me);
             }
+            Expect::Area(n) => {
+                let here = match p.at {
+                    Location::Room { region: 0, room, .. } if room >= 1 => Some(room),
+                    _ => None,
+                };
+                if here.is_none() || n.is_some_and(|n| here != Some(n)) {
+                    let want = n.map_or("an encounter area".into(), |n| format!("encounter area {n}"));
+                    return Err(format!(
+                        "expected {name} in {want}, but at {}",
+                        place_name(&self.game, p.at)
+                    ));
+                }
+            }
             Expect::Life(op, n) => {
                 if !op.holds(p.life_force, n) {
                     return Err(format!(
@@ -974,8 +1052,24 @@ impl Driver<'_> {
     fn step_for(&mut self, me: usize, action: &Action) -> Result<(), String> {
         match *action {
             Action::As(_) => {}
-            Action::Walk(x, y, avoid) => {
+            Action::Walk {
+                x,
+                y,
+                avoid,
+                encounter: false,
+            } => {
                 self.walk(me, Goal::Square(x, y), avoid)?;
+            }
+            Action::Walk {
+                x,
+                y,
+                avoid,
+                encounter: true,
+            } => {
+                self.walk(me, Goal::Encounter(x, y), avoid)?;
+                if !in_area(self.at(me)) {
+                    return Err(format!("the walk reached {x},{y} with no encounter on the way"));
+                }
             }
             Action::Door(x, y, avoid) => {
                 let ev = self.walk(me, Goal::Door(x, y), avoid)?;
@@ -1022,6 +1116,7 @@ impl Driver<'_> {
                 self.push(me, with_xy(self.at(me), x, y))?;
             }
             Action::Attack(x, y, turns) => self.attack(me, x, y, turns.unwrap_or(ATTACK_TURNS))?,
+            Action::Fire(x, y, turns) => self.fire(me, x, y, turns.unwrap_or(ATTACK_TURNS))?,
             Action::Use(thing, at) => {
                 self.turn_for(me)?;
                 let ev = self.apply(Command::Use {
@@ -1137,6 +1232,54 @@ impl Driver<'_> {
             }
         }
         Err("the attack never ended".into())
+    }
+
+    /// Fires the readied missile weapon at whoever stands on `(x, y)`: that
+    /// individual, aimed at where it stands at each of `me`'s turns
+    /// (play.md 3.1). The engine's refusals fail the step.
+    fn fire(&mut self, me: usize, x: u8, y: u8, turns: u32) -> Result<(), String> {
+        let who = self
+            .who_at(me, x, y)
+            .ok_or_else(|| format!("no one stands on {x},{y}"))?;
+        let start = self.turns[me];
+        for _ in 0..WAIT_MAX {
+            if !self.game.alive(who) {
+                return Ok(());
+            }
+            if self.turns[me] - start >= turns as usize {
+                self.progress.push(format!(
+                    "  (fire stopped after {turns} turns; the foe still lives)"
+                ));
+                return Ok(());
+            }
+            self.turn_for(me)?;
+            if !self.game.alive(who) {
+                return Ok(());
+            }
+            let foe = self.game.location(who).ok_or("the foe is gone")?;
+            if place_key(foe) != place_key(self.at(me)) {
+                return Err(format!("the foe left for {}", place_name(&self.game, foe)));
+            }
+            let ev = self.apply(Command::Fire {
+                target: Some(foe.xy()),
+                weapon: None,
+            });
+            self.refused(&ev)?;
+            if ev
+                .iter()
+                .any(|e| matches!(e, Event::FireCancelled { player } if *player == me))
+            {
+                return Err("no missile weapon is readied (FIRE chose NONE)".into());
+            }
+            if !ev
+                .iter()
+                .any(|e| matches!(e, Event::Fired { by, .. } if *by == (Who::Player { player: me })))
+            {
+                let why: Vec<String> = ev.iter().map(|e| describe(&self.game, e)).collect();
+                return Err(format!("FIRE didn't shoot: {}", why.join(" ")));
+            }
+        }
+        Err("the firing never ended".into())
     }
 
     fn players_for(&self, sel: Sel) -> Vec<usize> {

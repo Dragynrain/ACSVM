@@ -52,6 +52,7 @@ world map's cell. THING is a master thing number or name (any case).
 | `take X Y` | Walks beside the square and pushes into it once; the step succeeds when the player picks something up (a take leaves the taker on its own square). |
 | `bump X Y` | Walks beside the square and pushes into it once (an obstacle's spell, a store, a creature). |
 | `attack X Y [N]` | Attacks whoever stands there: that individual, followed wherever it goes in the room (the walk to it is planned afresh each turn), until it dies or N of the player's turns pass, walking ones included (default 20; not a failure). |
+| `fire X Y [N]` | Fires the readied missile weapon (FIRE) at whoever stands there: that individual, aimed at the square it stands on at each of the player's turns, until it dies or N of the player's turns pass (default 20; not a failure). See 3.1. |
 | `use THING [X Y]`, `cast THING [X Y]` | `Use` / `Cast`, aimed at the square when given. |
 | `drop THING [DIR]` | `Drop`, on the own square or the one in `n`, `e`, `s`, `w` (`ne`.. too). |
 | `ready THING` | `Ready`. |
@@ -64,13 +65,21 @@ world map's cell. THING is a master thing number or name (any case).
 | `expect owns THING`, `expect not owns THING` | |
 | `expect message N` | Long message N was shown during the last action step (any step but `expect` and `as`); several `expect`s after it all read the same messages. |
 | `expect alive`, `expect dead` | |
+| `expect area [N]` | The player stands in an encounter area (area N). |
 | `expect life >= N` | Also `<=`, `>`, `<`, `==`. |
 
 `walk`, `door`, `goto`, `take` and `bump` take `avoid-takes` after their
 numbers (`walk 5 3 avoid-takes`): the walk then never steps onto a square
 that would pick something up, except a `walk`'s own target (see 3).
 
-A refusal event (cast, drop, ready, store, retire) fails the step. A
+`walk` also takes `encounter` (`walk 28 35 encounter`, with or without
+`avoid-takes`, in any order): the walk is meant to be drawn into a world
+map encounter on the way and stay in its area (see 3.2). The steps after
+it (`attack`, `fire`, `door` to the area's door) run in the area.
+`expect area` checks that the player stands in an encounter area,
+`expect area N` in area N (1..4).
+
+A refusal event (cast, drop, ready, store, retire, fire) fails the step. A
 player's death fails the step it happens in, unless the next step is
 `expect dead`.
 
@@ -109,6 +118,40 @@ than what the first route had left plus 2 doors, never goes back into a
 place this `goto` already passed through, and once the player is in the
 target region it never leaves it. When no route is left the step fails
 with the doors that didn't work and why.
+
+`attack` and `fire` find whoever stands on the square in the player's
+own room, an encounter area included: there the foe is the copy the
+encounter put in the map's own region 0 (`Game::region(0)`).
+
+### 3.1 Firing
+
+`fire` sends the engine's `Fire` command with the foe's square as the
+target and no weapon chosen, so the readied missile weapon fires; the
+driver checks nothing the engine checks. A fire the engine refuses (a foe
+beside the player, the world map, a target outside the walls) fails the
+step with the engine's reason; so does a FIRE with no missile weapon held
+(the engine's NONE, a move used), and a foe that leaves the room. Firing
+ends the player's turn, so N turns are N volleys. The driver does not
+walk into range or line: the engine has no range or line rule that
+refuses a shot (a short or blocked shot simply misses), so a script that
+wants the player nearer first walks there. A foe that comes beside
+between volleys makes the next fire a refusal, so the step fails there
+(a melee foe is an `attack`'s).
+
+### 3.2 Walks into encounters
+
+A `walk ... encounter` searches as a walk does, except that a step whose
+own events draw the player into an encounter area (an encounter rolled
+after a map step, or an open area's entrance joined) is an end of the
+walk, like the target. Of the ends the search meets it takes the one on
+the shortest way to the target: the least moves to the step plus the
+moves left from the stepped square to the target (diagonals or not as
+the rules say, across the map's wrap when it wraps). On a tie an
+encounter wins over the target; among encounters, the first found. The
+search stops as soon as no further end can do better. The step succeeds
+when the player ends in an encounter area and fails, saying so, when the
+walk reached the target with no encounter on the way. A step that kills
+the player is never an end.
 
 ## 4. Failure and output
 
