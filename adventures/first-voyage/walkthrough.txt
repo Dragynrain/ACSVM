@@ -1,0 +1,50 @@
+# First Voyage, start to finish (docs/play.md). The player is rated like
+# an average new character (characters 1), not the sturdy default, so the
+# fight is the one a new player meets. Long messages: 1 dock, 2 store,
+# 3 fight, 4 chant, 5 win.
+player 1 name=SAILOR speed=6 strength=11 constitution=11 dexterity=11 wisdom=11 size=11 power=11 dodge=22 parry=22 melee=33 missile=22
+
+# The beach, then the harbour's door.
+door 2 3
+expect at 1 0 4 4
+bump 2 1
+expect message 1
+take 3 3
+take 5 3
+take 5 1
+ready cutlass
+expect owns cutlass
+
+# The trader.
+door 8 2
+expect at 1 1 1 2
+bump 3 3
+expect message 2
+bump 3 2
+buy leather jerkin
+leave
+ready leather jerkin
+expect owns leather jerkin
+
+# Back out by the gangway, north to the cliffs.
+door 0 2
+door 4 5
+expect at 0 0 2 4
+door 7 1
+expect at 2 0 1 3
+bump 2 1
+expect message 3
+attack 4 3
+expect alive
+use rum flask
+
+# The hollow: the chant, then the chest.
+door 8 3
+expect at 2 1 1 3
+bump 3 1
+expect owns sea chant
+cast sea chant
+take 3 4
+expect owns chest of coin
+walk 3 4
+expect message 5

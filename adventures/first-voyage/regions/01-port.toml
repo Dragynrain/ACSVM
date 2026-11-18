@@ -1,0 +1,54 @@
+# The harbour: the dock (moving and taking) and the trader (buying).
+
+key = "port"
+name = "HARBOUR TOWN"
+store = [
+    { thing = "leather_jerkin", count = 1 },
+    { thing = "rum_flask", count = 3 },
+    { thing = "cutlass", count = 1 },
+]
+
+[[room]]
+key = "dock"
+name = "THE DOCK"
+at = [0, 0]
+wall = "room_palisade"
+map = """
+#########
+#.n..f..#
+#.......D
+#..$.c..#
+#.......#
+####E####
+"""
+
+[room.legend]
+"#" = "wall"
+"." = "boardwalk"
+"n" = ["dock_notice", "boardwalk"]
+"f" = ["rum_flask", "boardwalk"]
+"$" = [{ gold = 60 }, "boardwalk"]
+"c" = ["cutlass", "boardwalk"]
+"D" = { thing = "wooden_door_palisade", to = "port.store" }
+"E" = { thing = "gangplank", to = "map", square = [2, 4] }
+
+[[room]]
+key = "store"
+name = "THE TRADER"
+at = [8, 0]
+wall = "room_panelling"
+map = """
+#######
+#.....#
+D..s..#
+#..t..#
+#.....#
+#######
+"""
+
+[room.legend]
+"#" = "wall"
+"." = "floor"
+"s" = "store"
+"t" = "store_notice"
+"D" = { thing = "wooden_door_panelling", to = "port.dock" }

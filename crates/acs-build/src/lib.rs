@@ -2064,6 +2064,12 @@ impl<'a> Build<'a> {
                     portal_table.push(self.table_entry(d));
                 }
             }
+            // A take gives the placed parameter (inventory 2.7): one, or a
+            // count up to the thing's limit.
+            t if t.carriable() => {
+                let max = if n <= STACKABLE_MAX { 3 } else { 1 };
+                parameter = c.int_or("count", 1, max, 1) as u8;
+            }
             Type::CustomSpace | Type::CustomObstacle => match c.raw("parameter") {
                 None => {}
                 Some(Value::Integer(p)) if (0..=255).contains(p) => parameter = *p as u8,

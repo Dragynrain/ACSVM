@@ -123,6 +123,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `crates/acs-build`: `acs build`, a source folder of TOML to a bundle
   (content.md 3): keys to numbers, every reference and limit checked;
   `acs_core::encode` writes things' property bytes.
+- `adventures/`: our own adventures' source folders (content.md 3, 6),
+  CC BY-SA 4.0, each with a `walkthrough.txt` a test plays to the end.
 - `kits/`: starter kits (content.md 4): atlas, picture list, things,
   creatures, provenance; CC BY-SA 4.0. An adventure takes only what it
   names.

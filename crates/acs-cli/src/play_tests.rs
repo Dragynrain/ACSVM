@@ -509,3 +509,26 @@ fn several_expects_read_the_last_actions_messages() {
     assert!(f.contains("in the last action step; shown: []"), "{f}");
     assert_eq!(out.game.players()[0].at, room(0, 2, 2));
 }
+
+/// The tutorial (docs/content.md 6), built from its source folder, plays
+/// to its congratulations from the walkthrough beside it, on several
+/// seeds: a corpus-free replay of an adventure of our own.
+#[test]
+fn first_voyage_plays_to_the_end() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../adventures/first-voyage");
+    let folder = acs_build::Folder::read(&dir).expect("the tutorial's folder");
+    let adv = match acs_build::build(&folder) {
+        Ok(b) => b.adventure,
+        Err(p) => panic!(
+            "{}",
+            p.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
+        ),
+    };
+    let text = std::fs::read_to_string(dir.join("walkthrough.txt")).unwrap();
+    let script = parse(&text, &adv).unwrap_or_else(|e| panic!("{e}"));
+    for seed in 1..=8 {
+        let out = play(&adv, &script, seed, 1);
+        assert_eq!(out.failure, None, "seed {seed}:\n{}", out.progress.join("\n"));
+        assert!(out.game.players()[0].alive, "seed {seed}");
+    }
+}

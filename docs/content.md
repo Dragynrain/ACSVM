@@ -400,6 +400,10 @@ square. A table is one of:
   region grid); a custom space's or custom obstacle's `parameter`
   (`thing = KEY` for a custom space whose choice is `thing`, else a
   number 0..255).
+- `{ thing = KEY, count = N }` for a carriable thing: a take gives
+  the placed count (inventory 2.7), 1 by default, up to 3 for things
+  1..32. A thing named by key alone is placed with 1, never 0, which
+  would be taken off the floor and owned by no one.
 - `{ gold = N }`, a gold pile of N (1..25,000).
 - `{ creature = KEY }`, a resident with the master's record, standing on
   that square; `things = [...]` lists what lies under it.
@@ -479,8 +483,13 @@ code: 12 effects and 18 themes, 4 of them looping. To be specified.
 
 ## 6. Sample adventures
 
-- **A tutorial**, small, on the pirate kit, teaching movement, rooms,
-  things, a store, a fight and a spell in about fifteen minutes.
+- **A tutorial**, *First Voyage* (`adventures/first-voyage`), small,
+  on the pirate kit, teaching movement, rooms, things, a store, a fight
+  and a spell in about fifteen minutes: notices on the dock and at the
+  trader explain each step, a shore crab of Speed 0 guards the cave (it
+  strikes back but never chases, so the fight is where the player
+  chooses it), a logbook gives the sea chant, and a chest of coin on a
+  success stack (winning 1.2) ends it.
 - ***The King's Pardon***, mid-size, on the pirate kit; its story,
   design and script are their own project (`D:\Projects\KingsPardon`),
   and only the built adventure's source comes into this repository.
@@ -517,7 +526,13 @@ player's own disks. Nothing EA's is bundled (client.md 8).
    it stands on drawn under it, so room squares are drawn as layers
    (`acs_core::scene::layers`: wall or floor, top thing, resident). Left
    for the art side: the store tile's background is opaque white.
-4. The tutorial (6), with its replay test.
+4. The tutorial (6), with its replay test. Done November 2026:
+   `adventures/first-voyage` (two regions, four rooms, built on the
+   pirate kit), its `walkthrough.txt`, and the test
+   `first_voyage_plays_to_the_end` (crates/acs-cli), which builds it and
+   plays it to the congratulations on eight seeds. Found on the way: a
+   carriable placed with parameter 0 gives nothing when taken (inventory
+   2.7), so the build places them with 1 (3.9).
 5. The 30 cues (5).
 6. *The King's Pardon* (6), with its replay test.
 7. The front door (7).

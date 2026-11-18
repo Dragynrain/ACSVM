@@ -330,6 +330,9 @@ fn the_cove_builds_with_the_numbers_the_rules_assume() {
     assert_eq!(a.world.terrain.len(), 13);
 
     // Gold, the resident, the store, the room's random creature.
+    // A carriable is placed with 1, so a take gives one (inventory 2.7).
+    let cutlass = r.rooms[0].items.iter().find(|i| i.thing == 1).unwrap();
+    assert_eq!(cutlass.parameter, 1);
     let gold = r.rooms[0].items.iter().find(|i| i.thing == 81).unwrap();
     assert_eq!(gold.gold, Some(50));
     let harrow = &r.residents[0];

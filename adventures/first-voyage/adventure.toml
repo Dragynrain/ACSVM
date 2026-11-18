@@ -1,0 +1,30 @@
+# First Voyage: the tutorial adventure (docs/content.md 6). CC BY-SA 4.0.
+# Build: acs build adventures/first-voyage -o first-voyage.advx
+# Walkthrough: walkthrough.txt (docs/play.md), played by the test
+# `first_voyage_plays_to_the_end` in crates/acs-cli.
+
+name = "FIRST VOYAGE"
+byline = "ACSVM contributors"
+license = "CC BY-SA 4.0"
+credits = ["Story and design: ACSVM contributors", "Art: the ACSVM pirate kit"]
+kit = "../../kits/pirates"
+theme = "fantasy"
+palette = ["black", "brown", "light cyan", "white"]
+intro = """
+You wake on a warm beach with sand in your boots and no ship in sight.
+A harbour town lies to the west, and old sailors say a hollow in the
+cliffs to the north hides a chest of coin.
+
+Walk to the town and read the notices: they will show you the way."""
+
+[gold]
+name = "GOLD"
+picture = "goldpile"
+
+[area_door]
+name = "WAY OUT"
+picture = "door_cavepass"
+
+[floor]
+picture = "room_roomfloor"
+wall = "room_palisade"

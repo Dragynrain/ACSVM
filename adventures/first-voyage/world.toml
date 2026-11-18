@@ -1,0 +1,61 @@
+# First Voyage's world: a beach, the harbour town (P) and the cliffs' cave (C).
+
+name = "THE BLUE SHORE"
+start = [3, 3]
+map = """
+~~~~~~~~~~
+~~..j..C~~
+~...jj..~~
+~.P......~
+~~......~~
+~~~~~~~~~~
+"""
+
+[legend]
+"~" = "deep_sea"
+"." = "beach"
+"j" = "jungle"
+"P" = "harbour"
+"C" = "cave"
+
+[[terrain]]
+key = "deep_sea"
+name = "DEEP SEA"
+picture = "terrain_deepsea"
+pass = "impassable"
+
+[[terrain]]
+key = "beach"
+name = "BEACH"
+picture = "terrain_beach"
+pass = "open"
+
+[[terrain]]
+key = "jungle"
+name = "JUNGLE"
+picture = "terrain_jungle"
+pass = "open"
+
+[[terrain]]
+key = "harbour"
+name = "HARBOUR TOWN"
+picture = "terrain_porttown"
+pass = "open"
+door = true
+
+[[terrain]]
+key = "cave"
+name = "CAVE IN THE CLIFFS"
+picture = "terrain_cavemouth"
+pass = "open"
+door = true
+
+[[door]]
+at = [2, 3]
+to = "port.dock"
+square = [4, 4]
+
+[[door]]
+at = [7, 1]
+to = "cliffs.mouth"
+square = [1, 3]

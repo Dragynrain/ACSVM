@@ -1,0 +1,71 @@
+# First Voyage's own things; the rest come from the pirate kit (content 4.2).
+
+[[thing]]
+key = "sea_chant"
+name = "SEA CHANT"
+type = "magic_spell"
+power = 3
+spell = { action = "change_life_force", by = 6 }
+
+[[thing]]
+key = "dock_notice"
+name = "NOTICE"
+type = "obstacle"
+picture = "scroll"
+bump = true
+spell = { action = "long_message", message = "dock" }
+
+[[thing]]
+key = "store_notice"
+name = "NOTICE"
+type = "obstacle"
+picture = "scroll"
+bump = true
+spell = { action = "long_message", message = "store" }
+
+[[thing]]
+key = "cave_notice"
+name = "SCRATCHED WARNING"
+type = "obstacle"
+picture = "bones"
+bump = true
+spell = { action = "long_message", message = "fight" }
+
+[[thing]]
+key = "logbook"
+name = "OLD LOGBOOK"
+type = "obstacle"
+picture = "book"
+bump = true
+spell = { action = "give", thing = "sea_chant" }
+spell_message = "learned"
+
+# The success stack under the chest (winning 1.2): stepping onto the
+# square once the chest is taken runs the rest.
+[[thing]]
+key = "win_space"
+name = "SANDY HOLLOW"
+type = "space"
+picture = "room_fsand"
+access = { spell = { action = "activate_all" } }
+
+[[thing]]
+key = "win_theme"
+name = "SANDY HOLLOW"
+type = "space"
+picture = "room_fsand"
+access = { spell = { action = "play_music", music = 14 } }
+
+[[thing]]
+key = "win_words"
+name = "SANDY HOLLOW"
+type = "space"
+picture = "room_fsand"
+access = { spell = { action = "long_message", message = "win" } }
+
+[[thing]]
+key = "win_fanfare"
+name = "SANDY HOLLOW"
+type = "space"
+picture = "room_fsand"
+access = { spell = { action = "play_music", music = 2 } }

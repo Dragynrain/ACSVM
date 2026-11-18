@@ -1,0 +1,49 @@
+# The cliffs: the cave mouth (a fight) and the hollow (a spell, the chest).
+
+key = "cliffs"
+name = "THE CLIFFS"
+
+[[room]]
+key = "mouth"
+name = "CAVE MOUTH"
+at = [0, 0]
+wall = "room_caverock"
+map = """
+#########
+#.n.....#
+#.......#
+E...k...D
+#.......#
+#.......#
+#########
+"""
+
+[room.legend]
+"#" = "wall"
+"." = "floor"
+"n" = "cave_notice"
+"k" = { creature = "shore_crab" }
+"E" = { thing = "cave_passage_caverock", to = "map", square = [6, 1] }
+"D" = { thing = "cave_passage_caverock", to = "cliffs.hollow" }
+
+[[room]]
+key = "hollow"
+name = "THE HOLLOW"
+at = [8, 0]
+wall = "room_caverock"
+map = """
+#######
+#..b..#
+#.....#
+D.....#
+#..G..#
+#.....#
+#######
+"""
+
+[room.legend]
+"#" = "wall"
+"." = "floor"
+"b" = "logbook"
+"G" = ["coin_chest", "win_space", "win_theme", "win_words", "win_fanfare"]
+"D" = { thing = "cave_passage_caverock", to = "cliffs.mouth" }
