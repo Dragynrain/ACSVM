@@ -1,0 +1,59 @@
+name: Plays differently from the original
+description: A rule that doesn't match how Adventure Construction Set plays (combat, creatures, spells, stores, doors, encounters...).
+labels: [playtest, rules]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks: reports like this are the most useful thing a long-time player can give us. We confirm each one against the original before the engine changes. Please don't attach EA adventures, disk images, or saves of EA or other people's adventures here.
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: At the foot of the title screen, or in the Help menu, for example 0.1.0 (abc1234).
+    validations:
+      required: true
+  - type: input
+    id: adventure
+    attributes:
+      label: Adventure
+      description: Its name and platform (C64 .d64, PC), and where in it (region, room).
+    validations:
+      required: true
+  - type: textarea
+    id: here
+    attributes:
+      label: What happened here
+    validations:
+      required: true
+  - type: textarea
+    id: original
+    attributes:
+      label: What the original does
+    validations:
+      required: true
+  - type: dropdown
+    id: sure
+    attributes:
+      label: How sure are you?
+      options:
+        - I checked it again in the original (an emulator or real hardware)
+        - I remember it from playing
+        - It's a hunch
+    validations:
+      required: true
+  - type: dropdown
+    id: version
+    attributes:
+      label: Which original?
+      options:
+        - C64
+        - MS-DOS
+        - Apple II
+        - Amiga
+        - Not sure
+  - type: textarea
+    id: save
+    attributes:
+      label: Save file
+      description: Say whether you have a save (Save game in walk mode) from just before it happens; we'll ask for it privately.

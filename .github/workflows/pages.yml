@@ -30,6 +30,7 @@ jobs:
           tool: trunk
       - run: sh scripts/check-forbidden-files.sh --all
       - run: sh scripts/web.sh build
+      - run: sh scripts/check-forbidden-files.sh --dir target/web
       - uses: actions/upload-pages-artifact@v5
         with:
           path: target/web/

@@ -1,0 +1,20 @@
+name: Playtest notes
+description: Anything else - something confusing, a wish, how First Voyage went.
+labels: [playtest]
+body:
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: At the foot of the title screen, or in the Help menu, for example 0.1.0 (abc1234).
+  - type: input
+    id: platform
+    attributes:
+      label: Where you played
+      description: Browser and system, or the desktop build and system.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+    validations:
+      required: true

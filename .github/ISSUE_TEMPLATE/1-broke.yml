@@ -1,0 +1,39 @@
+name: Something broke
+description: A crash, a hang, a wrong picture, a layout fault, a file that won't open.
+labels: [playtest, bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. Please don't attach EA adventures, disk images, or saves of EA or other people's adventures here (see the [playtest guide](https://github.com/Dragynrain/ACSVM/blob/main/docs/playtest.md)).
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: At the foot of the title screen, or in the Help menu, for example 0.1.0 (abc1234).
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Where you played
+      description: Browser and system, or the desktop build and system. For example "Firefox 140 on Windows 11" or "Safari on iPad".
+    validations:
+      required: true
+  - type: input
+    id: adventure
+    attributes:
+      label: Adventure
+      description: First Voyage, or the adventure's name and platform (C64 .d64, PC).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw. A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: save
+    attributes:
+      label: Save file
+      description: For First Voyage, attach the save (Save game in walk mode). For any other adventure, just say whether you have one.

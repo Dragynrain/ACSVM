@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Playtest guide
+    url: https://github.com/Dragynrain/ACSVM/blob/main/docs/playtest.md
+    about: What to try and what we most want to hear about.

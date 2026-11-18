@@ -7,6 +7,7 @@
 # Usage:
 #   scripts/check-forbidden-files.sh --staged   # files staged for commit (pre-commit hook)
 #   scripts/check-forbidden-files.sh --all      # every tracked file (CI)
+#   scripts/check-forbidden-files.sh --dir DIR  # every file under DIR (the built site, content.md 8)
 
 set -eu
 
@@ -15,7 +16,9 @@ PATTERN='\.(d64|dsk|adf|fpy|hrd|prg|t64|crt|zip)$'
 case "${1:---all}" in
   --staged) files=$(git diff --cached --name-only --diff-filter=ACMR) ;;
   --all)    files=$(git ls-files) ;;
-  *) echo "usage: $0 [--staged|--all]" >&2; exit 2 ;;
+  --dir)    [ -d "${2:-}" ] || { echo "$0: --dir needs a directory" >&2; exit 2; }
+            files=$(find "$2" -type f) ;;
+  *) echo "usage: $0 [--staged|--all|--dir DIR]" >&2; exit 2 ;;
 esac
 
 bad=$(printf '%s\n' "$files" | grep -iE "$PATTERN" || true)

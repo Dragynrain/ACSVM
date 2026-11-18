@@ -19,6 +19,15 @@ pub fn project_name() -> &'static str {
         .unwrap_or("viewer")
 }
 
+/// The build: version and commit (content 8), as `0.1.0 (abc1234)`.
+pub fn build_stamp() -> String {
+    format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("ACSVM_COMMIT"))
+}
+
+/// The playtest's issue forms and tester guide (content 8).
+const REPORT_URL: &str = "https://github.com/Dragynrain/ACSVM/issues/new/choose";
+const GUIDE_URL: &str = "https://github.com/Dragynrain/ACSVM/blob/main/docs/playtest.md";
+
 /// Below this window width (in points) the side panels start hidden.
 pub(crate) const NARROW: f32 = 900.0;
 /// In walk mode the menu column shows by default only from this width,
@@ -562,6 +571,19 @@ impl Viewer {
             ui.checkbox(&mut a.reduce_motion, "Reduce motion")
                 .on_hover_text("No pulsing outlines.");
         });
+        // The playtest's ways to report, and the build (content 8).
+        ui.menu_button("Help", |ui| {
+            if ui.button("Report a problem…").clicked() {
+                ctx.open_url(egui::OpenUrl::new_tab(REPORT_URL));
+                ui.close();
+            }
+            if ui.button("Playtest guide").clicked() {
+                ctx.open_url(egui::OpenUrl::new_tab(GUIDE_URL));
+                ui.close();
+            }
+            ui.separator();
+            ui.label(RichText::new(format!("Build {}", build_stamp())).weak());
+        });
         if let Some(doc) = &mut self.doc {
             if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
                 doc.go(View::Walk);
@@ -760,6 +782,12 @@ impl Viewer {
                     ui.add_space(12.0);
                     ui.colored_label(Color32::LIGHT_RED, e);
                 }
+                // The build, and where to report (content 8).
+                ui.add_space(18.0);
+                ui.hyperlink_to("Report a problem", REPORT_URL);
+                ui.hyperlink_to("Playtest guide", GUIDE_URL);
+                ui.label(RichText::new(format!("Build {}", build_stamp())).weak());
+                ui.add_space(12.0);
             });
         });
     }

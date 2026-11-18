@@ -578,7 +578,51 @@ alike, read on the machine and never uploaded).
   with a dark outline; then the samples and the open-a-file text in the
   UI font (client.md 7.1).
 
-## 8. Order of work
+## 8. The playtest
+
+The gate's public playtest (1): long-time ACS players play the Pages
+build and tell us what is wrong. The maintainer announces it (Lemon64,
+AtariAge, the RPG Codex thread, design.md "Launch sequence"); nothing
+in the repository posts anything.
+
+- **What testers play.** *First Voyage* from the title screen, then
+  their own disks and fan adventures, which matter most: they know how
+  the original plays, and every Classic adventure they bring is a rules
+  check we can't run. *The King's Pardon* joins if it is published (6).
+- **The tester guide**, `docs/playtest.md`: what to try, what we most
+  want to hear about (anything that plays differently from the
+  original, anything that breaks, anything confusing), and how to
+  report it. Short, plain, linked from the viewer.
+- **Reports are GitHub issues** made from forms in
+  `.github/ISSUE_TEMPLATE/`: *Something broke* (a crash, a hang, a
+  wrong picture, a layout fault), *Plays differently from the original*
+  (what happened here, what the original does, how sure the tester is:
+  remembered, or seen again in an emulator), and *Playtest notes*
+  (anything else). Each asks for the build and the platform, and for a
+  save file when it happened in play: a save is the whole command log
+  and its seed (saves.md), so it replays the game exactly. A save of an
+  EA or third-party adventure is not attached to a public issue: the
+  form says so and asks the tester to describe it, or to send it to the
+  maintainer privately. [choice]
+- **The build is stamped.** The viewer shows its version and the commit
+  it was built from (`0.1.0 (abc1234)`) at the foot of the title screen
+  and in a **Help** menu in the top bar, beside *Report a problem...*
+  (the forms) and *Playtest guide* (`docs/playtest.md`). The commit
+  comes from `GITHUB_SHA` in CI, else `git rev-parse`, else `unknown`;
+  `build.rs` sets it. [choice]
+- **No EA file in the site.** After `scripts/web.sh build`, the Pages
+  workflow runs `scripts/check-forbidden-files.sh --dir target/web`, the
+  same extension check as the repository's, over the site; the built-in
+  samples are bundles inside the wasm, ours. [choice]
+- **Findings are dealt with** when each issue labelled `playtest` is
+  fixed, written into `docs/rules/` as the engine's choice (an
+  [unknown] or a [choice], with the report as its source, then captured
+  where it matters), or moved past 1.0 with a reason. A *Plays
+  differently* report is a lead, not a rule: it is confirmed by capture
+  or research before the engine changes (CLAUDE.md, the clean room).
+  1.0 is tagged when none is left open.
+
+## 9. Order of work
 
 1. The bundle (2). Done November 2026: `crates/acs-bundle` reads,
    checks and writes bundles (`tests/bundle.rs`); every `acs` command
@@ -624,6 +668,9 @@ alike, read on the machine and never uploaded).
    and `samples.rs`, the title screen in `app.rs` with the kit's title
    art (the *Magpie*, `assets/title.png`) lettered in the bold UI font,
    and the UI font in the log (client.md 7.1).
-8. The playtest, then 1.0 (1).
+8. The playtest (8), then 1.0 (1). Ready November 2026: the tester
+   guide, the issue forms, the build stamp and Help menu, and the site
+   check. Left: the maintainer's announcement, the playtest itself,
+   its findings dealt with.
 
 More starter kits are after 1.0 (4).
