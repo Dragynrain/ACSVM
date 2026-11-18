@@ -26,6 +26,8 @@ pub struct Access {
     pub text: f32,
     pub colour_blind: bool,
     pub reduce_motion: bool,
+    /// Stores as a plain list instead of the original's store screen.
+    pub simple_shops: bool,
 }
 
 impl Default for Access {
@@ -34,6 +36,7 @@ impl Default for Access {
             text: 1.0,
             colour_blind: false,
             reduce_motion: false,
+            simple_shops: false,
         }
     }
 }

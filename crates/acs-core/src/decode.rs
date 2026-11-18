@@ -210,7 +210,10 @@ impl Decoder<'_> {
 
     fn action(&mut self, code: u8, parameter: u8, location: &str) -> SpellAction {
         let kind = SpellActionKind::from_code(code);
-        if let SpellActionKind::Invalid(c) = kind {
+        // Code 15 is a designer's known trick, an uncastable spell kept as
+        // a skill or key (format notes: Rivers of Light's SWIMMING SKILL),
+        // so only other codes are worth a warning.
+        if let SpellActionKind::Invalid(c @ 16..) = kind {
             self.diags
                 .warn(K::UnknownSpellAction, location, format!("spell action code {c}"));
         }

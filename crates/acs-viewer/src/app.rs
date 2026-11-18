@@ -236,6 +236,10 @@ struct Kept {
     /// Sound on, and the volume.
     sound: Option<(bool, f32)>,
     game: Option<KeptGame>,
+    /// The welcome has been seen once.
+    welcomed: bool,
+    /// "Don't show this again" on How to play.
+    no_play_help: bool,
 }
 
 /// The last game: its save file (docs/saves.md), resumed when the same
@@ -269,6 +273,16 @@ pub struct Viewer {
     pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
     /// The Options menu (client 7).
     access: crate::access::Access,
+    /// The welcome (before an adventure) and How to play (after one
+    /// opens) windows are up (client 7.3).
+    welcome: bool,
+    play_help: bool,
+    /// Kept: the welcome seen, and How to play not wanted on opening.
+    welcomed: bool,
+    no_play_help: bool,
+    /// The text size while its slider is held: applied on letting go, as
+    /// a new size resizes the menu, slider and all, under the pointer.
+    text_drag: Option<f32>,
     /// A sample chosen on the title screen: open it in walk mode
     /// (content 7).
     play_next: bool,
@@ -308,7 +322,13 @@ impl Viewer {
                 text: start.text_size.unwrap_or(1.0),
                 colour_blind: start.colour_blind,
                 reduce_motion: crate::live::system_reduced_motion(),
+                simple_shops: false,
             },
+            text_drag: None,
+            welcome: false,
+            play_help: false,
+            welcomed: false,
+            no_play_help: false,
             play_next: false,
             title: None,
             keep,
@@ -327,6 +347,10 @@ impl Viewer {
             }
             v.kept_sound = kept.sound;
             v.kept_game = kept.game;
+            v.welcomed = kept.welcomed;
+            v.no_play_help = kept.no_play_help;
+            // The first visit opens on the welcome (client 7.3).
+            v.welcome = !kept.welcomed && start.path.is_none();
         }
         v.access.set(&cc.egui_ctx);
         // The pack first, so the adventure opens with it.
@@ -495,6 +519,8 @@ impl Viewer {
             access: Some(self.access),
             sound: self.kept_sound,
             game: self.kept_game.clone(),
+            welcomed: self.welcomed,
+            no_play_help: self.no_play_help,
         }
     }
 
@@ -554,6 +580,9 @@ impl Viewer {
                 self.resume_kept(&mut doc);
                 self.doc = Some(doc);
                 self.error = None;
+                // What to do now that an adventure is open (client 7.3).
+                self.welcome = false;
+                self.play_help = self.keep && !self.no_play_help;
             }
             Err(e) => {
                 self.play_next = false;
@@ -679,21 +708,40 @@ impl Viewer {
         // Accessibility options for every view (client 7).
         ui.menu_button("Options", |ui| {
             let a = &mut self.access;
-            let mut pct = (a.text * 100.0).round();
-            ui.add(
+            let mut pct = self.text_drag.unwrap_or((a.text * 100.0).round());
+            let slider = ui.add(
                 egui::Slider::new(&mut pct, 75.0..=200.0)
                     .step_by(5.0)
                     .suffix("%")
                     .text("Text size"),
             );
-            a.text = pct / 100.0;
+            if slider.dragged() {
+                self.text_drag = Some(pct);
+            } else {
+                if slider.changed() || self.text_drag.is_some() {
+                    a.text = pct / 100.0;
+                }
+                self.text_drag = None;
+            }
             ui.checkbox(&mut a.colour_blind, "Colour-blind palette")
                 .on_hover_text("Okabe-Ito colours for the log, the players, the creatures and the map.");
             ui.checkbox(&mut a.reduce_motion, "Reduce motion")
                 .on_hover_text("No pulsing outlines.");
+            ui.checkbox(&mut a.simple_shops, "Simplify shops").on_hover_text(
+                "A store as a plain list of what it sells and buys, instead of the original's store screen.",
+            );
         });
         // The playtest's ways to report, and the build (content 8).
         ui.menu_button("Help", |ui| {
+            if self.doc.is_some() && ui.button("How to play").clicked() {
+                self.play_help = true;
+                ui.close();
+            }
+            if ui.button("Welcome").clicked() {
+                self.welcome = true;
+                ui.close();
+            }
+            bar_separator(ui);
             if ui.button("Report a problem…").clicked() {
                 ctx.open_url(egui::OpenUrl::new_tab(REPORT_URL));
                 ui.close();
@@ -873,7 +921,14 @@ impl Viewer {
                     Color32::from_rgb(246, 222, 74),
                 );
 
-                ui.add_space(18.0);
+                ui.add_space(12.0);
+                if ui
+                    .button(RichText::new("New here? What this is and how it works").font(kit(22.0)))
+                    .clicked()
+                {
+                    self.welcome = true;
+                }
+                ui.add_space(12.0);
                 ui.label(RichText::new("Play a sample adventure").font(kit(22.0)).color(ink));
                 ui.add_space(6.0);
                 for s in crate::samples::SAMPLES {
@@ -915,6 +970,120 @@ impl Viewer {
                 ui.add_space(12.0);
             });
         });
+    }
+}
+
+/// The welcome's parts (client 7.3): a heading (none for the first) and
+/// its paragraph; `{name}` is the project's name.
+const WELCOME: &[(&str, &str)] = &[
+    ("", "{name} plays adventures made with Adventure Construction Set, the 1984 game kit, on today's computers: the original's rules, rebuilt and checked against the real thing."),
+    ("Start with First Voyage", "The short tutorial on this screen: about fifteen minutes, with notes that explain each step as you reach it. It opens ready to play."),
+    ("Or bring your own", "A C64 disk image (.d64), a PC adventure (ADVEN.FPY or ADVEN.HRD) or an .advx bundle: drag it onto the window or use Open… at the top. The file stays on your machine."),
+    ("Explore, then Walk", "An adventure you open shows first in Explore: the world map, its regions and rooms, and lists of its things, creatures and messages, the way its designer built it. Walk, in the top bar, is where you play."),
+    ("Help is in the Help menu", "How to play (keys, actions, stores and saving), this page, and the way to report a problem."),
+];
+
+/// How to play (client 7.3): first, for an adventure still in Explore.
+const EXPLORE: (&str, &str) = ("You are in Explore", "Look over the adventure as its designer built it: the Menu on the left lists the world map, regions, rooms, things and creatures. To play, press Start playing below, or Walk in the top bar.");
+const PLAY: &[(&str, &str)] = &[
+    ("Moving", "Arrow keys, WASD or the number pad move you one square, and so does a click on a square beside you. Walk into a door to go through it, into a creature to fight it, onto a thing to pick it up. Space or Enter passes the rest of your turn. On a touch screen a pad appears."),
+    ("Everything else: the Info column", "The column on the right (Info in the top bar shows or hides it) holds your actions: Fire for a bow or thrown weapon, Save Game and Retire at the top; then your stats; then what you carry, each with Ready, Drop, Cast or Use; then the creatures near you."),
+    ("Time runs as in the original", "Your move bar drains while you do nothing, about a step every seven seconds. Tick Turn-based in the Info column to make it wait for you."),
+    ("The log", "The strip at the bottom tells what happens: fights, finds, doors, and the adventure's own messages."),
+    ("Stores", "Walk into a store to go in. Walk along the aisles and into a shelf to see what is on it and its price; Space buys. From the first prompt, Space (or Sell your goods) offers what you carry, one thing at a time. Walk into an exit to leave. Options > Simplify shops shows a plain list instead."),
+    ("Friends and saving", "Add Someone brings in up to four characters, who take turns. Your game is kept in this browser or on this computer; Save to file… writes a save you can load later, or attach to a problem report."),
+];
+
+/// A help window's parts: each heading and its paragraph.
+fn help_parts(ui: &mut egui::Ui, parts: &[(&str, &str)]) {
+    for (title, body) in parts {
+        ui.add_space(6.0);
+        if !title.is_empty() {
+            ui.label(RichText::new(*title).strong());
+        }
+        ui.label(body.replace("{name}", project_name()));
+    }
+}
+
+/// A help window: centred, at most 560 points wide, scrolling when the
+/// window is short.
+fn help_window<'a>(title: String, open: &'a mut bool, ctx: &egui::Context) -> egui::Window<'a> {
+    let width = (ctx.content_rect().width() - 32.0).clamp(240.0, 560.0);
+    egui::Window::new(title)
+        .open(open)
+        .collapsible(false)
+        .resizable(false)
+        .default_width(width)
+        .max_width(width)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+}
+
+impl Viewer {
+    /// The welcome, before an adventure is chosen, and How to play, after
+    /// (client 7.3).
+    fn help_windows(&mut self, ctx: &egui::Context) {
+        let height = (ctx.content_rect().height() - 140.0).max(120.0);
+        if self.welcome {
+            let mut open = true;
+            let mut close = false;
+            help_window(format!("Welcome to {}", project_name()), &mut open, ctx).show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .min_scrolled_height(height.min(520.0))
+                    .max_height(height)
+                    .show(ui, |ui| {
+                        help_parts(ui, WELCOME);
+                        ui.add_space(10.0);
+                        close = ui.button("Got it").clicked();
+                    });
+            });
+            if !open || close {
+                self.welcome = false;
+                self.welcomed = true;
+            }
+        }
+        if self.play_help {
+            let Some(doc) = &mut self.doc else {
+                self.play_help = false;
+                return;
+            };
+            let name = doc.decoded.adventure.name.trim().to_string();
+            let exploring = doc.view != View::Walk;
+            let mut open = true;
+            let mut close = false;
+            let mut play = false;
+            let mut hide = self.no_play_help;
+            help_window(format!("How to play {name}"), &mut open, ctx).show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .min_scrolled_height(height.min(520.0))
+                    .max_height(height)
+                    .show(ui, |ui| {
+                        if exploring {
+                            help_parts(ui, &[EXPLORE]);
+                        }
+                        help_parts(ui, PLAY);
+                        ui.add_space(10.0);
+                        ui.checkbox(
+                            &mut hide,
+                            "Don't show this when an adventure opens (it stays in Help)",
+                        );
+                        ui.horizontal_wrapped(|ui| {
+                            if exploring {
+                                play = ui.button("Start playing").clicked();
+                                close = ui.button("Look around first").clicked();
+                            } else {
+                                close = ui.button("Got it").clicked();
+                            }
+                        });
+                    });
+            });
+            self.no_play_help = hide;
+            if play {
+                doc.go(View::Walk);
+            }
+            if !open || close || play {
+                self.play_help = false;
+            }
+        }
     }
 }
 
@@ -987,6 +1156,8 @@ impl eframe::App for Viewer {
         } else {
             egui::CentralPanel::default_margins().show(ui, |ui| self.empty_state(ui));
         }
+
+        self.help_windows(&ctx);
 
         #[cfg(not(target_arch = "wasm32"))]
         self.capture_tick(&ctx);

@@ -233,6 +233,7 @@ Counts cover all 15 corpus adventures (222 regions).
    store's square with one move left; the command then runs. Walking
    about the store screen is the front end's, from the layout of 3.3
    (`stores::square`, `stores::shelf_place`): it changes nothing in play.
+   The viewer's store screen is client.md 4.1.
 9. Only players use stores. A creature that walks into a store spends one
    move and stays where it was. [research, unconfirmed] **Engine:**
    creatures never choose a store square ([creatures](creatures.md) 5.1),

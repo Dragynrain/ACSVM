@@ -359,7 +359,8 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   action code 15 (outside 0-14) and power 0. It is never placed; three
   creatures carry it, and seven river terrains plus a "swimmable water" space
   are open only to its owners. So a spell slot with code 15 serves as an
-  uncastable key item. The decoder keeps it as `invalid(15)` with a warning.
+  uncastable key item. The decoder keeps it as `invalid(15)`, with no
+  warning (a known trick, not a fault); other invalid codes still warn.
 - Theme byte (header +0x36E): 0, 1 or 2 in the corpus. Following AcsLib's
   music list it selects Endless Fantasy, Spy/Mystery or Sci-Fi. Unverified.
 

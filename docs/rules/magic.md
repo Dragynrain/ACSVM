@@ -228,8 +228,8 @@ The parameter layout is the format draft's; numbers below are corpus counts.
     4; ours, no research pass, 2026-11-17] **Engine:** a `LongMessage`
     event whose text keeps the 8 stored lines, separated by line breaks
     (trailing blanks of a line may be trimmed, nothing else changed); 0
-    shows nothing. A front end shows each line as its own screen line
-    and does not rewrap them.
+    shows nothing. A front end may show the lines as stored or join
+    them into paragraphs (the viewer does, client 3.1).
     (Superseded: the engine's earlier choice of joining the lines with
     nothing between them and squeezing the spaces.)
 11. **Play music** (one of 30). Choices 1-12 are effects, 13-30 themes, and

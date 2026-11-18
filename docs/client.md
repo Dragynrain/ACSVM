@@ -46,10 +46,9 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
   than its space wraps.
 - The message log is always visible in walk mode, whatever else is
   hidden: it replaces the original's press-to-acknowledge messages (3).
-  A Classic long message keeps its stored lines and the log scrolls
-  sideways for it; every other line, an Extended adventure's long
-  messages too (content 3.7, line breaks kept), wraps to the log's
-  visible width.
+  Every line wraps to the log's visible width, long messages too (3.1);
+  only a Classic long message laid out as a picture or a table keeps its
+  stored lines, and the log scrolls sideways for it.
 - The board keeps at least the room's 15 x 10 squares at scale 1; below
   that the window's minimum size (480 x 320) stops shrinking.
 
@@ -66,12 +65,39 @@ outside the repo.
 
 Every event the engine returns becomes a line (`describe`), coloured by
 kind: turns and steps dim, blocks orange, doors blue, spells violet,
-items green, creatures yellow, foes red. A Classic long message keeps its
-stored lines and is never rewrapped (magic 3.10); an Extended one wraps,
-keeping its line breaks (content 3.7). The log keeps the last 500
-lines and sticks to the bottom unless scrolled up.
+items green, creatures yellow, foes red. Long messages wrap as
+paragraphs (3.1). The log keeps the last 500 lines and sticks to the
+bottom unless scrolled up.
 
 Later in the phase: a filter by kind, and the font size option (7).
+
+### 3.1 Long messages
+
+An Extended long message wraps to the log, its line breaks kept as
+paragraph breaks (content 3.7). A Classic one is stored as 8 lines of 32
+characters, and the original shows them as stored (magic 3.10): on a
+wide log those lines look broken off early, so the client joins them
+back into paragraphs and wraps them to its width
+(`acs_core::reflow`). [choice: a presentation, not a rule; the stored
+lines stay in the event]
+
+- A blank line, or a line indented by two spaces or more, starts a
+  paragraph. Spacing inside a paragraph becomes one space.
+- Two lines meet with a space, except: a line ending in a hyphen (a
+  hyphenated word broken there) or a full line meeting punctuation (the
+  word's own comma or quote) join with none.
+- A full line (32 characters, no space at its end) running into a letter
+  is where designers differ: most broke lines between words, some typed
+  straight on and let words run across the end ("ESCA" / "PE"). The
+  adventure's own words settle it (every whole word in its messages, not
+  the first or last of a line, and its names): two pieces that are both
+  words keep a space; pieces that make a word together, or a stray letter
+  or two that is no word, join. Otherwise they join only in an adventure
+  where such cut words are common (over 15% of its full-line breaks),
+  else keep a space.
+- A message laid out as a picture or a table (a run of three spaces
+  inside a line, a line drawn only in symbols, or bytes that aren't text)
+  keeps its stored lines and is shown line for line.
 
 ## 4. Input
 
@@ -105,6 +131,42 @@ Later in the phase: a filter by kind, and the font size option (7).
 
 Every input becomes the same `Command`; nothing reaches the engine any
 other way.
+
+### 4.1 The store screen
+
+Bumping a store opens the original's store screen in place of the room
+(stores 3): its fixed 15 x 10 map (`stores::square`), the room's floor
+picture everywhere, each stocked thing drawn on its shelf place, the
+player on 7,5, the exits at the ends of row 4 marked with corner
+brackets (the original shows floor there). A line under the board says
+what the original's bottom line says, with buttons for its answers:
+
+- The first prompt: the player's gold. The button (Space or Enter)
+  starts selling.
+- A push (a direction key, the pad, or a click on a square beside the
+  player) onto floor walks there; toward a stocked shelf it offers the
+  thing ("Purchase the X for N?", with the count in stock and a note when
+  the purchase would be lost to the carry limit or the gold is short) and
+  the button buys it; toward an empty place it says the item is out of
+  stock; into an exit it thanks the player and the button leaves.
+- Selling (stores 5.2): the player's goods in thing order, one offer per
+  copy ("T has 2 Xs. Sell one for N?"); the button sells and offers the
+  next, a push skips to it, and after the last it is back at the first
+  prompt.
+- A purchase or a refusal is said on the line until the button.
+
+Beyond the original, for a modern pointer: a click on a shelf or exit
+across the store offers it as if walked to, the pointer over a stocked
+shelf shows its name, price and count, a **Sell your goods** button
+starts selling from any prompt (the original sells only before the
+player first moves), and Escape or **Leave the store** leaves from
+anywhere. Walking about the store sends nothing to the engine: only Buy,
+Sell and LeaveStore (stores 3.8). [choice]
+
+**Options > Simplify shops** (off by default, kept with the options,
+7.2) shows a store as a plain list instead: what it sells at its prices,
+what it would buy for what, and the way out; a step then leaves the
+store, as the engine has it.
 
 ## 5. Render modes
 
@@ -212,7 +274,7 @@ Sound checkbox to mute. Muting stops what plays.
 
 ## 7. Accessibility
 
-The top bar's **Options** menu holds three settings, for every view and
+The top bar's **Options** menu holds four settings, for every view and
 every adventure, kept between sessions (7.2).
 
 - **Text size**, 75% to 200% (default 100%): every font in the panels,
@@ -226,6 +288,11 @@ every adventure, kept between sessions (7.2).
 - **Reduce motion**: the pulsing outline on a square a door leads to
   stays still. In the browser it starts on when the system asks for
   reduced motion (`prefers-reduced-motion`).
+- **Simplify shops**: a store as a list (4.1).
+
+The text size applies when its slider is let go (or at once for a click
+or a key): a new size resizes the menu, slider and all, and would move
+it under the pointer while dragging.
 
 **Nothing told apart by colour alone**, whichever palette:
 
@@ -253,8 +320,7 @@ with hinting and sub-pixel placement off. A size is always a whole
 multiple of the font's pixel on the screen (`fonts::kit`: the wanted
 size times the text-size option, rounded to a multiple of 11 physical
 pixels, at least 1x), so the text stays crisp at any scale; the log is
-at 2x. Long messages keep their stored lines (3), and are told apart by
-colour, not italics, which a pixel font can't slant cleanly. Characters
+at 2x. Long messages are told apart by colour, not italics, which a pixel font can't slant cleanly. Characters
 outside Latin-1 fall back to egui's font.
 
 ### 7.2 Kept between sessions
@@ -268,10 +334,28 @@ and on closing. Opening the same adventure again (the same fingerprint:
 Play First Voyage, or the same disk or bundle) picks the game up where
 it was left, with a line in the log saying so; Restart starts a new one,
 which is then the one kept. Another adventure starts fresh and doesn't
-touch the kept game until it is played. Panel sizes are not kept. A
+touch the kept game until it is played. The help windows' marks (7.3)
+are kept too. Panel sizes are not kept. A
 screenshot run or a scripted walk (`--screenshot`, `--walk`, `--load`)
 neither reads nor writes any of it, and `--text-size` and
 `--colour-blind` win over the kept options.
+
+### 7.3 Help windows
+
+Two windows explain the viewer to someone who has never seen ACS:
+
+- **Welcome**, over the title screen on the first visit, and again from
+  its "New here?" button or Help > Welcome: what the program is, First
+  Voyage, opening one's own adventure, Explore against Walk, and the Help
+  menu.
+- **How to play**, each time an adventure opens (unless "Don't show
+  this when an adventure opens" is ticked) and from Help > How to play:
+  moving, the Info column's actions, stats and inventory, the draining
+  move bar and Turn-based, the log, stores (4.1), hot-seat and saving.
+  An adventure opened in Explore gets a first paragraph saying so, and
+  **Start playing** (to Walk) or **Look around first**.
+
+Neither shows in a screenshot run or a scripted walk.
 
 ## 8. Builds
 

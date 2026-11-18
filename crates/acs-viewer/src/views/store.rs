@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! The store screen (stores 3): the original's own map of shelves, the
+//! player walking its aisles, a push toward a shelf offering what is on
+//! it, the button (Space, Enter or the on-screen one) answering the line
+//! at the bottom. The engine knows only Buy, Sell and Leave (stores 3.8);
+//! walking about the screen is this front end's, from the engine's layout
+//! (`stores::square`). With Options > Simplify shops the store is a list
+//! instead (`store_window` in walk.rs).
+
+use super::*;
+use acs_engine::stores::{self, StoreSquare};
+
+/// What the line at the bottom of the store screen says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Prompt {
+    /// The first prompt: the player's gold; the button starts selling.
+    Welcome,
+    /// A push toward a stocked shelf: "purchase X for N" (4.1).
+    Offer(u16),
+    /// A push toward an empty place or off the screen (3.5).
+    OutOfStock,
+    /// A push into an exit (3.6): the button leaves.
+    Exit,
+    /// Selling (5.2): this thing offered, after `skipped` copies of it
+    /// passed over with a push.
+    Selling { thing: u16, skipped: u16 },
+    /// A message the button clears (a purchase, a refusal).
+    Said(String),
+}
+
+/// Where the player stands on the store screen and what it says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Screen {
+    pub at: (u8, u8),
+    pub prompt: Prompt,
+}
+
+impl Default for Screen {
+    fn default() -> Self {
+        Screen {
+            at: stores::ENTRY,
+            prompt: Prompt::Welcome,
+        }
+    }
+}
+
+/// What the screen's buttons and keys ask for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Ask {
+    /// The button: whatever the prompt offers.
+    Button,
+    /// A push one square.
+    Push(Dir),
+    /// A click on a square: next to the player a push, a shelf further off
+    /// offered from where the player stands.
+    Square(u8, u8),
+    /// Start selling, whatever was pushed before (the original only
+    /// sells from its first prompt).
+    Sell,
+    /// Back to the first prompt (Not now, Done, Stay).
+    Back,
+    Leave,
+}
+
+fn plural(name: &str) -> String {
+    if name.ends_with('S') || name.ends_with('s') {
+        name.to_string()
+    } else if name.chars().any(|c| c.is_ascii_lowercase()) {
+        format!("{name}s")
+    } else {
+        format!("{name}S")
+    }
+}
+
+impl Walk {
+    /// The store screen while a store is open and shops aren't simplified.
+    pub(super) fn screen_open(&self) -> bool {
+        !self.simple_shops && self.game.store_visit().is_some()
+    }
+
+    fn thing_name(&self, t: u16) -> String {
+        self.game
+            .adventure()
+            .things
+            .get((t as usize).wrapping_sub(1))
+            .map(|t| t.name.trim().to_string())
+            .unwrap_or_else(|| format!("thing {t}"))
+    }
+
+    /// The first thing at or after `from` (in thing order) the player could
+    /// sell (5.2).
+    fn next_good(&self, from: u16) -> Option<u16> {
+        let offers = self.game.store_offers()?;
+        offers.sell.iter().map(|o| o.thing).filter(|&t| t >= from).min()
+    }
+
+    /// The next sale offer after `thing` with `skipped` copies passed: the
+    /// same thing while copies are left, else the next good, else the
+    /// first prompt (5.2).
+    fn sell_from(&mut self, thing: u16, skipped: u16) {
+        let owned = self.game.current_player().count(thing);
+        self.screen.prompt = if owned > skipped {
+            Prompt::Selling { thing, skipped }
+        } else {
+            match self.next_good(thing + 1) {
+                Some(t) => Prompt::Selling { thing: t, skipped: 0 },
+                None => Prompt::Welcome,
+            }
+        };
+    }
+
+    /// A push toward `(x, y)` from where the player stands (3.5).
+    fn push_to(&mut self, x: i16, y: i16) {
+        let Some(visit) = self.game.store_visit() else {
+            return;
+        };
+        let sq = u8::try_from(x)
+            .ok()
+            .zip(u8::try_from(y).ok())
+            .and_then(|(x, y)| stores::square(x, y).map(|s| (x, y, s)));
+        self.screen.prompt = match sq {
+            Some((x, y, StoreSquare::Floor)) => {
+                self.screen.at = (x, y);
+                Prompt::Welcome
+            }
+            Some((_, _, StoreSquare::Shelf(t))) if self.game.on_shelf(visit.region, t) > 0 => {
+                Prompt::Offer(t)
+            }
+            Some((_, _, StoreSquare::Exit)) => Prompt::Exit,
+            _ => Prompt::OutOfStock,
+        };
+    }
+
+    /// Acts on one of the store screen's asks.
+    pub(super) fn store_ask(&mut self, ask: Ask) {
+        if !self.screen_open() {
+            return;
+        }
+        let prompt = self.screen.prompt.clone();
+        match (ask, prompt) {
+            (Ask::Leave, _) | (Ask::Button, Prompt::Exit) => {
+                self.screen = Screen::default();
+                self.apply(Command::LeaveStore);
+            }
+            (Ask::Back, _) => self.screen.prompt = Prompt::Welcome,
+            (Ask::Sell, _) | (Ask::Button, Prompt::Welcome) => {
+                self.screen.prompt = match self.next_good(1) {
+                    Some(t) => Prompt::Selling { thing: t, skipped: 0 },
+                    None => Prompt::Said(format!(
+                        "{} has nothing the store will buy.",
+                        self.game.current_player().name
+                    )),
+                }
+            }
+            (Ask::Button, Prompt::Offer(thing)) => {
+                let ev = self.apply_events(Command::Buy { thing });
+                let p = self.game.current_player();
+                let said = ev.iter().find_map(|e| match e {
+                    Event::Bought {
+                        kept: true, price, ..
+                    } => Some(format!(
+                        "{} buys the {} for {price}, and has {} gold left.",
+                        p.name,
+                        self.thing_name(thing),
+                        p.gold
+                    )),
+                    Event::Bought { kept: false, .. } => Some(format!(
+                        "{} pays, but can't carry another {}: it is lost.",
+                        p.name,
+                        self.thing_name(thing)
+                    )),
+                    Event::StoreRefused { .. } => Some(format!(
+                        "{} does not have enough gold for the {}.",
+                        p.name,
+                        self.thing_name(thing)
+                    )),
+                    _ => None,
+                });
+                self.screen.prompt = Prompt::Said(said.unwrap_or_default());
+            }
+            (Ask::Button, Prompt::Selling { thing, skipped }) => {
+                self.apply(Command::Sell { thing });
+                self.sell_from(thing, skipped);
+            }
+            (Ask::Push(_) | Ask::Square(..), Prompt::Selling { thing, skipped }) => {
+                // The stick skips to the next offer (5.2).
+                self.sell_from(thing, skipped + 1);
+            }
+            (Ask::Button, Prompt::OutOfStock | Prompt::Said(_)) => self.screen.prompt = Prompt::Welcome,
+            (Ask::Push(dir), _) => {
+                let (dx, dy) = dir.delta();
+                let (x, y) = self.screen.at;
+                self.push_to(x as i16 + dx as i16, y as i16 + dy as i16);
+            }
+            (Ask::Square(x, y), _) => {
+                let (px, py) = self.screen.at;
+                let (dx, dy) = (x as i16 - px as i16, y as i16 - py as i16);
+                if (dx, dy) == (0, 0) {
+                    return;
+                }
+                if dx.abs() <= 1 && dy.abs() <= 1 {
+                    self.push_to(x as i16, y as i16);
+                } else if let Some(StoreSquare::Shelf(_) | StoreSquare::Exit) = stores::square(x, y) {
+                    // A shelf across the shop: offered as if walked to.
+                    self.push_to(x as i16, y as i16);
+                }
+            }
+        }
+    }
+
+    /// The line at the bottom of the store screen.
+    pub(super) fn prompt_text(&self) -> String {
+        let p = self.game.current_player();
+        let adv = self.game.adventure();
+        match &self.screen.prompt {
+            Prompt::Welcome => format!("{} has {} gold to spend.", p.name, p.gold),
+            Prompt::Offer(t) => {
+                let price = stores::buy_price(adv, *t).unwrap_or(0);
+                let mut s = format!("Purchase the {} for {price}?", self.thing_name(*t));
+                let region = self.game.store_visit().map_or(0, |v| v.region);
+                let n = self.game.on_shelf(region, *t);
+                if n > 1 {
+                    s.push_str(&format!(" ({n} in stock)"));
+                }
+                if p.count(*t) >= acs_engine::inventory::limit(*t) {
+                    s.push_str(" You carry as many as you can: another would be lost.");
+                } else if (p.gold as i32) < price {
+                    s.push_str(&format!(" {} has only {} gold.", p.name, p.gold));
+                }
+                s
+            }
+            Prompt::OutOfStock => "That item is out of stock.".into(),
+            Prompt::Exit => format!("Thank you, {}. Please come back soon.", p.name),
+            Prompt::Selling { thing, .. } => {
+                let n = p.count(*thing);
+                let name = self.thing_name(*thing);
+                let offer = stores::value(adv, *thing).map_or(0, |v| stores::sell_offer(v, p.wisdom));
+                if n > 1 {
+                    format!("{} has {n} {}. Sell one for {offer}?", p.name, plural(&name))
+                } else {
+                    format!("{} has 1 {name}. Sell it for {offer}?", p.name)
+                }
+            }
+            Prompt::Said(s) => s.clone(),
+        }
+    }
+}
+
+/// The store screen's board: floor everywhere, each stocked thing on its
+/// shelf place, the player on its square (3.3, 3.4). Returns the square
+/// clicked, if any.
+pub(super) fn draw_store(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, walk: &Walk) -> Option<(u8, u8)> {
+    let g = &walk.game;
+    let a = g.adventure();
+    let region = g.store_visit()?.region;
+    let (w, h) = (stores::SCREEN_W as u32, stores::SCREEN_H as u32);
+    let (resp, painter, grid) = canvas(ui, w, h, tiles);
+    painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
+    let floor = scene::floor_picture(a);
+    for y in 0..h {
+        for x in 0..w {
+            let cell = grid.cell_rect(x, y);
+            tiles.paint(&painter, floor, cell);
+            match stores::square(x as u8, y as u8) {
+                Some(StoreSquare::Shelf(t)) if g.on_shelf(region, t) > 0 => {
+                    tiles.paint(&painter, scene::thing_picture(a, t), cell);
+                }
+                // The ways out, marked (the original shows floor there).
+                Some(StoreSquare::Exit) => {
+                    brackets(&painter, cell.shrink(2.0), Color32::from_rgb(120, 220, 255), 2.0)
+                }
+                _ => {}
+            }
+        }
+    }
+    let (px, py) = walk.screen.at;
+    marker(
+        &painter,
+        grid.cell_rect(px as u32, py as u32),
+        g.current(),
+        false,
+        0,
+    );
+    // What is under the pointer, so a shelf can be read without a push.
+    let hover = hovered_cell(&resp, &grid);
+    if let Some((x, y)) = hover {
+        if let Some(StoreSquare::Shelf(t)) = stores::square(x as u8, y as u8) {
+            let n = g.on_shelf(region, t);
+            if n > 0 {
+                let price = stores::buy_price(a, t).unwrap_or(0);
+                outline(
+                    &painter,
+                    grid.cell_rect(x, y),
+                    Color32::from_rgb(255, 215, 0),
+                    2.0,
+                );
+                resp.clone()
+                    .on_hover_text(format!("{}: {price} gold ({n} in stock)", walk.thing_name(t)));
+            }
+        }
+    }
+    hover.filter(|_| resp.clicked()).map(|(x, y)| (x as u8, y as u8))
+}
+
+/// The prompt line and its buttons, under the store screen.
+pub(super) fn prompt_bar(ui: &mut egui::Ui, walk: &Walk, ask: &mut Option<Ask>) {
+    let font = crate::fonts::kit(ui.ctx(), 22.0, false);
+    ui.add_space(4.0);
+    ui.label(
+        RichText::new(walk.prompt_text())
+            .font(font)
+            .color(Color32::from_rgb(251, 241, 207)),
+    );
+    ui.horizontal_wrapped(|ui| {
+        let mut b = |ui: &mut egui::Ui, label: &str, a: Ask| {
+            if ui.button(label).clicked() {
+                *ask = Some(a);
+            }
+        };
+        match &walk.screen.prompt {
+            Prompt::Welcome => {
+                b(ui, "Sell your goods", Ask::Sell);
+                b(ui, "Leave the store", Ask::Leave);
+            }
+            Prompt::Offer(_) => {
+                b(ui, "Buy", Ask::Button);
+                b(ui, "Not now", Ask::Back);
+            }
+            Prompt::Selling { .. } => {
+                b(ui, "Sell", Ask::Button);
+                b(ui, "Skip", Ask::Push(Dir::N));
+                b(ui, "Done", Ask::Back);
+            }
+            Prompt::Exit => {
+                b(ui, "Leave", Ask::Button);
+                b(ui, "Stay", Ask::Back);
+            }
+            Prompt::OutOfStock | Prompt::Said(_) => b(ui, "OK", Ask::Button),
+        }
+        ui.label(
+            RichText::new("Arrows walk the aisles; walk into a shelf to see it. Space answers. Esc leaves.")
+                .weak(),
+        );
+    });
+    ui.add_space(4.0);
+}

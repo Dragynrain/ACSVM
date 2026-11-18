@@ -10,6 +10,7 @@
 
 use super::*;
 use acs_core::model::{Alignment, Creature, MagicDefense, ThingKind};
+use acs_core::reflow::Shown;
 use acs_core::scene::{self, RoomScene};
 use acs_engine::characters::{Mark, Rating};
 use acs_engine::creatures as cr;
@@ -18,6 +19,9 @@ use acs_engine::{
     describe, Command, Dir, Event, Game, Location, Newcomer, Player, Rules, SaveFile, Stat, Who,
 };
 use egui::{Key, Modifiers, RichText};
+
+#[path = "store.rs"]
+mod store;
 
 /// The world map window the original shows: 15 wide, 10 high.
 const MAP_VIEW: (u8, u8) = (15, 10);
@@ -43,8 +47,12 @@ enum Kind {
     Item,
     Creature,
     Foe,
-    /// A long message: the designer's text, shown in full.
-    Message,
+    /// A long message: the designer's text, shown in full. `lines`: a
+    /// Classic one laid out as a picture or table, its stored lines kept
+    /// (`acs_core::reflow`); every other wraps to the log.
+    Message {
+        lines: bool,
+    },
 }
 
 /// Where the message log scrolls to (client 3).
@@ -249,6 +257,12 @@ pub struct Walk {
     announced: usize,
     /// Characters out of play by retiring, and the ones saved.
     roster: Roster,
+    /// The store screen: where the player stands on it, what it says.
+    screen: store::Screen,
+    /// Options > Simplify shops: the store is a list, not its screen.
+    pub simple_shops: bool,
+    /// The adventure's words, to join a Classic long message's lines.
+    reflow: acs_core::reflow::Reflow,
     /// Restart (with these rules) waits for a yes: it ends this game.
     confirm: Option<Rules>,
     /// The current turn's bar was halved by a creature (creatures 2.6).
@@ -289,6 +303,7 @@ impl Walk {
     }
 
     fn with(game: Game, save: Game) -> Self {
+        let reflow = acs_core::reflow::Reflow::new(game.adventure());
         Walk {
             game,
             older: save.clone(),
@@ -303,6 +318,9 @@ impl Walk {
             trimmed: 0,
             announced: 0,
             roster: Roster::default(),
+            reflow,
+            screen: store::Screen::default(),
+            simple_shops: false,
             confirm: None,
             hindered: false,
             new_name: String::new(),
@@ -416,7 +434,12 @@ impl Walk {
 
     /// A `Cast`/`Use` target written as creature slot `S` of region 0 (the
     /// `--walk` form) means that slot in the current player's region.
-    pub fn apply(&mut self, mut cmd: Command) {
+    pub fn apply(&mut self, cmd: Command) {
+        self.apply_events(cmd);
+    }
+
+    /// As `apply`, giving back the command's events.
+    fn apply_events(&mut self, mut cmd: Command) -> Vec<Event> {
         if let Command::Cast { target, .. } | Command::Use { target, .. } = &mut cmd {
             if let Some(Who::Creature { region: r @ 0, .. }) = target {
                 *r = self.game.current_player().at.region();
@@ -442,6 +465,7 @@ impl Walk {
         if point == self.game.log().len() && point != self.save.log().len() {
             self.older = std::mem::replace(&mut self.save, self.game.clone());
         }
+        ev
     }
 
     /// The game restoring goes back to now: the kept game at the engine's
@@ -480,6 +504,16 @@ impl Walk {
     /// while FIRE's cursor is up, a direction key moves it inside the
     /// room's walls and Wait fires.
     fn key(&mut self, cmd: Command) {
+        // On the store screen the stick walks the aisles and Wait is the
+        // button (stores 3.5); the engine sees only what is bought or sold.
+        if self.screen_open() {
+            match cmd {
+                Command::Move { dir } => self.store_ask(store::Ask::Push(dir)),
+                Command::Wait => self.store_ask(store::Ask::Button),
+                other => self.apply(other),
+            }
+            return;
+        }
         if let Some((aim, (x, y))) = self.pending_aim {
             match cmd {
                 Command::Move { dir } => {
@@ -651,6 +685,9 @@ impl Walk {
             if let Event::Music { number } = e {
                 self.cues.push(*number);
             }
+            if let Event::StoreOpened { .. } = e {
+                self.screen = store::Screen::default();
+            }
             if let Event::TurnStarted { hindered, .. } = e {
                 self.hindered = *hindered;
                 self.idle = 0.0;
@@ -709,7 +746,7 @@ impl Walk {
                 | Event::SummonUnanswered { .. }
                 | Event::Encounter { .. }
                 | Event::RoomEncounter { .. } => Kind::Spell,
-                Event::LongMessage { .. } => Kind::Message,
+                Event::LongMessage { .. } => Kind::Message { lines: false },
                 Event::CastRefused { .. } => Kind::Block,
                 Event::Attacked { .. }
                 | Event::Fired { .. }
@@ -733,10 +770,19 @@ impl Walk {
                 | Event::CreatureUsedUp { .. } => Kind::Creature,
                 _ => Kind::Note,
             };
-            if kind == Kind::Message && extended {
-                line = paragraphs(&line);
+            let mut kind = kind;
+            if let Event::LongMessage { text, .. } = e {
+                if extended {
+                    line = paragraphs(&line);
+                } else {
+                    // A Classic one's stored lines as paragraphs (client 3).
+                    match self.reflow.show(text) {
+                        Shown::Paragraphs(p) => line = format!("\"{p}\""),
+                        Shown::Lines(_) => kind = Kind::Message { lines: true },
+                    }
+                }
             }
-            if kind == Kind::Message && message.is_none() {
+            if matches!(kind, Kind::Message { .. }) && message.is_none() {
                 message = Some(self.trimmed + self.log.len());
             }
             self.log.push((kind, line));
@@ -966,6 +1012,14 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
     {
         let walk = doc.walk.as_mut().unwrap();
+        walk.simple_shops = crate::access::Access::get(ui.ctx()).simple_shops;
+        if walk.screen_open()
+            && ui
+                .ctx()
+                .input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
+        {
+            walk.store_ask(store::Ask::Leave);
+        }
         if walk.waiting()
             && ui
                 .ctx()
@@ -1221,7 +1275,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         .default_size(share.max(spare).min(height * 0.6))
         .size_range(48.0..=height * 0.6)
         .show(ui, |ui| {
-            // Both ways: a Classic long message's lines are never rewrapped.
+            // Both ways: a long message laid out as a picture keeps its lines.
             // Held to the panel: content taller than it would otherwise
             // grow the panel to its largest size.
             // Ordinary lines wrap to what is in view, not to the widest
@@ -1235,10 +1289,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     let access = crate::access::Access::get(ui.ctx());
                     // The kit font at 2x (client 7.1).
                     let font = crate::fonts::kit(ui.ctx(), 22.0, false);
-                    // An Extended adventure's long messages wrap, keeping
-                    // their line breaks (content 3.7); only a Classic one's
-                    // 8 stored lines are never rewrapped (magic 3.10).
-                    let classic = walk.game.adventure().profile == acs_core::Profile::Classic;
+                    // Long messages wrap as paragraphs (client 3); only a
+                    // Classic one laid out as a picture keeps its lines.
                     let jump = walk.log_jump;
                     let last = walk.log.len().saturating_sub(1);
                     for (i, (kind, line)) in walk.log.iter().enumerate() {
@@ -1250,11 +1302,11 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                         let t = match kind {
                             Kind::Turn | Kind::Step => t.weak(),
                             // Not italics: a slanted pixel font blurs.
-                            Kind::Message => t.color(Color32::from_rgb(251, 241, 207)),
+                            Kind::Message { .. } => t.color(Color32::from_rgb(251, 241, 207)),
                             _ => t,
                         };
                         let t = t.font(font.clone());
-                        let rect = if *kind == Kind::Message && classic {
+                        let rect = if *kind == (Kind::Message { lines: true }) {
                             ui.add(egui::Label::new(t).extend()).rect
                         } else {
                             ui.allocate_ui(egui::vec2(visible, 0.0), |ui| ui.label(t))
@@ -1283,11 +1335,21 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         _ => None,
     };
 
-    if walk.game.store_visit().is_some() {
+    let screen = walk.screen_open();
+    let mut store_ask = None;
+    if screen {
+        egui::Panel::bottom("store-line").show(ui, |ui| store::prompt_bar(ui, walk, &mut store_ask));
+    } else if walk.game.store_visit().is_some() {
         store_window(ui.ctx(), &walk.game, &mut click);
     }
 
     let board = egui::CentralPanel::no_frame().show(ui, |ui| {
+        if screen {
+            if let Some((x, y)) = store::draw_store(&doc.tiles, ui, walk) {
+                store_ask = Some(store::Ask::Square(x, y));
+            }
+            return None;
+        }
         let g = &walk.game;
         let at = g.current_player().at;
         match at {
@@ -1306,6 +1368,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         _ => {}
     }
 
+    if let Some(a) = store_ask {
+        walk.store_ask(a);
+    }
     if let Some(cmd) = click {
         walk.apply(cmd);
     }
@@ -1353,10 +1418,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     }
 }
 
-/// The open store (stores 3-5): its stock with the buying prices, the
-/// player's goods with the store's offers, and the way out. How the
-/// original lays the store out is not yet known (docs/research/stores.md),
-/// so this is a plain list.
+/// The open store as a list (Options > Simplify shops; the store screen,
+/// store.rs, is the default): its stock with the buying prices, the
+/// player's goods with the store's offers, and the way out.
 fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
     let Some(offers) = g.store_offers() else { return };
     let a = g.adventure();
@@ -1537,7 +1601,7 @@ fn kind_mark(kind: Kind, a: &crate::access::Access) -> Option<(&'static str, Col
         Kind::Item => ("+", pick(Color32::from_rgb(150, 230, 140), GREEN)),
         Kind::Creature => ("~", pick(Color32::from_rgb(235, 220, 150), YELLOW)),
         Kind::Foe => ("!", pick(Color32::from_rgb(255, 110, 110), VERMILLION)),
-        Kind::Message => ("¶", Color32::from_rgb(255, 240, 200)),
+        Kind::Message { .. } => ("¶", Color32::from_rgb(255, 240, 200)),
         Kind::Turn | Kind::Step | Kind::Note => return None,
     })
 }
@@ -2595,6 +2659,113 @@ end"
 
     fn last(w: &Walk) -> Option<&Command> {
         w.game.log().last()
+    }
+
+    /// A room with a store on (4,3), stocking one gem (thing 1, value 50);
+    /// the player west of it with 100 gold and a sword (thing 33).
+    fn by_a_store() -> Walk {
+        use acs_core::layout::world_map as wm;
+        let mut f = common::Fixture::new(acs_core::Platform::Pc);
+        f.header("SHOP", "", "");
+        f.thing(1, "GEM", [0x01, 1, 50, 5]);
+        f.thing(33, "SWORD", [0x04, 5, 10, 0]);
+        f.extended(None, 0, [5, 0, 20 | 0x40]);
+        f.thing(GOLD as usize, "GOLD", [0x01, 0, 1, 9]);
+        f.thing(83, "STORE", [0x0C, 6, 0, 0]);
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        let mut stock = [0u8; 14];
+        stock[0] = 1 << 6;
+        f.region(common::RegionSpec {
+            name: "SHOP",
+            rooms: vec![common::RoomSpec {
+                name: "SHOP",
+                w: 10,
+                h: 7,
+                wall: 12,
+                items: vec![(4, 3, 83, 0)],
+                ..Default::default()
+            }],
+            store: stock,
+            ..Default::default()
+        });
+        let w = f.l.world_map;
+        f.put(w + wm::TERRAIN, &[1 | 1 << 6, 0]);
+        let a = acs_core::decode(&f.build()).expect("decodes").adventure;
+        let setup = acs_engine::PlayerSetup {
+            speed: 6,
+            gold: 100,
+            possessions: vec![33],
+            ..Default::default()
+        };
+        let (mut g, _) = Game::new(a, 1, Rules::default(), setup);
+        g.place(0, sq(3, 3));
+        Walk::with(g.clone(), g)
+    }
+
+    /// Stores 3, 4, 5.2: the stick walks the store screen and pushes into
+    /// shelves and exits; the button buys, sells and leaves; the engine
+    /// sees only Buy, Sell and Leave.
+    #[test]
+    fn the_store_screen_walks_buys_sells_and_leaves() {
+        use store::Prompt;
+        let mut w = by_a_store();
+        w.key(Command::Move { dir: Dir::E });
+        assert!(w.screen_open());
+        assert_eq!(w.screen.at, acs_engine::stores::ENTRY);
+        assert_eq!(w.screen.prompt, Prompt::Welcome);
+        // The gem's place is 6,6, south-west of the entry.
+        w.key(Command::Move { dir: Dir::SW });
+        assert_eq!(w.screen.prompt, Prompt::Offer(1));
+        assert_eq!(w.screen.at, (7, 5), "a push into a shelf doesn't move");
+        w.key(Command::Wait);
+        assert_eq!(last(&w), Some(&Command::Buy { thing: 1 }));
+        assert_eq!(w.game.current_player().gold, 50);
+        assert!(matches!(w.screen.prompt, Prompt::Said(_)));
+        w.key(Command::Wait);
+        assert_eq!(w.screen.prompt, Prompt::Welcome);
+        // Sold out: its place now says so.
+        w.key(Command::Move { dir: Dir::SW });
+        assert_eq!(w.screen.prompt, Prompt::OutOfStock);
+        w.key(Command::Wait);
+        // The button at the first prompt offers the goods in thing order;
+        // the stick skips one.
+        w.key(Command::Wait);
+        assert_eq!(w.screen.prompt, Prompt::Selling { thing: 1, skipped: 0 });
+        w.key(Command::Move { dir: Dir::N });
+        assert_eq!(
+            w.screen.prompt,
+            Prompt::Selling {
+                thing: 33,
+                skipped: 0
+            }
+        );
+        w.key(Command::Wait);
+        assert_eq!(last(&w), Some(&Command::Sell { thing: 33 }));
+        assert_eq!(w.screen.prompt, Prompt::Welcome, "after the last good");
+        // West along the cross aisle, up to row 4, into the exit.
+        for _ in 0..6 {
+            w.key(Command::Move { dir: Dir::W });
+        }
+        w.key(Command::Move { dir: Dir::N });
+        assert_eq!(w.screen.at, (1, 4));
+        w.key(Command::Move { dir: Dir::W });
+        assert_eq!(w.screen.prompt, Prompt::Exit);
+        w.key(Command::Wait);
+        assert_eq!(last(&w), Some(&Command::LeaveStore));
+        assert!(w.game.store_visit().is_none());
+        assert_eq!(w.game.log().len(), 4, "the walk itself sent nothing");
+    }
+
+    /// Options > Simplify shops: no store screen, so a step leaves the
+    /// store as the engine says (stores 3.8).
+    #[test]
+    fn simplified_shops_leave_on_a_step() {
+        let mut w = by_a_store();
+        w.simple_shops = true;
+        w.key(Command::Move { dir: Dir::E });
+        assert!(w.game.store_visit().is_some() && !w.screen_open());
+        w.key(Command::Move { dir: Dir::W });
+        assert!(w.game.store_visit().is_none());
     }
 
     /// Client 4: a click beside the player is a step; its own square and
