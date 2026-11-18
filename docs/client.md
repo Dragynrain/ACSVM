@@ -263,7 +263,7 @@ builds them as workflow artifacts only.
 | Platform | Runner | Build | Package |
 | --- | --- | --- | --- |
 | Windows | `windows-latest` | `x86_64-pc-windows-msvc`, with the `windows-gui` feature: no console window | `acs-viewer-VERSION-windows-x64.zip` |
-| macOS | `macos-14` | `aarch64-apple-darwin` and `x86_64-apple-darwin`, joined with `lipo` | `acs-viewer-VERSION-macos-universal.zip`, holding `acs-viewer.app` |
+| macOS | `macos-15` | `aarch64-apple-darwin` and `x86_64-apple-darwin`, joined with `lipo` | `acs-viewer-VERSION-macos-universal.zip`, holding `acs-viewer.app` |
 | Linux | `ubuntu-22.04` (an older glibc, so it runs on more systems) | `x86_64-unknown-linux-gnu` | `acs-viewer-VERSION-linux-x64.tar.gz` |
 
 - They build with the `dist` profile: the release profile plus full LTO,

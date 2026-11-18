@@ -31,7 +31,7 @@ jobs:
             os: windows-latest
             targets: x86_64-pc-windows-msvc
           - platform: macos
-            os: macos-14
+            os: macos-15
             targets: aarch64-apple-darwin,x86_64-apple-darwin
           - platform: linux
             # An older glibc, so the binary runs on more systems.
