@@ -23,7 +23,7 @@ pub const SAVE_FORMAT: &str = "acsvm-save";
 /// step) is kept as written. Version 1 is still read: its `fire` (the old
 /// refusal, no move, nothing drawn) is mapped to `leave_store`, which does
 /// the same to the game.
-pub const SAVE_VERSION: u32 = 4;
+pub const SAVE_VERSION: u32 = 5;
 
 /// A tool placement (`Game::place`): made after `after` commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

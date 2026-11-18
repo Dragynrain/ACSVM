@@ -1408,6 +1408,92 @@ fn a_retire_with_save_is_a_save_point() {
     });
 }
 
+/// Characters 3.1: a character retired with Save rejoins as saved, its
+/// weapon readied, on the square it retired from, and its joining saves
+/// (2.2.7.4). With that square taken since, it joins at the start.
+#[test]
+fn a_saved_character_rejoins_where_it_retired_with_its_gear() {
+    both(|p| {
+        for taken in [false, true] {
+            let (mut g, _) = Game::new(
+                adventure(p),
+                3,
+                Rules { diagonals: true },
+                PlayerSetup {
+                    speed: 15,
+                    possessions: vec![SWORD, GEM],
+                    ..Default::default()
+                },
+            );
+            g.place(0, at(0, 2, 2));
+            g.apply(Command::AddPlayer {
+                setup: PlayerSetup {
+                    name: "TWO".into(),
+                    speed: 15,
+                    ..Default::default()
+                },
+            });
+            wait(&mut g);
+            g.place(1, at(0, 5, 4));
+            assert_eq!(g.current(), 0);
+            g.apply(Command::Ready { thing: SWORD });
+            g.apply(Command::Retire { save: true });
+            let mut record = None;
+            for _ in 0..4 {
+                for e in wait(&mut g) {
+                    if let Event::Retired { saved: Some(r), .. } = e {
+                        record = Some(r);
+                    }
+                }
+                if record.is_some() {
+                    break;
+                }
+            }
+            let record = record.expect("retired with Save");
+            assert_eq!(record.weapon, Some(SWORD));
+            assert_eq!(record.at, at(0, 2, 2));
+            if taken {
+                g.place(1, at(0, 2, 2));
+            }
+            assert_eq!(g.current(), 1);
+            g.apply(Command::Rejoin {
+                player: record.clone(),
+            });
+            let mut joined = None;
+            let mut saves = 0;
+            for _ in 0..4 {
+                for e in wait(&mut g) {
+                    match e {
+                        Event::PlayerAdded { player, at } => joined = Some((player, at)),
+                        Event::Saved { .. } => saves += 1,
+                        _ => {}
+                    }
+                }
+                if joined.is_some() {
+                    break;
+                }
+            }
+            let (slot, place) = joined.expect("joined");
+            let start = g.adventure().world.start;
+            let expect = if taken {
+                Location::World {
+                    x: start.x,
+                    y: start.y,
+                }
+            } else {
+                at(0, 2, 2)
+            };
+            assert_eq!(place, expect);
+            let me = &g.players()[slot];
+            assert_eq!(me.at, expect);
+            assert_eq!(me.weapon, Some(SWORD));
+            assert_eq!(me.possessions, record.possessions);
+            assert_eq!((me.life_force, me.power), (record.life_force, record.power));
+            assert!(saves >= 1, "a roster add saves");
+        }
+    });
+}
+
 /// 2.2.7, 2.2.6: a death in the round of a Retire with Save offers the
 /// save from before that round; the retire's save is made after it.
 #[test]

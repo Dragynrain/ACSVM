@@ -2007,16 +2007,18 @@ fn a_save_after_the_button_replays_the_same() {
     assert_eq!(back.game, r);
     assert_eq!(back.autosave, at_restore);
     assert!(!back.diverged);
-    // Version 3 reads unchanged.
-    let old = SaveFile::new(&g, &a, &autosave);
-    let mut v: serde_json::Value = serde_json::from_str(&old.to_json()).unwrap();
-    v["version"] = 3.into();
-    let r3 = SaveFile::from_json(&v.to_string()).unwrap().restore(&a).unwrap();
-    assert_eq!(r3.game, g);
-    assert!(!r3.diverged);
+    // Versions 3 and 4 read unchanged.
+    for version in [3, 4] {
+        let old = SaveFile::new(&g, &a, &autosave);
+        let mut v: serde_json::Value = serde_json::from_str(&old.to_json()).unwrap();
+        v["version"] = version.into();
+        let r = SaveFile::from_json(&v.to_string()).unwrap().restore(&a).unwrap();
+        assert_eq!(r.game, g);
+        assert!(!r.diverged);
+    }
 }
 
-/// Saves 2.1: version 4 is written; a version 1 save still loads, its old
+/// Saves 2.1: version 5 is written; a version 1 save still loads, its old
 /// `fire` (refused, no move, no draw) read as `leave_store`, which plays
 /// the same, so the command count, autosave and placements keep their
 /// places and the game comes out the same.
@@ -2024,7 +2026,7 @@ fn a_save_after_the_button_replays_the_same() {
 fn version_1_saves_load_with_fire_mapped() {
     let (g, autosave, a) = saved_walk();
     let save = SaveFile::new(&g, &a, &autosave);
-    assert_eq!(save.version, 4);
+    assert_eq!(save.version, 5);
     let mut v: serde_json::Value = serde_json::from_str(&save.to_json()).unwrap();
     v["version"] = 1.into();
     let commands = v["commands"].as_array_mut().unwrap();

@@ -118,7 +118,22 @@ impl Default for PlayerSetup {
 #[serde(untagged)]
 pub enum Newcomer {
     Join(PlayerSetup),
-    Create { create: String },
+    Create {
+        create: String,
+    },
+    /// A record saved by a Retire with Save, back from the roster
+    /// (characters 3.1); its own key keeps it apart from `Join`.
+    Rejoin {
+        rejoin: Box<Player>,
+    },
+}
+
+impl Newcomer {
+    /// Chosen from a roster (characters 3.1, 3.2) rather than created: its
+    /// joining saves the game (creatures 2.2.7.4).
+    pub fn from_roster(&self) -> bool {
+        !matches!(self, Newcomer::Create { .. })
+    }
 }
 
 impl From<PlayerSetup> for Newcomer {
@@ -367,6 +382,7 @@ fn newcomer(cmd: Command) -> Option<Newcomer> {
     match cmd {
         Command::AddPlayer { setup } => Some(Newcomer::Join(setup)),
         Command::CreatePlayer { name } => Some(Newcomer::Create { create: name }),
+        Command::Rejoin { player } => Some(Newcomer::Rejoin { rejoin: player }),
         _ => None,
     }
 }
@@ -459,7 +475,10 @@ impl Game {
                 ev.push(Event::AllPlayersDead);
                 return ev;
             }
-            if !matches!(cmd, Command::AddPlayer { .. } | Command::CreatePlayer { .. }) {
+            if !matches!(
+                cmd,
+                Command::AddPlayer { .. } | Command::CreatePlayer { .. } | Command::Rejoin { .. }
+            ) {
                 return ev;
             }
             self.log.push(cmd.clone());
@@ -472,7 +491,7 @@ impl Game {
             let mut roster = false;
             if let Some(n) = newcomer(cmd) {
                 if self.name_ok(&n, &mut ev) {
-                    roster = matches!(n, Newcomer::Join(_));
+                    roster = n.from_roster();
                     self.join(n, &mut ev);
                 }
             }
@@ -503,6 +522,7 @@ impl Game {
             Command::Move { dir } => self.step(dir, &mut ev),
             Command::AddPlayer { setup } => self.request_add(Newcomer::Join(setup), &mut ev),
             Command::CreatePlayer { name } => self.request_add(Newcomer::Create { create: name }, &mut ev),
+            Command::Rejoin { player } => self.request_add(Newcomer::Rejoin { rejoin: player }, &mut ev),
             Command::Drop { thing, dir } => self.drop_thing(thing, dir, &mut ev),
             Command::DropGold { amount, dir } => self.drop_gold(amount, dir, &mut ev),
             Command::Ready { thing } => self.ready(thing, &mut ev),
@@ -928,6 +948,7 @@ impl Game {
         let name = match n {
             Newcomer::Join(s) => &s.name,
             Newcomer::Create { create } => create,
+            Newcomer::Rejoin { rejoin } => &rejoin.name,
         };
         let ok = !crate::characters::name_refused(name);
         if !ok {
@@ -962,7 +983,7 @@ impl Game {
             ev.push(Event::AddRefused);
             false
         } else {
-            let roster = matches!(n, Newcomer::Join(_));
+            let roster = n.from_roster();
             self.join(n, ev);
             roster
         }
@@ -974,8 +995,73 @@ impl Game {
         let setup = match n {
             Newcomer::Join(setup) => setup,
             Newcomer::Create { create } => PlayerSetup::roll(&create, &mut self.rng),
+            Newcomer::Rejoin { rejoin } => return self.rejoin(*rejoin, ev),
         };
         self.add_player(setup, ev);
+    }
+
+    /// A saved character back from the roster (characters 3.1): joined as
+    /// any newcomer, then its gear readied and its place given back where
+    /// that place is still free.
+    fn rejoin(&mut self, saved: Player, ev: &mut Vec<Event>) {
+        let mut setup = PlayerSetup {
+            name: saved.name.clone(),
+            speed: saved.speed,
+            strength: saved.strength,
+            constitution: saved.constitution,
+            life_force: saved.life_force,
+            possessions: saved.possessions.clone(),
+            gold: saved.gold,
+            dexterity: saved.dexterity,
+            wisdom: saved.wisdom,
+            power: Some(saved.power),
+            size: saved.size,
+            dodge: saved.dodge,
+            parry: saved.parry,
+            armor_skill: saved.armor_skill,
+            melee: saved.melee,
+            missile: saved.missile,
+            magic_defense: saved.magic_defense,
+        };
+        setup.possessions.retain(|&t| t != crate::inventory::GOLD);
+        let at = self.free_place(saved.at);
+        self.add_player(setup, ev);
+        let Some(Event::PlayerAdded { player, at: joined }) = ev.last_mut() else {
+            return;
+        };
+        let p = &mut self.players[*player];
+        p.weapon = saved.weapon.filter(|t| p.possessions.contains(t));
+        p.armor = saved.armor.filter(|t| p.possessions.contains(t));
+        if let Some(at) = at {
+            p.at = at;
+            *joined = at;
+        }
+    }
+
+    /// A saved place a rejoining character can take back (characters
+    /// 3.1): a world map square, or a square inside a live room of a
+    /// region where no living player or creature stands. `None` sends it
+    /// to the start.
+    fn free_place(&self, at: Location) -> Option<Location> {
+        match at {
+            Location::World { x, y } => {
+                let row = self.adv.world.tiles.get(y as usize)?;
+                ((x as usize) < row.len()).then_some(at)
+            }
+            Location::Room { region: 0, .. } => None,
+            Location::Room { region, room, x, y } => {
+                let reg = self.region(region)?;
+                let r = reg.rooms.get(room as usize).filter(|r| !r.deleted)?;
+                let inside = (1..r.width.saturating_sub(1)).contains(&x)
+                    && (1..r.height.saturating_sub(1)).contains(&y);
+                let player = self.players.iter().any(|p| p.alive && p.at == at);
+                let creature = reg
+                    .residents
+                    .iter()
+                    .any(|c| c.in_use && c.room == room && (c.x, c.y) == (x, y));
+                (inside && !player && !creature).then_some(at)
+            }
+        }
     }
 
     /// "Add Someone" (movement 1.2, 1.4, 1.5): the new character starts at

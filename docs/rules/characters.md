@@ -119,6 +119,26 @@ holds Constitution with magic defense in the top two bits.
    capture.md 10.42 item 5; ours, no research pass, 2026-11-16]
    **Engine:** `AddPlayer` keeps the setup's Power (its Wisdom when the
    setup gives none) and Life Force as given.
+   **Its place.** Joined from the adventure's own list, the character
+   comes back where it was saved (7.3: the record keeps the place, a
+   room's region, room and square too); only through "another
+   adventure" is the square set to not placed (3.3, 3.5: "its
+   possessions and place are lost, unlike choosing it from the
+   add-player screen's own list"). [research; capture: the contrast of
+   3.5 only, the own list's place not yet read in a run]
+   **Engine:** `Rejoin` brings back a saved record (the `Player` that
+   `Retired` carried, 7.3) as a roster add: every rating, Life Force and
+   Power as saved, its possessions and gold, the weapon held and the
+   armor worn (each only if still among its possessions), and its place.
+   The place is kept when it is a world map square, or a square inside a
+   room of a region the adventure has (not a deleted room) where no
+   living player and no creature stands. Otherwise (a square taken since,
+   a place in one of the map's encounter areas, or a room gone) it joins
+   at the adventure's start, as a new character does. Whether the
+   original lets two stand on one square, or moves the newcomer, is
+   [unknown]; the start is the engine's choice. Its moves are its Speed,
+   as any newcomer's. Like `AddPlayer`, it saves when it comes in
+   ([creatures](creatures.md) 2.2.7.4).
 2. **A player from another adventure** is reached from the add-player
    screen's "add player from another adventure". The steps, each waiting
    for the button:
@@ -432,9 +452,9 @@ holds Constitution with magic defense in the top two bits.
    restore point there (a `Saved` event after `Retired`), before any add
    of that round (creatures 2.2.7.4); a Destroy does not, on the map or
    in a room (7.4, 7.5). Pending reversals are dropped, as the finding
-   says. Bringing a saved character back from the roster (3.1) is not
-   built yet: the engine keeps no roster, so a retired character rejoins
-   only as a setup the front end gives `AddPlayer`.
+   says. Bringing a saved character back from the roster (3.1): the
+   engine keeps no roster, so the front end keeps the record `Retired`
+   carried and gives it back with `Rejoin` (3.1's engine note).
 4. **Destroy on the world map**: nothing is put down; possessions and gold
    are lost. Only the slot's first byte changes, nothing is written to the
    roster and the game is not saved then. [research, pass 2; capture:
@@ -533,8 +553,9 @@ holds Constitution with magic defense in the top two bits.
 - Destroy in a room (7.5): the marks split (only a death was run that
   way, magic 7.2), and whether a reversal left in the queue holds back
   later ones (the engine's choices in 7.5).
-- Rejoining a retired character from the roster (3.1, 7.3): not built in
-  the engine.
+- Rejoining a retired character (3.1, 7.3): the place kept on the own
+  list is research, not yet read in a run; a saved square taken since is
+  [unknown] (the engine joins at the start).
 - Which record is taken through "another adventure" from a roster whose
   first entry is empty (3.5; the own list joins the place's entry, 3.1).
 - Editing keys in name entry (5.5).
@@ -567,3 +588,6 @@ holds Constitution with magic defense in the top two bits.
    10.38). Adds as save points (6.2, creatures 2.2.7.4): captured
    (capture.md 10.38). Still open: a roster add's effect on the visit
    order.
+7. A saved character joined from the own list (3.1): where it stands,
+   its weapon and armor readied, in a room and on the map; and with its
+   saved square taken by another player or a creature since.

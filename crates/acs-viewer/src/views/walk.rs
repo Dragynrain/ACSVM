@@ -125,8 +125,8 @@ struct Roster {
 impl Roster {
     /// Takes in `cmd` and the events it brought, on `game` after them.
     fn note(&mut self, cmd: &Command, game: &Game, events: &[Event]) {
-        if let Command::AddPlayer { setup } = cmd {
-            self.joining = Some(setup.name.clone());
+        if let Command::Rejoin { player } = cmd {
+            self.joining = Some(player.name.clone());
         }
         for e in events {
             match e {
@@ -176,31 +176,6 @@ impl Roster {
             r.note(cmd, &g, &ev);
         }
         r
-    }
-}
-
-/// A saved character as a newcomer (characters 7.3): the record the save
-/// kept. Joining starts it at the adventure's start with nothing readied
-/// (the engine's `add_player`).
-fn setup_of(p: &Player) -> acs_engine::PlayerSetup {
-    acs_engine::PlayerSetup {
-        name: p.name.clone(),
-        speed: p.speed,
-        strength: p.strength,
-        constitution: p.constitution,
-        life_force: p.life_force,
-        possessions: p.possessions.clone(),
-        gold: p.gold,
-        dexterity: p.dexterity,
-        wisdom: p.wisdom,
-        power: Some(p.power),
-        size: p.size,
-        dodge: p.dodge,
-        parry: p.parry,
-        armor_skill: p.armor_skill,
-        melee: p.melee,
-        missile: p.missile,
-        magic_defense: p.magic_defense,
     }
 }
 
@@ -1663,14 +1638,18 @@ fn roster_panel(ui: &mut egui::Ui, g: &Game, roster: &Roster, click: &mut Option
             let waiting = roster.joining.is_some();
             let b = ui
                 .add_enabled(room && !waiting, egui::Button::new("Rejoin").small())
-                .on_hover_text("Joins at the start point at the end of the round, with what was carried.")
+                .on_hover_text(
+                    "Joins at the end of the round as saved: where it retired, with its gear readied                      (at the start point if that square is taken now).",
+                )
                 .on_disabled_hover_text(if waiting {
                     "Someone is already joining this round."
                 } else {
                     "4 characters already play."
                 });
             if b.clicked() {
-                *click = Some(Command::AddPlayer { setup: setup_of(p) });
+                *click = Some(Command::Rejoin {
+                    player: Box::new(p.clone()),
+                });
             }
         });
     }
@@ -2644,8 +2623,9 @@ mod tests {
         assert_eq!(loaded.roster.saved, w.roster.saved);
         assert_eq!(loaded.roster.gone, vec![0]);
         // Rejoining takes the character off the list once it is in.
-        let setup = setup_of(&w.roster.saved[0]);
-        w.apply(Command::AddPlayer { setup });
+        let player = Box::new(w.roster.saved[0].clone());
+        let place = player.at;
+        w.apply(Command::Rejoin { player });
         for _ in 0..3 {
             if w.roster.joining.is_none() {
                 break;
@@ -2656,6 +2636,7 @@ mod tests {
         assert!(w.roster.saved.is_empty(), "{:?}", w.roster);
         assert!(w.roster.gone.is_empty());
         assert_eq!(w.game.players()[0].name, "PLAYER 1");
+        assert_eq!(w.game.players()[0].at, place, "back where it retired");
         assert!(Roster::of(&w.game).saved.is_empty());
     }
 

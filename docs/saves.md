@@ -69,7 +69,7 @@ A JSON object (UTF-8, written on one line). Fields:
 | Field | Meaning |
 | --- | --- |
 | `format` | Always `"acsvm-save"`. |
-| `version` | The save format version, now 4. A newer version is refused; versions 1 to 3 are read as 2.1 says. |
+| `version` | The save format version, now 5. A newer version is refused; versions 1 to 4 are read as 2.1 says. |
 | `engine` | The engine version that wrote it (informational). |
 | `adventure` | `name`: the adventure's name; `fingerprint`: 16 hex digits identifying the decoded adventure (section 3). |
 | `seed`, `rules`, `first` | As given to `Game::new`. |
@@ -83,6 +83,11 @@ dropped file is recognised by its `format` field, not its name.
 
 ### 2.1 Versions
 
+- **5** (characters 3.1): `rejoin` (`{"command":"rejoin","player":{...}}`)
+  brings back a character retired with Save, the `player` being the
+  record its `Retired` event carried. A version 4 save has no `rejoin`
+  and loads as it is, its commands meaning the same. Saving again writes
+  version 5.
 - **4** (creatures 2.2.6): `restore` (`{"command":"restore"}`, the death
   message's button) is new, logged where play resumed from the autosave
   (1.4). A version 3 save is loaded as it is: it has no `restore`, its

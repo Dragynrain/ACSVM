@@ -2,7 +2,7 @@
 
 //! What a player asks for: [`Command`]s, the replay log.
 
-use crate::{Dir, PlayerSetup, Who};
+use crate::{Dir, Player, PlayerSetup, Who};
 use acs_core::model::ThingId;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +25,11 @@ pub enum Command {
     /// (characters 1) and joins at the adventure's start; in play, rolled
     /// at the round's end (characters 6.2).
     CreatePlayer { name: String },
+    /// "Add Someone" with a character retired with Save, chosen from the
+    /// adventure's own list (characters 3.1): `player` is the record its
+    /// `Retired` carried. It comes back as saved, gear readied, where it
+    /// was saved; in play, at the round's end (characters 6.2).
+    Rejoin { player: Box<Player> },
     /// "Drop Object": one of `thing` onto the adjacent square in `dir`, or
     /// the player's own square when `dir` is `None` (inventory 5).
     Drop {
@@ -104,4 +109,56 @@ pub enum StoreRefusal {
     NotSellable,
     /// The player has none to sell.
     NotOwned,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Location, Newcomer};
+
+    /// Saves 2.1, version 5: `rejoin` carries the saved record and reads
+    /// back as it was; as a waiting newcomer (in the game's fingerprint)
+    /// its own key keeps it apart from a `Join` setup.
+    #[test]
+    fn a_rejoin_reads_back_as_it_was_written() {
+        let p = Player {
+            name: "T".into(),
+            speed: 6,
+            strength: 11,
+            constitution: 11,
+            life_force: 9,
+            moves_left: 6,
+            turn_moves: 6,
+            at: Location::Room {
+                region: 1,
+                room: 2,
+                x: 3,
+                y: 4,
+            },
+            possessions: vec![3, 5],
+            gold: 40,
+            weapon: Some(3),
+            armor: None,
+            dexterity: 11,
+            wisdom: 11,
+            power: 12,
+            size: 11,
+            dodge: 22,
+            parry: 22,
+            armor_skill: 0,
+            melee: 33,
+            missile: 22,
+            magic_defense: acs_core::model::MagicDefense::None,
+            alive: true,
+        };
+        let cmd = Command::Rejoin {
+            player: Box::new(p.clone()),
+        };
+        let text = serde_json::to_string(&cmd).unwrap();
+        assert!(text.starts_with(r#"{"command":"rejoin","player":"#), "{text}");
+        assert_eq!(serde_json::from_str::<Command>(&text).unwrap(), cmd);
+        let n = Newcomer::Rejoin { rejoin: Box::new(p) };
+        let text = serde_json::to_string(&n).unwrap();
+        assert_eq!(serde_json::from_str::<Newcomer>(&text).unwrap(), n);
+    }
 }
