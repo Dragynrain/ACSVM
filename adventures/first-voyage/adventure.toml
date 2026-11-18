@@ -9,7 +9,7 @@ license = "CC BY-SA 4.0"
 credits = ["Story and design: ACSVM contributors", "Art: the ACSVM pirate kit"]
 kit = "../../kits/pirates"
 theme = "fantasy"
-palette = ["black", "brown", "light cyan", "white"]
+palette = ["black", "blue", "brown", "yellow"]
 intro = """
 You wake on a warm beach with sand in your boots and no ship in sight.
 A harbour town lies to the west, and old sailors say a hollow in the

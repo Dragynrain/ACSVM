@@ -20,9 +20,15 @@ uploaded.
 3. **Hot-seat**: Add Someone brings in up to four characters, who take
    turns, as in the original.
 
-Keys: the arrows or WASD and QEZC (or the number pad) move, Space or
-Enter waits, Escape cancels. On a phone or tablet the on-screen pad
-appears when you touch the screen.
+Keys: the arrows or WASD (or the number pad) move, and so does a click
+on a square beside you; Space or Enter ends the turn, Escape cancels.
+Diagonal steps (QEZC) are off, as in the original; tick Diagonal moves
+for them. On a phone or tablet the on-screen pad appears when you touch
+the screen.
+
+Your options and your last game are kept in the browser: open the same
+adventure again (or Play First Voyage) and you are back where you were.
+Restart begins a new game.
 
 ## What we want to hear about
 

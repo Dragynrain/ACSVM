@@ -226,6 +226,29 @@ pub struct Startup {
     pub save: Option<std::path::PathBuf>,
 }
 
+/// What the viewer keeps between sessions (eframe's storage: a file on
+/// the desktop, the browser's local storage on the web): the options, the
+/// sound settings and the last game played (client 7.2).
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct Kept {
+    access: Option<crate::access::Access>,
+    /// Sound on, and the volume.
+    sound: Option<(bool, f32)>,
+    game: Option<KeptGame>,
+}
+
+/// The last game: its save file (docs/saves.md), resumed when the same
+/// adventure (by fingerprint) is opened again.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct KeptGame {
+    adventure: String,
+    save: String,
+}
+
+/// The storage key.
+const KEPT: &str = "kept";
+
 pub struct Viewer {
     inbox: Arc<Mutex<Vec<Incoming>>>,
     doc: Option<Doc>,
@@ -251,6 +274,14 @@ pub struct Viewer {
     play_next: bool,
     /// The title art, made when the title screen first shows.
     title: Option<egui::TextureHandle>,
+    /// Whether this session reads and writes the kept state: not for a
+    /// screenshot or a scripted walk, which must come out the same.
+    keep: bool,
+    kept_sound: Option<(bool, f32)>,
+    kept_game: Option<KeptGame>,
+    /// The open file and the game's seed and command count when last
+    /// kept, so an unchanged game isn't written again.
+    kept_mark: Option<(String, (u64, usize))>,
 }
 
 impl Viewer {
@@ -263,6 +294,7 @@ impl Viewer {
             cc.egui_ctx
                 .send_viewport_cmd(egui::ViewportCommand::InnerSize(size.into()));
         }
+        let keep = start.screenshot.is_none() && start.walk.is_none() && start.load.is_none();
         let mut v = Viewer {
             inbox: Arc::default(),
             doc: None,
@@ -279,7 +311,23 @@ impl Viewer {
             },
             play_next: false,
             title: None,
+            keep,
+            kept_sound: None,
+            kept_game: None,
+            kept_mark: None,
         };
+        if v.keep {
+            let kept: Kept = cc
+                .storage
+                .and_then(|s| eframe::get_value(s, KEPT))
+                .unwrap_or_default();
+            // The command line's options win over the kept ones.
+            if let (Some(a), None, false) = (kept.access, start.text_size, start.colour_blind) {
+                v.access = a;
+            }
+            v.kept_sound = kept.sound;
+            v.kept_game = kept.game;
+        }
         v.access.set(&cc.egui_ctx);
         // The pack first, so the adventure opens with it.
         if let Some(p) = start.pack {
@@ -402,6 +450,54 @@ impl Viewer {
         doc.pack = Some(pack.clone());
     }
 
+    /// The kept sound settings, and the kept game if it was played on this
+    /// very adventure (client 7.2).
+    fn resume_kept(&mut self, doc: &mut Doc) {
+        if !self.keep {
+            return;
+        }
+        if let Some((on, volume)) = self.kept_sound {
+            doc.audio.on = on;
+            doc.audio.volume = volume.clamp(0.0, 1.0);
+            doc.audio.apply_controls();
+        }
+        let print = acs_engine::save::fingerprint(&doc.decoded.adventure);
+        let Some(kept) = self.kept_game.as_ref().filter(|k| k.adventure == print) else {
+            return;
+        };
+        match views::walk::Walk::from_save(&doc.decoded.adventure, &kept.save) {
+            Ok(mut walk) => {
+                walk.note_kept();
+                self.kept_mark = Some((doc.file_name.clone(), walk.mark()));
+                doc.walk = Some(walk);
+            }
+            Err(e) => log::warn!("the kept game didn't load: {e}"),
+        }
+    }
+
+    /// What to keep now: the options, the sound and the open game.
+    fn kept(&mut self) -> Kept {
+        if let Some(doc) = &self.doc {
+            self.kept_sound = Some((doc.audio.on, doc.audio.volume));
+            if let Some(walk) = &doc.walk {
+                let mark = (doc.file_name.clone(), walk.mark());
+                if self.kept_mark.as_ref() != Some(&mark) {
+                    let adv = &doc.decoded.adventure;
+                    self.kept_game = Some(KeptGame {
+                        adventure: acs_engine::save::fingerprint(adv),
+                        save: walk.save_file(adv).1,
+                    });
+                    self.kept_mark = Some(mark);
+                }
+            }
+        }
+        Kept {
+            access: Some(self.access),
+            sound: self.kept_sound,
+            game: self.kept_game.clone(),
+        }
+    }
+
     fn open(&mut self, ctx: &egui::Context, file: Incoming) {
         // An HD pack stays for every adventure opened after it (client 5).
         if let Ok(bytes) = &file.bytes {
@@ -455,6 +551,7 @@ impl Viewer {
                     doc.tiles.set_native(ctx, art);
                     doc.tiles.set_mode(ctx, crate::tiles::RenderMode::NativeHd);
                 }
+                self.resume_kept(&mut doc);
                 self.doc = Some(doc);
                 self.error = None;
             }
@@ -818,6 +915,23 @@ impl Viewer {
 }
 
 impl eframe::App for Viewer {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        if self.keep {
+            let kept = self.kept();
+            eframe::set_value(storage, KEPT, &kept);
+        }
+    }
+
+    /// Often, so closing a browser tab loses little.
+    fn auto_save_interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(5)
+    }
+
+    /// Panel sizes and the like start fresh: the layout follows the window.
+    fn persist_egui_memory(&self) -> bool {
+        false
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.take_dropped(&ctx);

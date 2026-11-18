@@ -256,6 +256,20 @@ impl Walk {
         Ok(w)
     }
 
+    /// The seed and the number of commands played: what changes when the
+    /// game moves on or starts again.
+    pub fn mark(&self) -> (u64, usize) {
+        (self.game.seed(), self.game.log().len())
+    }
+
+    /// Says in the log that this is the game kept from last time.
+    pub fn note_kept(&mut self) {
+        self.note(
+            "Picked up where you left off: the last game is kept on this machine. Restart for a new one."
+                .into(),
+        );
+    }
+
     /// The save file of this walk: a file name for it and its text.
     pub fn save_file(&self, original: &Adventure) -> (String, String) {
         let text = SaveFile::new(&self.game, original, self.restore_target()).to_json();
@@ -914,9 +928,11 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 walk.drain_part() as f32
             };
             if !over {
-                ui.add(
-                    egui::ProgressBar::new((p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32)
-                        .text(format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves)),
+                bar(
+                    ui,
+                    (p.moves_left as f32 - drained) / p.turn_moves.max(1) as f32,
+                    None,
+                    format!("moves {} of {}{slowed}", p.moves_left, p.turn_moves),
                 );
             }
             party_panel(ui, g, &mut walk.new_name, &mut click);
@@ -973,9 +989,18 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     .on_hover_text("Play Music's cues: placeholders until the finished set.")
                     .changed();
                 let mut pct = (audio.volume * 100.0).round();
+                // A slider and its value are one widget a wrapping row can't
+                // break, so neither may be wider than the column: wider, it
+                // would push the column's edge under the board (client 2).
+                let width = ui.spacing().slider_width.min(ui.max_rect().width());
+                ui.spacing_mut().slider_width = width;
                 changed |= ui
-                    .add_enabled(audio.on, egui::Slider::new(&mut pct, 0.0..=100.0).suffix("%"))
+                    .add_enabled(
+                        audio.on,
+                        egui::Slider::new(&mut pct, 0.0..=100.0).show_value(false),
+                    )
                     .changed();
+                ui.label(format!("{pct}%"));
                 audio.volume = pct / 100.0;
                 if changed {
                     audio.apply_controls();
@@ -1309,6 +1334,25 @@ fn kind_mark(kind: Kind, a: &crate::access::Access) -> Option<(&'static str, Col
 
 /// Everyone playing, whose turn it is, and "Add Someone" (movement 1.4):
 /// the new character joins at the start point on the next round.
+/// A bar with its caption inside it, or, where the caption would run
+/// past the column (large text, a narrow window), on its own wrapped line
+/// above the bar (client 2: nothing clips).
+fn bar(ui: &mut egui::Ui, fraction: f32, fill: Option<Color32>, caption: String) {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    let wide = ui.fonts_mut(|f| f.layout_no_wrap(caption.clone(), font, Color32::WHITE).size().x);
+    let fits = wide + 2.0 * ui.spacing().button_padding.x <= ui.available_width();
+    let mut b = egui::ProgressBar::new(fraction);
+    if let Some(c) = fill {
+        b = b.fill(c);
+    }
+    if fits {
+        ui.add(b.text(caption));
+    } else {
+        ui.label(caption);
+        ui.add(b.desired_height(8.0));
+    }
+}
+
 fn party_panel(ui: &mut egui::Ui, g: &Game, new_name: &mut String, click: &mut Option<Command>) {
     let players = g.players();
     if players.len() > 1 && !g.is_over() {
@@ -1466,27 +1510,29 @@ fn stats_panel(ui: &mut egui::Ui, g: &Game) {
         0 => String::new(),
         t => format!(" ({t:+} wearing off)"),
     };
-    ui.add(
-        egui::ProgressBar::new(p.life_force as f32 / 63.0)
-            .fill(Color32::from_rgb(170, 40, 40))
-            .text(format!(
-                "Life Force {}{} (Constitution {}{}){temp}",
-                p.life_force,
-                m(LifeForce),
-                p.constitution,
-                m(Constitution)
-            )),
+    bar(
+        ui,
+        p.life_force as f32 / 63.0,
+        Some(Color32::from_rgb(170, 40, 40)),
+        format!(
+            "Life Force {}{} (Constitution {}{}){temp}",
+            p.life_force,
+            m(LifeForce),
+            p.constitution,
+            m(Constitution)
+        ),
     );
-    ui.add(
-        egui::ProgressBar::new(p.power as f32 / 127.0)
-            .fill(Color32::from_rgb(60, 80, 190))
-            .text(format!(
-                "Power {}{} (drifts toward Wisdom {}{})",
-                p.power,
-                m(Power),
-                p.wisdom,
-                m(Wisdom)
-            )),
+    bar(
+        ui,
+        p.power as f32 / 127.0,
+        Some(Color32::from_rgb(60, 80, 190)),
+        format!(
+            "Power {}{} (drifts toward Wisdom {}{})",
+            p.power,
+            m(Power),
+            p.wisdom,
+            m(Wisdom)
+        ),
     );
     let defense = match p.magic_defense {
         MagicDefense::None => "none",

@@ -19,7 +19,8 @@ pub mod okabe {
     pub const PURPLE: Color32 = Color32::from_rgb(204, 121, 167);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Access {
     /// Text size, 0.75..=2.0.
     pub text: f32,

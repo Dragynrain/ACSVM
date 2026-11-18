@@ -210,7 +210,7 @@ Sound checkbox to mute. Muting stops what plays.
 ## 7. Accessibility
 
 The top bar's **Options** menu holds three settings, for every view and
-every adventure in the session (not yet kept between sessions).
+every adventure, kept between sessions (7.2).
 
 - **Text size**, 75% to 200% (default 100%): every font in the panels,
   lists, menus and the log. The board's tiles keep their own size.
@@ -253,6 +253,22 @@ pixels, at least 1x), so the text stays crisp at any scale; the log is
 at 2x. Long messages keep their stored lines (3), and are told apart by
 colour, not italics, which a pixel font can't slant cleanly. Characters
 outside Latin-1 fall back to egui's font.
+
+### 7.2 Kept between sessions
+
+The options above, the Sound checkbox and the volume, and the last game
+played are kept: in a file in the desktop build's data folder, in the
+browser's local storage on the web (eframe's storage; nothing leaves
+the machine). The game is kept as its save file (docs/saves.md) with
+the adventure's fingerprint, written every few seconds while it changes
+and on closing. Opening the same adventure again (the same fingerprint:
+Play First Voyage, or the same disk or bundle) picks the game up where
+it was left, with a line in the log saying so; Restart starts a new one,
+which is then the one kept. Another adventure starts fresh and doesn't
+touch the kept game until it is played. Panel sizes are not kept. A
+screenshot run or a scripted walk (`--screenshot`, `--walk`, `--load`)
+neither reads nor writes any of it, and `--text-size` and
+`--colour-blind` win over the kept options.
 
 ## 8. Builds
 
@@ -312,8 +328,8 @@ Phase 5's gate is met (10); next is Phase 6, original content and 1.0.
    the test `a_pack_loads_and_reports_its_coverage` is the gate's pack
    check on a test adventure of our own.
 7. Accessibility options (7). Done November 2026 (`access.rs`,
-   `live.rs`). Known: at large text sizes a bar's caption (Life Force,
-   Power) can run past a narrow info column, since captions don't wrap.
+   `live.rs`). A bar's caption (Life Force, Power) that doesn't fit in
+   the info column goes on its own wrapped line above the bar.
 8. Desktop builds (8). The workflow and packaging are in place
    (November 2026); the first tagged run is the maintainer's.
 
@@ -333,8 +349,11 @@ ran under Fullscreen at large text (Fullscreen now takes its place
 first, and the adventure's name and file elide), and the Things list cut
 entries off on a 768-point window (list views' list column may now take
 about half the window, and entries that still don't fit end in "…").
-Left as they are: the menu column scrolls on hover only; at large text
-a bar's caption can run past a narrow info column. The pack half is the
+Left as they are: the menu column scrolls on hover only. (A bar's
+caption running past a narrow info column was fixed after the gate, with
+the playtest's layout breaks: the top bar now wraps on a narrow window,
+and the volume slider, one widget a row can't break, is held to the
+column, where it had pushed the column's edge under the board.) The pack half is the
 test `a_pack_loads_and_reports_its_coverage`, and a demo pack built
 with `scripts/hdpack.py` covered exactly what it was built to on
 *Rivers of Light* (not committed: its hashes come from EA's pictures).
