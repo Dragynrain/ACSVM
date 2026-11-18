@@ -4,8 +4,9 @@ ACSVM (working name) is an open-source engine that plays adventures made with
 *Adventure Construction Set* (Electronic Arts, 1984), in the spirit of ScummVM:
 the engine is free software, and you bring the adventure files you own.
 
-**Status: Phase 5 done (modern client and audio); next, Phase 6 (original
-content and 1.0).** The rules engine plays whole adventures: movement,
+**Status: Phase 6 under way (original content and 1.0): the pirate kit,
+our own adventure format, the tutorial *First Voyage* built in, original
+music, and a title screen are done; the public playtest and 1.0 are next.** The rules engine plays whole adventures: movement,
 inventory, creatures and their AI, the 15 spell actions, combat, stores,
 new characters, world map encounters and saves, each rule specified in
 `docs/rules/` and checked against the original C64 program, measured in

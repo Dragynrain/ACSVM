@@ -17,7 +17,7 @@ jobs:
     name: Forbidden-file check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sh scripts/check-forbidden-files.sh --all
 
   build:
@@ -39,7 +39,7 @@ jobs:
             targets: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.targets }}
@@ -75,7 +75,7 @@ jobs:
             linux)   bin=target/x86_64-unknown-linux-gnu/dist/acs-viewer ;;
           esac
           python3 scripts/package.py "$bin" dist --platform ${{ matrix.platform }} --version "$VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ matrix.platform }}
           path: dist/
@@ -89,7 +89,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: desktop-*
           path: dist
@@ -100,4 +100,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" --draft --title "$GITHUB_REF_NAME" \
-            --notes "Desktop builds of the viewer. No adventure comes with them: open one you own. See README.txt in each package."
+            --notes "Desktop builds of the viewer, with First Voyage, our tutorial adventure, built in. No adventure of EA's comes with them: open one you own. See README.txt in each package."

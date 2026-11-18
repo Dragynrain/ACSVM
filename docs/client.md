@@ -271,8 +271,8 @@ builds them as workflow artifacts only.
   console and all, for the screenshot and test tools.
 - `scripts/package.py` makes each package: the program, `LICENSE`,
   `LICENSES/`, and a `README.txt` naming the project (from the
-  workspace's description), how to start it, that no adventure comes
-  with it, and the platform's notes: macOS builds are unsigned (open the
+  workspace's description), how to start it, that the tutorial
+  is built in and no adventure of EA's comes with it, and the platform's notes: macOS builds are unsigned (open the
   app with right-click, Open, the first time); Linux needs X11 or
   Wayland, OpenGL and ALSA.
 - None bundle any EA material; the player's files are opened or

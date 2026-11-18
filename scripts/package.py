@@ -40,9 +40,11 @@ Version {version}, {NAMES[platform]}.
 
 {NOTES[platform]}
 
-Open an adventure you own (a C64 .d64 disk image, or a PC ADVEN.FPY or
-ADVEN.HRD) with Open..., or drop it on the window. No adventure comes with
-this program, and the files you open are read on your computer only.
+The title screen offers First Voyage, a short tutorial adventure of our
+own, built in. To play another, open an adventure you own (a C64 .d64 disk
+image, a PC ADVEN.FPY or ADVEN.HRD, or an .advx bundle) with Open..., or
+drop it on the window. No adventure of EA's comes with this program, and
+the files you open are read on your computer only.
 
 The program is free software under the GNU GPL, version 3 or later
 (LICENSE). Its documents are under the Creative Commons licenses in
