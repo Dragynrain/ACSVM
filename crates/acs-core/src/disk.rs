@@ -8,6 +8,8 @@
 //! - **C64** (`.d64`): the whole disk, read raw. An adventure disk has no
 //!   usable directory; the data fills every sector in order and simply skips
 //!   the BAM and directory sectors on track 18 (see `docs/format-notes.md`).
+//! - **Amiga** (`adventure`): the adventure file itself, taken off the disk.
+//!   EA's `acs.master` begins with one in the same layout.
 
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -20,6 +22,7 @@ use std::path::Path;
 pub enum Platform {
     Pc,
     C64,
+    Amiga,
 }
 
 impl Platform {
@@ -27,11 +30,17 @@ impl Platform {
         match self {
             Platform::Pc => "PC",
             Platform::C64 => "C64",
+            Platform::Amiga => "Amiga",
         }
     }
 
-    /// Guesses the platform from a file extension.
+    /// Guesses the platform from a file extension, or the Amiga's file
+    /// name (`adventure`, which has none).
     pub fn from_path(path: &Path) -> Option<Platform> {
+        let name = path.file_name()?.to_str()?.to_ascii_lowercase();
+        if name == "adventure" {
+            return Some(Platform::Amiga);
+        }
         let ext = path.extension()?.to_str()?.to_ascii_lowercase();
         match ext.as_str() {
             "d64" => Some(Platform::C64),
@@ -67,6 +76,12 @@ impl fmt::Debug for Image {
 /// (the last picture bank ends at 0x2B920).
 pub const PC_MIN_SIZE: usize = 0x2B920;
 
+/// Smallest Amiga adventure file that holds every structure the decoder
+/// reads (the intro, the last long message, ends at 0x28000).
+pub const AMIGA_MIN_SIZE: usize = 0x28000;
+/// Size of the Amiga's `adventure` file.
+pub const AMIGA_FILE_SIZE: usize = 0x28300;
+
 impl Image {
     /// Wraps raw bytes, checking the size fits the platform.
     pub fn from_bytes(platform: Platform, data: Vec<u8>) -> Result<Self> {
@@ -90,6 +105,15 @@ impl Image {
                         platform: "PC adventure",
                         actual: data.len(),
                         expected: format!("at least {PC_MIN_SIZE}"),
+                    });
+                }
+            }
+            Platform::Amiga => {
+                if data.len() < AMIGA_MIN_SIZE {
+                    return Err(Error::BadSize {
+                        platform: "Amiga adventure",
+                        actual: data.len(),
+                        expected: format!("at least {AMIGA_MIN_SIZE}"),
                     });
                 }
             }
@@ -160,6 +184,10 @@ mod tests {
         assert_eq!(Platform::from_path(Path::new("x/GAME.D64")), Some(Platform::C64));
         assert_eq!(Platform::from_path(Path::new("ADVEN.HRD")), Some(Platform::Pc));
         assert_eq!(Platform::from_path(Path::new("adven.fpy")), Some(Platform::Pc));
+        assert_eq!(
+            Platform::from_path(Path::new("data/Adventure")),
+            Some(Platform::Amiga)
+        );
         assert_eq!(Platform::from_path(Path::new("readme.txt")), None);
     }
 
@@ -169,5 +197,7 @@ mod tests {
         assert!(Image::from_bytes(Platform::C64, vec![0; 1000]).is_err());
         assert!(Image::from_bytes(Platform::Pc, vec![0; PC_MIN_SIZE]).is_ok());
         assert!(Image::from_bytes(Platform::Pc, vec![0; PC_MIN_SIZE - 1]).is_err());
+        assert!(Image::from_bytes(Platform::Amiga, vec![0; AMIGA_FILE_SIZE]).is_ok());
+        assert!(Image::from_bytes(Platform::Amiga, vec![0; AMIGA_MIN_SIZE - 1]).is_err());
     }
 }

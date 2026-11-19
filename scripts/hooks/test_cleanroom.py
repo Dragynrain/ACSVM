@@ -12,6 +12,7 @@ REPO = "D:\\Projects\\ACSVM"
 RES = "D:\\Projects\\ACSVM-research"
 NOTES = RES + "\\research\\encounters\\notes\\trace.txt"
 FINDINGS = RES + "\\research\\encounters\\findings.md"
+AMIGA = RES + "\\corpus\\amiga\\AdventureConstructionSet\\data"
 
 
 def call(tool, cwd=REPO, **ti):
@@ -44,6 +45,23 @@ CASES = [
     ("implementer", call("Read", file_path=RES + "\\corpus\\c64\\x\\advcnst1.d64"), True),
     ("implementer", call("Bash", command="ls /d/Projects/ACSVM-research/corpus/c64/*/advcnst*"), True),
     ("implementer", call("Edit", file_path=REPO + "\\docs\\rules\\combat.md"), False),
+    # implementer: the Amiga program files and the Kickstart ROM
+    ("implementer", call("Read", file_path=AMIGA + "\\ACS.EXE"), True),
+    ("implementer", call("Read", file_path=AMIGA + "\\acs.3"), True),
+    ("implementer", call("Read", file_path=AMIGA + "\\c\\ACS.dat"), True),
+    ("implementer", call("Read", file_path=RES + "\\corpus\\amiga\\kick13.rom"), True),
+    ("implementer", call("Read", file_path=AMIGA + "\\adventure"), False),
+    ("implementer", call("Grep", pattern="x", path=RES + "\\corpus\\amiga"), True),
+    ("implementer", call("Grep", pattern="x", path=RES + "\\corpus"), True),
+    ("implementer", call("Glob", pattern="corpus/amiga/**", path=RES), True),
+    ("implementer", call("Bash", command="xxd /d/Projects/ACSVM-research/corpus/amiga/AdventureConstructionSet/data/acs.1"), True),
+    ("implementer", call("Bash", AMIGA, command="cat ACS.EXE"), True),
+    ("implementer", call("Bash", command="ls /d/Projects/ACSVM-research/corpus/amiga/AdventureConstructionSet/data/*"), True),
+    ("implementer", call("Bash", command="ls /d/Projects/ACSVM-research/corpus/amiga/AdventureConstructionSet/data"), False),
+    ("implementer", call("Bash", command="ACSVM_CORPUS='D:\\projects\\ACSVM-research\\corpus' cargo test --test corpus 2>&1 | sort -rn"), False),
+    ("implementer", call("Bash", command="grep -r x /d/Projects/ACSVM-research/corpus/amiga"), True),
+    ("researcher", call("Read", RES, file_path=AMIGA + "\\ACS.EXE"), False),
+    ("researcher", call("Bash", RES, command="xxd corpus/amiga/kick13.rom"), False),
     # spec-only: the engine implementer sees docs/rules, not findings or briefs
     ("spec-only", call("Read", file_path=FINDINGS), True),
     ("spec-only", call("Read", file_path=RES + "\\research\\encounters\\inputs\\a.png"), True),

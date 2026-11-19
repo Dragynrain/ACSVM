@@ -10,7 +10,8 @@ Never commit, attach or paste:
 
 - disk images or adventure files (`.d64`, `.dsk`, `.adf`, `.fpy`, `.hrd`,
   `.prg`, `.t64`, `.crt`, `.zip`), including EA's built-in adventures and the
-  ACS program disks;
+  ACS program disks and the Amiga version's program files;
+- Amiga Kickstart ROMs (`.rom`) or any other system ROM;
 - bytes copied out of such files, including as test fixtures or hex dumps;
 - text from the ACS manual (paraphrase rules in your own words, never quote);
 - builder-set art, pictures exported from real adventures, or music.

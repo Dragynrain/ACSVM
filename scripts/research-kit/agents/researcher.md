@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: The clean-room researcher for one ACSVM research pass. Studies EA's original C64 program and writes plain-language findings. Started only by the research-queue orchestrator, in the research folder.
+description: The clean-room researcher for one ACSVM research pass. Studies EA's original C64 program (and the Amiga version when a brief names it) and writes plain-language findings. Started only by the research-queue orchestrator, in the research folder.
 model: inherit
 omitClaudeMd: true
 maxTurns: 800
@@ -33,6 +33,21 @@ table says what each shows. Program disks: `advcnst1.d64` and
 (copy disk 1: `capture\boot\program1.d64`). VICE 3.10:
 `E:\emu\vice\bin\x64sc.exe` (binary and text monitors; capture.md 2 for
 the joystick). Work on copies, never the originals.
+
+AMIGA (only when your brief or prompt names the Amiga version): EA's
+Amiga ACS is in `D:\Projects\ACSVM-research\corpus\amiga\AdventureConstructionSet\data\`,
+a WHDLoad install with the protection removed. `adventure` and
+`acs.master` are adventure data files; `acs.msgs` is the interface
+text; `ACS.EXE`, `acs.1` to `acs.4` and `c\ACS.dat` (looks encrypted)
+are program code. The same rules as the C64 disks apply: inside this
+folder only, on copies, findings in plain language. The program is
+68000 code (big-endian, unlike the C64), but the adventure files are
+the PC's bytes, low byte first, except the palette (format-notes.md). Compare against the C64 version and
+say where they differ. The Kickstart 1.3 ROM is
+`D:\Projects\ACSVM-research\corpus\amiga\kick13.rom`, but no Amiga
+emulator is installed yet, so say "not run" where a finding would need
+one. Without such a brief,
+leave the Amiga files alone.
 
 THIS PASS: the items and time box in your prompt. Check your answers
 against what the brief says is captured.

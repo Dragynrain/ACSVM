@@ -19,7 +19,8 @@ hidden state) go through clean-room research: `docs/research/README.md`.
 Passes can run unattended (README 7): `/integrate` here (state in
 `docs/research/ledger.md`), `/research-queue` in a fresh session in the
 research folder. The clean-room hook (`scripts/hooks/cleanroom.py`, wired
-in `.claude/settings.json`) blocks research notes and the program disks;
+in `.claude/settings.json`) blocks research notes, the program disks and
+the Amiga program files and Kickstart ROM;
 `python scripts/hooks/test_cleanroom.py` after changing it.
 
 ## Hard rules
@@ -31,8 +32,13 @@ in `.claude/settings.json`) blocks research notes and the program disks;
 - Research material lives outside the repo in `D:\projects\ACSVM-research`
   (manual OCR: paraphrase only; Boris draft; C64 corpus). `advcnst*.d64` are
   EA's program disks (advcnst2 holds EA's *Rivers of Light*): never decode them
-  for analysis. Only a researcher session (a separate one, started in the
-  research folder by the maintainer) may; sessions here are implementers.
+  for analysis. The same goes for EA's Amiga version in
+  `ACSVM-research\corpus\amiga\`: the program files in
+  `AdventureConstructionSet\data\` (`ACS.EXE`, `acs.1` to `acs.4`,
+  `c\ACS.dat`, with `adventure`, `acs.master` and `acs.msgs` beside them)
+  and the Kickstart ROM `kick13.rom` (copyrighted, never commit). Only a
+  researcher session (a separate one, started in the research folder by
+  the maintainer) may; sessions here are implementers.
 - **Clean room** (`docs/research/README.md`): never open, list or search
   `ACSVM-research/research/*/notes/`; read only a pass's `findings.md`,
   confirm it by capture, then spec it, then code it. Never implement from

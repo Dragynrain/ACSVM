@@ -2,7 +2,7 @@
 
 //! Decodes every adventure in the private test corpus.
 //!
-//! Set `ACSVM_CORPUS` to a folder containing `c64/` (and later `pc/`). The
+//! Set `ACSVM_CORPUS` to a folder containing `c64/`, `pc/` and `amiga/`. The
 //! corpus lives outside the repository; without the variable these tests
 //! pass with a "skipped" note. Disks named `advcnst*` are EA's program disks
 //! and are skipped.
@@ -228,6 +228,79 @@ fn pc_corpus_decodes_cleanly() {
         );
     }
     eprintln!("{} PC adventures decoded", files.len());
+}
+
+/// Files named `name` (lower case) anywhere under `dir`.
+fn named(dir: &Path, name: &str, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            named(&p, name, out);
+        } else if p.file_name().unwrap().to_string_lossy().to_ascii_lowercase() == name {
+            out.push(p);
+        }
+    }
+}
+
+/// The Amiga release (format-notes.md, Apple II and Amiga): `adventure`
+/// decodes cleanly, and `acs.master`, which begins with *Rivers of Light*
+/// in the same layout, decodes to the PC file's adventure apart from the
+/// platform, palette and pictures.
+#[test]
+fn amiga_corpus_decodes_cleanly() {
+    let Some(files) = adventures("amiga") else {
+        eprintln!("skipped: ACSVM_CORPUS not set");
+        return;
+    };
+    if files.is_empty() {
+        eprintln!("skipped: no Amiga adventures under ACSVM_CORPUS/amiga");
+        return;
+    }
+    let check = |a: &Adventure, file: &str| {
+        assert_eq!(a.platform, Platform::Amiga);
+        assert_eq!(a.pictures.len(), 110, "{file}");
+        assert_eq!(a.palette.colors.len(), 32, "{file}");
+        assert!(
+            a.pictures.iter().any(|p| p.pixels.iter().any(|&v| v > 3)),
+            "{file}: no colour above 3"
+        );
+        check_consistency(a, file);
+        check_scene(a, file);
+        let over = acs_core::limits::check(a);
+        assert!(over.is_empty(), "{file}: over Classic limits: {over:?}");
+    };
+    for path in &files {
+        let file = path.file_name().unwrap().to_string_lossy();
+        let d = decode(&Image::open(path, None).unwrap()).unwrap_or_else(|e| panic!("{file}: {e}"));
+        assert_eq!(d.errors().count(), 0, "{file}: {:#?}", d.diagnostics);
+        check(&d.adventure, &file);
+        eprintln!(
+            "ok: {file}: {} ({} warnings)",
+            d.adventure.name,
+            d.diagnostics.len()
+        );
+    }
+    let root = corpus().unwrap();
+    let mut masters = Vec::new();
+    named(&root.join("amiga"), "acs.master", &mut masters);
+    let mut pcs = Vec::new();
+    named(&root.join("pc"), "acs.fpy", &mut pcs);
+    for m in &masters {
+        let d = decode(&Image::open(m, Some(Platform::Amiga)).unwrap()).unwrap();
+        assert_eq!(d.errors().count(), 0, "acs.master: {:#?}", d.diagnostics);
+        check(&d.adventure, "acs.master");
+        let Some(pc) = pcs.first() else { continue };
+        let mut p = decode(&Image::open(pc, None).unwrap()).unwrap().adventure;
+        let mut a = d.adventure.clone();
+        (p.platform, p.palette, p.pictures) = (a.platform, a.palette.clone(), a.pictures.clone());
+        // The PC version has 96 pictures; nothing else may differ.
+        a.limits = p.limits;
+        assert!(a == p, "acs.master's adventure differs from the PC file's");
+        eprintln!("ok: acs.master: {} matches the PC file", a.name);
+    }
 }
 
 /// docs/content.md 3.4: every corpus thing's property bytes come back from

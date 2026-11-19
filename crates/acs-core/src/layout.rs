@@ -18,6 +18,8 @@ pub enum PictureFormat {
     Pc,
     /// 8x16 multicolor character pairs, 2 bits per pixel, pixels double wide.
     C64Multicolor,
+    /// 16x16, 5 bitplanes (32 colours), two strips of 55 pictures.
+    AmigaPlanar,
 }
 
 /// Base addresses of every block for one platform.
@@ -86,11 +88,41 @@ pub const C64: Layout = Layout {
     picture_count: 110,
 };
 
+/// The Amiga's `adventure` file: the PC's records in another order, with
+/// the palette and pictures first and long messages 1..255 in one run
+/// (format notes, Apple II and Amiga).
+pub const AMIGA: Layout = Layout {
+    long_messages: 0x18100,
+    long_messages_tail: 0x18100 + LONG_MESSAGES_HEAD * LONG_MESSAGE_LEN,
+    intro: 0x27F00,
+    short_messages: 0x15900,
+    creatures: 0x06600,
+    things: 0x08B00,
+    adventure: 0x09500,
+    world_map: 0x09900,
+    regions: 0x0A500,
+    pictures: 0x00040,
+    palette: 0x00000,
+    picture_format: PictureFormat::AmigaPlanar,
+    picture_count: 110,
+};
+
+/// Amiga pictures: five bitplanes this far apart from [`Layout::pictures`],
+/// each holding two strips of 55 pictures, 16 rows of 110 bytes.
+pub const AMIGA_PLANE_STRIDE: usize = 0xDC0;
+pub const AMIGA_PLANES: usize = 5;
+pub const AMIGA_STRIP: usize = 55;
+pub const AMIGA_ROW: usize = 110;
+pub const AMIGA_STRIP2: usize = 0x6E0;
+/// Palette entries: 32 colours, two bytes each in the Amiga's `0x0RGB` form.
+pub const AMIGA_COLOURS: usize = 32;
+
 impl Layout {
     pub const fn for_platform(p: Platform) -> &'static Layout {
         match p {
             Platform::Pc => &PC,
             Platform::C64 => &C64,
+            Platform::Amiga => &AMIGA,
         }
     }
 
@@ -289,6 +321,26 @@ mod tests {
         assert_eq!(C64.long_message(254), C64.intro);
         assert_eq!(PC.long_message(254), PC.intro);
         assert_eq!(PC.long_message(249), PC.long_message(248) + 256);
+    }
+
+    #[test]
+    fn amiga_blocks_fit_together() {
+        // Long messages run on without a split; the intro is the last one.
+        assert_eq!(AMIGA.long_message(249), AMIGA.long_message(248) + 256);
+        assert_eq!(AMIGA.long_message(254), AMIGA.intro);
+        // Short messages end where long messages start; regions end where
+        // short messages start.
+        assert_eq!(
+            AMIGA.short_messages + SHORT_MESSAGE_SLOTS / 2 * 0x100,
+            AMIGA.long_messages
+        );
+        assert_eq!(
+            AMIGA.regions + region::MAX_REGIONS * region::STRIDE,
+            AMIGA.short_messages
+        );
+        // The fifth plane's second strip ends before the creatures.
+        let end = AMIGA.pictures + 4 * AMIGA_PLANE_STRIDE + AMIGA_STRIP2 + 15 * AMIGA_ROW + 2 * AMIGA_STRIP;
+        assert!(end <= AMIGA.creatures);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use acs_core::model::*;
 use acs_core::{decode, DiagnosticKind, Error, Platform, Severity};
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
-const PLATFORMS: [Platform; 2] = [Platform::Pc, Platform::C64];
+const PLATFORMS: [Platform; 3] = [Platform::Pc, Platform::C64, Platform::Amiga];
 
 fn sample(platform: Platform) -> Fixture {
     let mut f = Fixture::new(platform);
@@ -89,6 +89,8 @@ fn sample(platform: Platform) -> Fixture {
         &match platform {
             Platform::Pc => [0x01, 0x0E, 0x04, 0x0F],
             Platform::C64 => [0x00, 0x06, 0x02, 0x0B],
+            // The first two of 32 colours, 0x0RGB words.
+            Platform::Amiga => [0x00, 0x00, 0x0F, 0x80],
         },
     );
 
@@ -175,6 +177,12 @@ fn check_sample(a: &Adventure, p: Platform) {
             assert_eq!(pal, ["black", "blue", "red", "cyan"]);
             assert_eq!(a.pictures.len(), 110);
             assert_eq!((a.pictures[0].width, a.pictures[0].pixel_aspect), (8, 2));
+        }
+        Platform::Amiga => {
+            assert_eq!(pal.len(), 32);
+            assert_eq!(pal[..3], ["#000000", "#ff8800", "#000000"]);
+            assert_eq!(a.pictures.len(), 110);
+            assert_eq!((a.pictures[0].width, a.pictures[0].pixel_aspect), (16, 1));
         }
     }
 
@@ -537,17 +545,23 @@ fn reports_unknown_thing_type() {
 #[test]
 fn detects_room_item_length_mismatch() {
     for p in PLATFORMS {
-        let mut f = sample(p);
-        let mut img = f.build();
-        // Claim the item lists end 3 bytes later than they do.
-        let base = f.l.regions;
-        let end = u16::from_le_bytes([img.data[base + 1], img.data[base + 2]]) + 3;
-        img.data[base + 1..base + 3].copy_from_slice(&end.to_le_bytes());
-        let d = decode(&img).unwrap();
-        assert!(d
-            .diagnostics
-            .iter()
-            .any(|x| x.kind == DiagnosticKind::BadRoomItems && x.severity == Severity::Error));
+        // Claim the item lists end later than they do: 2 bytes is an error,
+        // 3 (one whole item record, as in one region of EA's Amiga
+        // Galactic Agent) only a warning.
+        for (extra, severity) in [(2, Severity::Error), (3, Severity::Warning)] {
+            let mut f = sample(p);
+            let mut img = f.build();
+            let base = f.l.regions;
+            let end = u16::from_le_bytes([img.data[base + 1], img.data[base + 2]]) + extra;
+            img.data[base + 1..base + 3].copy_from_slice(&end.to_le_bytes());
+            let d = decode(&img).unwrap();
+            assert!(
+                d.diagnostics
+                    .iter()
+                    .any(|x| x.kind == DiagnosticKind::BadRoomItems && x.severity == severity),
+                "{p} +{extra}"
+            );
+        }
     }
 }
 

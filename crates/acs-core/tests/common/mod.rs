@@ -60,6 +60,7 @@ impl Fixture {
         let size = match platform {
             Platform::Pc => acs_core::disk::PC_MIN_SIZE,
             Platform::C64 => 174_848,
+            Platform::Amiga => acs_core::disk::AMIGA_FILE_SIZE,
         };
         let mut f = Fixture {
             platform,

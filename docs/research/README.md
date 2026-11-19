@@ -112,9 +112,25 @@ getting the program to the right moment.
    engine never depends on one.
 4. The researcher may read the program disks (`advcnst*.d64`), memory
    dumps and snapshots for the pass the maintainer authorized, in the
-   research folder only. For everyone else the rule in CLAUDE.md stands.
+   research folder only. The same holds for EA's Amiga version, when the
+   pass's brief names it: the program files in
+   `ACSVM-research\corpus\amiga\AdventureConstructionSet\data\`
+   (`ACS.EXE`, `acs.1` to `acs.4`, `c\ACS.dat`), its adventure data files
+   there (`adventure`, `acs.master`) and interface text (`acs.msgs`), the
+   Kickstart ROM (`ACSVM-research\corpus\amiga\kick13.rom`) and any Amiga
+   emulator snapshots. For everyone else the rule in CLAUDE.md stands.
 5. Nothing derived from the program goes into the repository except
-   plain-language rules and the listed addresses.
+   plain-language rules and the listed addresses. Neither version's
+   files, nor the Kickstart ROM, are ever copied into the repository.
+6. **The Amiga version.** Its program is 68000 code, which keeps numbers
+   of more than one byte big-endian, high byte first, where the C64 keeps
+   them low byte first. Its adventure files do not: their records are the
+   PC's bytes, low byte first, and only the palette is big-endian
+   (format-notes.md, Apple II and Amiga). Findings from the Amiga version say which version
+   each finding comes from and where the two versions differ; a rule seen
+   only on the Amiga is not assumed for the C64 until a capture or a C64
+   pass agrees. No Amiga emulator is installed yet, so a finding that
+   would need one says "not run".
 
 ## 5. Briefs
 
@@ -168,8 +184,17 @@ rules from your reports and must never see the original's code.
 
 AUTHORIZATION (from me, the maintainer): for this session only you may run,
 inspect, disassemble and trace EA's C64 program (program disks, memory dumps,
-VICE snapshots), entirely inside D:\Projects\ACSVM-research. The rule against
-decoding the program disks still holds everywhere else.
+VICE snapshots), entirely inside D:\Projects\ACSVM-research. [ONLY WHEN THE
+BRIEF NAMES THE AMIGA VERSION: the same holds for EA's Amiga version: the files
+in D:\Projects\ACSVM-research\corpus\amiga\AdventureConstructionSet\data\
+(program code ACS.EXE, acs.1 to acs.4 and c\ACS.dat; adventure data adventure
+and acs.master; interface text acs.msgs), the Kickstart ROM
+D:\Projects\ACSVM-research\corpus\amiga\kick13.rom and any Amiga emulator
+snapshots. The Amiga program keeps multi-byte numbers big-endian (68000), unlike
+the C64, but its adventure files are the PC's bytes, low byte first, except the
+palette; say which version each finding comes from and where the two differ. No
+Amiga emulator is installed yet. Without such a brief, leave the Amiga files
+alone.] The rule against decoding the program files still holds everywhere else.
 
 READ FIRST (read-only; never edit anything under D:\Projects\ACSVM, never run git there):
 - D:\Projects\ACSVM\docs\research\README.md   the process and its rules
@@ -224,8 +249,10 @@ subagent: its report gives line numbers, never the passage.
 ### 7.2 Standing authorization
 
 Running `/research-queue` is the maintainer's authorization of section 1
-for every queued pass on a topic that already has a brief here, within
-the request's time box. Running `/integrate` authorizes the steps of
+(and section 4 rule 4) for every queued pass on a topic that already has a brief here, within
+the request's time box. That covers a pass whose brief names the Amiga
+version on the same terms as a C64 pass: the Amiga files of section 4
+rule 4, in the research folder only, for that pass only. Running `/integrate` authorizes the steps of
 7.4 for the ledger's topics, local commits of passes that check clean,
 and queuing further passes on those topics. Neither authorizes pushing.
 The maintainer can stop both at once by creating `queue\STOP`.

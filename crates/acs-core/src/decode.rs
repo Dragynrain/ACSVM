@@ -892,7 +892,21 @@ impl Decoder<'_> {
                 items,
             });
         }
-        if cursor != end {
+        if end > cursor && (end - cursor) % 3 == 0 {
+            // The header claims whole item records past the last list: room
+            // the editor left behind (one region of EA's Amiga *Galactic
+            // Agent*, format notes). The lists themselves read cleanly.
+            self.diags.warn(
+                K::BadRoomItems,
+                &loc,
+                format!(
+                    "room item lists end at {:#x}, header says {:#x} ({} unused item records)",
+                    cursor - base,
+                    items_end,
+                    (end - cursor) / 3
+                ),
+            );
+        } else if cursor != end {
             self.diags.error(
                 K::BadRoomItems,
                 &loc,

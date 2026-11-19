@@ -17,21 +17,21 @@ offset, `decode.rs` every field.
 
 The record layouts (messages, creatures, things, header, world map, regions)
 are the same on every platform; only block positions and pictures differ.
-C64 and PC are confirmed against real files; Apple II and Amiga come from
-AcsLib and are untested (see below).
+C64, PC and Amiga are confirmed against real files; Apple II comes from
+AcsLib and is untested (see below).
 
 | | C64 | Apple II | MS-DOS | Amiga |
 | --- | --- | --- | --- | --- |
 | Released | 1984 (one listing: Jan 1985) | 1985 | 1987 | 1986 |
 | Port | Original (Stuart Smith) | ? | Jerry Boutelle (one listing) | Glenn Tenney, Fantasia Systems |
-| Container | Whole `.d64` (174,848 bytes), raw sectors | Whole `.dsk` (143,360 bytes), no directory | `ADVEN.FPY` / `.HRD` file (`ACS.FPY` is 229,376 bytes) | `Adventure` file in an `.adf` |
+| Container | Whole `.d64` (174,848 bytes), raw sectors | Whole `.dsk` (143,360 bytes), no directory | `ADVEN.FPY` / `.HRD` file (`ACS.FPY` is 229,376 bytes) | `adventure` file (164,608 bytes) on the disk; EA's adventures also inside `acs.master` |
 | Pictures | 110 | 110 | **96** | 110 |
 | Picture size | 8 x 16, double-wide pixels | **14 x 16** hi-res | 16 x 16 | 16 x 16 |
 | Bits per pixel | 2 | 1 (artifact colour) | 2 | **5** (bitplanes) |
 | Colours per adventure | 4 of 16; colour 3 only from the first 8 | 4 or 6 artifact colours | 4 of 16 (CGA/EGA values) | **32 of 4,096**, shared by all pictures |
 | Creature-only pictures | 64-109 | probably the same | unknown (96 total) | probably the same |
 | Extras | | | | *Galactic Agent* (Ken St. Andre) |
-| Status here | Decoded, 14 adventures | AcsLib only | Decoded, 1 adventure | AcsLib only |
+| Status here | Decoded, 14 adventures | AcsLib only | Decoded, 1 adventure | Decoded, 2 adventures |
 
 The PC display mode is unconfirmed: a MobyGames caption says CGA, but CGA's
 320 x 200 mode can't show any 4 of 16 colours, so how the PC shows a palette
@@ -130,11 +130,49 @@ half at +0x800, as in AcsLib (the draft lists the columns in the reverse
 order). **PC**: confirmed; all 96 pictures of *Rivers of Light* come out clean
 with the palette at 0x2A802.
 
-## Apple II and Amiga (from AcsLib, unverified)
+## Apple II and Amiga
 
-Neither platform is decoded yet and no Apple II or Amiga file has been tested.
-Everything here is what AcsLib (`GameLoader.cs`) does, restated as facts for
-the port; treat it as a starting point to confirm against real files.
+The Amiga is decoded (`Platform::Amiga`, layout `AMIGA`); the Apple II is
+not yet. The Apple II part is what AcsLib
+(`GameLoader.cs`) does, restated as facts for the port and untested. The
+Amiga part started the same way and was checked on 2026-11-18 against the
+user's own copy of EA's Amiga release (1985, a WHDLoad install; private, see
+`provenance.md`), which holds two adventures in this layout:
+
+- `adventure` (164,608 bytes = 0x28300): *Galactic Agent*. Every block
+  below decodes at the AcsLib base: header, 15 region names, creature
+  classes, thing and creature names, room names, the intro and the first long
+  and short messages all read as text, and the world map tail holds the stock
+  area doors and 0x0832 at 0x80E.
+- `acs.master` (275,512 bytes): *Rivers of Light* at offset 0 in the same
+  layout, followed by more of EA's material (*Aventuria*'s text, builder-set
+  class and terrain names, the tutorial adventures' messages), not yet mapped.
+  Its creature, thing, header, world map, region, short message and long
+  message blocks are **byte for byte identical** to the same blocks of the PC
+  `ACS.FPY`, long messages 250-255 included, and it decodes to the same
+  adventure apart from the platform, palette and pictures (the corpus test
+  `amiga_corpus_decodes_cleanly` checks this).
+
+One region of *Galactic Agent* (the third) has a header whose item-list end
+is 3 bytes past where its 16 lists end: room for one item record the editor
+left behind. The decoder warns about a gap of whole item records and reads
+the lists as they are; any other mismatch is still an error.
+
+**Byte order.** The records are stored exactly as on the PC: names packed
+into little-endian words, region pointers and item list lengths low byte
+first. The 68000's big-endian order shows only in the palette (below), which
+is in the Amiga's own colour-register form. Decoding an Amiga record needs no
+byte swapping.
+
+**No long-message split.** Long messages 1-255 are contiguous from 0x18100:
+messages 250-255 sit at 0x27A00 and the intro (255) at 0x27F00, so the C64's
+track-18 tail does not exist here (`long_messages_tail` = 0x27A00).
+
+**The file's last 0x300 bytes** (0x28000-0x282FF) are the same in both
+adventures and are not used by any decoded field; meaning unknown.
+**0x4500-0x65FF** (between the pictures and the creatures) is unaccounted for
+too: the first 0xA00 bytes are all nonzero, the rest mixed; perhaps more
+picture data (a mask or the thing/creature split), unknown.
 
 **Block bases.** The records (messages, creatures, things, header, world map,
 regions) have the same layout as on the PC; only the bases move. Offsets are
@@ -160,6 +198,8 @@ then long messages and the intro at the end. Whether long messages 250-255
 split off as on the C64 is unknown for both platforms.
 
 **Amiga pictures: 110 pictures, 16 x 16 square pixels, 32 colours.**
+Confirmed: all 110 of *Galactic Agent*'s pictures come out clean with the
+rule below (terrain and things in the first strip, creatures in the second).
 
 - Palette at file offset 0: 32 colours of 2 bytes each in the Amiga `0x0RGB`
   form (byte 0 low nibble = red, byte 1 high nibble = green, low nibble =
@@ -183,11 +223,13 @@ bits 5-7 of 0x22FF8 pick the green/violet or orange/blue pair; otherwise it
 uses all 6. The exact pixel-to-colour rule is in AcsLib's `RenderBytesApple`
 and still needs writing up.
 
-**Effect on the model.** `Picture` stores one hex digit per pixel and
-`PaletteColor.code` indexes a 16-colour master palette. Amiga needs colour
-indices up to 31 and palette entries that are plain RGB with no master code.
-Apple II needs 14-pixel-wide pictures and its artifact-colour rule. Both
-change what the model means, so they need a `MODEL_VERSION` bump.
+**Effect on the model.** Since `MODEL_VERSION` 5 (November 2026, for the
+Amiga) a picture row is one base-32 digit per pixel (`0`-`9`, `a`-`v`, so
+indices up to 31; PC and C64 rows read as before), and an Amiga palette has
+32 entries whose `code` is the colour's own number and whose `name` is its
+RGB as `#rrggbb`, with no master palette behind it. The Apple II still needs
+14-pixel-wide pictures and its artifact-colour rule, which will be another
+bump.
 
 ## Regions
 

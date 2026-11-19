@@ -6,26 +6,30 @@
 
 //! Pictures and palettes.
 //!
-//! A picture is stored as 2-bit colour indices into the adventure's 4-colour
-//! palette. PC pictures are 16x16 square pixels. C64 pictures are 8x16
+//! A picture is stored as colour indices into the adventure's palette: 2-bit
+//! indices into 4 colours on the PC and C64, 5-bit into 32 on the Amiga.
+//! PC and Amiga pictures are 16x16 square pixels. C64 pictures are 8x16
 //! multicolor pixels, each twice as wide as it is tall, so they cover the same
 //! screen area; `pixel_aspect` records that.
 
 use crate::bits::Bytes;
 use crate::error::{DiagnosticKind, Diagnostics, Result};
-use crate::layout::{Layout, PictureFormat};
+use crate::layout::{self, Layout, PictureFormat};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// One of the 4 colours an adventure uses.
+/// One of the colours an adventure uses.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PaletteColor {
-    /// Index into the platform's 16-colour master palette.
+    /// PC and C64: index into the platform's 16-colour master palette.
+    /// Amiga: the colour's own number, 0..31 (there is no master palette;
+    /// `name` is then its RGB as `#rrggbb`).
     pub code: u8,
     pub name: String,
     pub rgb: [u8; 3],
 }
 
-/// The adventure's 4-colour palette, indexed by a pixel's 2-bit value.
+/// The adventure's palette, indexed by a pixel's value: 4 colours on the PC
+/// and C64, 32 on the Amiga.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Palette {
     pub colors: Vec<PaletteColor>,
@@ -129,14 +133,16 @@ impl MasterPalette {
     }
 }
 
-/// A decoded picture: `width * height` colour indices (0..=3), row-major.
+/// A decoded picture: `width * height` colour indices (0..=3, Amiga 0..=31),
+/// row-major.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Picture {
     pub width: u8,
     pub height: u8,
     /// Horizontal stretch of each pixel when displayed (C64 = 2).
     pub pixel_aspect: u8,
-    /// One string per row, one hex digit (0..3) per pixel.
+    /// One string per row, one base-32 digit per pixel (`0`-`9`, `a`-`v`;
+    /// PC and C64 pictures use only `0`-`3`).
     #[serde(serialize_with = "ser_rows", deserialize_with = "de_rows", rename = "rows")]
     pub pixels: Vec<u8>,
 }
@@ -157,7 +163,10 @@ impl Picture {
         let mut out = Vec::with_capacity((w * h * 4) as usize);
         for y in 0..self.height as usize {
             for x in 0..self.width as usize {
-                let rgb = palette.colors[self.pixel(x, y) as usize & 3].rgb;
+                let rgb = palette
+                    .colors
+                    .get(self.pixel(x, y) as usize)
+                    .map_or([0, 0, 0], |c| c.rgb);
                 for _ in 0..self.pixel_aspect {
                     out.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 0xFF]);
                 }
@@ -178,7 +187,11 @@ fn ser_rows<S: Serializer>(pixels: &[u8], s: S) -> std::result::Result<S::Ok, S:
     let w = pixels.len() / 16;
     let rows: Vec<String> = pixels
         .chunks(w.max(1))
-        .map(|r| r.iter().map(|&p| char::from(b'0' + p)).collect())
+        .map(|r| {
+            r.iter()
+                .map(|&p| char::from_digit(u32::from(p), 32).unwrap_or('?'))
+                .collect()
+        })
         .collect();
     rows.serialize(s)
 }
@@ -189,7 +202,7 @@ fn de_rows<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::E
     for r in rows {
         for c in r.chars() {
             let v = c
-                .to_digit(4)
+                .to_digit(32)
                 .ok_or_else(|| serde::de::Error::custom(format!("bad pixel {c:?}")))?;
             out.push(v as u8);
         }
@@ -201,8 +214,12 @@ pub const PICTURE_HEIGHT: usize = 16;
 
 /// Reads the adventure palette.
 pub fn decode_palette(bytes: &Bytes, layout: &Layout, diags: &mut Diagnostics) -> Result<Palette> {
+    if layout.picture_format == PictureFormat::AmigaPlanar {
+        return decode_amiga_palette(bytes, layout);
+    }
     let raw = bytes.block(layout.palette, 4, "palette")?;
     let colors = match layout.picture_format {
+        PictureFormat::AmigaPlanar => unreachable!(),
         PictureFormat::Pc => raw.iter().map(|&b| PC_MASTER.color(b & 0x0F)).collect(),
         PictureFormat::C64Multicolor => {
             // Bit pairs 00, 01, 10 come from the three shared background
@@ -230,6 +247,25 @@ pub fn decode_palette(bytes: &Bytes, layout: &Layout, diags: &mut Diagnostics) -
     Ok(Palette { colors })
 }
 
+/// The Amiga's 32 colours, each a big-endian `0x0RGB` word (the colour
+/// registers' form): 4 bits per channel, scaled to 8 bits as `n * 0x11`.
+fn decode_amiga_palette(bytes: &Bytes, layout: &Layout) -> Result<Palette> {
+    let raw = bytes.block(layout.palette, layout::AMIGA_COLOURS * 2, "palette")?;
+    let colors = raw
+        .chunks_exact(2)
+        .enumerate()
+        .map(|(i, w)| {
+            let rgb = [(w[0] & 0x0F) * 0x11, (w[1] >> 4) * 0x11, (w[1] & 0x0F) * 0x11];
+            PaletteColor {
+                code: i as u8,
+                name: format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]),
+                rgb,
+            }
+        })
+        .collect();
+    Ok(Palette { colors })
+}
+
 /// Decodes every picture.
 pub fn decode_pictures(bytes: &Bytes, layout: &Layout) -> Result<Vec<Picture>> {
     (0..layout.picture_count)
@@ -243,12 +279,16 @@ pub fn decode_pictures(bytes: &Bytes, layout: &Layout) -> Result<Vec<Picture>> {
 /// column pair, 8 rows each) at `base + n * 16`, with the bottom 8 rows a
 /// further 0x800 bytes on. Each byte holds 4 pixels, most significant pair first.
 pub fn decode_picture(bytes: &Bytes, layout: &Layout, n: usize) -> Result<Picture> {
+    if layout.picture_format == PictureFormat::AmigaPlanar {
+        return decode_amiga_picture(bytes, layout, n);
+    }
     let base = layout.pictures + n * 16;
     let (width, aspect, columns): (usize, u8, &[usize]) = match layout.picture_format {
         // PC: columns of 4 pixels at +0, +0x2400, +8, +0x2408.
         PictureFormat::Pc => (16, 1, &[0x0000, 0x2400, 0x0008, 0x2408]),
         // C64: two 8x8 multicolor characters side by side (+0 and +8).
         PictureFormat::C64Multicolor => (8, 2, &[0x0000, 0x0008]),
+        PictureFormat::AmigaPlanar => unreachable!(),
     };
     let mut pixels = vec![0u8; width * PICTURE_HEIGHT];
     for half in 0..2 {
@@ -270,10 +310,40 @@ pub fn decode_picture(bytes: &Bytes, layout: &Layout, n: usize) -> Result<Pictur
     })
 }
 
+/// Decodes Amiga picture `n`: plane `j` gives bit `j` of each pixel; each
+/// row is a big-endian 16-bit word, leftmost pixel in the top bit. Pictures
+/// 0..55 are the first strip of each plane, 55..110 the second.
+fn decode_amiga_picture(bytes: &Bytes, layout: &Layout, n: usize) -> Result<Picture> {
+    use layout::{AMIGA_PLANES, AMIGA_PLANE_STRIDE, AMIGA_ROW, AMIGA_STRIP, AMIGA_STRIP2};
+    let strip = if n < AMIGA_STRIP {
+        n * 2
+    } else {
+        AMIGA_STRIP2 + (n - AMIGA_STRIP) * 2
+    };
+    let mut pixels = vec![0u8; 16 * PICTURE_HEIGHT];
+    for plane in 0..AMIGA_PLANES {
+        for y in 0..PICTURE_HEIGHT {
+            let at = layout.pictures + plane * AMIGA_PLANE_STRIDE + strip + y * AMIGA_ROW;
+            let w = u16::from_be_bytes([bytes.u8(at, "picture")?, bytes.u8(at + 1, "picture")?]);
+            for x in 0..16 {
+                if (w >> (15 - x)) & 1 == 1 {
+                    pixels[y * 16 + x] |= 1 << plane;
+                }
+            }
+        }
+    }
+    Ok(Picture {
+        width: 16,
+        height: PICTURE_HEIGHT as u8,
+        pixel_aspect: 1,
+        pixels,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::{C64, PC};
+    use crate::layout::{AMIGA, C64, PC};
 
     #[test]
     fn pc_picture_bank_order() {
@@ -320,6 +390,50 @@ mod tests {
         assert_eq!(codes, [0, 6, 2, 3]);
         assert_eq!(pal.colors[3].name, "cyan");
         assert!(d.0.is_empty());
+    }
+
+    #[test]
+    fn amiga_picture_planes_and_strips() {
+        let mut img = vec![0u8; 0x28300];
+        // Picture 1 (first strip), row 0: plane 0 sets x 0, plane 4 sets x 0 and x 15.
+        img[AMIGA.pictures + 2] = 0x80;
+        img[AMIGA.pictures + 4 * 0xDC0 + 2] = 0x80;
+        img[AMIGA.pictures + 4 * 0xDC0 + 3] = 0x01;
+        // Picture 56 (second strip, second picture), row 15: plane 1 sets x 8.
+        img[AMIGA.pictures + 0xDC0 + 0x6E0 + 2 + 15 * 110 + 1] = 0x80;
+        let b = Bytes::new(&img);
+        let p1 = decode_picture(&b, &AMIGA, 1).unwrap();
+        assert_eq!((p1.width, p1.height, p1.pixel_aspect), (16, 16, 1));
+        assert_eq!((p1.pixel(0, 0), p1.pixel(15, 0), p1.pixel(1, 0)), (17, 16, 0));
+        let p56 = decode_picture(&b, &AMIGA, 56).unwrap();
+        assert_eq!((p56.pixel(8, 15), p56.pixel(7, 15)), (2, 0));
+        assert!(decode_picture(&b, &AMIGA, 0).unwrap().is_blank());
+    }
+
+    #[test]
+    fn amiga_palette_is_0rgb_words() {
+        let mut img = vec![0u8; 0x28300];
+        img[0..4].copy_from_slice(&[0x0F, 0x80, 0x01, 0x2F]);
+        let pal = decode_palette(&Bytes::new(&img), &AMIGA, &mut Diagnostics::default()).unwrap();
+        assert_eq!(pal.colors.len(), 32);
+        assert_eq!(pal.colors[0].rgb, [0xFF, 0x88, 0x00]);
+        assert_eq!(pal.colors[1].rgb, [0x11, 0x22, 0xFF]);
+        assert_eq!((pal.colors[1].code, pal.colors[1].name.as_str()), (1, "#1122ff"));
+    }
+
+    #[test]
+    fn picture_json_rows_base32() {
+        let pic = Picture {
+            width: 16,
+            height: 16,
+            pixel_aspect: 1,
+            pixels: (0..256).map(|i| (i % 32) as u8).collect(),
+        };
+        let json = serde_json::to_string(&pic).unwrap();
+        assert!(json.contains("\"0123456789abcdef\""));
+        assert!(json.contains("\"ghijklmnopqrstuv\""));
+        let back: Picture = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, pic);
     }
 
     #[test]

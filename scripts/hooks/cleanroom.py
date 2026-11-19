@@ -6,7 +6,10 @@ clean room. One mode per role, given as the first argument:
 
   implementer  every session in the repo: never touch research/*/notes/
                (no reads, no recursive search or listing that would reach
-               them), never touch EA's program disks (advcnst*).
+               them), never touch EA's program disks (advcnst*), the
+               Amiga version's program files (ACS.EXE, acs.1 to acs.4,
+               ACS.dat) or the Kickstart ROM, and no wildcard or recursive
+               search that would reach them under corpus/amiga/.
   spec-only    the engine implementer: as implementer, and nothing under
                ACSVM-research/research/ at all (no findings, no inputs) and
                no research briefs: it implements from docs/rules/ only.
@@ -92,6 +95,27 @@ def notes_risk(p: str, recursive: bool) -> str | None:
     return None
 
 
+AMIGA = RESEARCH + "/corpus/amiga"
+# EA's Amiga program files and the Kickstart ROM, by file name.
+AMIGA_PROGRAM = re.compile(r"^(acs\.exe|acs\.[1-4]|acs\.dat|kick[^/]*\.rom)$")
+AMIGA_WHY = "EA's Amiga program files and the Kickstart ROM are for researcher sessions only"
+
+
+def amiga_risk(p: str, recursive: bool, shell: bool = False) -> str | None:
+    """Why p could reach the Amiga program files or the Kickstart ROM. In a
+    shell command a recursive flag may belong to another part of a pipe
+    (`sort -rn`), so there only paths inside corpus/amiga/ count."""
+    seg = p.rsplit("/", 1)[-1]
+    if AMIGA_PROGRAM.match(seg):
+        return AMIGA_WHY
+    rel = under(p, AMIGA)
+    if rel is not None and (recursive or any(ch in seg for ch in "*?[")):
+        return AMIGA_WHY
+    if recursive and not shell and p == RESEARCH + "/corpus":
+        return AMIGA_WHY
+    return None
+
+
 def words(cmd: str) -> list[str]:
     try:
         toks = shlex.split(cmd, posix=False)
@@ -138,9 +162,11 @@ def check(mode: str, data: dict) -> str | None:
         if mode in ("implementer", "spec-only"):
             if "advcnst" in low:
                 return "EA's program disks (advcnst*) are for researcher sessions only"
+            if any(AMIGA_PROGRAM.match(t.lower().replace("\\", "/").rsplit("/", 1)[-1]) for t in toks):
+                return AMIGA_WHY
             names_research = "acsvm-research" in low or under(norm(".", cwd), RESEARCH) is not None
             for p in paths:
-                why = notes_risk(p, recursive)
+                why = notes_risk(p, recursive) or amiga_risk(p, recursive, shell=True)
                 if why:
                     return why
             if names_research and any(matches_notes(seg) for t in toks for seg in t.replace("\\", "/").split("/") if seg):
@@ -161,7 +187,7 @@ def check(mode: str, data: dict) -> str | None:
         if mode in ("implementer", "spec-only"):
             if "advcnst" in p:
                 return "EA's program disks (advcnst*) are for researcher sessions only"
-            why = notes_risk(p, recursive)
+            why = notes_risk(p, recursive) or amiga_risk(p, recursive)
             if why:
                 return why
             if mode == "spec-only":

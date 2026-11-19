@@ -1,14 +1,14 @@
 # duel seed 7 (crates/acs-engine/tests/golden/traces.rs)
-start 2c75db71b04b34a1
+start dd0bb122be3bb158
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":12},"to":{"on":"world","x":12,"y":13}}
-state 4a57ce417ca46300
+state 3f9ed4c98024aae1
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":13},"to":{"on":"world","x":12,"y":14}}
-state 0d9f2d496c6084b6
+state 45900c8478a335a3
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"world","x":12,"y":14},"to":{"on":"world","x":12,"y":15}}
-state 934395263f890d08
+state ee6ac7d75870ee13
 > {"command":"move","dir":"s"}
   {"event":"took_door","player":0,"from":{"on":"world","x":12,"y":15},"to":{"on":"room","region":1,"room":0,"x":4,"y":4}}
   {"event":"entered_region","player":0,"region":1}
@@ -16,10 +16,10 @@ state 934395263f890d08
   {"event":"turn_ended","player":0}
   {"event":"saved","round":1,"visit":1}
   {"event":"turn_started","player":0,"moves":2}
-state d8cf0257491dfbd7
+state 4d20c4a625a78448
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":4,"y":4},"to":{"on":"room","region":1,"room":0,"x":4,"y":5}}
-state 51a28bc163d82f6d
+state 4a527309fbc55664
 > {"command":"move","dir":"s"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":4,"y":5},"to":{"on":"room","region":1,"room":0,"x":4,"y":6}}
   {"event":"turn_ended","player":0}
@@ -38,10 +38,10 @@ state 51a28bc163d82f6d
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"power","from":39,"to":29}
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"life_force","from":20,"to":17}
   {"event":"turn_started","player":0,"moves":6}
-state 10268dee687dea05
+state a1e0ea960c3a4a92
 > {"command":"move","dir":"e"}
   {"event":"picked_up","player":0,"thing":1}
-state 9317684969e22645
+state 20cbf06778c004e2
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":3}
@@ -61,7 +61,7 @@ state 9317684969e22645
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":2},"stat":"missile","from":2,"to":3}
   {"event":"dodged","by":{"who":"creature","region":1,"slot":2},"who":{"who":"player","player":0},"chance":32}
   {"event":"turn_started","player":0,"moves":6}
-state b5ea0e0f9411f501
+state 483901de7ec2357e
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":3}
@@ -77,16 +77,16 @@ state b5ea0e0f9411f501
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"dodge","from":0,"to":1}
   {"event":"shot","by":{"who":"creature","region":1,"slot":2},"spread":67,"deviation":64,"side":true}
   {"event":"turn_started","player":0,"moves":6}
-state ba5e5723fdcb870f
+state 26c98a2f23bdfb52
 > {"command":"move","dir":"e"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":4,"y":6},"to":{"on":"room","region":1,"room":0,"x":5,"y":6}}
-state 65b31e5f27c96e3f
+state b01aca05f00d45fc
 > {"command":"move","dir":"e"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":5,"y":6},"to":{"on":"room","region":1,"room":0,"x":6,"y":6}}
-state b8ca51be4496957f
+state d8e19a4cc82212fa
 > {"command":"move","dir":"e"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":6,"y":6},"to":{"on":"room","region":1,"room":0,"x":7,"y":6}}
-state 1cf88b4414516b3f
+state 8315526c8b9ba0f4
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":3}
@@ -100,7 +100,7 @@ state 1cf88b4414516b3f
   {"event":"shot","by":{"who":"creature","region":1,"slot":2},"spread":72,"deviation":16,"side":true}
   {"event":"shot","by":{"who":"creature","region":1,"slot":2},"spread":67,"deviation":23,"side":true}
   {"event":"turn_started","player":0,"moves":3,"hindered":true}
-state 64fa5fd02e2de2fc
+state 831e8fcd903761ad
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":2}
@@ -125,7 +125,7 @@ state 64fa5fd02e2de2fc
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"power","from":17,"to":9}
   {"event":"stat_changed","who":{"who":"creature","region":1,"slot":1},"stat":"life_force","from":15,"to":11}
   {"event":"turn_started","player":0,"moves":3,"hindered":true}
-state 9ed118c0922c881d
+state b5813dcfbd4fbbbe
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":2}
@@ -147,7 +147,7 @@ state 9ed118c0922c881d
   {"event":"stat_changed","who":{"who":"player","player":0},"stat":"power","from":4,"to":0}
   {"event":"stat_changed","who":{"who":"player","player":0},"stat":"life_force","from":18,"to":7}
   {"event":"turn_started","player":0,"moves":3,"hindered":true}
-state 959d55c246c4e81b
+state ab8dfdde764497de
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":2}
@@ -162,7 +162,7 @@ state 959d55c246c4e81b
   {"event":"shot","by":{"who":"creature","region":1,"slot":2},"spread":69,"deviation":13,"side":true}
   {"event":"shot","by":{"who":"creature","region":1,"slot":2},"spread":64,"deviation":14,"side":true}
   {"event":"turn_started","player":0,"moves":3,"hindered":true}
-state bd609bab82dbd455
+state 73b3ef48b90c3942
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":2}
@@ -181,14 +181,14 @@ state bd609bab82dbd455
   {"event":"died","who":{"who":"player","player":0},"at":{"on":"room","region":1,"room":0,"x":7,"y":6},"left":[[1,1],[3,1]]}
   {"event":"living_changed","before":1,"after":0}
   {"event":"all_players_dead"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8
 > {"command":"wait"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8
 > {"command":"wait"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8
 > {"command":"wait"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8
 > {"command":"wait"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8
 > {"command":"wait"}
-state 4139722ae1bc18a9
+state 3c4e9be61409eed8

@@ -1,5 +1,5 @@
 # magic seed 11 (crates/acs-engine/tests/golden/traces.rs)
-start 3047240ddfa38416
+start 72ae54447f579f09
 > {"command":"cast","thing":34,"target":null}
   {"event":"spell_cast","by":{"who":"player","player":0},"thing":34,"target":{"who":"player","player":0},"chance":90,"cost":5,"success":true}
   {"event":"spell_triggered","by":{"who":"player","player":0},"target":{"who":"player","player":0},"source":"cast","thing":34,"action":{"kind":"change_life_force","parameter":4}}
@@ -7,7 +7,7 @@ start 3047240ddfa38416
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 365bf2eb9901d32d
+state 3c495976d1e06d70
 > {"command":"cast","thing":33,"target":{"who":"creature","region":1,"slot":1}}
   {"event":"spell_cast","by":{"who":"player","player":0},"thing":33,"target":{"who":"creature","region":1,"slot":1},"chance":90,"cost":10,"success":true}
   {"event":"spell_triggered","by":{"who":"player","player":0},"target":{"who":"creature","region":1,"slot":1},"source":"cast","thing":33,"action":{"kind":"change_life_force","parameter":134}}
@@ -15,82 +15,82 @@ state 365bf2eb9901d32d
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 8af0b45c7a565ee6
+state 12dbc88b3df9e245
 > {"command":"move","dir":"n"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":7,"y":4},"to":{"on":"room","region":1,"room":0,"x":7,"y":3}}
-state 431a7fda62304751
+state c6c89c456cb7171c
 > {"command":"move","dir":"n"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":7,"y":3},"to":{"on":"room","region":1,"room":0,"x":7,"y":2}}
-state c7b687625e268998
+state 53ad0dd78eabdd6f
 > {"command":"move","dir":"n"}
   {"event":"moved","player":0,"from":{"on":"room","region":1,"room":0,"x":7,"y":2},"to":{"on":"room","region":1,"room":0,"x":7,"y":1}}
-state 4b63b5a76fea7ec3
+state ecb60b1200deb61e
 > {"command":"move","dir":"n"}
   {"event":"took_door","player":0,"from":{"on":"room","region":1,"room":0,"x":7,"y":1},"to":{"on":"room","region":1,"room":1,"x":1,"y":4},"thing":82}
   {"event":"entered_room","player":0,"region":1,"room":1}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":2}
-state 9918e99c7b3d9922
+state 7faad61f113a5c39
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"turn_started","player":0,"moves":6}
-state 01d393c122bdb908
+state c0ebee0556e457af
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"turn_started","player":0,"moves":6}
-state 39099e3f9c84b8f8
+state 7149fcd569f59d71
 > {"command":"move","dir":"w"}
   {"event":"took_door","player":0,"from":{"on":"room","region":1,"room":1,"x":1,"y":4},"to":{"on":"room","region":1,"room":0,"x":7,"y":1},"thing":82}
   {"event":"entered_room","player":0,"region":1,"room":0}
   {"event":"turn_ended","player":0}
   {"event":"turn_started","player":0,"moves":5}
-state bb32d8ea4942c6e9
+state 1f784239b09def94
 > {"command":"idle"}
-state 5400d51ccd7fc9e7
+state d9015e10f095983c
 > {"command":"idle"}
-state 9c14f37ff25f1897
+state 938ec4cfd0b9767c
 > {"command":"idle"}
-state 6658c7d5e57eb9f6
+state cfd66a8e96c1b739
 > {"command":"idle"}
-state a8b776dbb91e30b3
-> {"command":"idle"}
-  {"event":"turn_ended","player":0}
-  {"event":"creature_turn","region":1,"slot":1,"moves":0}
-  {"event":"turn_started","player":0,"moves":6}
-state 7086e86244ac8595
-> {"command":"idle"}
-state fc21de653433f056
-> {"command":"idle"}
-state e8daeec9afb26570
-> {"command":"idle"}
-state 7d30f695b87e9c1b
-> {"command":"idle"}
-state 87da55e8e6897e82
-> {"command":"idle"}
-state 4eb7c2b8668dedd0
+state ad7699650ccccef8
 > {"command":"idle"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 897b802b7386715c
+state fd2cf2fe3e82a780
 > {"command":"idle"}
-state 885e59c96e600175
+state 7a1d8c18e09a7873
 > {"command":"idle"}
-state fa4561ae790b8f04
+state de4a44cb0cd2df13
 > {"command":"idle"}
-state c330df7e1af33b62
+state 2a6f80ee33312a9c
 > {"command":"idle"}
-state 2acbf63cbb9b990c
+state eb7071437e564f7d
 > {"command":"idle"}
-state 8f30c2cd3a1e8368
+state a66851f5fa8bbfc3
 > {"command":"idle"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state b3f8140228039e16
+state 5eda7b1f6f0fe6a9
 > {"command":"idle"}
-state 2d692a396d24cc19
+state d32bf0629de99576
+> {"command":"idle"}
+state 67c102f58fdfbed3
+> {"command":"idle"}
+state c548b83c867b5f21
+> {"command":"idle"}
+state 3ab940333f3a3f5f
+> {"command":"idle"}
+state 4569471d9dcdc667
+> {"command":"idle"}
+  {"event":"turn_ended","player":0}
+  {"event":"creature_turn","region":1,"slot":1,"moves":0}
+  {"event":"turn_started","player":0,"moves":6}
+state b1f2afd2c79bf0d5
+> {"command":"idle"}
+state eb76210d43201da0
 > {"command":"cast","thing":33,"target":{"who":"creature","region":1,"slot":1}}
   {"event":"spell_cast","by":{"who":"player","player":0},"thing":33,"target":{"who":"creature","region":1,"slot":1},"chance":90,"cost":10,"success":true}
   {"event":"spell_triggered","by":{"who":"player","player":0},"target":{"who":"creature","region":1,"slot":1},"source":"cast","thing":33,"action":{"kind":"change_life_force","parameter":134}}
@@ -98,34 +98,34 @@ state 2d692a396d24cc19
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 0ce76dab07217beb
+state 5f86669a36286196
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state defc8ac54761aedd
+state 0e6dba628a5b3e76
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state e77f534f1c7f9716
+state bf9044df89eb7eaf
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 25804516913d4880
+state 724a2033922b050d
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 14f0ec99bced697a
+state 5acacbc5aecf1dc5
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state b3eaf8c5346486e0
+state 5b9a71410b6da681
 > {"command":"wait"}
   {"event":"turn_ended","player":0}
   {"event":"creature_turn","region":1,"slot":1,"moves":0}
   {"event":"turn_started","player":0,"moves":6}
-state 9bf2385291277fac
+state 94aeb915d513d293

@@ -31,6 +31,7 @@ struct Cli {
 enum PlatformArg {
     Pc,
     C64,
+    Amiga,
 }
 
 #[derive(Subcommand)]
@@ -140,6 +141,7 @@ fn load(file: &Path, platform: Option<PlatformArg>) -> AnyResult<Decoded> {
     let platform = platform.map(|p| match p {
         PlatformArg::Pc => Platform::Pc,
         PlatformArg::C64 => Platform::C64,
+        PlatformArg::Amiga => Platform::Amiga,
     });
     let image = Image::open(file, platform)?;
     let decoded = decode(&image)?;

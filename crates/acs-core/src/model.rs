@@ -16,7 +16,7 @@ use crate::limits::{Limits, Profile};
 use serde::{Deserialize, Serialize};
 
 /// Version of the JSON model. Bump when a field changes meaning.
-pub const MODEL_VERSION: u32 = 4;
+pub const MODEL_VERSION: u32 = 5;
 
 /// A thing number. `u16` so Extended adventures can pass 255.
 pub type ThingId = u16;
@@ -45,7 +45,7 @@ pub struct Adventure {
     /// The adventure's genre theme; it picks the "endless" background music.
     pub theme: Theme,
     pub palette: Palette,
-    /// Picture 0..N. PC has 96, C64 110 (the last 46 for creatures only).
+    /// Picture 0..N. PC has 96, C64 and Amiga 110 (the last 46 for creatures only).
     pub pictures: Vec<Picture>,
     /// The master thing list: 128 entries, `number` 1..=128.
     pub things: Vec<Thing>,

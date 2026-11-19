@@ -3,7 +3,11 @@
     "deny": [
       "Read(//d/Projects/ACSVM-research/research/*/notes/**)",
       "Edit(//d/Projects/ACSVM-research/research/*/notes/**)",
-      "Read(//d/Projects/ACSVM-research/corpus/**/advcnst*)"
+      "Read(//d/Projects/ACSVM-research/corpus/**/advcnst*)",
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/ACS.EXE)",
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/acs.[1-4])",
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/ACS.dat)",
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/*.rom)"
     ]
   },
   "hooks": {
