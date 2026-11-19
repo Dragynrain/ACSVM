@@ -117,8 +117,9 @@ getting the program to the right moment.
    `ACSVM-research\corpus\amiga\AdventureConstructionSet\data\`
    (`ACS.EXE`, `acs.1` to `acs.4`, `c\ACS.dat`), its adventure data files
    there (`adventure`, `acs.master`) and interface text (`acs.msgs`), the
-   Kickstart ROM (`ACSVM-research\corpus\amiga\kick13.rom`) and any Amiga
-   emulator snapshots. For everyone else the rule in CLAUDE.md stands.
+   Kickstart ROM (`ACSVM-research\corpus\amiga\kick13.rom`), EA's two
+   release disks (`AdventureConstructionSet_A.adf` and `_B.adf` in
+   `corpus\amiga\`) and any Amiga emulator snapshots. For everyone else the rule in CLAUDE.md stands.
 5. Nothing derived from the program goes into the repository except
    plain-language rules and the listed addresses. Neither version's
    files, nor the Kickstart ROM, are ever copied into the repository.
@@ -188,7 +189,8 @@ VICE snapshots), entirely inside D:\Projects\ACSVM-research. [ONLY WHEN THE
 BRIEF NAMES THE AMIGA VERSION: the same holds for EA's Amiga version: the files
 in D:\Projects\ACSVM-research\corpus\amiga\AdventureConstructionSet\data\
 (program code ACS.EXE, acs.1 to acs.4 and c\ACS.dat; adventure data adventure
-and acs.master; interface text acs.msgs), the Kickstart ROM
+and acs.master; interface text acs.msgs), EA's release disks AdventureConstructionSet_A.adf
+and _B.adf beside them in corpus\amiga\, the Kickstart ROM
 D:\Projects\ACSVM-research\corpus\amiga\kick13.rom and any Amiga emulator
 snapshots. The Amiga program keeps multi-byte numbers big-endian (68000), unlike
 the C64, but its adventure files are the PC's bytes, low byte first, except the

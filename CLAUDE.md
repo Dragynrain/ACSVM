@@ -35,8 +35,10 @@ the Amiga program files and Kickstart ROM;
   for analysis. The same goes for EA's Amiga version in
   `ACSVM-research\corpus\amiga\`: the program files in
   `AdventureConstructionSet\data\` (`ACS.EXE`, `acs.1` to `acs.4`,
-  `c\ACS.dat`, with `adventure`, `acs.master` and `acs.msgs` beside them)
-  and the Kickstart ROM `kick13.rom` (copyrighted, never commit). Only a
+  `c\ACS.dat`, with `adventure`, `acs.master` and `acs.msgs` beside them),
+  EA's two release disks that hold them (`AdventureConstructionSet_A.adf`
+  and `_B.adf`) and the Kickstart ROM `kick13.rom` (copyrighted, never
+  commit). Adventure disks of others go in `corpus\amiga\adventures\`. Only a
   researcher session (a separate one, started in the research folder by
   the maintainer) may; sessions here are implementers.
 - **Clean room** (`docs/research/README.md`): never open, list or search

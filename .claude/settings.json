@@ -7,7 +7,8 @@
       "Read(//d/Projects/ACSVM-research/corpus/amiga/**/ACS.EXE)",
       "Read(//d/Projects/ACSVM-research/corpus/amiga/**/acs.[1-4])",
       "Read(//d/Projects/ACSVM-research/corpus/amiga/**/ACS.dat)",
-      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/*.rom)"
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/*.rom)",
+      "Read(//d/Projects/ACSVM-research/corpus/amiga/**/AdventureConstructionSet*.adf)"
     ]
   },
   "hooks": {

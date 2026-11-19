@@ -39,7 +39,8 @@ Amiga ACS is in `D:\Projects\ACSVM-research\corpus\amiga\AdventureConstructionSe
 a WHDLoad install with the protection removed. `adventure` and
 `acs.master` are adventure data files; `acs.msgs` is the interface
 text; `ACS.EXE`, `acs.1` to `acs.4` and `c\ACS.dat` (looks encrypted)
-are program code. The same rules as the C64 disks apply: inside this
+are program code. EA's two release disks, which hold the same files, are
+`AdventureConstructionSet_A.adf` and `_B.adf` in `corpus\amiga\`. The same rules as the C64 disks apply: inside this
 folder only, on copies, findings in plain language. The program is
 68000 code (big-endian, unlike the C64), but the adventure files are
 the PC's bytes, low byte first, except the palette (format-notes.md). Compare against the C64 version and

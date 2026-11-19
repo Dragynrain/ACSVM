@@ -8,7 +8,8 @@ clean room. One mode per role, given as the first argument:
                (no reads, no recursive search or listing that would reach
                them), never touch EA's program disks (advcnst*), the
                Amiga version's program files (ACS.EXE, acs.1 to acs.4,
-               ACS.dat) or the Kickstart ROM, and no wildcard or recursive
+               ACS.dat), its disk images (AdventureConstructionSet_*.adf)
+               or the Kickstart ROM, and no wildcard or recursive
                search that would reach them under corpus/amiga/.
   spec-only    the engine implementer: as implementer, and nothing under
                ACSVM-research/research/ at all (no findings, no inputs) and
@@ -96,9 +97,12 @@ def notes_risk(p: str, recursive: bool) -> str | None:
 
 
 AMIGA = RESEARCH + "/corpus/amiga"
-# EA's Amiga program files and the Kickstart ROM, by file name.
-AMIGA_PROGRAM = re.compile(r"^(acs\.exe|acs\.[1-4]|acs\.dat|kick[^/]*\.rom)$")
-AMIGA_WHY = "EA's Amiga program files and the Kickstart ROM are for researcher sessions only"
+# EA's Amiga program files, its release disks (which hold them) and the
+# Kickstart ROM, by file name.
+AMIGA_PROGRAM = re.compile(
+    r"^(acs\.exe|acs\.[1-4]|acs\.dat|kick[^/]*\.rom|adventureconstructionset[^/]*\.adf)$"
+)
+AMIGA_WHY = "EA's Amiga program files, its disks and the Kickstart ROM are for researcher sessions only"
 
 
 def amiga_risk(p: str, recursive: bool, shell: bool = False) -> str | None:
