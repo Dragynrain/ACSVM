@@ -38,7 +38,8 @@ enum PlatformArg {
 enum Command {
     /// Print a summary of an adventure and write it as JSON.
     Dump {
-        /// Adventure file: .d64 (C64), ADVEN.FPY / ADVEN.HRD (PC) or an .advx bundle.
+        /// Adventure file: .d64 (C64), ADVEN.FPY / ADVEN.HRD (PC), `adventure`
+        /// or an .adf disk (Amiga), or an .advx bundle.
         file: PathBuf,
         /// JSON output path (default: <file stem>.acs.json next to the input; "-" for stdout).
         #[arg(short, long)]
@@ -88,6 +89,15 @@ enum Command {
         /// The bundle to write.
         #[arg(short, long)]
         output: PathBuf,
+    },
+    /// Copy the adventure file off an Amiga .adf disk, checking it decodes.
+    Extract {
+        /// The .adf disk image.
+        disk: PathBuf,
+        /// Where to write it (default: `adventure` in a folder named after
+        /// the disk, next to it, where the corpus tests find it).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Play an adventure with a scripted walkthrough (docs/play.md).
     Play {
@@ -149,6 +159,20 @@ fn load(file: &Path, platform: Option<PlatformArg>) -> AnyResult<Decoded> {
         eprintln!("{d}");
     }
     Ok(decoded)
+}
+
+/// The adventure file on an Amiga disk image, and what it decodes to: a
+/// file that doesn't decode is refused rather than written.
+fn extract(disk: &[u8]) -> AnyResult<(Vec<u8>, Adventure)> {
+    if !acs_core::adf::is_adf(disk) {
+        return Err("not an Amiga .adf disk image".into());
+    }
+    let bytes = acs_core::adf::adventure(disk)?;
+    let decoded = decode(&Image::from_bytes(Platform::Amiga, bytes.clone())?)?;
+    if let Some(e) = decoded.errors().next() {
+        return Err(format!("the adventure on this disk doesn't decode cleanly: {e}").into());
+    }
+    Ok((bytes, decoded.adventure))
 }
 
 fn run(cli: Cli) -> AnyResult<ExitCode> {
@@ -223,6 +247,24 @@ fn run(cli: Cli) -> AnyResult<ExitCode> {
             acs_bundle::read(&bytes)?;
             std::fs::write(&output, bytes)?;
             eprintln!("wrote {}", output.display());
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Extract { disk, output } => {
+            let (bytes, adventure) = extract(&std::fs::read(&disk)?)?;
+            let out = output.unwrap_or_else(|| {
+                let stem = disk.file_stem().unwrap_or_default().to_string_lossy();
+                disk.with_file_name(stem.as_ref()).join("adventure")
+            });
+            if let Some(dir) = out.parent().filter(|d| !d.as_os_str().is_empty()) {
+                std::fs::create_dir_all(dir)?;
+            }
+            std::fs::write(&out, &bytes)?;
+            eprintln!(
+                "wrote {}: {} ({} bytes)",
+                out.display(),
+                adventure.name.trim(),
+                bytes.len()
+            );
             Ok(ExitCode::SUCCESS)
         }
         Command::Build { dir, output } => {
@@ -500,4 +542,25 @@ fn read_atlas(path: &Path, tile: u32, pictures: usize) -> AnyResult<acs_bundle::
         rgba: buf,
         places: (0..places.min(pictures as u32)).map(|n| (n as u16, n)).collect(),
     })
+}
+
+#[cfg(test)]
+mod extract_tests {
+    use super::*;
+
+    #[test]
+    fn extract_takes_the_adventure_off_a_disk() {
+        let mut f = test_fixture::Fixture::new(Platform::Amiga);
+        f.header("DISK QUEST", "BY NOBODY", "HELLO");
+        let file = f.build().data;
+        for ffs in [false, true] {
+            let disk = acs_core::adf::write_test_disk(&[("readme", b"x"), ("Adventure", &file)], ffs);
+            let (bytes, adv) = extract(&disk).unwrap();
+            assert_eq!(bytes, file);
+            assert_eq!(adv.name.trim(), "DISK QUEST");
+        }
+        let empty = acs_core::adf::write_test_disk(&[("readme", b"x")], false);
+        assert!(extract(&empty).is_err());
+        assert!(extract(&file).is_err(), "a bare adventure file is not a disk");
+    }
 }

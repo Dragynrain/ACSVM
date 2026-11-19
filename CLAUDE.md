@@ -71,6 +71,7 @@ scripts/web.sh serve                                    # trunk dev server, :808
 scripts/web.sh build                                    # static site in target/web
 cargo run -p acs-cli -- dump FILE.D64 -v -o out.json
 cargo run -p acs-cli -- pictures FILE.D64 outdir --scale 4 --sheet
+cargo run -p acs-cli -- extract DISK.adf [-o DIR/adventure]   # an Amiga disk's adventure file, checked (default: DISK/adventure beside it)
 cargo run -p acs-cli -- build SRC_DIR -o OUT.advx          # an adventure source folder to a bundle (content.md 3)
 cargo run -p acs-cli -- bundle MODEL.json -o OUT.advx [--art ATLAS.png --tile 64]   # Extended bundle from model JSON (content.md 2)
 cargo run -p acs-cli --release -- play FILE --script S.txt --seed N [--players 2] --save s.json [--trace t.jsonl]   # scripted playthrough (docs/play.md)

@@ -161,10 +161,12 @@ the lists as they are; any other mismatch is still an error.
 **Amiga disks.** An `.adf` image (901,120 bytes, or 1,802,240 for high
 density) is opened as an AmigaDOS disk, old (OFS) or fast (FFS) file
 system, and the first file named `adventure` (any case, shallowest first)
-is read off it (`crates/acs-core/src/adf.rs`). That replaces ACS Viewer's
-UAEUNP step. Only synthetic disks have been tested so far: EA's own
-release disks are researcher-only (CLAUDE.md), and no other Amiga
-adventure disk is in the corpus yet.
+is read off it (`crates/acs-core/src/adf.rs`); `acs extract` writes it out
+as a file. That replaces ACS Viewer's UAEUNP step. EA's own release disks
+are researcher-only (CLAUDE.md), so the maintainer ran the reader on them
+(2026-11-18): the first holds *Galactic Agent*, the same file as the
+unpacked install, and the second a second adventure, *Kingmaker*, both
+decoding cleanly. The tests use disks they write themselves.
 
 **Byte order.** The records are stored exactly as on the PC: names packed
 into little-endian words, region pointers and item list lengths low byte
