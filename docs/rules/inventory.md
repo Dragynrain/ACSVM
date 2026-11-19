@@ -332,6 +332,9 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    `dropped`). A spell that applies to individuals, dropped next to the
    dropper, acts on the dropper unless the square holds a creature. [manual]
    4 corpus items do this. [data] The effect is the magic rules' business.
+   One that also disappears after use is used up by the drop: the spell
+   goes off and the item never lands. [capture: rr45, capture.md 10.49;
+   magic 3] **Engine:** `VanishedWhenDropped`, then the spell.
 7. **"When dropped here" custom spaces.** Dropping the needed thing onto a
    square whose top is such a space casts its spell (`SpellTriggered`, source
    `custom_space`; the needed thing and parameter are resolved as in movement

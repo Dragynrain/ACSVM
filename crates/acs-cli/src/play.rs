@@ -761,6 +761,22 @@ impl Driver<'_> {
         Err(format!("{}'s turn never came", self.me_name(me)))
     }
 
+    /// On `me`'s turn with no moves left (a wound or a load can leave one,
+    /// inventory 3.2), ends it with WAIT, so an attack or a fire goes on
+    /// at the next turn rather than being refused. Whether it did.
+    fn zero_moves_waited(&mut self, me: usize) -> bool {
+        let idle = self.game.current() == me
+            && self
+                .game
+                .players()
+                .get(me)
+                .is_some_and(|p| p.alive && p.moves_left == 0);
+        if idle {
+            self.apply(Command::Wait);
+        }
+        idle
+    }
+
     /// Walks `me` to `goal`, planning afresh at each of its turns. The
     /// events of the last step.
     fn walk(&mut self, me: usize, goal: Goal, avoid_takes: bool) -> Result<Vec<Event>, String> {
@@ -1216,6 +1232,9 @@ impl Driver<'_> {
                 return Ok(());
             }
             self.turn_for(me)?;
+            if self.zero_moves_waited(me) {
+                continue;
+            }
             if !self.game.alive(who) {
                 return Ok(());
             }
@@ -1258,6 +1277,9 @@ impl Driver<'_> {
                 return Ok(());
             }
             self.turn_for(me)?;
+            if self.zero_moves_waited(me) {
+                continue;
+            }
             if !self.game.alive(who) {
                 return Ok(());
             }

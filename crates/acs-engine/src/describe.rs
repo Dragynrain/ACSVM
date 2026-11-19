@@ -10,14 +10,24 @@ use crate::{
 };
 use acs_core::model::{Alignment, SpellAction, SpellActionKind, ThingId};
 
+/// A message in quote marks, unless it has quote marks of its own (a line
+/// of dialogue, or narration around it): quoting those again doubles them.
+pub fn quoted(m: &str) -> String {
+    if m.contains('"') {
+        m.to_string()
+    } else {
+        format!("\"{m}\"")
+    }
+}
+
 /// One line describing `ev`, using the names in the game's adventure.
 pub fn describe(game: &Game, ev: &Event) -> String {
-    // A record cleared once nobody is in play (creatures 2.2.6) has no name.
+    // A record cleared once nobody is in play (creatures 2.2.6) has no
+    // name; the one it had as the command began names it in that
+    // command's lines.
     let who = |p: &usize| {
-        game.players()
-            .get(*p)
-            .map(|pl| pl.name.clone())
-            .filter(|n| !n.is_empty())
+        game.player_name(*p)
+            .map(str::to_string)
             .unwrap_or_else(|| format!("player {}", p + 1))
     };
     let thing = |t: ThingId| {
@@ -28,7 +38,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
     };
     let name = |w: &Who| individual(game, *w);
     let with_message = |line: String, m: &Option<String>| match m {
-        Some(m) => format!("{line}: \"{m}\""),
+        Some(m) => format!("{line}: {}", quoted(m)),
         None => line,
     };
     match ev {
@@ -588,7 +598,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 format!("{} can't carry another {}.", name(w), thing(*t))
             }
         }
-        Event::LongMessage { text, .. } => format!("\"{text}\""),
+        Event::LongMessage { text, .. } => quoted(text),
         Event::Music { number } => format!("Music {number} plays."),
         Event::RoomRidOf {
             region,
@@ -706,10 +716,8 @@ pub fn describe(game: &Game, ev: &Event) -> String {
 fn individual(game: &Game, who: Who) -> String {
     match who {
         Who::Player { player } => game
-            .players()
-            .get(player)
-            .map(|p| p.name.clone())
-            .filter(|n| !n.is_empty())
+            .player_name(player)
+            .map(str::to_string)
             .unwrap_or_else(|| format!("player {}", player + 1)),
         Who::Creature { region, slot } => creature(game, region, slot),
     }
@@ -826,4 +834,16 @@ fn place(game: &Game, at: &Location) -> String {
 fn moves_word(n: impl Into<u32>) -> String {
     let n = n.into();
     format!("{n} move{}", if n == 1 { "" } else { "s" })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quoted;
+
+    #[test]
+    fn messages_are_quoted_once() {
+        assert_eq!(quoted("The door is locked."), "\"The door is locked.\"");
+        assert_eq!(quoted("\"Halt!\""), "\"Halt!\"");
+        assert_eq!(quoted("\"Halt,\" says the guard."), "\"Halt,\" says the guard.");
+    }
 }

@@ -230,7 +230,7 @@ take is an error:
 | --- | --- | --- |
 | `picture` | all but magic spells | a picture key |
 | `weight`, `value` | carriable | weight -255..255, or a multiple of 20 to ±5,100; value 0..255 or a multiple of 20 to 5,100 |
-| `once` | carriable, space, custom space, obstacle, custom obstacle | disappears after use (when dropped, for a treasure); for the last four, once set off (movement 5.9) |
+| `once` | carriable, space, custom space, obstacle, custom obstacle | disappears after use (when dropped, for a treasure; a magic item acting when dropped goes with its drop, magic 3); for the last four, once set off (movement 5.9) |
 | `power`, `range`, `break`, `attack`, `anyone`, `magic` | weapons, armor | power 0..31 (missile 0..15); range 2..9, missile only; attack -35..+40 (armor -65..+10), a multiple of 5 |
 | `power` | magic spell | 0..127 |
 | `spell` | magic item, magic spell, obstacle, custom obstacle, custom space | a spell (3.5) |

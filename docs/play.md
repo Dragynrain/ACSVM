@@ -51,8 +51,8 @@ world map's cell. THING is a master thing number or name (any case).
 | `goto REGION ROOM [X Y]` | Walks through doors until in that room (region 0 room 0: the world map), then `walk X Y` (see 3). |
 | `take X Y` | Walks beside the square and pushes into it once; the step succeeds when the player picks something up (a take leaves the taker on its own square). |
 | `bump X Y` | Walks beside the square and pushes into it once (an obstacle's spell, a store, a creature). |
-| `attack X Y [N]` | Attacks whoever stands there: that individual, followed wherever it goes in the room (the walk to it is planned afresh each turn), until it dies or N of the player's turns pass, walking ones included (default 20; not a failure). |
-| `fire X Y [N]` | Fires the readied missile weapon (FIRE) at whoever stands there: that individual, aimed at the square it stands on at each of the player's turns, until it dies or N of the player's turns pass (default 20; not a failure). See 3.1. |
+| `attack X Y [N]` | Attacks whoever stands there: that individual, followed wherever it goes in the room (the walk to it is planned afresh each turn), until it dies or N of the player's turns pass, walking ones included (default 20; not a failure). A turn with no moves left (a wound or a load) is waited out, and counts. |
+| `fire X Y [N]` | Fires the readied missile weapon (FIRE) at whoever stands there: that individual, aimed at the square it stands on at each of the player's turns, until it dies or N of the player's turns pass (default 20; not a failure); a turn with no moves left is waited out, and counts. See 3.1. |
 | `use THING [X Y]`, `cast THING [X Y]` | `Use` / `Cast`, aimed at the square when given. |
 | `drop THING [DIR]` | `Drop`, on the own square or the one in `n`, `e`, `s`, `w` (`ne`.. too). |
 | `ready THING` | `Ready`. |

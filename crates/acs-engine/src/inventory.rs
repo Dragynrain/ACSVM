@@ -335,6 +335,19 @@ impl Game {
         item.gold.unwrap_or((item.parameter as u16).max(1))
     }
 
+    /// Magic 3: a magic item that acts when dropped and disappears after
+    /// use is used up by its drop, so it never lands (5.6).
+    pub(crate) fn used_up_by_drop(&self, thing: ThingId) -> bool {
+        matches!(
+            self.thing(thing).map(|t| &t.kind),
+            Some(ThingKind::MagicItem {
+                on_drop: true,
+                disappears_after_use: true,
+                ..
+            })
+        )
+    }
+
     /// `Drop { thing, dir }` (section 5).
     pub(crate) fn drop_thing(&mut self, thing: ThingId, dir: Option<Dir>, ev: &mut Vec<Event>) {
         if thing == GOLD {
@@ -441,7 +454,8 @@ impl Game {
                         disappears_when_dropped: true,
                         ..
                     }
-                ) {
+                ) || self.used_up_by_drop(thing)
+                {
                     ev.push(Event::VanishedWhenDropped { player: p, thing });
                 } else {
                     self.put_on_top(region, room, x, y, thing, 1);

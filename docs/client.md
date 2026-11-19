@@ -66,8 +66,12 @@ outside the repo.
 Every event the engine returns becomes a line (`describe`), coloured by
 kind: turns and steps dim, blocks orange, doors blue, spells violet,
 items green, creatures yellow, foes red. Long messages wrap as
-paragraphs (3.1). The log keeps the last 500 lines and sticks to the
-bottom unless scrolled up.
+paragraphs (3.1), in quote marks unless the message has its own (a
+line of dialogue). The log keeps the last 500 lines and sticks to the
+bottom unless scrolled up, except that a new long message is shown from
+its first line, however tall it is, until the next line comes; the log
+lands there once the panels have settled, and is then free to scroll by
+hand.
 
 A row of checkboxes over the log filters it by kind: turns and steps,
 doors, spells, items, creatures, foes, blocks and notes, all shown at

@@ -1996,9 +1996,15 @@ fn with_nobody_alive_the_records_are_cleared_and_the_game_waits() {
         g.set_life_force(0, 9);
         g.give(0, GOLD);
         let point = g.save_point();
+        let name = g.players()[0].name.clone();
         let ev = g.apply(Command::Move { dir: Dir::E });
         assert_eq!(ev.last(), Some(&Event::AllPlayersDead), "{ev:?}");
         assert_eq!(g.restore_point(), point);
+        // The log still names the player in the lines of the turn that
+        // cleared their record.
+        let died = ev.iter().find(|e| matches!(e, Event::Died { .. })).unwrap();
+        let line = acs_engine::describe(&g, died);
+        assert!(!name.is_empty() && line.contains(&name), "{line}");
         let p0 = &g.players()[0];
         assert!(!p0.alive && p0.name.is_empty() && p0.gold == 0 && p0.life_force == 0);
         assert_eq!(p0.at, Location::World { x: 0, y: 0 });

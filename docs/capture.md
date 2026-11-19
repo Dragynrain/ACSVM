@@ -4458,3 +4458,19 @@ In this order (planned November 2026):
    adventure has 1, the blank disk EA's program makes 0.
 
    No new addresses (a disk byte, format notes).
+49. **A disappearing magic item's drop spell, 2026-11-18** (ours, no
+   research pass: [magic](rules/magic.md) 3, [inventory](rules/inventory.md)
+   5.6; found by *The King's Pardon*'s playtest, its KP-03).
+   `ACSVM-research/capture/runs/rr45/` (the harness binary in `bin/`,
+   `env.sh`; `cases.txt`, `runs.txt`, `gen.py` as rr39's). Our magic
+   item acting when dropped (Life Force +5; `--item 8:5 --item-when
+   drop`), T Life Force 40 of Constitution 40 on 4,4 of the test room;
+   DROP OBJECT, the item, the spot east (5,4). With the "disappears after
+   use" bit (`ko`, `--item-once`; `ko-d`, `ko-d2`): **Life Force 40 to
+   45, and 5,4 empty**, the item gone from the adventure. Without it
+   (`kc-d`): Life Force 40 to 45, **the item lying on 5,4**. So a drop
+   spell going off is the item's use: one that disappears after use goes
+   with it. A creature's drop of such an item, a drop on a "when dropped
+   here" space and a drop whose spell finds no one were not run.
+
+   No new addresses.

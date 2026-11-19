@@ -89,12 +89,15 @@ const LOG_GROUPS: [&str; 8] = [
     "Notes",
 ];
 
+/// Frames the log tries to bring a new message's top into view (client 3).
+const JUMP_FRAMES: u8 = 30;
+
 /// Where the message log scrolls to (client 3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LogJump {
     /// The line with this number, counted from the first ever logged
-    /// (`trimmed` plus its index), to the top, for this many more frames:
-    /// two, as the panels can still settle on the first.
+    /// (`trimmed` plus its index), to the top, until it is there or for
+    /// this many more frames: the panels and the wrap can still settle.
     Top(usize, u8),
     /// The last line, and the log follows new lines again.
     Bottom,
@@ -926,7 +929,7 @@ impl Walk {
                 } else {
                     // A Classic one's stored lines as paragraphs (client 3).
                     match self.reflow.show(text) {
-                        Shown::Paragraphs(p) => line = format!("\"{p}\""),
+                        Shown::Paragraphs(p) => line = acs_engine::quoted(&p),
                         Shown::Lines(_) => kind = Kind::Message { lines: true },
                     }
                 }
@@ -937,7 +940,7 @@ impl Walk {
             self.log.push((kind, line));
         }
         if let Some(n) = message {
-            self.log_jump = Some(LogJump::Top(n, 2));
+            self.log_jump = Some(LogJump::Top(n, JUMP_FRAMES));
         } else if matches!(self.log_jump, Some(LogJump::Top(..) | LogJump::Held))
             && self.trimmed + self.log.len() > before
         {
@@ -1444,6 +1447,8 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     // (client 2, 3).
     let height = ui.ctx().content_rect().height();
     let narrow = ui.ctx().content_rect().width() < crate::app::NARROW;
+    // Whether a message's top reached the log's top this frame.
+    let mut landed = false;
     // The board is 15 x 10 squares (3:2): on a tall window the log also
     // takes the height the board can't use.
     let left = ui.available_rect_before_wrap();
@@ -1470,9 +1475,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     }
                 }
             });
+            // Not stuck to the bottom while a message is held at its top:
+            // sticking would pull a message taller than the log back down
+            // to its end, its first lines out of view.
+            let held = matches!(walk.log_jump, Some(LogJump::Top(..) | LogJump::Held));
             egui::ScrollArea::both()
                 .max_height(ui.available_height())
-                .stick_to_bottom(true)
+                .stick_to_bottom(!held)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     let access = crate::access::Access::get(ui.ctx());
@@ -1510,6 +1519,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                             Some(LogJump::Bottom) if i == last => Some(egui::Align::BOTTOM),
                             _ => None,
                         };
+                        if align == Some(egui::Align::TOP) {
+                            landed = (rect.top() - ui.clip_rect().top()).abs() < 1.0;
+                        }
                         if let Some(align) = align {
                             ui.scroll_to_rect_animation(
                                 rect,
@@ -1520,9 +1532,15 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     }
                 });
         });
-    // Once only, so the log can be scrolled by hand after it.
+    // A message's top: until it is at the log's top (the panels and the
+    // wrap can take several frames to settle), for at most JUMP_FRAMES
+    // (it can't reach the top when little follows it); then held, so the
+    // log can be scrolled by hand. The bottom: once.
     walk.log_jump = match walk.log_jump {
-        Some(LogJump::Top(n, 2)) => Some(LogJump::Top(n, 1)),
+        Some(LogJump::Top(n, k)) if !landed && k > 1 => {
+            ui.ctx().request_repaint();
+            Some(LogJump::Top(n, k - 1))
+        }
         Some(LogJump::Top(..) | LogJump::Held) => Some(LogJump::Held),
         _ => None,
     };
@@ -3006,7 +3024,7 @@ pub(crate) mod tests {
             },
             Event::Music { number: 3 },
         ]);
-        assert_eq!(w.log_jump, Some(LogJump::Top(at, 2)));
+        assert_eq!(w.log_jump, Some(LogJump::Top(at, JUMP_FRAMES)));
         // Drawn once: held there, so the log can be scrolled by hand.
         w.log_jump = Some(LogJump::Held);
         w.record(&[]);

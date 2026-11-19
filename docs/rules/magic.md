@@ -326,8 +326,16 @@ works: at a 19% chance, of eight casts from eight random states one
 worked (its Life Force +1 given) and the spell was gone; the seven that
 failed spent the Power and kept it. [capture: rr39 `dsp-r0` to
 `dsp-r224`, capture.md 10.43 item 4; ours, no research pass, 2026-11-16]
+A magic item set so and acting when dropped goes with its drop: the
+spell went off (Life Force 40 to 45) and the square it was dropped on
+stayed empty, 2 of 2, where the same item without the bit lay there.
+[capture: rr45 `ko-d`, `ko-d2`, control `kc-d`, capture.md 10.49; ours,
+no research pass, 2026-11-18] A creature's drop of such an item, and a
+drop onto a "when dropped here" space, were not run [unknown].
 **Engine:** a magic spell goes after a successful cast, a magic item
-after it is used (items always work, 4.2).
+after it is used (items always work, 4.2), a drop that sets off its
+spell included: it vanishes instead of landing
+([inventory](inventory.md) 5.6), a creature's too.
 
 ## 4. Casting and using
 

@@ -252,6 +252,17 @@ pub struct Won {
     pub player: usize,
 }
 
+/// [`Game::names_before`]: equal whatever it holds, so a game compares as
+/// its state alone.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct NamesBefore(pub(crate) Vec<String>);
+
+impl PartialEq for NamesBefore {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
 /// A game in progress. Cloning it is a snapshot (what an autosave keeps).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Game {
@@ -294,6 +305,11 @@ pub struct Game {
     /// after the command's own events (winning 4.2).
     #[serde(skip)]
     pub(crate) pending_win: Option<Won>,
+    /// The players' names as the last command began, for the log's lines
+    /// about a player whose record that command cleared (creatures 2.2.6)
+    /// or restored away. Not game state: never saved or compared.
+    #[serde(skip)]
+    pub(crate) names_before: NamesBefore,
     /// Who moves when (creatures 2.2).
     #[serde(default)]
     pub(crate) sched: Schedule,
@@ -447,6 +463,7 @@ impl Game {
             over: false,
             won: None,
             pending_win: None,
+            names_before: NamesBefore::default(),
             sched: Schedule::default(),
             reversals: Vec::new(),
             store: None,
@@ -499,6 +516,7 @@ impl Game {
         if self.won.is_some() {
             return Vec::new();
         }
+        self.names_before.0 = self.players.iter().map(|p| p.name.clone()).collect();
         let mut ev = self.apply_command(cmd);
         if let Some(w) = self.pending_win.take() {
             self.won = Some(w);
@@ -655,6 +673,14 @@ impl Game {
     }
     pub fn players(&self) -> &[Player] {
         &self.players
+    }
+    /// Player `p`'s name for the log: the record's, or, when the last
+    /// command cleared it (creatures 2.2.6) or restored a game without
+    /// it, the name it had as that command began.
+    pub fn player_name(&self, p: usize) -> Option<&str> {
+        let now = self.players.get(p).map(|pl| pl.name.as_str());
+        let before = self.names_before.0.get(p).map(String::as_str);
+        now.filter(|n| !n.is_empty()).or(before.filter(|n| !n.is_empty()))
     }
     /// Index of the player whose turn it is.
     pub fn current(&self) -> usize {

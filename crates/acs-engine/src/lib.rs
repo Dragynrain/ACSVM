@@ -46,7 +46,7 @@ mod test_fixture;
 
 pub use combat::BlowOutcome;
 pub use command::{Command, StoreRefusal};
-pub use describe::describe;
+pub use describe::{describe, quoted};
 pub use event::{
     BlockReason, CastRefusal, DropRefusal, Event, FireRefusal, ReadyRefusal, RemovalReason, Slot,
     SpellSource, Who,

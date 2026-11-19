@@ -1151,7 +1151,7 @@ impl Game {
                 disappears_when_dropped: true,
                 ..
             })
-        );
+        ) || self.used_up_by_drop(thing);
         // 8.1.1: the square's pairs are drawn for gold and a treasure alike.
         let (x, y) = self.drop_square(region, c.room, c.x, c.y);
         let at = Location::Room {
@@ -1307,7 +1307,11 @@ impl Game {
         if let Some(cm) = self.creature_mut(region, slot) {
             take_possession(cm, thing);
         }
-        self.put_on_top(region, c.room, spot.0, spot.1, thing, 1);
+        // Magic 3: one used up by its drop spell never lands.
+        let vanishes = self.used_up_by_drop(thing);
+        if !vanishes {
+            self.put_on_top(region, c.room, spot.0, spot.1, thing, 1);
+        }
         let at = Location::Room {
             region,
             room: c.room,
@@ -1319,7 +1323,7 @@ impl Game {
             slot,
             thing,
             amount: 1,
-            at: Some(at),
+            at: (!vanishes).then_some(at),
         });
         self.creature_drop_spell(region, slot, thing, at, ev);
         true

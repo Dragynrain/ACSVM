@@ -7,7 +7,7 @@
 mod common;
 
 use acs_core::layout::world_map as wm;
-use acs_core::model::SpellActionKind;
+use acs_core::model::{SpellActionKind, ThingKind};
 use acs_core::{decode, Adventure, Platform};
 use acs_engine::inventory::{self, slowed_speed, GOLD};
 use acs_engine::{
@@ -636,6 +636,44 @@ fn vanishing_treasure_drop_spells_and_the_world_map() {
         assert_eq!(g.current_player().weapon, None);
         let ev = g.apply(Command::DropGold { amount: 1, dir: None });
         assert_eq!(refused(&ev), Some(DropRefusal::NotCarried));
+    });
+}
+
+/// Magic 3, 5.6 (capture.md 10.49): a magic item that disappears after
+/// use is used up by its drop spell: the spell goes off and the item
+/// never lands. Without the bit it lands (the test above).
+#[test]
+fn a_drop_spell_uses_up_a_disappearing_item() {
+    both(|p| {
+        let mut adv = adventure(p);
+        let ThingKind::MagicItem {
+            disappears_after_use, ..
+        } = &mut adv.things[AMULET as usize - 1].kind
+        else {
+            panic!("AMULET is a magic item");
+        };
+        *disappears_after_use = true;
+        let mut g = Game::new(adv, 1, Rules { diagonals: true }, setup()).0;
+        g.give(0, AMULET);
+        g.place(0, hall(5, 3));
+        let ev = drop(&mut g, AMULET, Some(Dir::S));
+        assert_eq!(
+            ev[0],
+            Event::VanishedWhenDropped {
+                player: 0,
+                thing: AMULET
+            }
+        );
+        assert!(matches!(
+            ev[1],
+            Event::SpellTriggered {
+                source: SpellSource::Dropped,
+                thing: AMULET,
+                ..
+            }
+        ));
+        assert!(stack(&g, 5, 4).is_empty());
+        assert_eq!(g.current_player().count(AMULET), 0);
     });
 }
 

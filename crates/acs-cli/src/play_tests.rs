@@ -385,6 +385,46 @@ fn an_attack_follows_the_foe_where_it_goes() {
     }
 }
 
+/// A turn with no moves left (here every turn after a take the player
+/// can't carry: inventory 3.3) is waited out by `attack` and `fire` and
+/// counts as one of theirs, rather than failing the step as a refused
+/// push.
+#[test]
+fn a_turn_with_no_moves_is_waited_out() {
+    let mut adv = with_bow(0, 60);
+    let ThingKind::Treasure { carry, .. } = &mut adv.things[KEY as usize - 1].kind else {
+        panic!("KEY is a treasure");
+    };
+    carry.weight = 5000;
+    for step in ["attack 6 4 2", "fire 6 4 2"] {
+        let script = format!(
+            "player 1 possessions=SWORD,BOW
+goto 1 0
+take 3 4
+{step}
+"
+        );
+        let out = run(&adv, &script, 1);
+        assert_eq!(
+            out.failure,
+            None,
+            "{step}: {}",
+            out.progress.join(
+                "
+"
+            )
+        );
+        assert!(
+            out.progress.iter().any(|l| l.contains("stopped after 2 turns")),
+            "{step}: {}",
+            out.progress.join(
+                "
+"
+            )
+        );
+    }
+}
+
 /// HALL with one key, in the corner 1,4 behind the arrival: the way to
 /// the locked door goes back over squares the search saw without it.
 fn key_in_the_corner() -> Adventure {
