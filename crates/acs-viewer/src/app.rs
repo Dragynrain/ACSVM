@@ -286,6 +286,8 @@ pub struct Viewer {
     pack: Option<std::rc::Rc<crate::hdpack::Pack>>,
     /// The Options menu (client 7).
     access: crate::access::Access,
+    /// Gamepads (client 4).
+    pads: crate::gamepad::Gamepads,
     /// The welcome (before an adventure) and How to play (after one
     /// opens) windows are up (client 7.3).
     welcome: bool,
@@ -326,6 +328,7 @@ impl Viewer {
         let keep = start.screenshot.is_none() && start.walk.is_none() && start.load.is_none();
         let mut v = Viewer {
             inbox: Arc::default(),
+            pads: crate::gamepad::Gamepads::default(),
             doc: None,
             error: None,
             show_nav: None,
@@ -1172,6 +1175,18 @@ impl eframe::App for Viewer {
     /// Panel sizes and the like start fresh: the layout follows the window.
     fn persist_egui_memory(&self) -> bool {
         false
+    }
+
+    /// Gamepads become the keyboard's keys before the frame (client 4);
+    /// on the board, whose turn it is decides which pad plays.
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        let player = self
+            .doc
+            .as_ref()
+            .filter(|d| d.opening.is_none() && d.creating.is_none())
+            .and_then(|d| d.walk.as_ref())
+            .map(|w| w.game.current());
+        self.pads.feed(ctx, raw_input, player);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {

@@ -154,8 +154,28 @@ scripted walk (`--walk`, `--load`), go straight to the board.
   hides on the next key press; the info column's "On-screen pad" option
   fixes it on or off. The pad's keys are the keyboard's: they go
   through the same handling, cursor and drop included.
-- **Gamepads**: up to four, one per hot-seat player, each with its own
-  bindings (design.md component 11).
+- **Gamepads** (design.md component 11; gilrs, native and in the
+  browser, where a pad shows after its first press): a pad's buttons
+  are the keyboard's keys, sent into the same frame's input, so every
+  screen the keyboard works works with a pad (the opening, the New
+  character window, the store, the menus):
+  - the D-pad or the left stick: the eight directions (a diagonal is
+    two D-pad arrows together, or the stick past a corner; a direction
+    goes after it has held 50 ms, a diagonal at once, so pressing two
+    arrows is not a stray step first). Held, it repeats after 0.35 s,
+    every 0.18 s. On the board these are steps, the cursor or the
+    drop; with a button focused, they move the focus.
+  - South (A, Cross): Space (Rest, OK, the store's button, a focused
+    button). East (B, Circle): Escape (cancel, leave the store, and
+    back from the menus to the board). West (X, Square): Fire, as the
+    pad's Fire key, when that key would show. The shoulders: Tab and
+    Shift+Tab, into and through the side panels' buttons and menus.
+  - Up to four pads, numbered in the order of their first press (a
+    pad unplugged frees its number; a device that never presses, such
+    as a receiver the system lists as a pad, takes none). Pad k belongs to player k: while the
+    current player has a pad, only that pad plays; while they have
+    none, any pad does, so one pad serves every hot-seat player as the
+    keyboard does. Rebinding is not offered yet. [choice]
 
 Every input becomes the same `Command`; nothing reaches the engine any
 other way.

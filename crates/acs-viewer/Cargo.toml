@@ -34,6 +34,8 @@ log = "0.4"
 rfd = { version = "0.18", default-features = false, features = ["xdg-portal"] }
 png.workspace = true
 cpal = "0.18.2"
+# Gamepads, native and in the browser (client 4).
+gilrs = "0.11.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }

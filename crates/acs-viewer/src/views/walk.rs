@@ -1585,6 +1585,17 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     if let Some(a) = aim {
         walk.start_aim(a);
     }
+    // A gamepad's Fire is the pad's (client 4).
+    if ui
+        .ctx()
+        .data_mut(|d| d.remove_temp::<bool>(crate::gamepad::fire_id()))
+        .is_some()
+        && pad_key.is_none()
+        && !walk.waiting()
+        && walk.fire_ready()
+    {
+        pad_key = Some(PadKey::Fire);
+    }
     match pad_key {
         Some(PadKey::Key(cmd)) => walk.key(cmd),
         Some(PadKey::Cancel) => walk.cancel(),
