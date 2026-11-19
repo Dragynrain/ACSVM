@@ -437,7 +437,9 @@ rest of `limits.residents_per_region` are free slots for arrivals.
 adventures use. The others (the design's fantasy, spy and mystery and
 sci-fi kits, and the pirate kit's runners-up) come after 1.0, when an
 adventure needs them; what 1.0 needs is the pirate kit and adventures
-loading from bundles.
+loading from bundles. The fantasy kit's 46 creatures are briefed in
+[art/fantasy-creatures.md](art/fantasy-creatures.md), for the remakes of
+the two *Coco's Adventures* disks.
 A kit is a library an adventure builds on: pictures, things and
 creatures, all under CC BY-SA 4.0, in `kits/NAME/` in the repository.
 
