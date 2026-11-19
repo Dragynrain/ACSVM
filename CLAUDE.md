@@ -103,7 +103,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `decode.rs`: image to model; non-fatal oddities become `Diagnostic`s.
 - `model.rs`: canonical serde model (the future editor format; bump
   `MODEL_VERSION` when meaning changes).
-- `graphics.rs`, `text.rs`, `disk.rs`, `bits.rs`: codecs and helpers.
+- `graphics.rs`, `text.rs`, `disk.rs`, `adf.rs` (Amiga disk images), `bits.rs`:
+  codecs and helpers.
 - `scene.rs`: what each room square shows (walls, floor = thing 127, item
   stacks top first, residents) and the region grid. Layout only, no drawing.
 - `crates/acs-engine`: rules, no GUI (Rust 1.85). `Game::new(adv, seed, rules,

@@ -16,7 +16,7 @@ pub enum Error {
         source: std::io::Error,
     },
     #[error(
-        "cannot tell the platform of {0:?}; use a known extension (.d64, .fpy, .hrd) or pass a platform"
+        "cannot tell the platform of {0:?}; use a known extension (.d64, .fpy, .hrd, .adf) or pass a platform"
     )]
     UnknownPlatform(String),
     #[error("{platform} image is {actual} bytes; expected {expected}")]

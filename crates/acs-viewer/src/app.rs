@@ -695,8 +695,10 @@ impl Viewer {
             let file = rfd::AsyncFileDialog::new()
                 .set_title("Open an adventure or a save")
                 .add_filter(
-                    "Adventures (.d64, .fpy, .hrd, .advx)",
-                    &["d64", "D64", "fpy", "FPY", "hrd", "HRD", "advx", "ADVX"],
+                    "Adventures (.d64, .fpy, .hrd, .adf, adventure, .advx)",
+                    &[
+                        "d64", "D64", "fpy", "FPY", "hrd", "HRD", "adf", "ADF", "advx", "ADVX",
+                    ],
                 )
                 .add_filter("Saves (.json)", &["json", "JSON"])
                 .add_filter("HD packs (.png)", &["png", "PNG"])

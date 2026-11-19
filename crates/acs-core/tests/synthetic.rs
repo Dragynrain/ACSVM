@@ -8,7 +8,7 @@ mod common;
 
 use acs_core::layout::{adventure as adv, world_map as wm};
 use acs_core::model::*;
-use acs_core::{decode, DiagnosticKind, Error, Platform, Severity};
+use acs_core::{decode, DiagnosticKind, Error, Image, Platform, Severity};
 use common::{creature_record, Fixture, RegionSpec, RoomSpec};
 
 const PLATFORMS: [Platform; 3] = [Platform::Pc, Platform::C64, Platform::Amiga];
@@ -158,6 +158,22 @@ fn decodes_sample_on_both_platforms() {
         assert!(d.diagnostics.is_empty(), "{p}: {:?}", d.diagnostics);
         check_sample(&d.adventure, p);
     }
+}
+
+/// An Amiga adventure on an `.adf` disk (OFS and FFS) decodes exactly as
+/// the bare file does.
+#[test]
+fn amiga_disk_images_decode_like_the_file() {
+    let img = sample(Platform::Amiga).build();
+    let bare = decode(&img).unwrap().adventure;
+    for ffs in [false, true] {
+        let disk = acs_core::adf::write_test_disk(&[("readme", b"hello"), ("adventure", &img.data)], ffs);
+        let from_disk = Image::from_bytes(Platform::Amiga, disk).unwrap();
+        assert_eq!(from_disk.data, img.data, "ffs {ffs}");
+        assert_eq!(decode(&from_disk).unwrap().adventure, bare, "ffs {ffs}");
+    }
+    let empty = acs_core::adf::write_test_disk(&[("readme", b"hello")], false);
+    assert!(Image::from_bytes(Platform::Amiga, empty).is_err());
 }
 
 fn check_sample(a: &Adventure, p: Platform) {

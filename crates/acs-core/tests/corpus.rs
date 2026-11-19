@@ -28,7 +28,9 @@ fn find(dir: &Path, out: &mut Vec<PathBuf>) {
             find(&p, out);
         } else if Platform::from_path(&p).is_some() {
             let name = p.file_name().unwrap().to_string_lossy().to_ascii_lowercase();
-            if !name.starts_with("advcnst") {
+            // EA's program disks, the C64's and the Amiga release disks
+            // (CLAUDE.md): never decoded here.
+            if !name.starts_with("advcnst") && !name.starts_with("adventureconstructionset") {
                 out.push(p);
             }
         }

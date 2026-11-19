@@ -8,7 +8,8 @@
 //! - **C64** (`.d64`): the whole disk, read raw. An adventure disk has no
 //!   usable directory; the data fills every sector in order and simply skips
 //!   the BAM and directory sectors on track 18 (see `docs/format-notes.md`).
-//! - **Amiga** (`adventure`): the adventure file itself, taken off the disk.
+//! - **Amiga** (`adventure`): the adventure file itself, or a whole `.adf`
+//!   disk, from which the file named `adventure` is read ([`crate::adf`]).
 //!   EA's `acs.master` begins with one in the same layout.
 
 use crate::error::{Error, Result};
@@ -45,6 +46,7 @@ impl Platform {
         match ext.as_str() {
             "d64" => Some(Platform::C64),
             "fpy" | "hrd" => Some(Platform::Pc),
+            "adf" => Some(Platform::Amiga),
             _ => None,
         }
     }
@@ -83,8 +85,14 @@ pub const AMIGA_MIN_SIZE: usize = 0x28000;
 pub const AMIGA_FILE_SIZE: usize = 0x28300;
 
 impl Image {
-    /// Wraps raw bytes, checking the size fits the platform.
+    /// Wraps raw bytes, checking the size fits the platform. An Amiga disk
+    /// image is opened and its `adventure` file taken.
     pub fn from_bytes(platform: Platform, data: Vec<u8>) -> Result<Self> {
+        let data = if platform == Platform::Amiga && crate::adf::is_adf(&data) {
+            crate::adf::adventure(&data)?
+        } else {
+            data
+        };
         match platform {
             Platform::C64 => {
                 if !d64::VALID_SIZES.contains(&data.len()) {
@@ -188,6 +196,7 @@ mod tests {
             Platform::from_path(Path::new("data/Adventure")),
             Some(Platform::Amiga)
         );
+        assert_eq!(Platform::from_path(Path::new("GAME.ADF")), Some(Platform::Amiga));
         assert_eq!(Platform::from_path(Path::new("readme.txt")), None);
     }
 

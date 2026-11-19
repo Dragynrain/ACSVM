@@ -16,12 +16,12 @@ pub struct Incoming {
 
 /// Picks the platform from the extension (or the Amiga's `adventure` file
 /// name), falling back to the size: every C64 adventure is a whole `.d64`
-/// disk, so a disk-sized file is a C64 one, and the Amiga's file has a size
-/// of its own.
+/// disk, so a disk-sized file is a C64 one, and the Amiga's file and disks
+/// have sizes of their own.
 pub fn guess_platform(name: &str, len: usize) -> Platform {
     Platform::from_path(Path::new(name)).unwrap_or(if d64::VALID_SIZES.contains(&len) {
         Platform::C64
-    } else if len == acs_core::disk::AMIGA_FILE_SIZE {
+    } else if len == acs_core::disk::AMIGA_FILE_SIZE || acs_core::adf::SIZES.contains(&len) {
         Platform::Amiga
     } else {
         Platform::Pc
@@ -88,6 +88,8 @@ mod tests {
         assert_eq!(guess_platform("ACS", 229_376), Platform::Pc);
         assert_eq!(guess_platform("adventure", 0), Platform::Amiga);
         assert_eq!(guess_platform("ga.bin", 0x28300), Platform::Amiga);
+        assert_eq!(guess_platform("GAME.ADF", 0), Platform::Amiga);
+        assert_eq!(guess_platform("disk", 901_120), Platform::Amiga);
     }
 
     #[test]

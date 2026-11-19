@@ -11,6 +11,7 @@
 //! # Ok::<(), acs_core::Error>(())
 //! ```
 
+pub mod adf;
 pub mod bits;
 pub mod decode;
 pub mod disk;

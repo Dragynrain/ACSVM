@@ -24,7 +24,7 @@ AcsLib and is untested (see below).
 | --- | --- | --- | --- | --- |
 | Released | 1984 (one listing: Jan 1985) | 1985 | 1987 | 1986 |
 | Port | Original (Stuart Smith) | ? | Jerry Boutelle (one listing) | Glenn Tenney, Fantasia Systems |
-| Container | Whole `.d64` (174,848 bytes), raw sectors | Whole `.dsk` (143,360 bytes), no directory | `ADVEN.FPY` / `.HRD` file (`ACS.FPY` is 229,376 bytes) | `adventure` file (164,608 bytes) on the disk; EA's adventures also inside `acs.master` |
+| Container | Whole `.d64` (174,848 bytes), raw sectors | Whole `.dsk` (143,360 bytes), no directory | `ADVEN.FPY` / `.HRD` file (`ACS.FPY` is 229,376 bytes) | `adventure` file (164,608 bytes), read straight or off an `.adf` disk; EA's adventures also inside `acs.master` |
 | Pictures | 110 | 110 | **96** | 110 |
 | Picture size | 8 x 16, double-wide pixels | **14 x 16** hi-res | 16 x 16 | 16 x 16 |
 | Bits per pixel | 2 | 1 (artifact colour) | 2 | **5** (bitplanes) |
@@ -157,6 +157,14 @@ One region of *Galactic Agent* (the third) has a header whose item-list end
 is 3 bytes past where its 16 lists end: room for one item record the editor
 left behind. The decoder warns about a gap of whole item records and reads
 the lists as they are; any other mismatch is still an error.
+
+**Amiga disks.** An `.adf` image (901,120 bytes, or 1,802,240 for high
+density) is opened as an AmigaDOS disk, old (OFS) or fast (FFS) file
+system, and the first file named `adventure` (any case, shallowest first)
+is read off it (`crates/acs-core/src/adf.rs`). That replaces ACS Viewer's
+UAEUNP step. Only synthetic disks have been tested so far: EA's own
+release disks are researcher-only (CLAUDE.md), and no other Amiga
+adventure disk is in the corpus yet.
 
 **Byte order.** The records are stored exactly as on the PC: names packed
 into little-endian words, region pointers and item list lengths low byte
