@@ -592,6 +592,35 @@ fn c64_long_messages_skip_track_18() {
     assert_eq!(a.long_messages[254], a.intro);
 }
 
+/// Characters 3.1: a roster place with an empty name is free, its record
+/// left behind; the named places after it are still read, each keeping
+/// its place number, across the name and record page breaks.
+#[test]
+fn the_roster_skips_free_places_and_keeps_place_numbers() {
+    for p in PLATFORMS {
+        let mut f = sample(p);
+        let mut rec = creature_record(20, 0, 3);
+        rec[0x0D] = 5; // x
+        rec[0x0E] = 2; // y
+        rec[0x10] = 1 << 4; // region 1, room 0
+        rec[0x12] = 0x5A; // gold 346
+        rec[0x13] = 0x01;
+        f.retired(1, "", rec);
+        f.retired(2, "U", rec);
+        f.retired(34, "LAST", creature_record(9, 0, 3));
+        let a = decode(&f.build()).unwrap().adventure;
+        let r: Vec<(u16, &str)> = a
+            .retired_players
+            .iter()
+            .map(|c| (c.number, c.name.as_str()))
+            .collect();
+        assert_eq!(r, [(2, "U"), (34, "LAST")], "{p:?}");
+        let u = &a.retired_players[0];
+        assert_eq!((u.region, u.room, u.x, u.y, u.wealth), (1, 0, 5, 2, 346));
+        assert_eq!(a.retired_players[1].constitution, 9);
+    }
+}
+
 /// EA's PC Rivers of Light stores other values in region header bytes 3-4 and
 /// numbers its doors from 0. The door table must still be read from heap +
 /// 0xF0 and indexed directly by the door's parameter.

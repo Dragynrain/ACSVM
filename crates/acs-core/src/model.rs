@@ -54,6 +54,9 @@ pub struct Adventure {
     pub creatures: Vec<Creature>,
     /// Up to 4 characters saved with the adventure (in-use slots only).
     pub players: Vec<Creature>,
+    /// The roster: characters retired with Save, offered when someone
+    /// joins (rules/characters 3.1). Named places only; `number` is the
+    /// place, 1..=34, so a free place leaves a gap.
     pub retired_players: Vec<Creature>,
     pub world: WorldMap,
     pub regions: Vec<Region>,

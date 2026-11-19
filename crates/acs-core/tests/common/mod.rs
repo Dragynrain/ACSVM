@@ -154,6 +154,14 @@ impl Fixture {
         self.put(c + cr::record(number - 1), &rec)
     }
 
+    /// Roster entry `place` (1-based): its name (empty for a free place)
+    /// and record, 25 names and 6 records a page (format-notes, Creatures).
+    pub fn retired(&mut self, place: usize, name: &str, rec: [u8; 37]) -> &mut Self {
+        let (c, i) = (self.l.creatures, place - 1);
+        self.packed(c + cr::RETIRED_NAMES + (i / 25) * 0x100 + (i % 25) * 10, name);
+        self.put(c + cr::RETIRED_RECORDS + (i / 6) * 0x100 + (i % 6) * 37, &rec)
+    }
+
     pub fn region(&mut self, spec: RegionSpec) -> &mut Self {
         self.regions.push(spec);
         self

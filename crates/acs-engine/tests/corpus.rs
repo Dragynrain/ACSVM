@@ -23,8 +23,11 @@ fn find(dir: &Path, out: &mut Vec<PathBuf>) {
         } else if Platform::from_path(&p).is_some() {
             let name = p.file_name().unwrap().to_string_lossy().to_ascii_lowercase();
             // EA's program disks, the C64's and the Amiga release disks
-            // (CLAUDE.md): never decoded here.
-            if !name.starts_with("advcnst") && !name.starts_with("adventureconstructionset") {
+            // (CLAUDE.md): never decoded here. Nor anything in rpgcodex's
+            // "00 Main Master Disks" folders: EA's disks under other names
+            // and a blank Amiga disk (Empty.adf).
+            let master = p.to_string_lossy().to_ascii_lowercase().contains("main master");
+            if !name.starts_with("advcnst") && !name.starts_with("adventureconstructionset") && !master {
                 out.push(p);
             }
         }
@@ -37,13 +40,19 @@ fn corpus() -> Option<Vec<(String, Adventure)>> {
     find(&dir, &mut files);
     files.sort();
     assert!(!files.is_empty(), "no adventures under {}", dir.display());
+    // A dump of a damaged disk (acs-core's corpus test, `DAMAGED`).
+    const DAMAGED: &[&str] = &["02B - ACS - Old Time Warp (Yellow Label).d64"];
     Some(
         files
             .iter()
-            .map(|p| {
-                let image = Image::open(p, None).expect("opens");
+            .filter_map(|p| {
                 let name = p.file_name().unwrap().to_string_lossy().into_owned();
-                (name, decode(&image).expect("decodes").adventure)
+                if DAMAGED.contains(&name.as_str()) {
+                    return None;
+                }
+                let image = Image::open(p, None).unwrap_or_else(|e| panic!("{name}: {e}"));
+                let adv = decode(&image).unwrap_or_else(|e| panic!("{name}: {e}")).adventure;
+                Some((name, adv))
             })
             .collect(),
     )
@@ -98,7 +107,8 @@ fn every_door_can_be_taken_and_lands_somewhere_real() {
         for reg in &a.regions {
             for room in reg.rooms.iter().filter(|r| !r.deleted) {
                 for (i, item) in room.items.iter().enumerate() {
-                    let Some(thing) = a.things.get(item.thing as usize - 1) else {
+                    let Some(thing) = (item.thing as usize).checked_sub(1).and_then(|i| a.things.get(i))
+                    else {
                         continue;
                     };
                     let ThingKind::Portal { access, .. } = &thing.kind else {
@@ -319,7 +329,21 @@ fn carriable_things_and_creature_loads_match_the_spec() {
                     "{file}: {} {p:?}",
                     c.name
                 );
-                assert!(inventory::carriable(&a.things[p.thing as usize - 1].kind));
+                let kind = &a.things[p.thing as usize - 1].kind;
+                // A possession whose thing was undefined since: *Mystery*
+                // and *Frizz's Revenge* share two such creatures (things 3
+                // and 51), likely from the builder set both started from.
+                let leftover = matches!(kind, ThingKind::Undefined);
+                if leftover {
+                    eprintln!("{file}: {} carries undefined thing {}", c.name, p.thing);
+                }
+                assert!(
+                    leftover || inventory::carriable(kind),
+                    "{file}: {} carries thing {}, a {}",
+                    c.name,
+                    p.thing,
+                    kind.type_name()
+                );
             }
             let load: i32 = c
                 .possessions
@@ -353,7 +377,8 @@ fn every_carriable_thing_can_be_picked_up() {
         for reg in &a.regions {
             for room in reg.rooms.iter().filter(|r| !r.deleted) {
                 for (i, item) in room.items.iter().enumerate() {
-                    let Some(thing) = a.things.get(item.thing as usize - 1) else {
+                    let Some(thing) = (item.thing as usize).checked_sub(1).and_then(|i| a.things.get(i))
+                    else {
                         continue;
                     };
                     if !inventory::carriable(&thing.kind)

@@ -29,8 +29,12 @@ fn find(dir: &Path, out: &mut Vec<PathBuf>) {
         } else if Platform::from_path(&p).is_some() {
             let name = p.file_name().unwrap().to_string_lossy().to_ascii_lowercase();
             // EA's program disks, the C64's and the Amiga release disks
-            // (CLAUDE.md): never decoded here.
-            if !name.starts_with("advcnst") && !name.starts_with("adventureconstructionset") {
+            // (CLAUDE.md): never decoded here. Nor anything in rpgcodex's
+            // "00 Main Master Disks" folders: EA's program disk, Rivers of
+            // Light and builder sets under other names, and a blank Amiga
+            // disk (Empty.adf).
+            let master = p.to_string_lossy().to_ascii_lowercase().contains("main master");
+            if !name.starts_with("advcnst") && !name.starts_with("adventureconstructionset") && !master {
                 out.push(p);
             }
         }
@@ -52,7 +56,8 @@ fn check_consistency(a: &Adventure, file: &str) {
     assert!(a.world.open_map_items.is_empty(), "{file}");
     for r in &a.regions {
         for room in r.rooms.iter().filter(|r| !r.deleted) {
-            for item in &room.items {
+            // Thing 0 is the author's slip, warned about (`KNOWN`).
+            for item in room.items.iter().filter(|i| i.thing > 0) {
                 let t = &a.things[item.thing as usize - 1];
                 assert!(
                     !matches!(t.kind, ThingKind::Undefined | ThingKind::Unknown { .. }),
@@ -149,6 +154,54 @@ fn check_scene(a: &Adventure, file: &str) {
     }
 }
 
+/// Warnings a C64 corpus disk is known to give, its author's data as it is
+/// (file, location, message): *The Hobbit* v2.0 (two copies) places thing
+/// 0 twice, once in a deleted room; two of Keighn's disks hold other bytes
+/// at world map + 0x80E (area door parameter 4, format-notes).
+const KNOWN: &[(&str, &str, &str)] = &[
+    ("hobbitv2_0.d64", "region 6 room 15", "item 0 has thing number 0"),
+    ("hobbitv2_0.d64", "region 7 room 15", "item 1 has thing number 0"),
+    (
+        "The Hobbit v2.d64",
+        "region 6 room 15",
+        "item 0 has thing number 0",
+    ),
+    (
+        "The Hobbit v2.d64",
+        "region 7 room 15",
+        "item 1 has thing number 0",
+    ),
+    (
+        "02A - ACS - Labyrinth of Death (Yellow Label).d64",
+        "world map byte 0x80e",
+        "0x08c2, not the usual 0x0832",
+    ),
+    (
+        "03A - ACS - Crazy Everings World (Red Label).d64",
+        "world map byte 0x80e",
+        "0x0841, not the usual 0x0832",
+    ),
+];
+
+/// Corpus disks dumped from damaged originals, whose image's error table
+/// marks the sectors that break them: *Old Time Warp*'s region 10 lies on
+/// track 30 sector 3 (error 5, a data checksum), read as 0xFF. They must
+/// still fail to decode, so a change to that shows.
+const DAMAGED: &[&str] = &["02B - ACS - Old Time Warp (Yellow Label).d64"];
+
+/// Decodes a corpus file, or `None` for a known damaged one (`DAMAGED`).
+fn decode_corpus(path: &Path) -> Option<acs_core::Decoded> {
+    let file = path.file_name().unwrap().to_string_lossy();
+    let img = Image::open(path, None).unwrap_or_else(|e| panic!("{file}: {e}"));
+    let d = decode(&img);
+    if DAMAGED.contains(&&*file) {
+        assert!(d.is_err(), "{file}: a damaged disk decodes now");
+        eprintln!("skipped: {file}: damaged");
+        return None;
+    }
+    Some(d.unwrap_or_else(|e| panic!("{file}: {e}")))
+}
+
 #[test]
 fn c64_corpus_decodes_cleanly() {
     let Some(files) = adventures("c64") else {
@@ -158,15 +211,21 @@ fn c64_corpus_decodes_cleanly() {
     assert!(!files.is_empty(), "no .d64 adventures under ACSVM_CORPUS/c64");
     for path in &files {
         let file = path.file_name().unwrap().to_string_lossy();
-        let img = Image::open(path, None).unwrap_or_else(|e| panic!("{file}: {e}"));
-        let d = decode(&img).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let Some(d) = decode_corpus(path) else {
+            continue;
+        };
         let unknown = d
             .diagnostics
             .iter()
             .filter(|x| x.kind == DiagnosticKind::UnknownThingType)
             .count();
         assert_eq!(unknown, 0, "{file}: unknown thing types");
-        assert!(d.diagnostics.is_empty(), "{file}: {:#?}", d.diagnostics);
+        let new: Vec<_> = d
+            .diagnostics
+            .iter()
+            .filter(|x| !KNOWN.contains(&(&*file, &*x.location, &*x.message)))
+            .collect();
+        assert!(new.is_empty(), "{file}: {new:#?}");
         assert_eq!(d.adventure.pictures.len(), 110);
         check_consistency(&d.adventure, &file);
         check_scene(&d.adventure, &file);
@@ -276,7 +335,8 @@ fn amiga_corpus_decodes_cleanly() {
     };
     for path in &files {
         let file = path.file_name().unwrap().to_string_lossy();
-        let d = decode(&Image::open(path, None).unwrap()).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let img = Image::open(path, None).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let d = decode(&img).unwrap_or_else(|e| panic!("{file}: {e}"));
         assert_eq!(d.errors().count(), 0, "{file}: {:#?}", d.diagnostics);
         check(&d.adventure, &file);
         eprintln!(
@@ -320,7 +380,9 @@ fn thing_props_encode_back() {
     let (mut same, mut differ) = (0, std::collections::BTreeMap::<String, usize>::new());
     for path in &files {
         let file = path.file_name().unwrap().to_string_lossy();
-        let d = decode(&Image::open(path, None).unwrap()).unwrap();
+        let Some(d) = decode_corpus(path) else {
+            continue;
+        };
         for t in &d.adventure.things {
             let Ok(raw) = thing_props(&t.kind, PropFlags::from_raw(&t.raw)) else {
                 *differ

@@ -150,6 +150,14 @@ holds Constitution with magic defense in the top two bits.
    [unknown]; the start is the engine's choice. Its moves are its Speed,
    as any newcomer's. Like `AddPlayer`, it saves when it comes in
    ([creatures](creatures.md) 2.2.7.4).
+   **Engine:** the adventure's own roster as its disk holds it
+   (`Adventure::retired_players`: the named places, each with its place
+   number; a place whose name is empty is free) joins the same way:
+   `characters::from_roster` makes the record `Rejoin` takes, each
+   possession once per count, a region of 0 a world map square. The
+   engine keeps no roster, so the front end lists the disk's entries
+   with the game's own and drops one from its list once it has joined;
+   the disk is never written, so a new game offers them all again.
 2. **A player from another adventure** is reached from the add-player
    screen's "add player from another adventure". The steps, each waiting
    for the button:

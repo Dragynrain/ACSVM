@@ -121,6 +121,53 @@ pub fn from_another_adventure(p: &crate::Player, picture: Option<PictureId>) -> 
     }
 }
 
+/// 3.1: an entry of the adventure's own roster (`Adventure::retired_players`)
+/// as the record `Rejoin` brings back: every rating, Life Force and Power
+/// as saved, each possession once per count, its gold, the weapon held and
+/// armor worn, its place (a region of 0 is the world map) and picture.
+pub fn from_roster(c: &acs_core::model::Creature) -> crate::Player {
+    let at = match c.region {
+        0 => Location::World { x: c.x, y: c.y },
+        region => Location::Room {
+            region,
+            room: c.room,
+            x: c.x,
+            y: c.y,
+        },
+    };
+    let thing = |t: ThingId| (t != 0).then_some(t);
+    crate::Player {
+        name: c.name.clone(),
+        speed: c.speed,
+        strength: c.strength,
+        constitution: c.constitution,
+        life_force: c.life_force,
+        moves_left: 0,
+        turn_moves: 0,
+        at,
+        possessions: c
+            .possessions
+            .iter()
+            .flat_map(|p| std::iter::repeat_n(p.thing, p.count as usize))
+            .collect(),
+        gold: c.wealth,
+        weapon: thing(c.weapon),
+        armor: thing(c.armor),
+        dexterity: c.dexterity,
+        wisdom: c.wisdom,
+        power: c.power,
+        size: c.size,
+        dodge: c.dodge,
+        parry: c.parry,
+        armor_skill: c.armor_skill,
+        melee: c.melee,
+        missile: c.missile,
+        magic_defense: c.magic_defense,
+        alive: true,
+        picture: c.picture,
+    }
+}
+
 /// The picture `player` shows (characters 2.4): its own, else the first
 /// offered.
 pub fn picture_of(adv: &Adventure, picture: Option<PictureId>) -> Option<PictureId> {
@@ -341,6 +388,69 @@ mod tests {
         assert_eq!((s.gold, s.picture), (1_000, Some(4)));
         p.gold = 1_500;
         assert_eq!(from_another_adventure(&p, None).gold, 1_500);
+    }
+
+    /// 3.1: a roster entry comes back with everything it kept: ratings,
+    /// each thing once per count, gold, readied gear, place and picture.
+    #[test]
+    fn a_roster_entry_keeps_its_things_place_and_gear() {
+        use acs_core::model::{Alignment, Creature, Possession, Strategy};
+        let c = Creature {
+            number: 2,
+            in_use: true,
+            name: "U".into(),
+            class: None,
+            picture: Some(7),
+            constitution: 20,
+            life_force: 5,
+            strength: 14,
+            dexterity: 12,
+            speed: 6,
+            wisdom: 13,
+            power: 20,
+            size: 7,
+            dodge: 29,
+            parry: 25,
+            armor_skill: 3,
+            melee: 33,
+            missile: 26,
+            strategy: Strategy {
+                alignment: Alignment::Thief,
+                aggressive: false,
+                brave: false,
+            },
+            magic_defense: MagicDefense::None,
+            mimic: false,
+            wealth: 346,
+            weapon: 4,
+            armor: 0,
+            x: 5,
+            y: 2,
+            region: 3,
+            room: 14,
+            possessions: vec![
+                Possession { thing: 4, count: 1 },
+                Possession { thing: 16, count: 2 },
+            ],
+            unknown_0b: 0,
+            last_turn_round: 0,
+        };
+        let p = from_roster(&c);
+        assert_eq!((p.constitution, p.life_force, p.power, p.wisdom), (20, 5, 20, 13));
+        assert_eq!(p.possessions, [4, 16, 16]);
+        assert_eq!((p.gold, p.weapon, p.armor), (346, Some(4), None));
+        assert_eq!(
+            p.at,
+            Location::Room {
+                region: 3,
+                room: 14,
+                x: 5,
+                y: 2
+            }
+        );
+        assert_eq!((p.picture, p.alive), (Some(7), true));
+        let map = from_roster(&Creature { region: 0, ..c });
+        assert_eq!(map.at, Location::World { x: 5, y: 2 });
     }
 
     #[test]

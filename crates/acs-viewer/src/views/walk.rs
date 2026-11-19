@@ -214,18 +214,38 @@ pub struct SavedCharacter {
 /// Built from the game's events, so a loaded game rebuilds it by replay.
 #[derive(Debug, Default, Clone)]
 struct Roster {
+    /// The adventure's own roster as the disk holds it (characters 3.1),
+    /// in place order, less those that joined in this game.
+    disk: Vec<Player>,
     saved: Vec<Player>,
     /// Slots whose character retired and that no newcomer has taken since.
     gone: Vec<usize>,
     /// A saved character asked back in, joining at the round's end.
     joining: Option<String>,
+    /// That character is the disk's (`disk`), not one retired in this game.
+    joining_disk: Option<Player>,
+    /// A disk character joined since `Walk::apply` last looked.
+    joined_disk: bool,
 }
 
 impl Roster {
+    /// An empty roster for a new game of `adv`: only the disk's own list.
+    fn new(adv: &Adventure) -> Roster {
+        Roster {
+            disk: adv
+                .retired_players
+                .iter()
+                .map(acs_engine::characters::from_roster)
+                .collect(),
+            ..Roster::default()
+        }
+    }
+
     /// Takes in `cmd` and the events it brought, on `game` after them.
     fn note(&mut self, cmd: &Command, game: &Game, events: &[Event]) {
         if let Command::Rejoin { player } = cmd {
             self.joining = Some(player.name.clone());
+            self.joining_disk = self.disk.contains(player).then(|| player.as_ref().clone());
         }
         for e in events {
             match e {
@@ -243,13 +263,21 @@ impl Roster {
                     // someone added first that round (characters 6.4).
                     let name = game.players().get(*player).map(|p| p.name.as_str());
                     if name.is_some() && self.joining.take().as_deref() == name {
-                        if let Some(i) = self.saved.iter().position(|p| Some(p.name.as_str()) == name) {
+                        // 3.1: choosing it clears it from the list.
+                        if let Some(d) = self.joining_disk.take() {
+                            self.disk.retain(|p| *p != d);
+                            self.joined_disk = true;
+                        } else if let Some(i) = self.saved.iter().position(|p| Some(p.name.as_str()) == name)
+                        {
                             self.saved.remove(i);
                         }
                     }
                 }
                 // Refused, or dropped by a restore (characters 7.1).
-                Event::AddRefused | Event::Restored { .. } => self.joining = None,
+                Event::AddRefused | Event::Restored { .. } => {
+                    self.joining = None;
+                    self.joining_disk = None;
+                }
                 _ => {}
             }
         }
@@ -264,7 +292,7 @@ impl Roster {
             game.rules(),
             game.first_player().clone(),
         );
-        let mut r = Roster::default();
+        let mut r = Roster::new(game.adventure());
         r.note(&Command::Wait, &g, &ev);
         let mut places = game.placements().iter().peekable();
         for (i, cmd) in game.log().iter().enumerate() {
@@ -373,6 +401,7 @@ impl Walk {
 
     fn with(game: Game, save: Game) -> Self {
         let reflow = acs_core::reflow::Reflow::new(game.adventure());
+        let roster = Roster::new(game.adventure());
         Walk {
             game,
             older: save.clone(),
@@ -386,7 +415,7 @@ impl Walk {
             cues: Vec::new(),
             trimmed: 0,
             announced: 0,
-            roster: Roster::default(),
+            roster,
             reflow,
             screen: store::Screen::default(),
             simple_shops: false,
@@ -590,7 +619,9 @@ impl Walk {
             _ => None,
         });
         self.roster.note(&cmd, &self.game, &ev);
-        if let Some(name) = joining.filter(|_| self.roster.joining.is_none()) {
+        // The disk's own characters are not on the kept list.
+        let from_disk = std::mem::take(&mut self.roster.joined_disk);
+        if let Some(name) = joining.filter(|_| self.roster.joining.is_none() && !from_disk) {
             let added = ev.iter().any(|e| {
                 matches!(e, Event::PlayerAdded { player, .. }
                     if self.game.players().get(*player).is_some_and(|p| p.name == name))
@@ -2107,17 +2138,18 @@ fn actions_panel(
     });
 }
 
-/// The characters retired with Save (characters 7.3, 7.6): as on the
-/// original's add-player screen, each can come back in, joining at the
-/// round's end like anyone added (6.2).
+/// The characters retired with Save (characters 3.1, 7.3, 7.6): the ones
+/// the adventure's disk holds, then this game's. As on the original's
+/// add-player screen, each can come back in, joining at the round's end
+/// like anyone added (6.2).
 fn roster_panel(ui: &mut egui::Ui, g: &Game, roster: &Roster, click: &mut Option<Command>) {
-    if roster.saved.is_empty() {
+    if roster.saved.is_empty() && roster.disk.is_empty() {
         return;
     }
     let living = g.players().iter().filter(|p| p.alive).count();
     let room = living < acs_engine::MAX_PLAYERS;
     ui.label(RichText::new("Retired, saved:").weak());
-    for p in &roster.saved {
+    for p in roster.disk.iter().chain(&roster.saved) {
         ui.horizontal_wrapped(|ui| {
             ui.label(format!(
                 "{} · LF {} · {} gold",
@@ -3369,6 +3401,57 @@ end"
             "{lines:#?}"
         );
         assert!(!lines.iter().any(|l| l.contains("player 1")), "{lines:#?}");
+    }
+
+    /// Characters 3.1: the adventure's own roster, as its disk holds it, is
+    /// offered; one that rejoins comes back as saved, where it was saved,
+    /// leaves the list (in a loaded game too) and is not taken for a
+    /// character on the kept list.
+    #[test]
+    fn the_disks_own_roster_can_rejoin() {
+        let mut f = common::Fixture::new(acs_core::Platform::Pc);
+        f.header("CLICKS", "", "");
+        f.thing(127, "EMPTY FLOOR", [0x00, 1, 0, 0]);
+        f.region(common::RegionSpec {
+            name: "HALL",
+            rooms: vec![common::RoomSpec {
+                name: "HALL",
+                w: 10,
+                h: 7,
+                wall: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        f.put(
+            f.l.world_map + acs_core::layout::world_map::TERRAIN,
+            &[1 | 1 << 6, 0],
+        );
+        let mut rec = common::creature_record(20, 0, 3);
+        (rec[0x0D], rec[0x0E], rec[0x10]) = (5, 2, 1 << 4);
+        rec[0x12] = 200;
+        f.retired(1, "", rec);
+        f.retired(2, "U", rec);
+        let a = acs_core::decode(&f.build()).expect("decodes").adventure;
+        let mut w = Walk::new(&a, 1, Rules::default());
+        w.place(sq(3, 3));
+        assert_eq!(w.roster.disk.len(), 1);
+        let player = Box::new(w.roster.disk[0].clone());
+        assert_eq!(player.name, "U");
+        w.apply(Command::Rejoin { player });
+        for _ in 0..4 {
+            if w.roster.joining.is_none() {
+                break;
+            }
+            w.apply(Command::Wait);
+        }
+        let u = w.game.players().iter().find(|p| p.name == "U").expect("joined");
+        assert_eq!((u.at, u.gold, u.constitution), (sq(5, 2), 200, 20));
+        assert!(w.roster.disk.is_empty(), "{:?}", w.roster);
+        assert!(w.take_rejoined().is_empty(), "not the kept list's");
+        let (_, text) = w.save_file(w.game.adventure());
+        let loaded = Walk::from_save(w.game.adventure(), &text).expect("loads");
+        assert!(loaded.roster.disk.is_empty());
     }
 
     /// Characters 7.3, 7.6: a character retired with Save is kept, shown as

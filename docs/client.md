@@ -416,7 +416,10 @@ other adventure disk (characters 3.2). Add Someone lists the ones from
 other adventures under "From another adventure"; one joins by
 characters 3.3 (its ratings, no things, at least 1,000 gold, on the
 map's start cell) and leaves the list. Its own adventure gets it back
-with Rejoin instead, from the game's own list. Panel sizes are not kept. A
+with Rejoin instead, from the game's own list. That list starts with the
+characters the adventure's disk holds on its own roster (characters
+3.1), which join by Rejoin too and are not kept: the disk is not
+written, so every new game offers them again. Panel sizes are not kept. A
 screenshot run or a scripted walk (`--screenshot`, `--walk`, `--load`)
 neither reads nor writes any of it, and `--text-size` and
 `--colour-blind` win over the kept options.

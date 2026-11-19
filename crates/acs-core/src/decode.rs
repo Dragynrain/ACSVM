@@ -558,9 +558,11 @@ impl Decoder<'_> {
                 players.push(c);
             }
         }
-        // Retired players are packed into pages; AcsLib reads 26 names and 7
-        // records per page. That overruns a 256-byte page, so we read 25 and 6
-        // (unverified: the corpus has no retired players).
+        // Retired players are packed into pages, 25 names and 6 records a
+        // page (format-notes, Creatures). A place whose name is empty is
+        // free: never used, or its character chosen since, which clears the
+        // name and leaves the record (rules/characters 3.1). Each kept
+        // entry's `number` is its place, so the gaps stay.
         let base = self.l.creatures;
         let mut retired = Vec::new();
         for i in 0..cr::RETIRED_MAX {
@@ -569,11 +571,17 @@ impl Decoder<'_> {
             if rec + cr::RECORD_LEN > base + cr::CLASSES {
                 break;
             }
-            let c = self.creature(i + 1, name, rec, None, &format!("retired player {}", i + 1))?;
-            if !c.in_use {
-                break;
+            if decode_packed(self.b.block(name, NAME_LEN, "retired name")?)
+                .0
+                .trim()
+                .is_empty()
+            {
+                continue;
             }
-            retired.push(c);
+            let c = self.creature(i + 1, name, rec, None, &format!("retired player {}", i + 1))?;
+            if c.in_use {
+                retired.push(c);
+            }
         }
         Ok((players, retired))
     }
@@ -1020,10 +1028,11 @@ pub fn resolve_portals(adv: &mut Adventure, diags: &mut Vec<Diagnostic>) {
         let table = region.portal_table.clone();
         for room in &mut region.rooms {
             for (n, item) in room.items.iter_mut().enumerate() {
-                let Some(Some(_two_way)) = two_way
-                    .get(item.thing as usize - 1)
+                // Thing 0 (a fan disk has some, warned about above) is no portal.
+                let Some(Some(_two_way)) = (item.thing as usize)
+                    .checked_sub(1)
+                    .and_then(|i| two_way.get(i))
                     .copied()
-                    .filter(|_| item.thing > 0)
                 else {
                     continue;
                 };

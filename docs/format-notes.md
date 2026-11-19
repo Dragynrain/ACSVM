@@ -468,6 +468,11 @@ data and `tests/corpus.rs` re-checks the counted rules on the corpus.
   Wisdom was drift seen late; byte 5 is kept: rules/characters 3.1.) Saving
   a retiring player writes the first roster entry with an empty name
   (rules/characters 7.3).
+  The decoder reads all 34 places and keeps the named ones with their
+  place numbers; an empty name is a free place, even with a full record
+  behind it (a character chosen since). Fan disks show it: two of
+  *Magic*'s places and one each of *JourneyIMPROVED*'s and *The
+  Visitation*'s hold records with empty names (November 2026).
 
 ## The world map's tail: encounter areas
 
@@ -481,7 +486,7 @@ runs rr22). Offsets are from the world map block's start.
 | --- | --- | --- |
 | +0x7F2 + 5 (n - 1) | Area n's room record (n 1..4): +0 wall picture, +1 size (written in play: 233 while open, 0 when free) | Address from the researcher's encounters pass (capture.md 9); the bytes on disk not studied |
 | +0x806 | The area door table: four 2-byte entries in the door format (Doors above), `00 41`, `00 42`, `00 43`, `00 44` in every corpus file | Confirmed by capture (docs/capture.md 10.34) |
-| +0x80E | Read as the table's fifth entry (door parameter 4); bytes `32 08` (u16 0x0832) in every corpus file | Confirmed for parameter 4 by capture (10.34); no effect on parameters 0..3 |
+| +0x80E | Read as the table's fifth entry (door parameter 4); bytes `32 08` (u16 0x0832) in every corpus file but two fan disks (0x08C2 and 0x0841, warned about) | Confirmed for parameter 4 by capture (10.34); no effect on parameters 0..3 |
 | +0x810 | Five room item lists: room 0 (the open map), then areas 1..4 | Confirmed by capture |
 
 - **The lists** use the room item-list format (see Room items): a u16
