@@ -10,7 +10,9 @@ clean room. One mode per role, given as the first argument:
                Amiga version's program files (ACS.EXE, acs.1 to acs.4,
                ACS.dat), its disk images (AdventureConstructionSet_*.adf)
                or the Kickstart ROM, and no wildcard or recursive
-               search that would reach them under corpus/amiga/.
+               search that would reach them under corpus/amiga/; nor
+               the rpgcodex "00 Main Master Disks" folders (EA's disks
+               under other names), by name like advcnst*.
   spec-only    the engine implementer: as implementer, and nothing under
                ACSVM-research/research/ at all (no findings, no inputs) and
                no research briefs: it implements from docs/rules/ only.
@@ -105,6 +107,15 @@ AMIGA_PROGRAM = re.compile(
 AMIGA_WHY = "EA's Amiga program files, its disks and the Kickstart ROM are for researcher sessions only"
 
 
+# The rpgcodex collection's "00 Main Master Disks" folders (C64 and Amiga):
+# EA's own disks under other names (the C64 program disk, Rivers of Light,
+# the builder sets, "... (Main Master).d64", "... (Master).d64") and a
+# blank Amiga disk. Matched on the lower-case, forward-slash text, with up to
+# three other characters between the words (`main\ master`, `main*master`).
+MASTER = re.compile(r"main\W{1,3}master|\(master\)\.d64")
+MASTER_WHY = "the corpus's Main Master disks are EA's own, for researcher sessions only"
+
+
 def amiga_risk(p: str, recursive: bool, shell: bool = False) -> str | None:
     """Why p could reach the Amiga program files or the Kickstart ROM. In a
     shell command a recursive flag may belong to another part of a pipe
@@ -166,6 +177,8 @@ def check(mode: str, data: dict) -> str | None:
         if mode in ("implementer", "spec-only"):
             if "advcnst" in low:
                 return "EA's program disks (advcnst*) are for researcher sessions only"
+            if MASTER.search(low):
+                return MASTER_WHY
             if any(AMIGA_PROGRAM.match(t.lower().replace("\\", "/").rsplit("/", 1)[-1]) for t in toks):
                 return AMIGA_WHY
             names_research = "acsvm-research" in low or under(norm(".", cwd), RESEARCH) is not None
@@ -191,6 +204,8 @@ def check(mode: str, data: dict) -> str | None:
         if mode in ("implementer", "spec-only"):
             if "advcnst" in p:
                 return "EA's program disks (advcnst*) are for researcher sessions only"
+            if MASTER.search(p):
+                return MASTER_WHY
             why = notes_risk(p, recursive) or amiga_risk(p, recursive)
             if why:
                 return why

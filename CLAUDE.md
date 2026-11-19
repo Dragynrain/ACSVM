@@ -38,7 +38,11 @@ the Amiga program files and Kickstart ROM;
   `c\ACS.dat`, with `adventure`, `acs.master` and `acs.msgs` beside them),
   EA's two release disks that hold them (`AdventureConstructionSet_A.adf`
   and `_B.adf`) and the Kickstart ROM `kick13.rom` (copyrighted, never
-  commit). Adventure disks of others go in `corpus\amiga\adventures\`. Only a
+  commit). Adventure disks of others go in `corpus\amiga\adventures\`. The
+  rpgcodex collection's `00 Main Master Disks` folders (`corpus\c64\` and
+  `corpus\amiga\`) hold EA's disks under other names (the program disk,
+  *Rivers of Light*, the builder sets) and a blank disk: the same rule, the
+  hook blocks them by name and the corpus tests skip them. Only a
   researcher session (a separate one, started in the research folder by
   the maintainer) may; sessions here are implementers.
 - **Clean room** (`docs/research/README.md`): never open, list or search

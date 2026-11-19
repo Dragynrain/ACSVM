@@ -119,7 +119,9 @@ getting the program to the right moment.
    there (`adventure`, `acs.master`) and interface text (`acs.msgs`), the
    Kickstart ROM (`ACSVM-research\corpus\amiga\kick13.rom`), EA's two
    release disks (`AdventureConstructionSet_A.adf` and `_B.adf` in
-   `corpus\amiga\`) and any Amiga emulator snapshots. For everyone else the rule in CLAUDE.md stands.
+   `corpus\amiga\`) and any Amiga emulator snapshots. The rpgcodex
+   collection's `00 Main Master Disks` folders hold copies of EA's disks
+   under other names: the same rule applies to them. For everyone else the rule in CLAUDE.md stands.
 5. Nothing derived from the program goes into the repository except
    plain-language rules and the listed addresses. Neither version's
    files, nor the Kickstart ROM, are ever copied into the repository.
