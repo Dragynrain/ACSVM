@@ -15,6 +15,7 @@ mod app;
 mod audio;
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;
+mod count;
 mod fonts;
 mod gamepad;
 mod hdpack;
@@ -84,6 +85,7 @@ fn main() -> eframe::Result {
 fn main() {
     use wasm_bindgen::JsCast as _;
     console_error_panic_hook::set_once();
+    count::panic_hook();
     eframe::WebLogger::init(log::LevelFilter::Info).ok();
     wasm_bindgen_futures::spawn_local(async {
         let document = web_sys::window().expect("window").document().expect("document");

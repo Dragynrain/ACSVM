@@ -360,6 +360,8 @@ pub struct Walk {
     print: std::cell::OnceCell<String>,
     /// The end screen was put aside (winning 4.6).
     ending_closed: bool,
+    /// The win was counted (client 11), once a game.
+    win_counted: bool,
     /// The log filter (client 3): the groups hidden, by `Kind::group`.
     log_hidden: [bool; LOG_GROUPS.len()],
     /// The name typed and picture chosen for the next "Add Someone".
@@ -378,6 +380,7 @@ impl Walk {
     /// A game whose first character, rolled like any other (characters
     /// 1), is named `name` and has `picture` (characters 2.4).
     pub fn create(adv: &Adventure, seed: u64, rules: Rules, name: &str, picture: Option<PictureId>) -> Self {
+        crate::count::event("walk/new");
         let first = Newcomer::Create {
             create: name.into(),
             picture,
@@ -424,6 +427,7 @@ impl Walk {
             others: Vec::new(),
             log_hidden: [false; LOG_GROUPS.len()],
             ending_closed: false,
+            win_counted: false,
             rejoined: Vec::new(),
             pending_other: None,
             joined_other: None,
@@ -471,6 +475,8 @@ impl Walk {
         let save = SaveFile::from_json(text).map_err(|e| e.to_string())?;
         let r = save.restore(adv).map_err(|e| e.to_string())?;
         let mut w = Walk::with(r.game, r.autosave);
+        // A save made after the win isn't counted again (client 11).
+        w.win_counted = w.game.won().is_some();
         // The saved characters aren't in the file: the replay finds them.
         w.roster = Roster::of(&w.game);
         w.note(format!(
@@ -1584,6 +1590,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         store_window(ui.ctx(), &walk.game, &mut click);
     }
     // Winning 4.6: the end screen, until put aside to look at the board.
+    if walk.game.won().is_some() && !std::mem::replace(&mut walk.win_counted, true) {
+        crate::count::event("won");
+    }
     if walk.game.won().is_some() && !walk.ending_closed {
         ending_window(
             ui.ctx(),

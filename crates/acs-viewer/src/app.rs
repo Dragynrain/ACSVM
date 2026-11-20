@@ -627,6 +627,9 @@ impl Viewer {
             };
             return;
         }
+        if let Ok(b) = &file.bytes {
+            crate::count::event(crate::count::open_event(&file.name, b));
+        }
         match file.bytes.and_then(|b| load::load(&file.name, b)) {
             Ok(load::Loaded {
                 decoded,
@@ -657,6 +660,7 @@ impl Viewer {
                 self.play_help = self.keep && !self.no_play_help;
             }
             Err(e) => {
+                crate::count::event("open/failed");
                 self.play_next = false;
                 self.error = Some(format!("{}: {e}", file.name));
             }

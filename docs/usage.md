@@ -88,7 +88,11 @@ scripts/web.sh build       # static site in target/web/
 
 The page reads the file you drop or pick inside the browser tab. Nothing is
 uploaded: the page's content security policy only allows connections back to
-the site it came from, and the viewer never makes any.
+the site it came from, and the viewer never makes any. The one thing that
+leaves is an anonymous count of page views and a few fixed events (a file
+opened, by format; a game started or won; a crash), with no cookies and never
+a file's name or contents; Do Not Track, Global Privacy Control and local
+hosts turn it off. The list is in [client.md 11](client.md#11-counts).
 
 ## Using the inspector
 

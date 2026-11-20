@@ -528,3 +528,29 @@ column, where it had pushed the column's edge under the board.) The pack half is
 test `a_pack_loads_and_reports_its_coverage`, and a demo pack built
 with `scripts/hdpack.py` covered exactly what it was built to on
 *Rivers of Light* (not committed: its hashes come from EA's pictures).
+
+## 11. Counts
+
+The web build counts a few things, anonymously, so we know whether the
+playtest reaches the parts that matter. The native build counts nothing.
+
+- **What is sent.** A page view when the page loads (its path and the
+  referrer), and these events, by name only: `open/c64`, `open/amiga`,
+  `open/pc`, `open/advx` (a file was handed to the viewer, by the format
+  the loader takes it for), `open/failed` (it didn't open), `walk/new` (a
+  new game started), `won` (a game was won; once a game, and not again for
+  a save loaded after the win) and `panic/FILE:LINE` (the viewer crashed,
+  where; the message is left out, since it can hold a file's name or
+  contents). Never a file name, an adventure's contents, a save, a
+  character's name or anything typed. The events live in
+  `crates/acs-viewer/src/count.rs`; adding one is a change to this list.
+- **How.** [GoatCounter](https://www.goatcounter.com), through its
+  no-JavaScript endpoint: the page's own few lines of script in
+  `index.html` request an image from `acsvm.goatcounter.com/count` (the dashboard is at <https://acsvm.goatcounter.com>). No
+  cookies, no stored ID, no third-party script. The content security
+  policy allows that one host for images only; `connect-src` stays
+  `'self'`, so the page still cannot upload anything.
+- **When not.** Nothing is sent when the site code in `index.html` is
+  empty, on a local host (`localhost`, `127.0.0.1`, `[::1]`,
+  `*.localhost`) or a `file:` page, or when the browser sets Do Not Track
+  or Global Privacy Control.

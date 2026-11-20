@@ -95,7 +95,9 @@ which first mapped the file format
   the way explain moving, taking things, the store, a fight and a spell.
 - **Play your own adventures.** Drag a file onto the window, or use
   Open…. The [table below](#which-files-it-opens) lists what it opens. The
-  file is read on your computer and never uploaded.
+  file is read on your computer and never uploaded. The web page keeps
+  an anonymous count of visits and a few events, with no cookies
+  ([what it counts](docs/client.md#11-counts)).
 - **Play together.** Several players take turns at one keyboard, the way
   the original was played. Up to four gamepads work as well.
 - **Save anywhere.** A save file holds only the seed and the moves played,

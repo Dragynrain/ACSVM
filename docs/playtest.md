@@ -7,7 +7,8 @@ goes wrong.
 
 **Play it:** <https://dragynrain.github.io/ACSVM/>. Nothing is
 installed, and any file you open is read on your own machine and never
-uploaded.
+uploaded. The page counts visits and a few events anonymously, with no
+cookies ([what it counts](client.md#11-counts)).
 
 ## What to try
 

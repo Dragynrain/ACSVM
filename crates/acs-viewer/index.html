@@ -6,12 +6,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- The real title (with the project name) is set by the app at start-up. -->
   <title>Adventure viewer</title>
-  <!-- Self-contained: no fonts, scripts or trackers from other hosts, and
-       connect-src 'self' means the page cannot send anything elsewhere. The
-       adventure you open is read in this tab and never uploaded. Inline
-       scripts are allowed for trunk's generated loader. -->
+  <!-- Self-contained: no fonts or scripts from other hosts. The adventure
+       you open is read in this tab and never uploaded: connect-src 'self'
+       means the page cannot send it anywhere. The one thing that leaves is
+       an anonymous count (docs/client.md 11): an image request to
+       GoatCounter naming a page view or a fixed event, hence its host in
+       img-src. Inline scripts are allowed for trunk's generated loader and
+       the counter below. -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob: https://acsvm.goatcounter.com">
+  <script>
+    // Anonymous counts (docs/client.md 11). GoatCounter's no-JavaScript
+    // endpoint, called with an image: no cookies, no stored ID, no script
+    // of theirs. Sends nothing with no site code, on a local host or a
+    // file, or with Do Not Track or Global Privacy Control set.
+    (function () {
+      var site = "acsvm";  // the GoatCounter site code: https://acsvm.goatcounter.com
+      var host = location.hostname;
+      var off = !site || location.protocol === "file:" ||
+        host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".localhost") ||
+        navigator.doNotTrack === "1" || navigator.globalPrivacyControl === true;
+      function send(path, title, isEvent) {
+        if (off) return;
+        var q = "p=" + encodeURIComponent(path) + "&t=" + encodeURIComponent(title) +
+          (isEvent ? "&e=true" : "&r=" + encodeURIComponent(document.referrer)) +
+          "&rnd=" + Math.random().toString(36).slice(2);
+        new Image().src = "https://" + site + ".goatcounter.com/count?" + q;
+      }
+      // The viewer's events: fixed names only (src/count.rs).
+      window.acsCount = function (name) { send(String(name).slice(0, 200), String(name).slice(0, 200), true); };
+      send(location.pathname, "viewer", false);
+    })();
+  </script>
   <link data-trunk rel="rust" data-bin="acs-viewer" data-wasm-opt="2">
   <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1b1b1b; color: #ccc;
