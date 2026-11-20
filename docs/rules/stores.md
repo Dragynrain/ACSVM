@@ -206,7 +206,15 @@ Counts cover all 15 corpus adventures (222 regions).
    picture, one square however many; empty places, floor and exits look
    like floor (the aisles in the room's floor picture). A thing sold is
    drawn at once; one bought until none are left is erased. [research;
-   capture]
+   capture] The PC version draws it differently: every shelf place in
+   wall (a rock texture), each stocked thing on a black square cut into
+   the wall, black aisles, and a door picture at each exit. [capture: the
+   maintainer's screenshot of the PC store screen, 2026-11-20; not
+   committed] Whether the outer ring's floor squares (row 0 and row 9
+   between the shelf places) show as wall there too could not be told
+   from it. **Engine:** none; the drawing and walking about are the front
+   end's (client.md 4.1), which follows the PC and draws those ring
+   squares as wall.
 5. **Moving on it.** One push moves one square in any of eight
    directions. Pushing toward floor steps there; toward a stocked thing's
    place offers it (4.1); toward another place says it is out of stock

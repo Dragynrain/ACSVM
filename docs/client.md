@@ -3,7 +3,7 @@
 What the player sees and touches: layout, the message log, input, render
 modes, audio, accessibility and builds. Phase 5's plan and the client's
 spec; each section is written before its code, like `docs/rules/`.
-Licensed CC BY 4.0. Code: `crates/acs-viewer` (walk mode is
+Licensed CC BY 4.0. Code: `crates/acs-viewer` (play mode is
 `src/views/walk.rs`).
 
 The client grows out of the viewer: eframe/egui, one codebase for the
@@ -36,15 +36,15 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
 
 | Area | Wide | Narrow |
 | --- | --- | --- |
-| Top bar | Menu and Info toggles, Open, Walk, Back, the adventure | The same; it wraps |
-| Menu (left) | Shown; in walk mode only from 1500 points wide, so the board keeps its room | Hidden until toggled; opening it closes Info |
+| Top bar | Menu and Info toggles, Open, Play, Back, the adventure | The same; it wraps |
+| Menu (left) | Shown; in play mode only from 1500 points wide, so the board keeps its room | Hidden until toggled; opening it closes Info |
 | Board (centre) | The map or room, the tile scale fitted to what is left | The same |
 | Info column (right) | Shown, 200 to 480 points and at most about a third of the window; long lines and rows of buttons wrap; scrolls when taller than the window | Hidden until toggled; opening it closes the Menu |
-| Message log (bottom, walk mode) | Shown, resizable, about a fifth of the height, or all the height the 3:2 board can't use if that is more; at most 60% | Shown, a sixth, or the board's spare height |
+| Message log (bottom, play mode) | Shown, resizable, about 30% of the height, or all the height the 3:2 board can't use if that is more; at most 60% | Shown, about a fifth, or the board's spare height |
 
 - Nothing clips: a column taller than its space scrolls, and a row wider
   than its space wraps.
-- The message log is always visible in walk mode, whatever else is
+- The message log is always visible in play mode, whatever else is
   hidden: it replaces the original's press-to-acknowledge messages (3).
   Every line wraps to the log's visible width, long messages too (3.1);
   only a Classic long message laid out as a picture or a table keeps its
@@ -119,7 +119,7 @@ Restart and the save buttons.
 
 ### 3.3 The opening
 
-Play opens as on the original (capture.md 10.48): when walk mode starts
+Play opens as on the original (capture.md 10.48): when play mode starts
 a game (a new one, or the one kept from last time), a **title screen** shows
 the adventure's name and byline; then, unless the adventure says not to
 (`no_intro_page`: a Classic header byte of 0; for our own adventures, no
@@ -187,10 +187,16 @@ other way.
 ### 4.1 The store screen
 
 Bumping a store opens the original's store screen in place of the room
-(stores 3): its fixed 15 x 10 map (`stores::square`), the room's floor
-picture everywhere, each stocked thing drawn on its shelf place, the
-player on 7,5, the exits at the ends of row 4 marked with corner
-brackets (the original shows floor there). A line under the board says
+(stores 3): its fixed 15 x 10 map (`stores::square`), drawn the way the
+PC version draws it (stores 3.4): the room's floor picture in the aisles,
+the store room's wall picture on every empty shelf place, each stocked
+thing on floor cut into the shelf, and at each exit (the ends of row 4)
+the picture of the first portal in the store's room. Without a wall
+picture a shelf is a dark board; without a portal an exit gets corner
+brackets. The outer ring's floor squares (rows 0 and 9 between the shelf
+places, which only a diagonal step reaches, into a dead end) are drawn as
+wall and block: walking about the screen is the viewer's own (stores 3.8),
+so this changes nothing in play. The player starts on 7,5. A line under the board says
 what the original's bottom line says, with buttons for its answers:
 
 - The first prompt: the player's gold. The button (Space or Enter)
@@ -430,14 +436,14 @@ Two windows explain the viewer to someone who has never seen ACS:
 
 - **Welcome**, over the title screen on the first visit, and again from
   its "New here?" button or Help > Welcome: what the program is, First
-  Voyage, opening one's own adventure, Explore against Walk, and the Help
+  Voyage, opening one's own adventure, Explore against Play, and the Help
   menu.
 - **How to play**, each time an adventure opens (unless "Don't show
   this when an adventure opens" is ticked) and from Help > How to play:
   moving, the Info column's actions, stats and inventory, the draining
   move bar and Turn-based, the log, stores (4.1), hot-seat and saving.
   An adventure opened in Explore gets a first paragraph saying so, and
-  **Start playing** (to Walk) or **Look around first**.
+  **Start playing** (to Play) or **Look around first**.
 
 Neither shows in a screenshot run or a scripted walk.
 
@@ -506,14 +512,14 @@ Phase 5's gate is met (10); next is Phase 6, original content and 1.0.
 
 ## 10. Gate
 
-No layout breaks at the checked sizes (2) in walk mode, the map and
+No layout breaks at the checked sizes (2) in play mode, the map and
 every list view; an HD pack loads and its coverage report is right for
 a test adventure of our own.
 
-**Met, November 2026.** Every view (walk mode on the map and in a room
+**Met, November 2026.** Every view (play mode on the map and in a room
 with creatures, the world map, a region, a room, things, creatures,
 messages, diagnostics and the HD pack view) at the six checked sizes,
-with an HD pack loaded, the touch pad on and two players; and walk mode
+with an HD pack loaded, the touch pad on and two players; and play mode
 and the pack view again at 150% text with the colour-blind palette, at
 the two tablet sizes. Two breaks turned up and were fixed: the top bar
 ran under Fullscreen at large text (Fullscreen now takes its place
@@ -537,7 +543,7 @@ playtest reaches the parts that matter. The native build counts nothing.
 - **What is sent.** A page view when the page loads (its path and the
   referrer), and these events, by name only: `open/c64`, `open/amiga`,
   `open/pc`, `open/advx` (a file was handed to the viewer, by the format
-  the loader takes it for), `open/failed` (it didn't open), `walk/new` (a
+  the loader takes it for), `open/failed` (it didn't open), `play/new` (a
   new game started), `won` (a game was won; once a game, and not again for
   a save loaded after the win) and `panic/FILE:LINE` (the viewer crashed,
   where; the message is left out, since it can hold a file's name or

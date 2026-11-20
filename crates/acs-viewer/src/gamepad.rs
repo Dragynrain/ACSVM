@@ -48,7 +48,7 @@ pub struct Stick {
 
 impl Stick {
     /// The key for the direction held, if any: arrows, and Home, PageUp,
-    /// End and PageDown for the diagonals (walk mode's keys).
+    /// End and PageDown for the diagonals (play mode's keys).
     fn key(&self) -> Option<Key> {
         let mut dx = self.right as i8 - self.left as i8;
         let mut dy = self.down as i8 - self.up as i8;

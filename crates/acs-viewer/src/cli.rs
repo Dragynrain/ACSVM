@@ -20,7 +20,7 @@ pub struct Args {
     /// scale: a size too big for this screen at its scale still fits, and
     /// the layout, which depends only on points, is the same.
     pub ppp: Option<f32>,
-    /// Walk mode with the on-screen pad shown (`--pad`).
+    /// Play mode with the on-screen pad shown (`--pad`).
     pub pad: bool,
     /// An HD pack to load (`--pack FILE.png`).
     pub pack: Option<PathBuf>,
@@ -31,20 +31,20 @@ pub struct Args {
     /// The render mode to start in (`--render original|smoothed|hd|native`).
     pub render: Option<crate::tiles::RenderMode>,
     pub screenshot: Option<PathBuf>,
-    /// Walk mode with this seed (`--seed`) and these steps (`--walk`).
+    /// Play mode with this seed (`--seed`) and these steps (`--walk`).
     pub seed: Option<u64>,
     pub walk: Option<Vec<acs_engine::Command>>,
-    /// Walk mode starting in a room square (`--place R:N:X:Y`), a tool
+    /// Play mode starting in a room square (`--place R:N:X:Y`), a tool
     /// shortcut that is not part of the replayable command log.
     pub place: Option<acs_engine::Location>,
-    /// A save file to load into walk mode (`--load`), and where to write
+    /// A save file to load into play mode (`--load`), and where to write
     /// the walk's save once its steps are played (`--save`).
     pub load: Option<PathBuf>,
     pub save: Option<PathBuf>,
 }
 
-pub const USAGE: &str = "usage: acs-viewer [FILE] [--view walk|world|region:R|room:R:N|things|creatures|messages|diagnostics|pack] \
-[--size WxH] [--ppp F] [--pad] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view walk opens the New character screen; --seed, --place and --walk start a walk; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the walk's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+pub const USAGE: &str = "usage: acs-viewer [FILE] [--view play|world|region:R|room:R:N|things|creatures|messages|diagnostics|pack] \
+[--size WxH] [--ppp F] [--pad] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view play opens the New character screen; --seed, --place and --walk start a game; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the game's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -131,7 +131,8 @@ pub fn parse_view(s: &str) -> Result<View, String> {
             .map_err(|_| format!("bad number {p:?} in --view {s}"))
     };
     Ok(match parts.as_slice() {
-        ["walk"] => View::Walk,
+        // "walk" is the old name, still taken.
+        ["play" | "walk"] => View::Walk,
         ["world"] => View::World,
         ["region", r] => View::Region(num(r)?.checked_sub(1).ok_or("regions start at 1")?),
         ["room", r, n] => View::Room(num(r)?.checked_sub(1).ok_or("regions start at 1")?, num(n)?),

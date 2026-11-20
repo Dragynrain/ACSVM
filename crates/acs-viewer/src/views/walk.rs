@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Walk mode: a player moved by the keyboard through the rules engine.
+//! Play mode: a player moved by the keyboard through the rules engine.
 //!
 //! All rules live in `acs-engine`; this view only turns keys and buttons into
 //! commands, draws where the engine says the player is, shows what it
@@ -380,7 +380,7 @@ impl Walk {
     /// A game whose first character, rolled like any other (characters
     /// 1), is named `name` and has `picture` (characters 2.4).
     pub fn create(adv: &Adventure, seed: u64, rules: Rules, name: &str, picture: Option<PictureId>) -> Self {
-        crate::count::event("walk/new");
+        crate::count::event("play/new");
         let first = Newcomer::Create {
             create: name.into(),
             picture,
@@ -1480,7 +1480,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         });
     }
 
-    // The message log: always shown in walk mode, whatever else is hidden
+    // The message log: always shown in play mode, whatever else is hidden
     // (client 2, 3).
     let height = ui.ctx().content_rect().height();
     let narrow = ui.ctx().content_rect().width() < crate::app::NARROW;
@@ -1490,7 +1490,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
     // takes the height the board can't use.
     let left = ui.available_rect_before_wrap();
     let spare = left.height() - left.width() * 2.0 / 3.0 - 8.0;
-    let share = height * if narrow { 0.16 } else { 0.22 };
+    let share = height * if narrow { 0.22 } else { 0.30 };
     egui::Panel::bottom("walk-log")
         .resizable(true)
         .default_size(share.max(spare).min(height * 0.6))
@@ -2751,7 +2751,7 @@ fn map_size(map: &acs_core::model::WorldMap) -> (i16, i16) {
     (w, h)
 }
 
-/// Which map square each cell of walk mode's map window shows (client 4).
+/// Which map square each cell of play mode's map window shows (client 4).
 /// A map that wraps is centred on the player and repeats across its edges;
 /// one that doesn't stops at its edges, and is centred in the window, with
 /// empty cells around it, where it is smaller than the window.

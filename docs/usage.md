@@ -36,7 +36,7 @@ a room to open it, and a door (in a room or on the world map) to follow it;
 Back (or Backspace) returns. Pictures are drawn at whole-number scales that fit
 the window, with C64 pixels twice as wide as tall.
 
-**Walk mode** (Walk in the top bar) puts a player at the adventure's start.
+**Play mode** (Play in the top bar) puts a player at the adventure's start.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
 End, PgDn, or the numpad), and press Space to end a turn. The log on the right
 lists what the rules engine reports: steps, blocked moves with the designer's
@@ -64,7 +64,7 @@ save, so a save can go with a bug report.
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
 `creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
-`--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
+`--seed N --walk n,ne,e,...,wait` opens play mode and plays those steps first;
 steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
 `use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),
 `fire[:X:Y[:T]]` (at a square, with weapon T) and `retire[:save|destroy]` (T is a thing number; a target is `me`, `pN` for player

@@ -120,6 +120,8 @@ impl Walk {
             .zip(u8::try_from(y).ok())
             .and_then(|(x, y)| stores::square(x, y).map(|s| (x, y, s)));
         self.screen.prompt = match sq {
+            // The outer ring's dead ends are wall here (client 4.1).
+            Some((x, y, StoreSquare::Floor)) if edge(x, y) => return,
             Some((x, y, StoreSquare::Floor)) => {
                 self.screen.at = (x, y);
                 Prompt::Welcome
@@ -247,9 +249,11 @@ impl Walk {
     }
 }
 
-/// The store screen's board: floor everywhere, each stocked thing on its
-/// shelf place, the player on its square (3.3, 3.4). Returns the square
-/// clicked, if any.
+/// The store screen's board, as the PC original draws it (client 4.1):
+/// floor in the aisles, the room's wall picture on every shelf place,
+/// each stocked thing on floor cut into the shelf, and a door at each exit
+/// (the picture of a portal in the store's room). The player on its
+/// square (stores 3.3, 3.4). Returns the square clicked, if any.
 pub(super) fn draw_store(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, walk: &Walk) -> Option<(u8, u8)> {
     let g = &walk.game;
     let a = g.adventure();
@@ -258,19 +262,40 @@ pub(super) fn draw_store(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, walk: &
     let (resp, painter, grid) = canvas(ui, w, h, tiles);
     painter.rect_filled(resp.rect, 0.0, ui.visuals().extreme_bg_color);
     let floor = scene::floor_picture(a);
+    let (wall, door) = store_room_pictures(walk);
     for y in 0..h {
         for x in 0..w {
             let cell = grid.cell_rect(x, y);
-            tiles.paint(&painter, floor, cell);
             match stores::square(x as u8, y as u8) {
                 Some(StoreSquare::Shelf(t)) if g.on_shelf(region, t) > 0 => {
+                    tiles.paint(&painter, floor, cell);
                     tiles.paint(&painter, scene::thing_picture(a, t), cell);
                 }
-                // The ways out, marked (the original shows floor there).
+                // An empty shelf place is wall; without a wall picture, a
+                // dark board, so the aisles still read as the only floor.
+                Some(StoreSquare::Shelf(_)) => match wall.filter(|&p| tiles.get(p).is_some()) {
+                    Some(p) => tiles.paint(&painter, Some(p), cell),
+                    None => {
+                        painter.rect_filled(cell, 0.0, Color32::from_rgb(40, 24, 10));
+                    }
+                },
                 Some(StoreSquare::Exit) => {
-                    brackets(&painter, cell.shrink(2.0), Color32::from_rgb(120, 220, 255), 2.0)
+                    tiles.paint(&painter, floor, cell);
+                    match door.filter(|&p| tiles.get(p).is_some()) {
+                        Some(p) => tiles.paint(&painter, Some(p), cell),
+                        None => brackets(&painter, cell.shrink(2.0), Color32::from_rgb(120, 220, 255), 2.0),
+                    }
                 }
-                _ => {}
+                // The outer ring's dead ends, drawn as wall (client 4.1).
+                Some(StoreSquare::Floor) if edge(x as u8, y as u8) => {
+                    match wall.filter(|&p| tiles.get(p).is_some()) {
+                        Some(p) => tiles.paint(&painter, Some(p), cell),
+                        None => {
+                            painter.rect_filled(cell, 0.0, Color32::from_rgb(40, 24, 10));
+                        }
+                    }
+                }
+                _ => tiles.paint(&painter, floor, cell),
             }
         }
     }
@@ -343,4 +368,32 @@ pub(super) fn prompt_bar(ui: &mut egui::Ui, walk: &Walk, ask: &mut Option<Ask>) 
         );
     });
     ui.add_space(4.0);
+}
+
+/// The wall picture of the room the store stands in, and the picture of
+/// the first portal there, for the store screen's shelves and exits.
+fn store_room_pictures(walk: &Walk) -> (Option<PictureId>, Option<PictureId>) {
+    let g = &walk.game;
+    let Some((rg, rm)) = g.current_player().at.room() else {
+        return (None, None);
+    };
+    let Some(room) = g.region(rg).and_then(|r| r.rooms.get(rm as usize)) else {
+        return (None, None);
+    };
+    let a = g.adventure();
+    let door = room.items.iter().find_map(|i| {
+        let t = a.things.get((i.thing as usize).checked_sub(1)?)?;
+        match t.kind {
+            acs_core::model::ThingKind::Portal { picture, .. } => Some(picture),
+            _ => None,
+        }
+    });
+    (Some(room.wall_picture), door)
+}
+
+/// A floor square of the outer ring (rows 0 and 9, between the shelf
+/// places): open in the rules (stores 3.3) but reached only by a diagonal
+/// step into a dead end, so the viewer draws it as wall and blocks it.
+fn edge(x: u8, y: u8) -> bool {
+    (y == 0 || y + 1 == stores::SCREEN_H) && stores::square(x, y) == Some(StoreSquare::Floor)
 }

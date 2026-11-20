@@ -30,7 +30,7 @@ const GUIDE_URL: &str = "https://github.com/Dragynrain/ACSVM/blob/main/docs/play
 
 /// Below this window width (in points) the side panels start hidden.
 pub(crate) const NARROW: f32 = 900.0;
-/// In walk mode the menu column shows by default only from this width,
+/// In play mode the menu column shows by default only from this width,
 /// where the board still gets room beside it and the info column (client 2).
 const WALK_NAV: f32 = 1500.0;
 
@@ -54,7 +54,7 @@ fn bar_separator(ui: &mut egui::Ui) {
 /// What the central area shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
-    /// Walk mode: play movement through the rules engine.
+    /// Play mode: play movement through the rules engine.
     Walk,
     World,
     /// 0-based region index.
@@ -95,9 +95,9 @@ pub struct Doc {
     pub creating: Option<views::walk::NewCharacter>,
     /// A view asked for the file picker (Load from file…).
     pub pick: bool,
-    /// Walk mode's bar never drains (design.md, Play options).
+    /// Play mode's bar never drains (design.md, Play options).
     pub turn_based: bool,
-    /// Walk mode's on-screen pad fixed on or off; `None` follows the last
+    /// Play mode's on-screen pad fixed on or off; `None` follows the last
     /// input (client 4).
     pub pad: Option<bool>,
     /// Play Music's output and controls (client 6).
@@ -215,7 +215,7 @@ pub struct Startup {
     pub view: Option<View>,
     /// Render at this many pixels per point, the window this many points.
     pub ppp: Option<(f32, [f32; 2])>,
-    /// Walk mode with the on-screen pad on (`--pad`).
+    /// Play mode with the on-screen pad on (`--pad`).
     pub pad: bool,
     /// An HD pack to load first (`--pack`).
     pub pack: Option<std::path::PathBuf>,
@@ -226,11 +226,11 @@ pub struct Startup {
     pub render: Option<crate::tiles::RenderMode>,
     /// Write a screenshot here after a few frames, then quit.
     pub screenshot: Option<std::path::PathBuf>,
-    /// Walk mode: seed and commands to play before showing it.
+    /// Play mode: seed and commands to play before showing it.
     pub walk: Option<(u64, Vec<acs_engine::Command>)>,
-    /// Walk mode: put the player here before the commands (a tool shortcut).
+    /// Play mode: put the player here before the commands (a tool shortcut).
     pub place: Option<acs_engine::Location>,
-    /// Walk mode from this save file (docs/saves.md), after the commands.
+    /// Play mode from this save file (docs/saves.md), after the commands.
     pub load: Option<std::path::PathBuf>,
     /// Write the walk's save file here once started (desktop only).
     pub save: Option<std::path::PathBuf>,
@@ -298,7 +298,7 @@ pub struct Viewer {
     /// The text size while its slider is held: applied on letting go, as
     /// a new size resizes the menu, slider and all, under the pointer.
     text_drag: Option<f32>,
-    /// A sample chosen on the title screen: open it in walk mode
+    /// A sample chosen on the title screen: open it in play mode
     /// (content 7).
     play_next: bool,
     /// The title art, made when the title screen first shows.
@@ -832,7 +832,7 @@ impl Viewer {
             ui.label(RichText::new(format!("Build {}", build_stamp())).weak());
         });
         if let Some(doc) = &mut self.doc {
-            if ui.selectable_label(doc.view == View::Walk, "Walk").clicked() {
+            if ui.selectable_label(doc.view == View::Walk, "Play").clicked() {
                 doc.go(View::Walk);
             }
             ui.add_enabled_ui(!doc.history.is_empty(), |ui| {
@@ -886,8 +886,8 @@ impl Viewer {
             let mut go = None;
             let a = &doc.decoded.adventure;
             if ui
-                .selectable_label(doc.view == View::Walk, RichText::new("Walk (play)").strong())
-                .on_hover_text("Walk a player from the start with the keyboard")
+                .selectable_label(doc.view == View::Walk, RichText::new("Play").strong())
+                .on_hover_text("Play the adventure from its start")
                 .clicked()
             {
                 go = Some(View::Walk);
@@ -1055,14 +1055,14 @@ impl Viewer {
 /// its paragraph; `{name}` is the project's name.
 const WELCOME: &[(&str, &str)] = &[
     ("", "{name} plays adventures made with Adventure Construction Set, the 1984 game kit, on today's computers: the original's rules, rebuilt and checked against the real thing."),
-    ("Start with First Voyage", "The short tutorial on this screen: about fifteen minutes, with notes that explain each step as you reach it. It opens ready to play."),
+    ("Start with First Voyage", "The short tutorial on this screen: under five minutes, with notes that explain each step as you reach it. It opens ready to play."),
     ("Or bring your own", "A C64 disk image (.d64), an Amiga disk image (.adf) or the adventure file from one, a PC adventure (ADVEN.FPY or ADVEN.HRD) or an .advx bundle: drag it onto the window or use Open… at the top. Apple II disks don't open yet. The file stays on your machine."),
-    ("Explore, then Walk", "An adventure you open shows first in Explore: the world map, its regions and rooms, and lists of its things, creatures and messages, the way its designer built it. Walk, in the top bar, is where you play."),
+    ("Explore, then Play", "An adventure you open shows first in Explore: the world map, its regions and rooms, and lists of its things, creatures and messages, the way its designer built it. Play, in the top bar, is where you play it."),
     ("Help is in the Help menu", "How to play (keys, actions, stores and saving), this page, and the way to report a problem."),
 ];
 
 /// How to play (client 7.3): first, for an adventure still in Explore.
-const EXPLORE: (&str, &str) = ("You are in Explore", "Look over the adventure as its designer built it: the Menu on the left lists the world map, regions, rooms, things and creatures. To play, press Start playing below, or Walk in the top bar.");
+const EXPLORE: (&str, &str) = ("You are in Explore", "Look over the adventure as its designer built it: the Menu on the left lists the world map, regions, rooms, things and creatures. To play, press Start playing below, or Play in the top bar.");
 const PLAY: &[(&str, &str)] = &[
     ("Moving", "Arrow keys, WASD or the number pad move you one square, and so does a click on a square beside you. Walk into a door to go through it, into a creature to fight it, onto a thing to pick it up. Space or Enter rests: the rest of your turn passes at once, each move left a chance to heal (the menu's REST, also a button). On a touch screen a pad appears."),
     ("Everything else: the Info column", "The column on the right (Info in the top bar shows or hides it) holds your actions: Fire for a bow or thrown weapon, Save Game and Retire at the top; then your stats; then what you carry, each with Ready, Drop, Cast or Use; then the creatures near you."),
