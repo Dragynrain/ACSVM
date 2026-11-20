@@ -73,9 +73,11 @@ its first line, however tall it is, until the next line comes; the log
 lands there once the panels have settled, and is then free to scroll by
 hand.
 
-A row of checkboxes over the log filters it by kind: turns and steps,
-doors, spells, items, creatures, foes, blocks and notes, all shown at
-first; long messages always show. The filter is the session's, not
+A small Filter menu over the log (its label counts the kinds hidden)
+filters it by kind: turns and steps, doors, spells, items, creatures,
+foes, blocks and notes, all shown at first; long messages always show.
+A new game's first line is one sentence: the keys to move and rest, and
+where the full controls are (the seed is under Game options). The filter is the session's, not
 kept. The text size is an option (7).
 
 ### 3.1 Long messages
@@ -432,18 +434,29 @@ neither reads nor writes any of it, and `--text-size` and
 
 ### 7.3 Help windows
 
-Two windows explain the viewer to someone who has never seen ACS:
+Short first, the details one click away, so a newcomer isn't met with a
+wall of text:
 
 - **Welcome**, over the title screen on the first visit, and again from
-  its "New here?" button or Help > Welcome: what the program is, First
-  Voyage, opening one's own adventure, Explore against Play, and the Help
-  menu.
-- **How to play**, each time an adventure opens (unless "Don't show
-  this when an adventure opens" is ticked) and from Help > How to play:
-  moving, the Info column's actions, stats and inventory, the draining
-  move bar and Turn-based, the log, stores (4.1), hot-seat and saving.
-  An adventure opened in Explore gets a first paragraph saying so, and
-  **Start playing** (to Play) or **Look around first**.
+  its "New here?" button or Help > Welcome: four short lines: what the
+  program is, First Voyage, opening one's own adventure, and where the
+  full controls are.
+- **Quick start**, each time an adventure opens (unless "Don't show
+  this when an adventure opens" is ticked): four rows (Move, Act, Rest,
+  Your gear) and a link to the full guide. It waits until the
+  adventure's title, intro and new-character screens are past. An adventure opened in
+  Explore gets a line saying so, and **Start playing** (to Play) or
+  **Look around first**.
+- **How to play**, from Help > How to play or the quick start's link:
+  moving, diagonal steps, the Info column's actions, stats and
+  inventory, the draining move bar and Turn-based, the log and its
+  filter, stores (4.1), hot-seat and saving.
+
+In play the Info column keeps the character, actions, stats, inventory
+and creatures in view; the settings (Diagonal moves, On-screen pad,
+Turn-based, Restart, Sound) and the save files sit under a closed **Game
+options** header, open while a restart waits for its answer. Resume from
+last save shows only once there is a save to go back to.
 
 Neither shows in a screenshot run or a scripted walk.
 

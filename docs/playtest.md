@@ -25,8 +25,8 @@ cookies ([what it counts](client.md#11-counts)).
 Keys: the arrows or WASD (or the number pad) move, and so does a click
 on a square beside you; Space or Enter ends the turn, Escape cancels.
 Diagonal steps (QEZC) are off, as in the original; tick Diagonal moves
-for them. On a phone or tablet the on-screen pad appears when you touch
-the screen.
+under Game options for them. On a phone or tablet the on-screen pad
+appears when you touch the screen.
 
 Your options and your last game are kept in the browser: open the same
 adventure again (or Play First Voyage) and you are back where you were.

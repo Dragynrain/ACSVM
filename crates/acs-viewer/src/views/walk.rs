@@ -388,16 +388,8 @@ impl Walk {
         let (game, ev) = Game::new(adv.clone(), seed, rules, first);
         let mut w = Walk::with(game.clone(), game);
         w.roster.note(&Command::Wait, &w.game, &ev);
-        let diagonal = if rules.diagonals {
-            "Q E Z C or Home PgUp End PgDn go diagonally"
-        } else {
-            "diagonal steps (Q E Z C) are off, as in the original: tick Diagonal moves for them"
-        };
-        w.note(format!(
-            "Seed {seed}. Arrows/WASD or a click on a square beside you move; {diagonal}. \
-             Space rests (ends the turn, a chance to heal each move left). To drop, click Drop, then a direction (Space = here, Esc = cancel). \
-             Cast and Use ask for a target. Add Someone brings in up to 4 characters, who take turns."
-        ));
+        // The seed is under Game options, not here (client 3).
+        w.note("Arrows or WASD move, Space rests; Help > How to play has the full controls.".into());
         w.record(&ev);
         w
     }
@@ -578,8 +570,11 @@ impl Walk {
 
     /// Says in the log that this is the game kept from last time.
     pub fn note_kept(&mut self) {
+        // The save's own line (seed, commands replayed) is for a file the
+        // player chose to load, not for picking up the kept game.
+        self.log.retain(|(_, line)| !line.starts_with("Loaded a save:"));
         self.note(
-            "Picked up where you left off: the last game is kept on this machine. Restart for a new one."
+            "Picked up where you left off: the last game is kept on this machine.              Restart, under Game options, starts a new one."
                 .into(),
         );
     }
@@ -1314,8 +1309,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 );
             }
             if !won
+                && !g.log().is_empty()
                 && ui
-                .add_enabled(!g.log().is_empty(), egui::Button::new("Resume from last save"))
+                .button("Resume from last save")
                 .on_hover_text(
                     "The original saves when a visit to another region begins, and at the end of a round in which SAVE GAME was chosen or a player retired with Save.",
                 )
@@ -1371,6 +1367,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 others_panel(ui, g, walk.fingerprint(), &walk.others, walk.pending_other.as_ref(), &mut other);
                 ui.separator();
             }
+            // Settings and save files, out of the way until wanted; open
+            // while a restart waits for its answer.
+            ui.add_space(4.0);
+            egui::CollapsingHeader::new("Game options")
+                .id_salt("walk-game-options")
+                .open(walk.confirm.is_some().then_some(true))
+                .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 let mut rules = g.rules();
                 if ui
@@ -1463,6 +1466,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 }
             });
             ui.label(RichText::new(format!("seed {} · {}", g.seed(), commands(g.log().len()))).weak());
+                });
             });
         });
 
@@ -1503,11 +1507,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             // long message, which would run them past the panel's edge.
             let visible = ui.available_width();
             // The filter by kind (client 3): long messages always show.
-            ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Show:").weak().small());
+            let hidden = walk.log_hidden.iter().filter(|&&h| h).count();
+            let label = if hidden == 0 {
+                "Filter".to_string()
+            } else {
+                format!("Filter ({hidden} hidden)")
+            };
+            ui.menu_button(RichText::new(label).small(), |ui| {
                 for (g, name) in LOG_GROUPS.iter().enumerate() {
                     let mut on = !walk.log_hidden[g];
-                    if ui.checkbox(&mut on, RichText::new(*name).small()).changed() {
+                    if ui.checkbox(&mut on, *name).changed() {
                         walk.log_hidden[g] = !on;
                     }
                 }

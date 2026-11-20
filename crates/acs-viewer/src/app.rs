@@ -292,6 +292,8 @@ pub struct Viewer {
     /// opens) windows are up (client 7.3).
     welcome: bool,
     play_help: bool,
+    /// How to play in full (Help menu), not the quick start (client 7.3).
+    play_help_full: bool,
     /// Kept: the welcome seen, and How to play not wanted on opening.
     welcomed: bool,
     no_play_help: bool,
@@ -345,6 +347,7 @@ impl Viewer {
             text_drag: None,
             welcome: false,
             play_help: false,
+            play_help_full: false,
             welcomed: false,
             no_play_help: false,
             play_next: false,
@@ -658,6 +661,7 @@ impl Viewer {
                 // What to do now that an adventure is open (client 7.3).
                 self.welcome = false;
                 self.play_help = self.keep && !self.no_play_help;
+                self.play_help_full = false;
             }
             Err(e) => {
                 crate::count::event("open/failed");
@@ -813,6 +817,7 @@ impl Viewer {
         ui.menu_button("Help", |ui| {
             if self.doc.is_some() && ui.button("How to play").clicked() {
                 self.play_help = true;
+                self.play_help_full = true;
                 ui.close();
             }
             if ui.button("Welcome").clicked() {
@@ -870,8 +875,6 @@ impl Viewer {
                 if ui.button(text).clicked() {
                     doc.go(View::Diagnostics);
                 }
-            } else if !narrow {
-                ui.label(RichText::new("no diagnostics").weak());
             }
             // Last, so on a narrow bar they give way, elided (client 2).
             ui.add(egui::Label::new(RichText::new(name).strong()).truncate());
@@ -1054,22 +1057,40 @@ impl Viewer {
 /// The welcome's parts (client 7.3): a heading (none for the first) and
 /// its paragraph; `{name}` is the project's name.
 const WELCOME: &[(&str, &str)] = &[
-    ("", "{name} plays adventures made with Adventure Construction Set, the 1984 game kit, on today's computers: the original's rules, rebuilt and checked against the real thing."),
-    ("Start with First Voyage", "The short tutorial on this screen: under five minutes, with notes that explain each step as you reach it. It opens ready to play."),
-    ("Or bring your own", "A C64 disk image (.d64), an Amiga disk image (.adf) or the adventure file from one, a PC adventure (ADVEN.FPY or ADVEN.HRD) or an .advx bundle: drag it onto the window or use Open… at the top. Apple II disks don't open yet. The file stays on your machine."),
-    ("Explore, then Play", "An adventure you open shows first in Explore: the world map, its regions and rooms, and lists of its things, creatures and messages, the way its designer built it. Play, in the top bar, is where you play it."),
-    ("Help is in the Help menu", "How to play (keys, actions, stores and saving), this page, and the way to report a problem."),
+    ("", "{name} plays adventures made with Adventure Construction Set, the 1984 game kit, by the original's rules."),
+    ("Start with First Voyage", "The tutorial on the title screen, under five minutes. Notes explain each step as you reach it."),
+    ("Or bring your own", "Drag an adventure onto the window, or use Open… at the top. C64, Amiga and PC adventures open, and .advx bundles. The file stays on your machine."),
+    ("", "Help > How to play has the full controls."),
+];
+
+/// The quick start shown when an adventure opens (client 7.3): one line
+/// each, the rest behind Help > How to play.
+const QUICK: &[(&str, &str)] = &[
+    ("Move", "Arrow keys or WASD, or click a square beside you."),
+    (
+        "Act",
+        "Walk into things: a door to go through, a creature to fight, an item to take.",
+    ),
+    ("Rest", "Space ends your turn."),
+    (
+        "Your gear",
+        "The column on the right: stats, what you carry, Ready, Cast and Use.",
+    ),
 ];
 
 /// How to play (client 7.3): first, for an adventure still in Explore.
 const EXPLORE: (&str, &str) = ("You are in Explore", "Look over the adventure as its designer built it: the Menu on the left lists the world map, regions, rooms, things and creatures. To play, press Start playing below, or Play in the top bar.");
+/// The quick start's line for an adventure still in Explore.
+const EXPLORE_QUICK: &str =
+    "This is Explore: the adventure as its designer built it. Start playing when you're ready.";
 const PLAY: &[(&str, &str)] = &[
     ("Moving", "Arrow keys, WASD or the number pad move you one square, and so does a click on a square beside you. Walk into a door to go through it, into a creature to fight it, onto a thing to pick it up. Space or Enter rests: the rest of your turn passes at once, each move left a chance to heal (the menu's REST, also a button). On a touch screen a pad appears."),
-    ("Everything else: the Info column", "The column on the right (Info in the top bar shows or hides it) holds your actions: Fire for a bow or thrown weapon, Save Game and Retire at the top; then your stats; then what you carry, each with Ready, Drop, Cast or Use; then the creatures near you."),
-    ("Time runs as in the original", "Your move bar drains while you do nothing, about a step every seven seconds. Tick Turn-based in the Info column to make it wait for you."),
-    ("The log", "The strip at the bottom tells what happens: fights, finds, doors, and the adventure's own messages."),
-    ("Stores", "Walk into a store to go in. Walk along the aisles and into a shelf to see what is on it and its price; Space buys. From the first prompt, Space (or Sell your goods) offers what you carry, one thing at a time. Walk into an exit to leave. Options > Simplify shops shows a plain list instead."),
-    ("Friends and saving", "Add Someone brings in up to four characters, who take turns. Your game is kept in this browser or on this computer; Save to file… writes a save you can load later, or attach to a problem report."),
+    ("Diagonal steps", "Off, as in the original. Tick Diagonal moves under Game options to step diagonally with Q E Z C (or Home, PgUp, End, PgDn); changing it starts a new game."),
+    ("Everything else: the Info column", "The column on the right (Info in the top bar shows or hides it) holds your actions: Fire for a bow or thrown weapon, Save Game and Retire at the top; then your stats; then what you carry, each with Ready, Drop (then a direction; Space drops it where you stand, Esc cancels), Cast or Use (each asks for a target); then the creatures near you."),
+    ("Time runs as in the original", "Your move bar drains while you do nothing, about a step every seven seconds. Tick Turn-based under Game options to make it wait for you."),
+    ("The log", "The strip at the bottom tells what happens: fights, finds, doors, and the adventure's own messages. Filter picks what it shows."),
+    ("Stores", "Walk into a store to go in. Walk along the aisles and into a shelf to see what is on it and its price; Space buys. From the first prompt, Space (or Sell your goods) offers what you carry, one thing at a time. Walk into a door at either end to leave. Options > Simplify shops shows a plain list instead."),
+    ("Friends and saving", "Add Someone brings in up to four characters, who take turns. Your game is kept in this browser or on this computer; Save to file…, under Game options, writes a save you can load later, or attach to a problem report."),
 ];
 
 /// A help window's parts: each heading and its paragraph.
@@ -1124,21 +1145,51 @@ impl Viewer {
                 self.play_help = false;
                 return;
             };
+            // Not over the adventure's title, intro or new character: it
+            // waits for the board (client 7.3).
+            if doc.opening.is_some() || doc.creating.is_some() {
+                return;
+            }
             let name = doc.decoded.adventure.name.trim().to_string();
             let exploring = doc.view != View::Walk;
             let mut open = true;
             let mut close = false;
             let mut play = false;
             let mut hide = self.no_play_help;
-            help_window(format!("How to play {name}"), &mut open, ctx).show(ctx, |ui| {
+            let full = self.play_help_full;
+            let mut show_full = false;
+            let title = if full { "How to play" } else { "Quick start" };
+            help_window(format!("{title}: {name}"), &mut open, ctx).show(ctx, |ui| {
                 egui::ScrollArea::vertical()
                     .min_scrolled_height(height.min(520.0))
                     .max_height(height)
                     .show(ui, |ui| {
-                        if exploring {
-                            help_parts(ui, &[EXPLORE]);
+                        if full {
+                            if exploring {
+                                help_parts(ui, &[EXPLORE]);
+                            }
+                            help_parts(ui, PLAY);
+                        } else {
+                            if exploring {
+                                ui.add_space(6.0);
+                                ui.label(EXPLORE_QUICK);
+                            }
+                            ui.add_space(6.0);
+                            egui::Grid::new("quick-start")
+                                .num_columns(2)
+                                .spacing([14.0, 8.0])
+                                .show(ui, |ui| {
+                                    for (key, what) in QUICK {
+                                        ui.label(RichText::new(*key).strong());
+                                        ui.label(*what);
+                                        ui.end_row();
+                                    }
+                                });
+                            ui.add_space(6.0);
+                            if ui.link("Full controls, stores and saving").clicked() {
+                                show_full = true;
+                            }
                         }
-                        help_parts(ui, PLAY);
                         ui.add_space(10.0);
                         ui.checkbox(
                             &mut hide,
@@ -1155,6 +1206,9 @@ impl Viewer {
                     });
             });
             self.no_play_help = hide;
+            if show_full {
+                self.play_help_full = true;
+            }
             if play {
                 doc.go(View::Walk);
             }
