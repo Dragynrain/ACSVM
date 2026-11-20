@@ -1,4 +1,5 @@
-# The harbour: the dock (moving and taking) and the trader (buying).
+# The harbour: the dock (moving and taking) and the trader (buying). The
+# dock's notice stands just north of the gangway, the first thing met.
 
 key = "port"
 name = "HARBOUR TOWN"
@@ -15,9 +16,9 @@ at = [0, 0]
 wall = "room_palisade"
 map = """
 #########
-#.n..f..#
+#....f..#
 #.......D
-#..$.c..#
+#..$nc..#
 #.......#
 ####E####
 """

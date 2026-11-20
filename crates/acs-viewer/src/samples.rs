@@ -14,7 +14,7 @@ pub struct Sample {
 
 pub const SAMPLES: &[Sample] = &[Sample {
     name: "First Voyage",
-    about: "The tutorial: a harbour, a trader, a crab and a chest of coin. About fifteen minutes.",
+    about: "The tutorial: a harbour, a trader, a crab and a chest of coin. Under five minutes.",
     file: "first-voyage.advx",
     bytes: include_bytes!(concat!(env!("OUT_DIR"), "/first-voyage.advx")),
 }];

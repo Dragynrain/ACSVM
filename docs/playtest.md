@@ -12,7 +12,7 @@ cookies ([what it counts](client.md#11-counts)).
 
 ## What to try
 
-1. **First Voyage**, the tutorial on the title screen: about fifteen
+1. **First Voyage**, the tutorial on the title screen: under five
    minutes, with notices that explain each step.
 2. **Your own adventures**: a C64 `.d64` disk image, an Amiga `.adf`
    disk image (or the `adventure` file from one), or a PC
@@ -50,7 +50,7 @@ Use **Help > Report a problem...** in the viewer, or open
 at the foot of the title screen and in the Help menu (for example
 `0.1.0 (abc1234)`).
 
-**A save file helps most.** In walk mode, **Save to file…** writes the
+**A save file helps most.** In play mode, **Save to file…** writes the
 seed and every command played, so we can replay your game move for
 move up to the problem. For First Voyage, attach it to the issue. For
 an EA adventure or someone else's fan adventure, please don't attach

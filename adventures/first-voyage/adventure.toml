@@ -4,9 +4,9 @@
 # `first_voyage_plays_to_the_end` in crates/acs-cli.
 
 name = "FIRST VOYAGE"
-byline = "ACSVM contributors"
+byline = "Dragynrain"
 license = "CC BY-SA 4.0"
-credits = ["Story and design: ACSVM contributors", "Art: the ACSVM pirate kit"]
+credits = ["Story and design: Dragynrain", "Art: Dragynrain (the ACSVM pirate kit)"]
 kit = "../../kits/pirates"
 # A new character's looks (characters 2.4), the first the one it has.
 player_pictures = ["captainf", "captainm", "deckhand", "boarder", "gunner", "fisher", "diver"]

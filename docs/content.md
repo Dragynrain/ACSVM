@@ -556,7 +556,7 @@ noise bursts (bright to dull), each with its own length.
 
 - **A tutorial**, *First Voyage* (`adventures/first-voyage`), small,
   on the pirate kit, teaching movement, rooms, things, a store, a fight
-  and a spell in about fifteen minutes: notices on the dock and at the
+  and a spell in under five minutes: notices on the dock and at the
   trader explain each step, a shore crab of Speed 0 guards the cave (it
   strikes back but never chases, so the fight is where the player
   chooses it), a logbook gives the sea chant, and a chest of coin on a

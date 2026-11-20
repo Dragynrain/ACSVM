@@ -1,7 +1,7 @@
 # Written by scripts/kitfolder.py from the packed kit; edit the pack, not this file.
 name = "Pirates"
 license = "CC BY-SA 4.0"
-credits = ["Pirate kit art: ACSVM contributors, made with Z-Image Turbo and a kit LoRA; generation records in provenance.json"]
+credits = ["Pirate kit art: Dragynrain, made with Z-Image Turbo and a kit LoRA; generation records in provenance.json"]
 atlas = "atlas.png"
 tile = 64
 

@@ -1,4 +1,5 @@
 # The cliffs: the cave mouth (a fight) and the hollow (a spell, the chest).
+# The warning lies a step in from the entrance, between it and the crab.
 
 key = "cliffs"
 name = "THE CLIFFS"
@@ -10,9 +11,9 @@ at = [0, 0]
 wall = "room_caverock"
 map = """
 #########
-#.n.....#
 #.......#
-E...k...D
+#.......#
+E.n.k...D
 #.......#
 #.......#
 #########

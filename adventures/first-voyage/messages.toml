@@ -35,7 +35,8 @@ The last page holds a sea chant, and as you read it the words stay with
 you. A spell is used with your Power: cast the chant on yourself to
 close your wounds. Power comes back slowly with time.
 
-The chest lies just south of here."""
+The chest lies just south of here. Take it, then step onto the patch
+of sand where it stood to finish the voyage."""
 
 win = """YOU FOUND THE CHEST OF COIN!
 
