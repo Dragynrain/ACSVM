@@ -1,177 +1,140 @@
 # ACSVM
 
-ACSVM (working name) is an open-source engine that plays adventures made with
-*Adventure Construction Set* (Electronic Arts, 1984), in the spirit of ScummVM:
-the engine is free software, and you bring the adventure files you own.
+**Play *Adventure Construction Set* adventures on today's computers, in a
+browser or on the desktop.**
 
-**Status: Phase 6 under way (original content and 1.0): the pirate kit,
-our own adventure format, the tutorial *First Voyage* built in, original
-music, and a title screen are done; the public playtest and 1.0 are next
-([playtest guide](docs/playtest.md)).** The rules engine plays whole adventures: movement,
-inventory, creatures and their AI, the 15 spell actions, combat, stores,
-new characters, world map encounters and saves, each rule specified in
-`docs/rules/` and checked against the original C64 program, measured in
-the VICE emulator by a capture harness ([docs/capture.md](docs/capture.md)).
-Two players have finished *Rivers of Light*, the adventure that comes with
-ACS, in hot-seat. The viewer plays adventures on the desktop and in a
-browser ([try it](https://dragynrain.github.io/ACSVM/) with your own file):
-keyboard, mouse and an on-screen touch pad, a message log, the original's
-music cues (placeholders for now), Original and Smoothed looks, HD packs of
-replacement art with a coverage report, and accessibility options. An
-inspector decodes C64 and PC adventures into JSON and exports their
-pictures. See
-[docs/design.md](docs/design.md) for the full plan and
-[docs/rules/](docs/rules/movement.md) for the rules as specified.
+[**▶ Play in your browser**](https://dragynrain.github.io/ACSVM/) ·
+[Playtest guide](docs/playtest.md) ·
+[Report a problem](https://github.com/Dragynrain/ACSVM/issues/new/choose)
 
-This project is not affiliated with or endorsed by Electronic Arts. It ships no
-EA program code, art, music, manual text or adventures.
+![The title screen: a pirate ship off an island harbour, with the buttons to play the tutorial or open your own adventure](docs/images/title.png)
+
+In 1984 Electronic Arts released *Adventure Construction Set*, a kit for
+building your own tile-based fantasy adventures and playing them with
+friends. People made a lot of them, and many still sit on old C64, PC and
+Amiga disks. ACSVM is a new, open-source engine that plays those
+adventures, much as ScummVM does for LucasArts games: you bring the
+adventure files you own, and the engine runs them.
+
+It comes with a short adventure of its own, *First Voyage*, so you can try
+it without any old disks.
+
+*ACSVM is a working name. This project has no connection to Electronic
+Arts and ships none of EA's code, art, music, manual text or adventures.*
+
+## What it looks like
+
+These screenshots are from *First Voyage*, drawn in our own pirate art.
+
+| | |
+| --- | --- |
+| ![A pirate on a wooden dock, a notice on the boards and a door to the trader](docs/images/walk-dock.png) | ![The trader's store: goods on the floor, the player's gold and the store buttons](docs/images/store.png) |
+| **Walking.** Arrow keys, mouse, touch pad or a gamepad. The panel on the right shows your ratings and what you carry. | **Stores.** Walk up to a shelf to see its price, then buy or sell. |
+| ![A pirate in a sandy cave facing a red shore crab, with the crab's ratings in the side panel](docs/images/fight.png) | ![The end-of-adventure window: You found the chest of coin!](docs/images/ending.png) |
+| **Fights.** Every creature in the room is listed with its temper, speed and weapon. | **The end.** *First Voyage* takes about fifteen minutes. |
+
+![The world map of First Voyage in Explore mode, with its terrain list](docs/images/inspector-world.png)
+
+**Explore** shows an adventure the way its designer built it: the world
+map, every region and room, and the lists of things, creatures and
+messages.
+
+## What you can do
+
+- **Play the tutorial.** Pick *First Voyage* on the title screen. Notes on
+  the way explain moving, taking things, the store, a fight and a spell.
+- **Play your own adventures.** Drag a file onto the window, or use
+  Open…:
+  - a C64 `.d64` disk image
+  - a PC `ADVEN.FPY` or `ADVEN.HRD`
+  - an Amiga `.adf` disk image
+
+  The file is read on your computer and never uploaded.
+- **Play together.** Several players take turns at one keyboard, the way
+  the original was played. Up to four gamepads work as well.
+- **Save anywhere.** A save file holds only the seed and the moves played,
+  so it is tiny, and it replays a game exactly. That also makes it the best
+  thing to attach to a bug report.
+- **Pick a look.** You can keep the original pixels, smooth them, or load an
+  HD pack of new art. A coverage report shows which pictures a pack
+  replaces.
+- **Make it comfortable.** Larger text, a colour-blind palette, an
+  on-screen touch pad, and a turn-based option so the game waits for you.
+
+## How faithful is it?
+
+Each rule (movement, combat, magic, creatures' behaviour, stores,
+encounters) is written down in [`docs/rules/`](docs/rules/movement.md)
+before it is coded. Most of it was then measured against the real C64
+program running in an emulator: we set up a situation, ran it hundreds of
+times and compared the results with ours. Where something couldn't be
+measured, the rule says so and says what the engine does instead.
+
+As a check on the whole, an automated replay plays EA's own *Rivers of
+Light* through to the end with two players.
+
+If something plays differently from what you remember, please tell us. It
+is the most useful report we can get.
+
+## Status
+
+All the rules are in, and the desktop and browser versions both work. We
+are now running a **public playtest** before 1.0, and we'd especially like
+to hear from people who played ACS back in the day:
+
+1. Read the short [playtest guide](docs/playtest.md).
+2. Play *First Voyage*, then your own disks.
+3. [Open an issue](https://github.com/Dragynrain/ACSVM/issues/new/choose)
+   using one of the forms: *Something broke*, *Plays differently from the
+   original*, or *Playtest notes*.
+
+Please don't attach saves or screenshots of EA's or other people's
+adventures to a public issue. The forms explain how to describe them
+instead.
 
 ## Supported files
 
-| Platform | File | Status |
+| Platform | Files | Status |
 | --- | --- | --- |
-| C64 | whole `.d64` disk image | Decodes all 14 adventures in the private test corpus with no errors |
-| PC (MS-DOS) | `ADVEN.FPY`, `ADVEN.HRD`, `ACS.FPY` | Decodes the one real PC adventure tested so far (EA's built-in one), plus synthetic tests |
-| Apple II, Amiga | `.dsk`, `.adf` | Not yet |
+| Commodore 64 | `.d64` disk images | Plays. Tested on fan adventures from several collections. |
+| PC (MS-DOS) | `ADVEN.FPY`, `ADVEN.HRD` | Plays. Tested on EA's built-in adventure. |
+| Amiga | `.adf` disk images | Opens and plays. Newer, and less tested. |
+| ACSVM | `.advx` bundles | Our own format for new adventures ([docs/content.md](docs/content.md)) |
+| Apple II | `.dsk` | Not yet |
 
-## Building
+## Running it yourself
 
-Requires Rust (stable; 1.85 or newer for the core and inspector, 1.95 or newer
-for the viewer).
+The easiest way is the [browser version](https://dragynrain.github.io/ACSVM/),
+which needs no installation. To build the desktop viewer you need
+[Rust](https://rustup.rs) 1.95 or newer:
 
 ```bash
 cargo build --release
+target/release/acs-viewer            # then drag a file onto the window
+target/release/acs-viewer GAME.D64   # or open one straight away
 ```
 
-The binaries are `target/release/acs` (inspector) and
-`target/release/acs-viewer` (viewer).
+[docs/usage.md](docs/usage.md) covers the rest: the controls, the command
+line, the `acs` inspector (adventures to JSON, pictures to PNG), building
+for the web, and running the tests.
 
-Packaged desktop builds of the viewer for Windows, macOS and Linux come
-from the Release workflow (`.github/workflows/release.yml`) when a `v*`
-tag is pushed; `scripts/package.py` makes them
-([docs/client.md](docs/client.md) 8).
+## For the curious
 
-## Using the viewer
-
-```bash
-acs-viewer                 # then drag a file onto the window, or use Open…
-acs-viewer GAME.D64        # open a file straight away
-```
-
-Drop a C64 `.d64` disk image or a PC `ADVEN.FPY` / `ADVEN.HRD`. The left panel
-lists the world map, each region and its rooms, and the thing, creature,
-message and diagnostics lists. Click a region to see all its rooms in place,
-a room to open it, and a door (in a room or on the world map) to follow it;
-Back (or Backspace) returns. Pictures are drawn at whole-number scales that fit
-the window, with C64 pixels twice as wide as tall.
-
-**Walk mode** (Walk in the top bar) puts a player at the adventure's start.
-Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
-End, PgDn, or the numpad), and press Space to end a turn. The log on the right
-lists what the rules engine reports: steps, blocked moves with the designer's
-messages, doors, pick-ups, spells and what they did, random encounters, and
-each creature's turn. The panel shows Life Force, Power and the other
-ratings, the load against the carrying capacity and what the player
-carries; Ready readies a weapon or puts on armor, Cast (spells, with their
-cost and chance) and Use (magic items) open a menu of targets, and Drop asks
-for a direction (Space drops on the player's own square, Escape cancels).
-Below it, the creatures in the room are listed with their personality
-(fighter or slinker; enemy, friend, neutral or thief), speed, Life Force,
-Power against Wisdom, spells and readied weapon; a coloured dot on each
-one's square shows its alignment (red enemy, green friend, yellow neutral,
-purple thief). The viewer keeps the save the original makes when a visit
-to another region begins, or at the end of a round in which SAVE GAME was
-chosen; after a death, Resume from last save goes back to it (after a death
-in a round that also saved, to the save before that round).
-As in the original, the movement bar drains while you do nothing (a step
-about every 7 seconds); tick Turn-based to make it wait for you instead.
-Save to file… writes a small save file (the seed and the moves played,
-[docs/saves.md](docs/saves.md)); Load from file…, or dropping the file on the
-window, replays it over the same adventure. The adventure is not in the
-save, so a save can go with a bug report.
-
-`acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
-one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
-`creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
-`--seed N --walk n,ne,e,...,wait` opens walk mode and plays those steps first;
-steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
-`use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),
-`fire[:X:Y[:T]]` (at a square, with weapon T) and `retire[:save|destroy]` (T is a thing number; a target is `me`, `pN` for player
-N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
-starts the walk on a room square instead of the start (a tool shortcut that
-is not part of the replayable command log). `--save OUT.json` writes the
-walk's save file after the steps, and `--load SAVE.json` opens one.
-Keep such
-screenshots outside the repository: they show the adventure's art.
-
-### In a browser
-
-The same viewer builds for the web with [trunk](https://trunk-rs.github.io):
-
-```bash
-rustup target add wasm32-unknown-unknown
-cargo install trunk --locked
-scripts/web.sh serve       # http://127.0.0.1:8080, rebuilds on change
-scripts/web.sh build       # static site in target/web/
-```
-
-The page reads the file you drop or pick inside the browser tab. Nothing is
-uploaded: the page's content security policy only allows connections back to
-the site it came from, and the viewer never makes any.
-
-## Using the inspector
-
-```bash
-acs dump GAME.D64                    # summary on stdout, JSON next to the input
-acs dump GAME.D64 -v -o game.json    # list every region, room, thing and creature
-acs pictures GAME.D64 out/ --scale 4 --sheet
-```
-
-`dump` writes the canonical adventure model as JSON (`<name>.acs.json` by
-default; that pattern is git-ignored because it is derived from your files).
-`pictures` writes one PNG per picture, with C64 pixels doubled in width, and
-optionally a contact sheet. Warnings about odd data go to stderr; the exit code
-is 2 if the decoder hit data it could not interpret.
-
-## Testing
-
-```bash
-cargo test
-```
-
-Unit and synthetic tests build their fixtures byte by byte and need no
-adventure files. Tests against real adventures read a corpus folder outside
-the repository and skip unless `ACSVM_CORPUS` points to it:
-
-```bash
-ACSVM_CORPUS=/path/to/corpus cargo test --test corpus -- --nocapture
-```
-
-The corpus folder holds `c64/` (`.d64` disks, searched recursively) and
-optionally `pc/` (`.fpy`/`.hrd`).
-
-## Repository layout
-
-- `crates/acs-core`: library with no GUI: disk readers, platform layouts,
-  text codecs, picture decoders and the canonical model (serde).
-- `crates/acs-engine`: the rules engine, also GUI-free: commands in, events
-  out, one seeded random generator, so a game replays from its seed and
-  command log.
-- `crates/acs-cli`: the `acs` inspector binary.
-- `crates/acs-viewer`: the viewer (eframe + egui; desktop and web). Rendering
-  lives here; what goes on each room square is worked out in `acs-core`
-  (`scene.rs`).
-- `docs/`: design snapshot, [rules specs](docs/rules/movement.md),
-  [format notes](docs/format-notes.md) and the
-  [provenance record](docs/provenance.md).
+- [docs/design.md](docs/design.md): the plan and how the pieces fit
+- [docs/rules/](docs/rules/movement.md): the rules, one file per topic
+- [docs/capture.md](docs/capture.md): how the original is measured in the
+  VICE emulator
+- [docs/content.md](docs/content.md): writing new adventures from text
+  files and starter kits
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to help, including the
+  clean-room policy and the rule that no EA material ever enters the
+  repository
 
 ## Licenses
 
-- Code: [GPL-3.0-or-later](LICENSE). Parts of the decoder are ported from Dan
-  Boris's [ACS Viewer](https://github.com/danlb2000/ACSViewer) (GPL-3.0); see
-  [docs/provenance.md](docs/provenance.md).
-- Art, audio and sample adventures (none yet): [CC BY-SA 4.0](LICENSES/CC-BY-SA-4.0.txt).
+- Code: [GPL-3.0-or-later](LICENSE). Parts of the decoder are ported from
+  Dan Boris's [ACS Viewer](https://github.com/danlb2000/ACSViewer) (GPL-3.0);
+  see [docs/provenance.md](docs/provenance.md).
+- Art, audio, our adventures and the screenshots above:
+  [CC BY-SA 4.0](LICENSES/CC-BY-SA-4.0.txt).
 - Documentation: [CC BY 4.0](LICENSES/CC-BY-4.0.txt).
-
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md), including the
-clean-room policy and the rule that no EA material ever enters the repository.
