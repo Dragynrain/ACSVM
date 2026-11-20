@@ -359,6 +359,12 @@ Settings the player picks, separate from the adventure's profile: any adventure,
 
 - **Turn-based mode.** The movement bar never drains: the game waits for the player's command however long they take, like a classic roguelike. Nothing else changes (creatures still move in the same order and roll the same dice), so a run in this mode is the same sequence of commands as one at original speed, and replays and the golden tests are unaffected. In online play it is the "off" choice of the host's turn timer (see Multiplayer). **November 2026:** in the viewer's walk mode as the Turn-based box; the original's drain is the default there, sent to the engine as `Idle` commands so it is in the replay log (movement 2.4).
 
+## Ideas for some day
+
+Notes on things that might be worth doing after 1.0, kept so the thinking isn't lost. None is part of the plan or the roadmap, and each would get a real spec before any code.
+
+- **Generated adventures** (`docs/ideas/random-adventures.md`): the original's option to have the program build or rework an adventure from a page of settings, done our way, with what it could add.
+
 ## Multiplayer
 
 Hot-seat play ships in 1.0 and online co-op in 1.1. Both come almost for free because the engine is turn-based and deterministic.
