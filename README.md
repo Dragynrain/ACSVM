@@ -39,17 +39,63 @@ These screenshots are from *First Voyage*, drawn in our own pirate art.
 map, every region and room, and the lists of things, creatures and
 messages.
 
+## About *Adventure Construction Set*
+
+Stuart Smith wrote *Adventure Construction Set* (ACS) on a Commodore 64,
+in Forth, and Electronic Arts published it in 1984. Apple II, Amiga and
+MS-DOS versions followed by 1987. It came with a full adventure,
+*Rivers of Light*, based on the Epic of Gilgamesh. Its real point,
+though, was the editor: you drew your own pictures, laid out a world map,
+regions and rooms, filled them with treasure, traps and monsters, wrote
+the messages, and saved the result to a disk you could hand to a friend.
+
+ACS was the first construction set for graphical role-playing games. The
+text-only *Eamon* came earlier, but nothing like ACS followed until *The
+Bard's Tale Construction Set* in 1991 and *Unlimited Adventures* in 1993.
+For most of a decade, if you wanted to make your own graphical RPG, ACS
+was close to the only choice. What made it stand out:
+
+- **Your game on its own disk.** Each adventure was a disk anyone could
+  copy and pass on. A fan club and a newsletter grew up around trading
+  them.
+- **Up to four players** at one computer, taking turns.
+- **Creatures with personalities.** A designer could make a creature a
+  fighter or a slinker, and an enemy, a friend, a neutral or a thief, so
+  monsters fought each other as well as you.
+- **Skills that grow with use**, and weight that slows you down, both
+  rare in role-playing games of the time.
+- **A random adventure** made by the program itself (Auto-Construct),
+  built to the size and difficulty you asked for.
+
+Reviewers at the time disliked its fiddly interface. They also saw the
+point: anyone could make a game. Years later, when Bethesda began
+*Morrowind*, Todd Howard said he was excited to make a tool like the ACS
+he remembered from the Apple II.
+
+### Why it's worth preserving
+
+The adventures people made with ACS are small, odd and personal: made at
+home by players, traded by mail, and kept on floppy disks that are now
+forty years old. Many of the disk images online are damaged, and
+playing them means setting up an emulator for a 1980s computer and
+learning its controls. When those disks go, the games go with them.
+ACSVM keeps them playable on a modern computer or in a browser, so the
+people who made them, and anyone curious, can still play them.
+
+**Further reading:** [Wikipedia](https://en.wikipedia.org/wiki/Adventure_Construction_Set)
+· [MobyGames](https://www.mobygames.com/game/991) ·
+[The CRPG Addict's 2015 playthrough](http://crpgaddict.blogspot.com/2015/09/revisiting-adventure-construction.html)
+· [The CRPG Addict on *The Return of Heracles*](https://crpgaddict.blogspot.com/2014/07/game-153-return-of-heracles-1983.html),
+Smith's earlier game · Dan Boris's [ACS Viewer](https://github.com/danlb2000/ACSViewer),
+which first mapped the file format
+
 ## What you can do
 
 - **Play the tutorial.** Pick *First Voyage* on the title screen. Notes on
   the way explain moving, taking things, the store, a fight and a spell.
 - **Play your own adventures.** Drag a file onto the window, or use
-  Open…:
-  - a C64 `.d64` disk image
-  - a PC `ADVEN.FPY` or `ADVEN.HRD`
-  - an Amiga `.adf` disk image
-
-  The file is read on your computer and never uploaded.
+  Open…. The [table below](#which-files-it-opens) lists what it opens. The
+  file is read on your computer and never uploaded.
 - **Play together.** Several players take turns at one keyboard, the way
   the original was played. Up to four gamepads work as well.
 - **Save anywhere.** A save file holds only the seed and the moves played,
@@ -60,6 +106,19 @@ messages.
   replaces.
 - **Make it comfortable.** Larger text, a colour-blind palette, an
   on-screen touch pad, and a turn-based option so the game waits for you.
+
+## Which files it opens
+
+| Computer | Open this | Status |
+| --- | --- | --- |
+| Commodore 64 | the adventure's `.d64` disk image | Plays. Tested on fan adventures from several collections. |
+| Amiga | the adventure's `.adf` disk image, or the `adventure` file copied off it | Plays. Newer than the C64 and PC support, so less tested. |
+| PC (MS-DOS) | `ADVEN.FPY` or `ADVEN.HRD` from the adventure's folder | Plays. Tested on EA's built-in adventure only. |
+| ACSVM | an `.advx` bundle | Our own format for new adventures ([docs/content.md](docs/content.md)). |
+| Apple II | | **Not supported yet.** Its disks are laid out differently, and that reader isn't written. |
+
+Unzip downloaded disk images first. Other C64 formats (`.d71`, `.g64`,
+`.t64`, `.prg`) don't open.
 
 ## How faithful is it?
 
@@ -91,16 +150,6 @@ to hear from people who played ACS back in the day:
 Please don't attach saves or screenshots of EA's or other people's
 adventures to a public issue. The forms explain how to describe them
 instead.
-
-## Supported files
-
-| Platform | Files | Status |
-| --- | --- | --- |
-| Commodore 64 | `.d64` disk images | Plays. Tested on fan adventures from several collections. |
-| PC (MS-DOS) | `ADVEN.FPY`, `ADVEN.HRD` | Plays. Tested on EA's built-in adventure. |
-| Amiga | `.adf` disk images | Opens and plays. Newer, and less tested. |
-| ACSVM | `.advx` bundles | Our own format for new adventures ([docs/content.md](docs/content.md)) |
-| Apple II | `.dsk` | Not yet |
 
 ## Running it yourself
 

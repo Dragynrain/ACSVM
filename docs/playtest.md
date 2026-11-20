@@ -13,8 +13,9 @@ uploaded.
 
 1. **First Voyage**, the tutorial on the title screen: about fifteen
    minutes, with notices that explain each step.
-2. **Your own adventures**: a C64 `.d64` disk image, or a PC
-   `ADVEN.FPY` / `ADVEN.HRD`. Drag the file onto the page or use
+2. **Your own adventures**: a C64 `.d64` disk image, an Amiga `.adf`
+   disk image (or the `adventure` file from one), or a PC
+   `ADVEN.FPY` / `ADVEN.HRD`. Apple II disks don't open yet. Drag the file onto the page or use
    **Open...**. Fan adventures are especially welcome. Every adventure
    you bring is a check of the rules we can't run ourselves.
 3. **Hot-seat**: Add Someone brings in up to four characters, who take

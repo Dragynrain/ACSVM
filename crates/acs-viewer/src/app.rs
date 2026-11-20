@@ -1021,7 +1021,7 @@ impl Viewer {
                 ui.add_space(14.0);
                 ui.label(RichText::new("Or open your own").font(kit(22.0)).color(ink));
                 ui.label(
-                    RichText::new("Drag a C64 .d64 disk image, a PC ADVEN.FPY / ADVEN.HRD or an .advx bundle here, or use Open...")
+                    RichText::new("Drag a C64 .d64, an Amiga .adf, a PC ADVEN.FPY or ADVEN.HRD, or an .advx bundle here, or use Open...")
                         .font(kit(22.0)),
                 );
                 ui.label(
@@ -1052,7 +1052,7 @@ impl Viewer {
 const WELCOME: &[(&str, &str)] = &[
     ("", "{name} plays adventures made with Adventure Construction Set, the 1984 game kit, on today's computers: the original's rules, rebuilt and checked against the real thing."),
     ("Start with First Voyage", "The short tutorial on this screen: about fifteen minutes, with notes that explain each step as you reach it. It opens ready to play."),
-    ("Or bring your own", "A C64 disk image (.d64), a PC adventure (ADVEN.FPY or ADVEN.HRD) or an .advx bundle: drag it onto the window or use Open… at the top. The file stays on your machine."),
+    ("Or bring your own", "A C64 disk image (.d64), an Amiga disk image (.adf) or the adventure file from one, a PC adventure (ADVEN.FPY or ADVEN.HRD) or an .advx bundle: drag it onto the window or use Open… at the top. Apple II disks don't open yet. The file stays on your machine."),
     ("Explore, then Walk", "An adventure you open shows first in Explore: the world map, its regions and rooms, and lists of its things, creatures and messages, the way its designer built it. Walk, in the top bar, is where you play."),
     ("Help is in the Help menu", "How to play (keys, actions, stores and saving), this page, and the way to report a problem."),
 ];
