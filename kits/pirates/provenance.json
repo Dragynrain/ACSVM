@@ -86,7 +86,7 @@
  },
  "boarder": {
   "group": "kit",
-  "source": "handfinish4\\done\\boarder-502.png",
+  "source": "handfinish6\\done\\boarder-502.png",
   "generation": [
    {
     "file": "boarder-502.png",
@@ -99,7 +99,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/boarder-502",
   "licence": "CC BY-SA 4.0"
@@ -309,7 +310,7 @@
  },
  "deckhand": {
   "group": "kit",
-  "source": "handfinish4\\done\\deckhand-503.png",
+  "source": "handfinish6\\done\\deckhand-503.png",
   "generation": [
    {
     "file": "deckhand-503.png",
@@ -322,7 +323,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/deckhand-503",
   "licence": "CC BY-SA 4.0"
@@ -363,7 +365,7 @@
  },
  "diver": {
   "group": "kit",
-  "source": "handfinish4\\done\\diver-503.png",
+  "source": "handfinish6\\done\\diver-503.png",
   "generation": [
    {
     "file": "diver-503.png",
@@ -376,14 +378,15 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/diver-503",
   "licence": "CC BY-SA 4.0"
  },
  "fisher": {
   "group": "kit",
-  "source": "handfinish4\\done\\fisher-502.png",
+  "source": "handfinish6\\done\\fisher-502.png",
   "generation": [
    {
     "file": "fisher-502.png",
@@ -396,7 +399,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/fisher-502",
   "licence": "CC BY-SA 4.0"
@@ -522,7 +526,7 @@
  },
  "gunner": {
   "group": "kit",
-  "source": "handfinish4\\done\\gunner-501.png",
+  "source": "handfinish6\\done\\gunner-501.png",
   "generation": [
    {
     "file": "gunner-501.png",
@@ -535,7 +539,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/gunner-501",
   "licence": "CC BY-SA 4.0"
@@ -593,7 +598,7 @@
  },
  "houseguard": {
   "group": "kit",
-  "source": "handfinish4\\done\\houseguard-502.png",
+  "source": "handfinish6\\done\\houseguard-502.png",
   "generation": [
    {
     "file": "houseguard-502.png",
@@ -606,7 +611,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/houseguard-502",
   "licence": "CC BY-SA 4.0"
@@ -700,7 +706,7 @@
  },
  "marine": {
   "group": "kit",
-  "source": "handfinish4\\done\\marine-502.png",
+  "source": "handfinish6\\done\\marine-502.png",
   "generation": [
    {
     "file": "marine-502.png",
@@ -713,7 +719,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/marine-502",
   "licence": "CC BY-SA 4.0"
@@ -1017,7 +1024,7 @@
  },
  "skeleton": {
   "group": "kit",
-  "source": "handfinish4\\done\\skeleton-502.png",
+  "source": "handfinish6\\done\\skeleton-502.png",
   "generation": [
    {
     "file": "skeleton-502.png",
@@ -1030,7 +1037,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/skeleton-502",
   "licence": "CC BY-SA 4.0"
@@ -1071,7 +1079,7 @@
  },
  "smuggler": {
   "group": "kit",
-  "source": "handfinish4\\done\\smuggler-503.png",
+  "source": "handfinish6\\done\\smuggler-503.png",
   "generation": [
    {
     "file": "smuggler-503.png",
@@ -1084,7 +1092,8 @@
   ],
   "hand_edits": [
    "handfinish3\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/smuggler-503",
   "licence": "CC BY-SA 4.0"
@@ -1145,7 +1154,7 @@
  },
  "thief": {
   "group": "kit",
-  "source": "handfinish4\\done\\thief-502.png",
+  "source": "handfinish6\\done\\thief-502.png",
   "generation": [
    {
     "file": "thief-502.png",
@@ -1158,7 +1167,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/thief-502",
   "licence": "CC BY-SA 4.0"
@@ -1182,7 +1192,7 @@
  },
  "trader": {
   "group": "kit",
-  "source": "handfinish4\\done\\trader-503.png",
+  "source": "handfinish6\\done\\trader-503.png",
   "generation": [
    {
     "file": "trader-503.png",
@@ -1195,7 +1205,8 @@
   ],
   "hand_edits": [
    "handfinish\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit/trader-503",
   "licence": "CC BY-SA 4.0"
@@ -1294,7 +1305,7 @@
  },
  "cabinboy": {
   "group": "kit2",
-  "source": "handfinish4\\done\\cabinboy-601.png",
+  "source": "handfinish6\\done\\cabinboy-601.png",
   "generation": [
    {
     "file": "cabinboy-601.png",
@@ -1307,7 +1318,8 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/cabinboy-601",
   "licence": "CC BY-SA 4.0"
@@ -1331,7 +1343,7 @@
  },
  "captainf": {
   "group": "kit2",
-  "source": "handfinish4\\done\\captainf-601.png",
+  "source": "handfinish6\\done\\captainf-601.png",
   "generation": [
    {
     "file": "captainf-601.png",
@@ -1344,14 +1356,15 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/captainf-601",
   "licence": "CC BY-SA 4.0"
  },
  "captainm": {
   "group": "kit2",
-  "source": "handfinish4\\done\\captainm-601.png",
+  "source": "handfinish6\\done\\captainm-601.png",
   "generation": [
    {
     "file": "captainm-601.png",
@@ -1364,7 +1377,8 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/captainm-601",
   "licence": "CC BY-SA 4.0"
@@ -1690,7 +1704,7 @@
  },
  "navigator": {
   "group": "kit2",
-  "source": "handfinish4\\done\\navigator-601.png",
+  "source": "handfinish6\\done\\navigator-601.png",
   "generation": [
    {
     "file": "navigator-601.png",
@@ -1703,7 +1717,8 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/navigator-601",
   "licence": "CC BY-SA 4.0"
@@ -1744,7 +1759,7 @@
  },
  "powdermonkey": {
   "group": "kit2",
-  "source": "handfinish4\\done\\powdermonkey-601.png",
+  "source": "handfinish6\\done\\powdermonkey-601.png",
   "generation": [
    {
     "file": "powdermonkey-601.png",
@@ -1757,7 +1772,8 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/powdermonkey-601",
   "licence": "CC BY-SA 4.0"
@@ -1784,7 +1800,7 @@
  },
  "skelcapt": {
   "group": "kit2",
-  "source": "handfinish4\\done\\skelcapt-601.png",
+  "source": "handfinish6\\done\\skelcapt-601.png",
   "generation": [
    {
     "file": "skelcapt-601.png",
@@ -1796,14 +1812,15 @@
    }
   ],
   "hand_edits": [
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/skelcapt-601",
   "licence": "CC BY-SA 4.0"
  },
  "skelmusket": {
   "group": "kit2",
-  "source": "handfinish4\\done\\skelmusket-601.png",
+  "source": "handfinish6\\done\\skelmusket-601.png",
   "generation": [
    {
     "file": "skelmusket-601.png",
@@ -1815,7 +1832,8 @@
    }
   ],
   "hand_edits": [
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/skelmusket-601",
   "licence": "CC BY-SA 4.0"
@@ -1839,7 +1857,7 @@
  },
  "surgeon": {
   "group": "kit2",
-  "source": "handfinish4\\done\\surgeon-601.png",
+  "source": "handfinish6\\done\\surgeon-601.png",
   "generation": [
    {
     "file": "surgeon-601.png",
@@ -1852,7 +1870,8 @@
   ],
   "hand_edits": [
    "handfinish2\\_faces.json",
-   "handfinish4\\_faces.json"
+   "handfinish4\\_faces.json",
+   "handfinish6\\_faces.json"
   ],
   "tile": "kit2/surgeon-601",
   "licence": "CC BY-SA 4.0"

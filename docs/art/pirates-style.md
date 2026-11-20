@@ -522,6 +522,36 @@ snapped to sand; it is on the skin ramp now.
 - **The portrait** had a crimson cut-out fringe along its bottom and right
   edge: the edge rows are now `outline0`, and the rows under the frame are
   cleared.
+
+**Faces and held items, seventh pass (20 November 2026).** After the First
+Voyage playtest, all 28 kit people checked again, heads at 12x; 19 changed
+(the 7 player pictures among them), and the three variants that follow
+them (night deckhand, blue marine, cursed skeleton) were rebuilt. The
+faults and fixes per tile are in research `handfinish6/NOTES.md`; the edits
+are text patches there (`patches/`, rows of ramp codes at a corner, made
+into `_faces.json` by `_patch.py`). What came up again:
+
+- **Eyes need two skin columns between them** on a face 6 or more wide,
+  and a skin pixel between an eye and the hair: an eye beside black hair
+  vanishes into it. On a 5 px face, one column is the most there is.
+- **Bands still read as masks:** a grey beard drawn dark across the lower
+  face (the man captain), a black helmet rim or a fringe of hair over the
+  eyes (house guard, thief), skull sockets run together. A beard is light
+  with a mouth in it and shading on the right; sockets are two blocks.
+- **Red at the chin or round a face still reads as blood:** a surgeon's
+  rust stock, coral neckerchiefs, crimson hair round a pale face (now
+  auburn, on the leather ramp).
+- **Held items, drawn by hand:** at 64 px a weapon reads by a light upper
+  edge, a dark lower one, an `outline0` round both and a gold guard or
+  lock at the fist; a lump without those reads as a club. A pistol reads
+  only as an L (barrel level, grip down from the fist); pointed down it is
+  a stick. The figure holds its creature's weapon where the hands were
+  empty or holding a lump (sabre, boarding axe, pistol, cutlass, dagger,
+  a gaff's hook on the fisher's pole); role props that read (a cook's pot,
+  a surgeon's bag, a trader's scales) stay.
+- **Small contact sheets lie about faces:** a 1 px eye can vanish when a
+  sheet is shrunk for viewing. Check a face by its pixel values or at 12x
+  before calling it missing.
 ## 10. Kit LoRA
 
 **v2 (November 2026), trigger `acspirates style`.** A bootstrap: trained on
