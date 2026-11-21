@@ -56,4 +56,4 @@ body:
     id: save
     attributes:
       label: Save file
-      description: Say whether you have a save (Save game in walk mode) from just before it happens; we'll ask for it privately.
+      description: Say whether you have a save (Save to file…, under Game options in play mode) from just before it happens; we'll ask for it privately.

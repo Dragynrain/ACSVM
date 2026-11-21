@@ -143,7 +143,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
 - `kits/`: starter kits (content.md 4): atlas, picture list, things,
   creatures, provenance; CC BY-SA 4.0. An adventure takes only what it
   names.
-- `crates/acs-cli`: the `acs` binary (`dump`, `pictures`).
+- `crates/acs-cli`: the `acs` binary (`dump`, `pictures`, `extract`, `build`,
+  `bundle`, `play`).
 - `crates/acs-capture`: the capture harness (tool crate, not wasm): drives
   VICE 3.10 (`ACSVM_VICE`: its folder or `x64sc`) over its binary
   monitor; scenario disks are our blocks over the user's blank adventure

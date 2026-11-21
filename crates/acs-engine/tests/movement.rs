@@ -1990,7 +1990,7 @@ fn replay_from_seed_and_log_is_exact() {
 
 /// A walk through the map door into HALL and about, with a rolled first
 /// character; returns the game, the autosave (the game whenever the
-/// engine's save point moved to it, as walk mode keeps it) and the
+/// engine's save point moved to it, as play mode keeps it) and the
 /// adventure.
 fn saved_walk() -> (Game, Game, Adventure) {
     let a = adventure(Platform::C64);

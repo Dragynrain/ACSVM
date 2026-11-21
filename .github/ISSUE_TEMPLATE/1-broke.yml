@@ -36,4 +36,4 @@ body:
     id: save
     attributes:
       label: Save file
-      description: For First Voyage, attach the save (Save game in walk mode). For any other adventure, just say whether you have one.
+      description: For First Voyage, attach the save (Save to file…, under Game options in play mode). For any other adventure, just say whether you have one.

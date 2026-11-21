@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! `acs play`: plays an adventure with a scripted walkthrough
-//! (`docs/play.md`). A front end like the viewer's walk mode: it only
+//! (`docs/play.md`). A front end like the viewer's play mode: it only
 //! issues [`Command`]s and reads [`Event`]s and state. Walking is a
 //! breadth-first search over moves tried on clones of the game, so what
 //! a square does is whatever the engine says it does.

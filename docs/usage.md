@@ -38,7 +38,7 @@ the window, with C64 pixels twice as wide as tall.
 
 **Play mode** (Play in the top bar) puts a player at the adventure's start.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
-End, PgDn, or the numpad), and press Space to end a turn. The log on the right
+End, PgDn, or the numpad), and press Space to end a turn. The log below the board
 lists what the rules engine reports: steps, blocked moves with the designer's
 messages, doors, pick-ups, spells and what they did, random encounters, and
 each creature's turn. The panel shows Life Force, Power and the other
@@ -66,7 +66,12 @@ save, so a save can go with a bug report.
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
-`creatures`, `messages`, `diagnostics`, `walk`; R counts from 1, N from 0).
+`creatures`, `messages`, `diagnostics`, `pack`, and `play`, the New
+character screen; R counts from 1, N from 0). `--size WxH` and `--ppp F`
+set the window and its pixels per point; `--render original|smoothed|hd|native`,
+`--pack PACK.png`, `--text-size PCT` (75 to 200), `--colour-blind`, `--pad`
+(the touch pad) and `--details` (Show more details) set what the Options
+and Look menus would.
 `--seed N --walk n,ne,e,...,wait` opens play mode and plays those steps first;
 steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
 `use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),
@@ -126,7 +131,8 @@ ACSVM_CORPUS=/path/to/corpus cargo test --test corpus -- --nocapture
 ```
 
 The corpus folder holds `c64/` (`.d64` disks, searched recursively) and
-optionally `pc/` (`.fpy`/`.hrd`).
+optionally `pc/` (`.fpy`/`.hrd`) and `amiga/` (`.adf` disks and their
+extracted `adventure` files).
 
 ## Repository layout
 
