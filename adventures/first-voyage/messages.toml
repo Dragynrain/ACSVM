@@ -7,7 +7,8 @@ Move one square at a time with the arrow keys, or click or tap a square
 beside you. Walk into a thing to pick it up: try the gold, the cutlass
 and the flask on the boards here.
 
-Then ready the cutlass as your weapon, so you can fight with it.
+Taking a weapon readies it at once: pick up the cutlass and it is in
+your hand, ready to fight with.
 
 The door in the east wall leads to the trader."""
 
@@ -20,22 +21,25 @@ A leather jerkin will turn a blow or two: buy one, walk out through
 either door at the sides, then ready it as your armour.
 
 When you are ready, leave the dock by the south gangway and follow the
-beach north to the cliffs."""
+beach north-east to the cave in the cliffs."""
 
 fight = """THE CAVE MOUTH
 
 Something scuttles in the dark. To fight, walk into a creature with a
-weapon ready. Each push is a blow, and a hurt fighter strikes worse.
+weapon ready. Each push is an attack of a blow or more, and a hurt
+fighter strikes worse.
 
-If you are hurt, drink the rum flask (use it) before you go on."""
+The crab cannot leave its square: if a fight goes badly, step away and
+drink the rum flask (use it) before you go back."""
 
 chant = """THE OLD LOGBOOK
 
-The last page holds a sea chant, and as you read it the words stay with
-you. A spell is used with your Power: cast the chant on yourself to
-close your wounds. Power comes back slowly with time.
+A loose page holds a sea chant. As you read it the words stay with you,
+and the page crumbles to dust. A spell is used with your Power: cast
+the chant on yourself to close your wounds. Power comes back slowly
+with time.
 
-The chest lies just south of here. Take it, then step onto the patch
+The chest lies just past the book. Take it, then step onto the patch
 of sand where it stood to finish the voyage."""
 
 win = """YOU FOUND THE CHEST OF COIN!

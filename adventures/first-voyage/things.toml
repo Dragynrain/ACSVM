@@ -32,7 +32,8 @@ bump = true
 spell = { action = "long_message", message = "fight" }
 
 # The logbook's stack, as under the chest: bumping the book runs the two
-# spaces below it, which give the chant and then explain casting it.
+# spaces below it, which give the chant and then explain casting it. The
+# gift (the loose page) goes once given: no second chant on a second read.
 [[thing]]
 key = "logbook"
 name = "OLD LOGBOOK"
@@ -44,21 +45,22 @@ spell_message = "learned"
 
 [[thing]]
 key = "logbook_gift"
-name = "OLD LOGBOOK"
+name = "LOOSE PAGE"
 type = "space"
-picture = "room_roomfloor"
+picture = "room_fmud"
+once = true
 access = { spell = { action = "give", thing = "sea_chant" } }
 
 [[thing]]
 key = "logbook_words"
 name = "OLD LOGBOOK"
 type = "space"
-picture = "room_roomfloor"
+picture = "room_fmud"
 access = { spell = { action = "long_message", message = "chant" } }
 
 # The success stack under the chest (winning 1.2): stepping onto the
 # square once the chest is taken runs the rest. Its top shows sand, so the
-# square stands out from the rock floor once the chest is gone.
+# square stands out from the mud floor once the chest is gone.
 [[thing]]
 key = "win_space"
 name = "SANDY HOLLOW"
@@ -70,19 +72,19 @@ access = { spell = { action = "activate_all" } }
 key = "win_theme"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_roomfloor"
+picture = "room_fmud"
 access = { spell = { action = "play_music", music = 28 } }
 
 [[thing]]
 key = "win_words"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_roomfloor"
+picture = "room_fmud"
 access = { spell = { action = "long_message", message = "win" } }
 
 [[thing]]
 key = "win_fanfare"
 name = "SANDY HOLLOW"
 type = "space"
-picture = "room_roomfloor"
+picture = "room_fmud"
 access = { spell = { action = "play_music", music = 11 } }

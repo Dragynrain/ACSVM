@@ -18,9 +18,9 @@ expect owns cutlass
 # The trader.
 door 8 2
 expect at 1 1 1 2
-bump 3 3
+bump 2 2
 expect message 2
-bump 3 2
+bump 4 2
 buy leather jerkin
 leave
 ready leather jerkin
@@ -41,12 +41,12 @@ use rum flask
 # The hollow: the chant, then the chest.
 door 8 3
 expect at 2 1 1 3
-bump 3 1
+bump 2 3
 expect message 4
 expect owns sea chant
 cast sea chant
-take 3 4
+take 4 3
 expect owns chest of coin
-walk 3 4
+walk 4 3
 expect message 5
 expect won

@@ -1,5 +1,7 @@
 # The cliffs: the cave mouth (a fight) and the hollow (a spell, the chest).
-# The warning lies a step in from the entrance, between it and the crab.
+# The warning lies a step in from the entrance, between it and the crab;
+# the logbook the same in the hollow, between the door and the chest.
+# Both caves have a mud floor, so the sandy hollow stands out.
 
 key = "cliffs"
 name = "THE CLIFFS"
@@ -21,9 +23,9 @@ E.n.k...D
 
 [room.legend]
 "#" = "wall"
-"." = "floor"
-"n" = "cave_notice"
-"k" = { creature = "shore_crab" }
+"." = "mud"
+"n" = ["cave_notice", "mud"]
+"k" = { creature = "shore_crab", things = ["mud"] }
 "E" = { thing = "cave_passage_caverock", to = "map", square = [6, 1] }
 "D" = { thing = "cave_passage_caverock", to = "cliffs.hollow" }
 
@@ -34,17 +36,17 @@ at = [8, 0]
 wall = "room_caverock"
 map = """
 #######
-#..b..#
 #.....#
-D.....#
-#..G..#
+#.....#
+D.b.G.#
+#.....#
 #.....#
 #######
 """
 
 [room.legend]
 "#" = "wall"
-"." = "floor"
+"." = "mud"
 "b" = ["logbook", "logbook_gift", "logbook_words"]
 "G" = ["coin_chest", "win_space", "win_theme", "win_words", "win_fanfare"]
 "D" = { thing = "cave_passage_caverock", to = "cliffs.mouth" }

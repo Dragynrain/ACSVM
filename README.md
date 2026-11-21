@@ -28,9 +28,9 @@ These screenshots are from *First Voyage*, drawn in our own pirate art.
 
 | | |
 | --- | --- |
-| ![A pirate on a wooden dock, a notice on the boards and a door to the trader](docs/images/walk-dock.png) | ![The trader's store: goods on the floor, the player's gold and the store buttons](docs/images/store.png) |
+| ![A pirate on a wooden dock, a notice on the boards and a door to the trader](docs/images/walk-dock.png) | ![The trader's store: goods on shelves cut into the wall, a door at each side, the player's gold and the store buttons](docs/images/store.png) |
 | **Walking.** Arrow keys, mouse, touch pad or a gamepad. The panel on the right shows your ratings and what you carry. | **Stores.** Walk up to a shelf to see its price, then buy or sell. |
-| ![A pirate in a sandy cave facing a red shore crab, with the crab's ratings in the side panel](docs/images/fight.png) | ![The end-of-adventure window: You found the chest of coin!](docs/images/ending.png) |
+| ![A pirate in a muddy cave facing a red shore crab, with the crab's ratings in the side panel](docs/images/fight.png) | ![The end-of-adventure window: You found the chest of coin!](docs/images/ending.png) |
 | **Fights.** Every creature in the room is listed with its temper, speed and weapon. | **The end.** *First Voyage* takes under five minutes. |
 
 ![The world map of First Voyage in Explore mode, with its terrain list](docs/images/inspector-world.png)
