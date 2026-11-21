@@ -110,8 +110,10 @@ When the target can't be reached, the failure says what stepping onto it
 did (if it was tried) and lists the squares that were reachable, nearest
 first.
 
-`goto` searches the door graph: the world map's doors and the room items
-with a destination, into rooms that aren't deleted. Each hop is a `door`
+`goto` searches the door graph: the world map's doors, the room items
+with a destination, into rooms that aren't deleted, and an encounter
+area's exit doors, to the map or the room their area door table entry
+names (encounters 3.5, 7.1). Each hop is a `door`
 walk tried on the real game and rolled back when it fails or leads
 elsewhere; that door is then left out and the route searched again. The
 fallback is limited so a `goto` can't wander: a new route may be no longer

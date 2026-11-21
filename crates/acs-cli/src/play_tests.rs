@@ -729,6 +729,33 @@ fn a_walk_into_an_encounter_stays_in_its_area() {
 }
 
 #[test]
+fn a_door_or_goto_walks_out_of_an_encounter_area() {
+    let fight = "player 1 possessions=SWORD melee=127 strength=30\n\
+                 walk 25 20 encounter\nattack 2 3\n";
+    let on_map = |out: &crate::play::Outcome, seed: u64| {
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+        assert!(
+            matches!(out.game.players()[0].at, Location::World { .. }),
+            "seed {seed}: at {:?}",
+            out.game.players()[0].at
+        );
+    };
+    // The stock table: area 1's exit door (0,5) leads to its entrance.
+    let adv = with_sea_brute(60);
+    for seed in 1..=4 {
+        on_map(&run(&adv, &format!("{fight}door 0 5\n"), seed), seed);
+        on_map(&run(&adv, &format!("{fight}goto 0 0\n"), seed), seed);
+    }
+    // An exit into HALL's arrival (region 1 room 0, 2,2): goto takes it.
+    let mut adv = with_sea_brute(60);
+    adv.world.unknown_806[..2].copy_from_slice(&[0x10, 0x22]);
+    for seed in 1..=4 {
+        let out = run(&adv, &format!("{fight}goto 1 0\nexpect at 1 0 2 2\n"), seed);
+        assert_eq!(out.failure, None, "seed {seed}: {}", out.progress.join("\n"));
+    }
+}
+
+#[test]
 fn a_fire_finds_the_encounter_copy_in_its_area() {
     let mut adv = with_sea_brute(60);
     let t = with_bow(3, 6).things[BOW as usize - 1].clone();

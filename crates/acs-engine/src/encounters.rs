@@ -286,8 +286,9 @@ impl Game {
     /// 3.5: where a door of parameter `n` leads, `None` for the start
     /// point: region 0 with code 0x41..0x44 that area's entrance (the start
     /// while it is free), region 0 with point 0..63 that map point, region
-    /// 1 or above that room's square if the adventure has it.
-    fn area_door_destination(&self, n: u8) -> Option<Location> {
+    /// 1 or above that room's square if the adventure has it. Front ends
+    /// and the script player ask it where an area's exit leads.
+    pub fn area_door_destination(&self, n: u8) -> Option<Location> {
         let [b0, b1] = self.area_door_entry(n)?;
         let region = b0 >> 4;
         if region == 0 {

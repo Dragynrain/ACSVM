@@ -7,6 +7,7 @@
 //! a square does is whatever the engine says it does.
 
 use crate::script::{sturdy, Action, Expect, Script, Sel, Step};
+use acs_core::layout::world_map::AREA_DOOR_THING;
 use acs_core::model::{Adventure, Destination, ThingId};
 use acs_engine::{describe, Command, Dir, Event, Game, Location, Rules, SaveFile, Stat, Who};
 use serde_json::json;
@@ -336,11 +337,12 @@ fn took(ev: &[Event], me: usize) -> bool {
 }
 
 /// Whether `me` went through a door or portal in the step's own events
-/// (into another place or onto another square of the same room).
+/// (into another place or onto another square of the same room), an
+/// encounter area's exit door included.
 fn took_door(ev: &[Event], me: usize) -> bool {
-    own_part(ev, me)
-        .iter()
-        .any(|e| matches!(e, Event::TookDoor { player, .. } if *player == me))
+    own_part(ev, me).iter().any(
+        |e| matches!(e, Event::TookDoor { player, .. } | Event::LeftArea { player, .. } if *player == me),
+    )
 }
 
 /// What `me` took in the step's own events, by name.
@@ -1449,7 +1451,8 @@ fn dest_key(game: &Game, d: Destination) -> Option<(u8, u8)> {
 }
 
 /// The doors out of a place: the world map's doors, or a room's items
-/// that lead somewhere.
+/// that lead somewhere; in an encounter area, its exit doors (encounters
+/// 3.5, 7.1), to the world map or the room their table entry names.
 fn doors(game: &Game, from: (u8, u8)) -> Vec<Edge> {
     let adv = game.adventure();
     if from == (0, 0) {
@@ -1469,13 +1472,31 @@ fn doors(game: &Game, from: (u8, u8)) -> Vec<Edge> {
     let Some(room) = game.region(from.0).and_then(|r| r.rooms.get(from.1 as usize)) else {
         return Vec::new();
     };
+    let area = from.0 == 0 && from.1 >= 1;
     room.items
         .iter()
         .filter_map(|i| {
+            let to = if area && i.thing == ThingId::from(AREA_DOOR_THING) {
+                // None is the start point, on the world map.
+                match game.area_door_destination(i.parameter) {
+                    None | Some(Location::World { .. }) => (0, 0),
+                    Some(Location::Room { region, room, .. }) => dest_key(
+                        game,
+                        Destination::Room {
+                            region,
+                            room,
+                            x: 0,
+                            y: 0,
+                        },
+                    )?,
+                }
+            } else {
+                dest_key(game, i.destination?)?
+            };
             Some(Edge {
                 from,
                 at: (i.x, i.y),
-                to: dest_key(game, i.destination?)?,
+                to,
             })
         })
         .collect()
