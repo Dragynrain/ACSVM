@@ -22,6 +22,8 @@ pub struct Args {
     pub ppp: Option<f32>,
     /// Play mode with the on-screen pad shown (`--pad`).
     pub pad: bool,
+    /// Play mode with Show more details on (`--details`, client 3).
+    pub details: bool,
     /// An HD pack to load (`--pack FILE.png`).
     pub pack: Option<PathBuf>,
     /// Text size in percent (`--text-size`) and the colour-blind palette
@@ -44,7 +46,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view play|world|region:R|room:R:N|things|creatures|messages|diagnostics|pack] \
-[--size WxH] [--ppp F] [--pad] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view play opens the New character screen; --seed, --place and --walk start a game; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the game's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--pad] [--details] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view play opens the New character screen; --seed, --place and --walk start a game; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the game's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();
@@ -69,6 +71,7 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
                 );
             }
             "--pad" => out.pad = true,
+            "--details" => out.details = true,
             "--pack" => out.pack = Some(PathBuf::from(value("--pack")?)),
             "--colour-blind" => out.colour_blind = true,
             "--text-size" => {
@@ -241,6 +244,7 @@ mod tests {
         assert_eq!(p(&["--text-size", "150"]).unwrap().text_size, Some(1.5));
         assert!(p(&["--text-size", "500"]).is_err());
         assert!(p(&["--colour-blind"]).unwrap().colour_blind);
+        assert!(p(&["--details"]).unwrap().details);
         assert!(p(&["a.d64", "b.d64"]).is_err());
         assert!(p(&["--frobnicate"]).is_err());
     }

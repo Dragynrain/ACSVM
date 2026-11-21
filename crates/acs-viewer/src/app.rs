@@ -97,6 +97,10 @@ pub struct Doc {
     pub pick: bool,
     /// Play mode's bar never drains (design.md, Play options).
     pub turn_based: bool,
+    /// Play mode shows what a designer would see (client 3): creatures'
+    /// ratings and alignment, chances, how spells work; off, only what a
+    /// player of the original would know. Explore always shows it all.
+    pub details: bool,
     /// Play mode's on-screen pad fixed on or off; `None` follows the last
     /// input (client 4).
     pub pad: Option<bool>,
@@ -137,6 +141,7 @@ impl Doc {
             creating: None,
             pick: false,
             turn_based: false,
+            details: false,
             pad: None,
             audio: Default::default(),
             pack: None,
@@ -217,6 +222,8 @@ pub struct Startup {
     pub ppp: Option<(f32, [f32; 2])>,
     /// Play mode with the on-screen pad on (`--pad`).
     pub pad: bool,
+    /// Play mode with Show more details on (`--details`).
+    pub details: bool,
     /// An HD pack to load first (`--pack`).
     pub pack: Option<std::path::PathBuf>,
     /// Options to start with (`--text-size`, `--colour-blind`).
@@ -411,13 +418,16 @@ impl Viewer {
             // The start-up commands' cues are not played (client 6), nor
             // their lines read (client 7).
             walk.take_cues();
-            walk.take_unannounced();
+            walk.take_unannounced(false);
             doc.walk = Some(walk);
             doc.view = View::Walk;
             doc.opening = None;
         }
         if let (true, Some(doc)) = (start.pad, &mut v.doc) {
             doc.pad = Some(true);
+        }
+        if let (true, Some(doc)) = (start.details, &mut v.doc) {
+            doc.details = true;
         }
         if let (Some(m), Some(doc)) = (start.render, &mut v.doc) {
             doc.tiles.set_mode(&cc.egui_ctx, m);

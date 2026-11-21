@@ -77,6 +77,70 @@ impl Kind {
     }
 }
 
+/// What a log line shows with Show more details off (client 3): play
+/// shows what a player at the original would know, the full line being
+/// for designers and testers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Plain {
+    Same,
+    /// Nothing: how a spell works inside, a creature's ratings.
+    Hidden,
+    /// A shorter line: the chances left out, a spell's message alone.
+    Text(String),
+}
+
+impl Plain {
+    /// The line as shown, `None` for no line.
+    fn shown<'a>(&'a self, line: &'a str, details: bool) -> Option<&'a str> {
+        match self {
+            _ if details => Some(line),
+            Plain::Same => Some(line),
+            Plain::Hidden => None,
+            Plain::Text(t) => Some(t),
+        }
+    }
+}
+
+/// The plain form of `line`, the log line of `e` (client 3).
+fn plain(e: &Event, line: &str) -> Plain {
+    match e {
+        // A creature's Life Force and Power, the cue numbers and the
+        // spread of a shot: the original shows none of them.
+        Event::StatChanged {
+            who: Who::Creature { .. },
+            ..
+        }
+        | Event::Music { .. }
+        | Event::Shot { .. } => Plain::Hidden,
+        // What set off which spell: only its message, if it has one.
+        Event::SpellTriggered { message, .. } => match message {
+            Some(m) => Plain::Text(acs_engine::quoted(m.trim())),
+            None => Plain::Hidden,
+        },
+        // The chance of a blow, a dodge or a cast.
+        Event::Blow { .. } | Event::Dodged { .. } | Event::MissileHit { .. } | Event::SpellCast { .. } => {
+            without_paren(line, |p| p.contains('%'))
+        }
+        // A creature's moves: its Speed.
+        Event::CreatureTurn { .. } => without_paren(line, |p| p.ends_with("moves") || p.ends_with("move")),
+        _ => Plain::Same,
+    }
+}
+
+/// `line` without its last " (...)" whose inside `drop` picks.
+fn without_paren(line: &str, drop: impl Fn(&str) -> bool) -> Plain {
+    let Some(open) = line.rfind(" (") else {
+        return Plain::Same;
+    };
+    let Some(len) = line[open..].find(')') else {
+        return Plain::Same;
+    };
+    if !drop(&line[open + 2..open + len]) {
+        return Plain::Same;
+    }
+    Plain::Text(format!("{}{}", &line[..open], &line[open + len + 1..]))
+}
+
 /// The log filter's groups (client 3), by `Kind::group`.
 const LOG_GROUPS: [&str; 8] = [
     "Turns",
@@ -308,7 +372,9 @@ impl Roster {
 
 pub struct Walk {
     pub game: Game,
-    log: Vec<(Kind, String)>,
+    /// The log: each line's kind, its full text and what it shows with
+    /// Show more details off (client 3).
+    log: Vec<(Kind, String, Plain)>,
     /// Where the log scrolls next frame (client 3): a new long message's
     /// first line to the top, so its title is read first, then back to
     /// the bottom with the next lines.
@@ -483,6 +549,7 @@ impl Walk {
                 "Warning: this adventure's data differs from the one the save was made with \
                  (another copy, or a decoder change)."
                     .into(),
+                Plain::Same,
             ));
         }
         if r.diverged {
@@ -491,6 +558,7 @@ impl Walk {
                 "Warning: the replay came out differently from the saved game \
                  (the rules have changed since it was saved)."
                     .into(),
+                Plain::Same,
             ));
         }
         let p = w.game.current_player();
@@ -498,7 +566,7 @@ impl Walk {
         w.note(line);
         // A replay's cues are not played (client 6), nor its lines read.
         w.cues.clear();
-        w.take_unannounced();
+        w.take_unannounced(true);
         Ok(w)
     }
 
@@ -572,7 +640,8 @@ impl Walk {
     pub fn note_kept(&mut self) {
         // The save's own line (seed, commands replayed) is for a file the
         // player chose to load, not for picking up the kept game.
-        self.log.retain(|(_, line)| !line.starts_with("Loaded a save:"));
+        self.log
+            .retain(|(_, line, _)| !line.starts_with("Loaded a save:"));
         self.note(
             "Picked up where you left off: the last game is kept on this machine.              Restart, under Game options, starts a new one."
                 .into(),
@@ -770,10 +839,14 @@ impl Walk {
 
     /// The log lines since the last call, for the screen reader region
     /// (client 7).
-    pub fn take_unannounced(&mut self) -> Vec<String> {
+    /// `details`: Show more details (client 3), as the log shows them.
+    pub fn take_unannounced(&mut self, details: bool) -> Vec<String> {
         let start = self.announced.saturating_sub(self.trimmed).min(self.log.len());
         self.announced = self.trimmed + self.log.len();
-        self.log[start..].iter().map(|(_, l)| l.clone()).collect()
+        self.log[start..]
+            .iter()
+            .filter_map(|(_, l, p)| p.shown(l, details).map(str::to_string))
+            .collect()
     }
 
     /// The Play Music cues since the last call (client 6).
@@ -846,7 +919,7 @@ impl Walk {
     }
 
     fn note(&mut self, s: String) {
-        self.log.push((Kind::Note, s));
+        self.log.push((Kind::Note, s, Plain::Same));
     }
 
     fn record(&mut self, events: &[Event]) {
@@ -969,7 +1042,8 @@ impl Walk {
             if matches!(kind, Kind::Message { .. }) && message.is_none() {
                 message = Some(self.trimmed + self.log.len());
             }
-            self.log.push((kind, line));
+            let plain = plain(e, &line);
+            self.log.push((kind, line, plain));
         }
         if let Some(n) = message {
             self.log_jump = Some(LogJump::Top(n, JUMP_FRAMES));
@@ -1358,10 +1432,10 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     g,
                     &mut walk.pending_drop,
                     &mut walk.gold_amount,
-                    &mut aim,
+                    (&mut aim, doc.details),
                     &mut click,
                 );
-                creatures_panel(ui, g);
+                creatures_panel(ui, g, doc.details);
             } else {
                 roster_panel(ui, g, &walk.roster, &mut click);
                 others_panel(ui, g, walk.fingerprint(), &walk.others, walk.pending_other.as_ref(), &mut other);
@@ -1395,6 +1469,11 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                 }
                 ui.checkbox(&mut doc.turn_based, "Turn-based").on_hover_text(
                     "The bar waits for you. Off: it drains while you do nothing, a step about every 7 seconds, as in the original.",
+                );
+                ui.checkbox(&mut doc.details, "Show more details").on_hover_text(
+                    "What a designer sees: creatures' ratings and whether they are friend or foe, \
+                     the chance of each blow and spell, and how spells work. \
+                     Off, you know only what a player of the original would.",
                 );
                 if ui.button("Restart").clicked() {
                     ask = Some(g.rules());
@@ -1537,10 +1616,13 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     // Classic one laid out as a picture keeps its lines.
                     let jump = walk.log_jump;
                     let last = walk.log.len().saturating_sub(1);
-                    for (i, (kind, line)) in walk.log.iter().enumerate() {
+                    for (i, (kind, line, plain)) in walk.log.iter().enumerate() {
                         if kind.group().is_some_and(|g| walk.log_hidden[g]) {
                             continue;
                         }
+                        let Some(line) = plain.shown(line, doc.details) else {
+                            continue;
+                        };
                         // A symbol as well as a colour (client 7).
                         let t = match kind_mark(*kind, &access) {
                             Some((sym, colour)) => RichText::new(format!("{sym} {line}")).color(colour),
@@ -1625,7 +1707,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
             Location::World { x, y } => draw_map(&doc.tiles, ui, g, x, y),
             Location::Room { region, room, .. } => {
                 let cursor = walk.pending_aim.map(|(_, xy)| xy);
-                draw_room(&doc.tiles, ui, g, region, room, cursor)
+                draw_room(&doc.tiles, ui, g, (region, room), cursor, doc.details)
             }
         }
     });
@@ -1684,7 +1766,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
         doc.audio.play(n);
     }
     // New log lines for a screen reader (client 7).
-    crate::live::announce(&walk.take_unannounced());
+    crate::live::announce(&walk.take_unannounced(doc.details));
     if keep_playing {
         walk.confirm = None;
     }
@@ -2345,7 +2427,7 @@ fn target_menu(
     g: &Game,
     label: &str,
     make: impl Fn(Option<(u8, u8)>) -> Command,
-    (aim, start): (Aim, &mut Option<Aim>),
+    (aim, start, details): (Aim, &mut Option<Aim>, bool),
     click: &mut Option<Command>,
 ) {
     let me = Who::Player { player: g.current() };
@@ -2373,7 +2455,11 @@ fn target_menu(
             }
         }
         for (_, c) in g.residents_in(region, room) {
-            let name = format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force);
+            let name = if details {
+                format!("{} · {},{} · LF {}", c.name.trim(), c.x, c.y, c.life_force)
+            } else {
+                format!("{} · {},{}", c.name.trim(), c.x, c.y)
+            };
             if ui.button(name).clicked() {
                 *click = Some(make(Some((c.x, c.y))));
                 ui.close();
@@ -2388,7 +2474,7 @@ fn inventory_panel(
     g: &Game,
     pending: &mut Option<u16>,
     gold_amount: &mut u16,
-    aim: &mut Option<Aim>,
+    (aim, details): (&mut Option<Aim>, bool),
     click: &mut Option<Command>,
 ) {
     let a = g.adventure();
@@ -2466,8 +2552,14 @@ fn inventory_panel(
             }
             match kind {
                 Some(ThingKind::MagicSpell { power, .. }) => {
-                    let chance = g.cast_chance(g.current(), t).unwrap_or(0);
-                    ui.label(RichText::new(format!("cost {power}, {chance}%")).weak());
+                    // The chance only with more details (client 3).
+                    let cost = if details {
+                        let chance = g.cast_chance(g.current(), t).unwrap_or(0);
+                        format!("cost {power}, {chance}%")
+                    } else {
+                        format!("cost {power}")
+                    };
+                    ui.label(RichText::new(cost).weak());
                     target_menu(
                         ui,
                         g,
@@ -2477,7 +2569,7 @@ fn inventory_panel(
                             at,
                             target: None,
                         },
-                        (Aim::Cast(t), &mut *aim),
+                        (Aim::Cast(t), &mut *aim, details),
                         click,
                     );
                 }
@@ -2491,7 +2583,7 @@ fn inventory_panel(
                             at,
                             target: None,
                         },
-                        (Aim::Use(t), &mut *aim),
+                        (Aim::Use(t), &mut *aim, details),
                         click,
                     );
                 }
@@ -2523,8 +2615,9 @@ fn personality(c: &Creature) -> String {
     )
 }
 
-/// The creatures in the player's room, with what the AI uses.
-fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
+/// The creatures in the player's room; with `details` (client 3), what
+/// the AI uses, and their alignment marks.
+fn creatures_panel(ui: &mut egui::Ui, g: &Game, details: bool) {
     let Location::Room { region, room, .. } = g.current_player().at else {
         return;
     };
@@ -2542,6 +2635,10 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game) {
         } else {
             ""
         };
+        if !details {
+            ui.label(format!("{name} · {},{}", c.x, c.y));
+            continue;
+        }
         ui.horizontal_wrapped(|ui| {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
             alignment_mark(ui.painter(), rect.center(), 5.0, c.strategy.alignment);
@@ -2848,9 +2945,9 @@ fn draw_room(
     tiles: &crate::tiles::Tiles,
     ui: &mut egui::Ui,
     g: &Game,
-    region: u8,
-    room: u8,
+    (region, room): (u8, u8),
     cursor: Option<(u8, u8)>,
+    details: bool,
 ) -> Option<(Location, bool)> {
     let a = g.adventure();
     let reg = g.region(region)?;
@@ -2873,8 +2970,13 @@ fn draw_room(
             }
         }
     }
-    // A mark in the corner of each creature's square shows its alignment.
-    for c in reg.residents.iter().filter(|c| c.in_use && c.room == room) {
+    // A mark in the corner of each creature's square shows its alignment,
+    // with more details on (client 3).
+    for c in reg
+        .residents
+        .iter()
+        .filter(|c| details && c.in_use && c.room == room)
+    {
         let cell = grid.cell_rect(c.x as u32, c.y as u32);
         let rad = (cell.width().min(cell.height()) * 0.12).max(2.0);
         let at = cell.right_top() + egui::vec2(-rad * 1.4, rad * 1.4);
@@ -3000,7 +3102,7 @@ pub(crate) mod tests {
         w.drain(60.0);
         assert_eq!(w.game.current_player().moves_left, full - 2);
         // The rest of the turn drains away and the next turn starts afresh.
-        let turns = |w: &Walk| w.log.iter().filter(|(k, _)| *k == Kind::Turn).count();
+        let turns = |w: &Walk| w.log.iter().filter(|(k, _, _)| *k == Kind::Turn).count();
         let before = turns(&w);
         run(&mut w, f64::from(full - 2) * 354.0 / PAL_HZ + 0.1);
         assert!(turns(&w) > before, "a new turn");
@@ -3044,16 +3146,16 @@ pub(crate) mod tests {
     fn new_log_lines_are_announced_once_even_past_the_trim() {
         let a = adventure();
         let mut w = Walk::new(&a, 3, Rules::default());
-        w.take_unannounced();
+        w.take_unannounced(true);
         w.note("one".into());
         w.note("two".into());
-        assert_eq!(w.take_unannounced(), ["one", "two"]);
-        assert!(w.take_unannounced().is_empty());
+        assert_eq!(w.take_unannounced(true), ["one", "two"]);
+        assert!(w.take_unannounced(true).is_empty());
         for i in 0..LOG_MAX + 3 {
             w.note(format!("line {i}"));
         }
         w.record(&[]);
-        let got = w.take_unannounced();
+        let got = w.take_unannounced(true);
         assert_eq!(
             got.last().map(String::as_str),
             Some(format!("line {}", LOG_MAX + 2).as_str())
@@ -3405,6 +3507,68 @@ end"
         assert_eq!(wraps.square(0, 0), Some((33, 25)));
     }
 
+    /// Show more details off (client 3): chances and a creature's moves
+    /// left out, a creature's ratings and spells' insides hidden, a
+    /// spell's message kept; on, every line in full.
+    #[test]
+    fn plain_lines_leave_out_what_a_player_would_not_know() {
+        let me = Who::Player { player: 0 };
+        let crab = Who::Creature { region: 2, slot: 0 };
+        let blow = Event::Blow {
+            by: me,
+            target: crab,
+            counter: false,
+            chance: 30,
+            outcome: acs_engine::BlowOutcome::Miss,
+        };
+        let p = plain(&blow, "SAILOR misses SHORE CRAB (30%).");
+        assert_eq!(p, Plain::Text("SAILOR misses SHORE CRAB.".into()));
+        assert_eq!(
+            p.shown("SAILOR misses SHORE CRAB (30%).", true),
+            Some("SAILOR misses SHORE CRAB (30%).")
+        );
+        assert_eq!(
+            without_paren("SAILOR casts SEA CHANT (90% chance, 3 Power): it works.", |p| p
+                .contains('%')),
+            Plain::Text("SAILOR casts SEA CHANT: it works.".into())
+        );
+        let turn = Event::CreatureTurn {
+            region: 2,
+            slot: 0,
+            moves: 0,
+        };
+        assert_eq!(
+            plain(&turn, "SHORE CRAB's turn (0 moves)."),
+            Plain::Text("SHORE CRAB's turn.".into())
+        );
+        let theirs = Event::StatChanged {
+            who: crab,
+            stat: Stat::LifeForce,
+            from: 6,
+            to: 0,
+        };
+        assert_eq!(
+            plain(&theirs, "SHORE CRAB's Life Force goes from 6 to 0."),
+            Plain::Hidden
+        );
+        assert_eq!(Plain::Hidden.shown("x", false), None);
+        let mine = Event::StatChanged {
+            who: me,
+            stat: Stat::LifeForce,
+            from: 11,
+            to: 17,
+        };
+        assert_eq!(
+            plain(&mine, "SAILOR's Life Force goes from 11 to 17."),
+            Plain::Same
+        );
+        // Nothing to leave out: the line as it is.
+        assert_eq!(
+            without_paren("SAILOR attacks SHORE CRAB (2 blows).", |p| p.contains('%')),
+            Plain::Same
+        );
+    }
+
     /// The log names a player who retires last by name, though the engine
     /// clears every record once nobody is left (magic 7.4).
     #[test]
@@ -3413,7 +3577,7 @@ end"
         w.apply(Command::Retire { save: true });
         w.apply(Command::Wait);
         assert!(w.game.is_over());
-        let lines: Vec<&str> = w.log.iter().map(|(_, l)| l.as_str()).collect();
+        let lines: Vec<&str> = w.log.iter().map(|(_, l, _)| l.as_str()).collect();
         assert!(
             lines.iter().any(|l| l.starts_with("PLAYER 1 retires")),
             "{lines:#?}"

@@ -51,6 +51,7 @@ fn main() -> eframe::Result {
         view: args.view,
         ppp: args.ppp.map(|p| (p, args.size.unwrap_or([1280.0, 800.0]))),
         pad: args.pad,
+        details: args.details,
         render: args.render,
         pack: args.pack,
         text_size: args.text_size,

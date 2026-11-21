@@ -132,6 +132,33 @@ character screen (4.2) for a new game, or the board. The original's
 own credit line is not copied. A save loaded from a file, and a
 scripted walk (`--walk`, `--load`), go straight to the board.
 
+### 3.4 Show more details
+
+Play shows what a player of the original would know; **Show more
+details** (under Game options, `--details` on the command line) shows
+what a designer or tester wants as well. Off by default in play, it is
+the document's setting (kept across new games, not between sessions);
+Explore always shows everything. Off:
+
+- **Creatures here** lists each creature's name and square only, with no
+  alignment mark; its personality, speed, Life Force, Power, wits,
+  spells, weapon and wealth, and whether it is random, need details.
+  The board's alignment marks (7) show only with details too.
+- The Cast and Use menus name creatures without their Life Force, and a
+  spell shows its cost without its chance.
+- The log leaves out the chance of each blow, dodge and cast ("misses
+  SHORE CRAB." for "misses SHORE CRAB (30%)."), a creature's moves in its
+  turn line, and these lines entirely: a creature's Life Force or Power
+  changing, Play Music's cue numbers, a shot's spread, and what set off
+  which spell ("sets off obstacle NOTICE: message 1."), whose message,
+  if it has one, shows alone. The player's own ratings, their changes
+  and damage done stay.
+
+The log keeps every line in full, so switching details on shows the
+whole game so far; the screen reader region (7) reads what the log
+shows. [choice: a presentation, not a rule; the maintainer, November
+2026]
+
 ## 4. Input
 
 - **Keyboard** (now): the original's eight directions and its commands
@@ -383,7 +410,7 @@ it under the pointer while dragging.
 | --- | --- |
 | Log kinds | A symbol before the line: `×` blocked, `»` doors and places, `*` spells, `+` things, `~` creatures, `!` foes and harm, `¶` a long message; turns, steps and notes have none |
 | Player markers | The player's number in the ring |
-| Creature alignment | A shape: enemy a triangle, friend a circle, neutral a square, thief a diamond |
+| Creature alignment | A shape: enemy a triangle, friend a circle, neutral a square, thief a diamond (with Show more details, 3.4) |
 | World map squares | Door a plain outline, exit point corner brackets, start a double outline |
 
 **Screen readers.** In the browser, every new log line is also put in a
@@ -454,7 +481,7 @@ wall of text:
 
 In play the Info column keeps the character, actions, stats, inventory
 and creatures in view; the settings (Diagonal moves, On-screen pad,
-Turn-based, Restart, Sound) and the save files sit under a closed **Game
+Turn-based, Show more details (3.4), Restart, Sound) and the save files sit under a closed **Game
 options** header, open while a restart waits for its answer. Resume from
 last save shows only once there is a save to go back to.
 

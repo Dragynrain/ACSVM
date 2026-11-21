@@ -44,13 +44,16 @@ messages, doors, pick-ups, spells and what they did, random encounters, and
 each creature's turn. The panel shows Life Force, Power and the other
 ratings, the load against the carrying capacity and what the player
 carries; Ready readies a weapon or puts on armor, Cast (spells, with their
-cost and chance) and Use (magic items) open a menu of targets, and Drop asks
+cost) and Use (magic items) open a menu of targets, and Drop asks
 for a direction (Space drops on the player's own square, Escape cancels).
-Below it, the creatures in the room are listed with their personality
-(fighter or slinker; enemy, friend, neutral or thief), speed, Life Force,
-Power against Wisdom, spells and readied weapon; a coloured dot on each
-one's square shows its alignment (red enemy, green friend, yellow neutral,
-purple thief). The viewer keeps the save the original makes when a visit
+Below it, the creatures in the room are listed by name and square. Tick
+Show more details, under Game options, to see what a designer would
+([client.md](client.md) 3.4): each creature's personality (fighter or
+slinker; enemy, friend, neutral or thief), speed, Life Force, Power
+against Wisdom, spells and readied weapon, a mark on each one's square
+for its alignment (a red triangle enemy, a green circle friend, a yellow
+square neutral, a purple diamond thief), a spell's chance, the chance of
+each blow in the log, and how each spell was set off. The viewer keeps the save the original makes when a visit
 to another region begins, or at the end of a round in which SAVE GAME was
 chosen; after a death, Resume from last save goes back to it (after a death
 in a round that also saved, to the save before that round).
