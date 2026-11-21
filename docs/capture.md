@@ -4474,3 +4474,80 @@ In this order (planned November 2026):
    here" space and a drop whose spell finds no one were not run.
 
    No new addresses.
+50. **Fighter friends' and neutrals' goals among individuals, 2026-11-20**
+   (ours, no research pass: [creatures](rules/creatures.md) 6.2 to 6.4
+   and "Captures needed" 4; the golden tests
+   `fighter_friends_and_neutrals_choose_among_individuals` and
+   `a_fighter_enemy_goes_for_a_neutral_or_thief_before_an_exit`).
+   `ACSVM-research/capture/runs/rr47/` (the harness binary in `bin/`,
+   `env.sh`; `case.sh` and `build.sh` build the cases of `cases.txt` as
+   rr35's; `sw.sh` the sweeps; `check.sh` runs `goalcheck.py` on every
+   case, its output in `check.out`; the scripts first ran in `rr46` by
+   mistake, which holds random-rolls pass 4's inputs, and were moved,
+   `rr46-misplaced/`). No harness changes. `goalcheck.py` gains `--tie
+   last` (a tie to the last candidate given), a label as a candidate's
+   fourth field (`KIND:X,Y:RANK:LABEL`, the goal counts by label) and
+   `--rule LABEL` (always that candidate, the others' squares still
+   closed). Every case: T (Speed 6) on 4,4, idle; the mover, slot 0, an
+   aggressive fighter of Speed 3 owning no weapon, Wisdom 3,
+   Constitution and Life Force 20; the others of Speed 0, Wisdom 3 (they
+   stay put). Snap cases (`NAME-turn-end.vsf`, T's first turn's end): 32
+   random states, 30M (two or three of the mover's turns); every draw.
+   `goalcheck.py --slot 0 --speed 3` with the candidates in the look order
+   (T, then by slot), the others' squares closed, the mover's moves halved
+   beside a foe (2.6: for a friend an aggressive enemy, neutral or thief;
+   for a neutral T or any aggressive one). Scores below are at the
+   mover's first turn, from its starting square.
+
+   | Case | Mover, square | Others (slot 1, slot 2) | Scores: T, 1, 2 | Spec (6.2) | Tie to the last | Goals (turns) |
+   | --- | --- | --- | --- | --- | --- | --- |
+   | `f1a` | FF friend, 10,4 | AE 10,7; AN 10,2 | 38, 3, 5 | **32/32** | 32/32 | AE 64 |
+   | `f1b` | FF, 10,4 | AE 13,8; AN 10,2 | 38, 7, 5 | **32/32** | 31/32 | AN 61, AE 3 |
+   | `f1t` | FF, 10,4 | AN 10,2; AE 13,6 | 38, 5, 5 (tie) | **32/32** | 1/32 | AN 60, AE 4 |
+   | `f2a` | FF, 10,4 | PE 10,6; AT 10,1 | 38, 6, 8 | **32/32** | 31/32 | PE 63, AT 1 |
+   | `f2b` | FF, 10,4 | PE 10,8; AT 10,2 | 38, 8, 7 | **32/32** | 32/32 | AT 64 |
+   | `f2t` | FF, 10,4 | AT 10,2; PE 10,7 | 38, 7, 7 (tie) | **32/32** | 1/32 | AT 62, PE 2 |
+   | `f3` | FF, 5,4 | AE 13,8 | 33, 12 | **32/32** | 32/32 | AE 64 |
+   | `f3n` | FF, 10,4 | PN 10,6; PF 12,4 (no rank) | 38, -, - | **32/32** | 32/32 | T 64 |
+   | `n4a` | NF neutral, 7,5 | AF 11,8 | 5, 7 | **32/32** | 30/32 | T 86 |
+   | `n4b` | NF, 7,5 | AF 7,8 | 5, 3 | **32/32** | 31/32 | AF 62, T 2 |
+   | `n4t` | NF, 7,5 | AF 10,7 | 5, 5 (tie) | **32/32** | 0/32 | T 89, AF 1 |
+   | `n5a` | NF, 7,5 | AT 8,6 | 5, 4 | **32/32** | 32/32 | AT 61, T 9 |
+   | `n5b` | NF, 7,5 | AT 9,8 | 5, 7 | **32/32** | 31/32 | T 89 |
+   | `n5t` | NF, 7,5 | AT 7,8 | 5, 5 (tie) | **32/32** | 1/32 | T 88, AT 1 |
+   | `n6a` | NF, 11,6 | PF 11,8; AN 11,4 | 10, 6, 8 | **32/32** | 32/32 | PF 63, AN 1 |
+   | `n6b` | NF, 11,6 | PF 13,3; AN 11,7 | 10, 9, 7 | **32/32** | 32/32 | AN 43, PF 13, T 8 |
+   | `n6t` | NF, 11,6 | AN 11,8; PF 13,8 | 10, 8, 8 (tie) | **32/32** | 13/32 | AN 41, PF 20, T 3 |
+
+   (AE, PE: an aggressive, a peaceful enemy; AN, PN neutral; AT
+   aggressive thief; AF, PF friend.) **6.2's rule with 6.3's ranks fitted
+   every run of every case**, 544 runs, 1,192 turns, 3,246 steps, the
+   goal changing with the mover's square from turn to turn (`n6b`'s three
+   goals). Where a second goal was ever seen, "always" one candidate
+   fits at most 31 of 32 (23 in `n5a`, 13 to 17 in `n6b`, `n6t`). The
+   ties went to the one looked at first (the player, else the lower
+   slot), whatever the rank: AN (3) over AE (0) in `f1t`, AT (5) over PE
+   (4) in `f2t`, AN (6) over PF (4) in `n6t`, T over AF and AT in `n4t`
+   and `n5t`. So a fighter friend goes for any foe in the room before the
+   player (32), and for the player only with none (`f3n`: a peaceful
+   neutral and a peaceful friend are no candidates); a fighter neutral
+   goes for the player (1) and the rest by its row.
+   - **A fighter enemy: neutrals and thieves above an exit** (6.4's
+     note). Room cases with `--side-room` (`NAME-room.vsf`, T's first room
+     turn under way, `--push e:300k` walks T through the portal on 7,4,
+     so EE's one turn has no player in the room; 32 states, 10M): EE, an
+     aggressive enemy of Speed 3 owning no weapon, on 9,4, two steps from
+     the portal (96 + 2 = 98); `e1` a peaceful neutral on 9,6 (84 + 2 =
+     86), `e2` an aggressive thief on 9,7 (80 + 3 = 83). `goalcheck.py
+     --player-track --exit-first 4 --exit-cost 3`: the other the goal
+     **32/32** in each, the portal (the manual's order) **0/32**; never
+     through. EE ended its turn beside the neutral in 23 of 32, two steps
+     from the thief in 28 of 32. Gold (128) against an exit (96) or a
+     neutral (84) was not run: the manual and the numbers agree there.
+
+   Engine (6.2 to 6.4): the same ranks, the candidates offered T first,
+   then residents by slot, then things, only a strictly lower score
+   replacing the best (so a tie stays with the first). The golden tests
+   compare the engine's per-turn goals (6.2's score at its own turn
+   starts, 2,048 turns a case) and `e1`, `e2`'s end squares with these
+   counts: every rate within z 1.9. **Confirmed.** No new addresses.

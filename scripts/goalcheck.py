@@ -22,7 +22,7 @@ beside a square of `--hinder` (2.6).
 
     python scripts/goalcheck.py RUNS.jsonl --slot 0 --speed 0 --cand exit:7,4:32 --exit-cost 4
     python scripts/goalcheck.py RUNS.jsonl --slot 0 --speed 3 --cand player:4,4:0 --cand ind:12,5:6
-        [--rule spec|first|NAME] [--player-track] [--pre N] [-v]
+        [--rule spec|first|NAME] [--tie first|last] [--player-track] [--pre N] [-v]
 
 Candidates are KIND:X,Y:RANK, KIND `exit`, `player` (the first player,
 followed by `$F5AC`/`$F5AD` with `--player-track`, gone once it has stood
@@ -32,7 +32,10 @@ it takes from beside: its square costs RANK / 32, 1 as the goal,
 turn, never cancelled at Speed 0; seen as a change of the slot's wealth
 byte, record +0x12, which the run must watch; capture.md 10.41). `--rule first`
 always takes the first candidate, `--rule ind` always the first `ind`
-(to compare with the spec's choice).
+(to compare with the spec's choice), `--rule LABEL` always the candidate
+so labelled; `--tie last` sends a tie to the last
+candidate given instead. A fourth field, KIND:X,Y:RANK:LABEL, names the
+candidate in the goal counts (capture.md 10.50).
 """
 import argparse
 import json
@@ -93,6 +96,7 @@ def main():
     ap.add_argument("--gold-first", type=int, default=None, help="a gold pile's cost on the turn's first step")
     ap.add_argument("--pre", type=int, default=0)
     ap.add_argument("--rule", default="spec")
+    ap.add_argument("--tie", default="first", choices=["first", "last"])
     ap.add_argument("--hinder", default="", help="squares that halve its moves, X,Y/X,Y; 'player' for the player")
     ap.add_argument("--closed", default="", help="more closed squares, X,Y/X,Y")
     ap.add_argument("--inside", default="1,13,1,8")
@@ -104,9 +108,11 @@ def main():
     x0, x1, y0, y1 = map(int, a.inside.split(","))
     inside = lambda s: x0 <= s[0] <= x1 and y0 <= s[1] <= y1  # noqa: E731
     cands = []
+    labels = []
     for c in a.cand:
-        kind, at, rank = c.split(":")
+        kind, at, rank, *label = c.split(":")
         cands.append((kind, sq(at), int(rank)))
+        labels.append(label[0] if label else kind)
     exits = [at for k, at, _ in cands if k == "exit"]
     closed = {sq(s) for s in a.closed.split("/") if s}
     hinder = [s for s in a.hinder.split("/") if s]
@@ -145,8 +151,8 @@ def main():
             n += 1
             fixed = next((at for kind, at, _ in cands if kind == "player"), None)
             player = None if t_gone else (tuple(tpos) if a.player_track else fixed)
-            live = []
-            for kind, at, rank in cands:
+            live, names = [], []
+            for (kind, at, rank), name in zip(cands, labels):
                 if kind == "player":
                     if a.player_track:
                         if player is None:
@@ -155,16 +161,18 @@ def main():
                 if kind == "gold" and at not in golds:
                     continue
                 live.append((kind, at, rank))
+                names.append(name)
             shut = set(closed) | {at for kind, at, _ in live if kind not in ("exit", "gold")}
             gold_at = {at: rank for kind, at, rank in live if kind == "gold"}
             # The goal.
             if a.rule == "spec":
-                order = sorted(range(len(live)), key=lambda i: (live[i][2] + dist(me, live[i][1]), i))
+                tie = 1 if a.tie == "first" else -1
+                order = sorted(range(len(live)), key=lambda i: (live[i][2] + dist(me, live[i][1]), tie * i))
                 gi = order[0] if live and live[order[0]][2] + dist(me, live[order[0]][1]) < 200 else None
             elif a.rule == "first":
                 gi = 0 if live else None
             else:
-                gi = next((i for i, c in enumerate(live) if c[0] == a.rule), None)
+                gi = next((i for i, c in enumerate(live) if a.rule in (c[0], names[i])), None)
             goal = live[gi][1] if gi is not None else me
             gname = f"{live[gi][0]}@{goal}" if gi is not None else "none"
             moves = a.speed
@@ -230,7 +238,8 @@ def main():
             good = fail is None and obs == pred
             turns += 1
             steps += len(obs)
-            goals[gname.split("@")[0]] = goals.get(gname.split("@")[0], 0) + 1
+            gkey = names[gi] if gi is not None else "none"
+            goals[gkey] = goals.get(gkey, 0) + 1
             log.append(f"   turn {n} from {me} goal {gname} moves {moves}: predicted {pred} seen {obs}"
                        + ("" if good else f"  << {fail or ''}"))
             ok &= good

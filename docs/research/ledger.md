@@ -22,10 +22,15 @@ daily cap: 3 passes closed per day
 | combat | 4 | closed | next: no research pass; capture work listed in the brief (what the 0..9 roll decides, a late-arriving player, a weapon breaking mid-attack, a foe beside an archer, drop edge cases, gifts) |
 | stores | 2 | closed | next: none planned; saving the stock (2.8) is a capture job; area items now in the model (0fabf93) |
 | characters | 2 | closed | next: no research pass; capture work: destroy in a room by kind, disk identity, a full roster, a real absence. Retire and the catch-up now in the engine (e0d267e, 0fabf93) |
+| random-rolls | 4 | queued | the smartness check's place in a creature's turn (magic 6.1), the step choice's give-up case (creatures 6.5), optionally slinkers casting (magic 6.2); asked by the maintainer |
 
 ## Log
 
 Newest first. One line per step: date, topic, pass, step, outcome.
+
+- 2026-11-20: capture backlog, ours (no research pass): capture.md 10.50 (fighter friends' and neutrals' goals among individuals, rr47: 6.2's rank plus steps with 6.3's rows fitted every run of 17 cases, 544 runs, ties to the first looked at whatever the rank; a fighter enemy takes a neutral or thief over an exit, 64 of 64); creatures 6.2, 6.4 and "Captures needed" 4 tagged; engine agrees, golden tests added; nothing committed.
+
+- 2026-11-20: random-rolls, 4, brief-writer, planned and queued at the maintainer's request (random-rolls-p4, items 19-21, 3 h; inputs: six Wisdom 10 snapshot pairs from rr39's `cc`, capture run rr46).
 
 - 2026-11-16: capture backlog, fifth round (the [unknown]s swept): capture.md 10.43 (inventory, magic, stores, characters, rr39: a map drop costs a move; creatures summon at foes and friends; half power is Power above half the Wisdom, a use of two moves; a creature's moves are set before its die; owner-only weapons lost at death; friends cast) and 10.44 (creatures, encounters, combat, movement, rr40: the bump only after sharing the goal's obstacle square, 8 of 231 first turns; the rest confirmed); specs, engine and golden tests; checks all PASS, nothing ignored. Left: the [unknown]s each spec lists as not run, needing the editor or a research pass, or not worth a run.
 - 2026-11-16: capture backlog, fourth round (paused for a reboot, resumed): capture.md 10.41 (creatures and movement, rr37: a random mark stays with the slot and still draws; a creature carries its moves through a door; the bump at the goal, one run) and 10.42 (magic, items, stores, characters, rr38: a summons or Add to Room with no target press lands on the setting-off thing's square; a full-region summons above cost 0 spends and rolls; value-0 things stocked, a weightless no-use weapon out of stock; a take adds the placed parameter); specs, engine and golden tests; checks all PASS, nothing ignored. Open: the bump's rate (engine often, capture 1 of 2 runs).

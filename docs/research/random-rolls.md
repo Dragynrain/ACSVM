@@ -7,7 +7,7 @@ chance confirmed by capture. **Second pass** (items 7 to 13) done
 2026-11-12; healing and the temporary tick confirmed by capture and in
 the engine. **Third pass** (items 14 to 17) done 2026-11-12; goals,
 steps and random creatures appearing confirmed by capture and in the
-engine.
+engine. **Fourth pass** (items 19 to 21) briefed and queued 2026-11-20.
 
 ## Why
 
@@ -160,6 +160,106 @@ engine's guesses, tagged [unknown]); what we captured is in
 Enough for this pass: items 14 and 15. For each roll, say what decides
 its range (a count of goals, of squares, a fixed 100) so the harness can
 sweep the random state just before it, as it did for healing.
+
+### Pass 4 (briefed 2026-11-20)
+
+The third pass gave a creature's turn as the top-of-turn die, the goal
+(no roll), the smartness check, then the step rolls. The combat passes
+and our own captures since have added the overburdened drop, readying,
+firing, casting and item use to that turn ([creatures](../rules/creatures.md)
+2.7, 6.6, 8.1; [combat](../rules/combat.md) 7, 8.1;
+[magic](../rules/magic.md) 6). What is left is where the smartness check
+falls among them when it is a real roll (Wisdom 6 to 14), and one case
+of the step choice the third pass found and could not reach. All C64.
+
+19. **The smartness check's place in a creature's turn** (magic 6.1 and
+    6 item 7; capture.md 10.43, the [unknown]s sorted (b)). In order,
+    every draw and every decision of a creature's turn from its top
+    (catch-up, drift, the die, its moves set) to its first step: the
+    overburdened drop, readying, the smartness check or checks, a cast,
+    an item use, the firing test, the goal choice, the step rolls. For
+    each, whether it is always taken or only under a condition (Wisdom 6
+    to 14, owning a spell or item, the goal an individual, Power enough,
+    the type). In particular:
+    1. Is the 0 to 9 roll drawn before or after the goal is chosen, and
+       is it drawn when the creature owns nothing to cast or use (the
+       third pass says yes for friends)?
+    2. Is it drawn once a turn, or again before each later action of the
+       turn's loop (creatures 2.7)? A use of a magic item costs two
+       moves and does not end the turn (magic 6.5): with moves left, does
+       the creature check again and may it use the item again that turn?
+    3. The second check of a fighter friend or enemy (creatures 6.6):
+       when it is drawn, whether a passed first check skips it, and what
+       it decides.
+    4. Whether a passed or failed check changes the draws that follow
+       (a cast ends the turn, so no step rolls), and whether a failed
+       check at Wisdom 6 to 14 leaves the creature exactly as one below
+       Wisdom 6 would be.
+    Already captured, to check against: at Wisdom 20 (no roll) the enemy
+    EE cast its Life Force -5 at the player on every turn without moving,
+    the friend its +5, and used its item at Power 30 but not at 10
+    (`runs/` below, capture.md 10.43 item 7); a Speed 0 turn draws the
+    die, the checks (one for a peaceful friend, two for a brave
+    aggressive enemy), then the step rolls (capture.md 10.24); a
+    creature's die comes before its moves are set (10.43 item 9). At
+    Wisdom 10 a sweep of the random state from the `turn.vsf` snapshots
+    should give a cast or use in about half the states (a roll of 0 to 4
+    passes), and the draws logged around it.
+20. **The step choice giving up** (creatures 6.5, "one more case in
+    which the step choice gives up", and its Captures needed 5). The
+    third pass found one more case in which the step choice gives up,
+    involving the turn being already over, and could not make it happen.
+    In rule terms: the condition, what the creature then does (stands,
+    takes idle moves and their healing rolls, ends its turn, keeps its
+    moves for later), which draws it takes, and a scenario of ours the
+    harness could set up to make it happen (a Speed, an action spending
+    the last move, a door, a death, a player leaving the room). Say
+    whether it is one of the cases already in the spec: the cancelled
+    step of a creature with no moves left (creatures 2.7 item 3) and
+    readying with the last move ending the turn (2.7, "Readying that
+    spends the last move").
+21. **Optional, only if it is in the code read for 19: slinkers
+    casting** (magic 6.2). A peaceful friend (a slinker) of Wisdom 20
+    cast (capture.md 10.43 item 7). Does the test that lets a creature
+    cast or use an item look at fighter or slinker, or at alignment, and
+    can a slinker enemy, neutral or thief ever cast or use an item (by
+    the third pass's tables a slinker neutral or thief has no individual
+    goal, and a slinker enemy only fellow enemies)?
+
+Enough for this pass: 19.1 and 19.2, and 20's condition. For each draw,
+say what sets its range, as before.
+
+#### Inputs (pass 4)
+
+In `ACSVM-research/research/random-rolls/inputs/pass4/`, made 2026-11-20
+(`build.sh`, capture run `rr46`) from capture.md 10.43's `cc` room
+snapshot: T (Speed 6, Constitution 40, Life Force 30) on 4,4 in the room
+behind the map door, its first room turn under way; EE, slot 0 (`$E1A3`
+on), Speed 3, Constitution and Life Force 20, Power about 30, across the
+room from T (the screenshots show where). Each folder has `make.txt`
+(the bytes set), `disk.d64`, and two snapshots with screenshots:
+`pre.vsf` right after the bytes were set (T's turn still under way), and
+`turn.vsf` when `$71FA` left 1, EE's turn begun: its Power has already
+drifted toward the new Wisdom, so the top-of-turn die is likely drawn
+already; the smartness check should still be ahead.
+
+| Folder | EE | Items |
+| --- | --- | --- |
+| `w10-spell` | aggressive enemy, Wisdom 10, owns the Life Force -5 spell (cost 0) | 19 |
+| `w10-none` | aggressive enemy, Wisdom 10, owns nothing to cast or use | 19.1 |
+| `w10-item` | aggressive enemy, Wisdom 10, owns the magic item (Life Force -3) | 19 |
+| `w10-item-s6` | the same at Speed 6 (moves left after a use) | 19.2 |
+| `w10-friend` | peaceful friend (a slinker), Wisdom 10, owns the Life Force +5 spell | 19, 21 |
+| `w10-afriend` | aggressive friend (a fighter), Wisdom 10, owns the +5 spell | 19.3 |
+
+Captured runs to check against (`pass4/runs/`, from rr39, capture.md
+10.43 item 7; `run mem --set-random-state --draws`, 2 states each, every
+draw and the watched bytes; `ccruns.sh` gives the bytes each case set):
+`cc-s5` (the enemy at Wisdom 20 with the -5 spell), `cc-fr` (the peaceful
+friend at Wisdom 20 with the +5), `cc-i30` and `cc-i10` (the item at
+Power 30 and 10), `cc-none` (nothing owned). For item 20, the third
+pass's room snapshots (`pass3/`) and the combat fourth pass's Speed 0
+inputs (`research/combat/inputs/pass4/`) are the nearest moments we have.
 
 ## How the answers come back
 

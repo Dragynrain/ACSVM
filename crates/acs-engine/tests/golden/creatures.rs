@@ -1572,6 +1572,227 @@ fn a_fighters_goal_among_other_individuals() {
     }
 }
 
+/// One rr47 case (capture.md 10.50): the mover's alignment and square, then
+/// the others in slot order (name, square, alignment, aggressive), and the
+/// capture's turns with each goal, T first, then the others; each run's
+/// first two turns of the mover.
+type GoalCase = (
+    &'static str,
+    Alignment,
+    (u8, u8),
+    &'static [(&'static str, (u8, u8), Alignment, bool)],
+    &'static [u64],
+);
+
+/// Creatures 6.3's rank of `o` (alignment, aggressive) for an aggressive
+/// fighter of `mover`'s alignment; None for "-", and for the player when `o`
+/// is None.
+fn fighter_rank(mover: Alignment, o: Option<(Alignment, bool)>) -> Option<u16> {
+    use Alignment::*;
+    let col = match o {
+        None => 0,
+        Some((a, aggr)) => {
+            (match a {
+                Friend => 1,
+                Enemy => 3,
+                Neutral => 5,
+                Thief => 7,
+            }) + usize::from(!aggr)
+        }
+    };
+    const N: u16 = u16::MAX;
+    let row: [u16; 9] = match mover {
+        Enemy => [0, 4, 6, N, N, 80, 84, 80, 84],
+        Friend => [32, N, N, 0, 4, 3, N, 5, N],
+        Neutral => [1, 0, 4, 0, 4, 6, 8, 2, 6],
+        Thief => [N; 9],
+    };
+    Some(row[col]).filter(|&r| r != N)
+}
+
+/// capture.md 10.50 (rr47, creatures 6.2, 6.3; 32 states each, the first
+/// two or three turns of the mover): an aggressive fighter friend (FF) or
+/// neutral (NF) of Speed 3 owning no weapon, Wisdom 3, with T on 4,4 and
+/// others of Speed 0 in the room. 6.2's rule fitted every run of every case;
+/// the goal is read as `goalcheck.py` reads it (rank + steps from the
+/// mover's square at each of its turn starts, a tie to T, then by slot),
+/// where the mover has wandered to being the engine's. Samples, per turn.
+#[test]
+fn fighter_friends_and_neutrals_choose_among_individuals() {
+    use Alignment::{Enemy, Friend, Neutral, Thief};
+    const RUNS: u64 = SEEDS / 4;
+    const TURNS: usize = 2;
+    #[rustfmt::skip]
+    let cases: [GoalCase; 17] = [
+        ("f1a", Friend, (10, 4), &[("AE", (10, 7), Enemy, true), ("AN", (10, 2), Neutral, true)], &[0, 64, 0]),
+        ("f1b", Friend, (10, 4), &[("AE", (13, 8), Enemy, true), ("AN", (10, 2), Neutral, true)], &[0, 3, 61]),
+        ("f1t", Friend, (10, 4), &[("AN", (10, 2), Neutral, true), ("AE", (13, 6), Enemy, true)], &[0, 60, 4]),
+        ("f2a", Friend, (10, 4), &[("PE", (10, 6), Enemy, false), ("AT", (10, 1), Thief, true)], &[0, 63, 1]),
+        ("f2b", Friend, (10, 4), &[("PE", (10, 8), Enemy, false), ("AT", (10, 2), Thief, true)], &[0, 0, 64]),
+        ("f2t", Friend, (10, 4), &[("AT", (10, 2), Thief, true), ("PE", (10, 7), Enemy, false)], &[0, 62, 2]),
+        ("f3", Friend, (5, 4), &[("AE", (13, 8), Enemy, true)], &[0, 64]),
+        ("f3n", Friend, (10, 4), &[("PN", (10, 6), Neutral, false), ("PF", (12, 4), Friend, false)], &[64, 0, 0]),
+        ("n4a", Neutral, (7, 5), &[("AF", (11, 8), Friend, true)], &[64, 0]),
+        ("n4b", Neutral, (7, 5), &[("AF", (7, 8), Friend, true)], &[2, 62]),
+        ("n4t", Neutral, (7, 5), &[("AF", (10, 7), Friend, true)], &[63, 1]),
+        ("n5a", Neutral, (7, 5), &[("AT", (8, 6), Thief, true)], &[9, 55]),
+        ("n5b", Neutral, (7, 5), &[("AT", (9, 8), Thief, true)], &[64, 0]),
+        ("n5t", Neutral, (7, 5), &[("AT", (7, 8), Thief, true)], &[63, 1]),
+        ("n6a", Neutral, (11, 6), &[("PF", (11, 8), Friend, false), ("AN", (11, 4), Neutral, true)], &[0, 63, 1]),
+        ("n6b", Neutral, (11, 6), &[("PF", (13, 3), Friend, false), ("AN", (11, 7), Neutral, true)], &[8, 13, 43]),
+        ("n6t", Neutral, (11, 6), &[("AN", (11, 8), Neutral, true), ("PF", (13, 8), Friend, false)], &[3, 41, 20]),
+    ];
+    let steps = |a: (u8, u8), b: (u8, u8)| u16::from(a.0.abs_diff(b.0) + a.1.abs_diff(b.1));
+    for (name, align, at, others, cap) in cases {
+        let mut a = closed();
+        ours(&mut a, 0, "MV", at.0, at.1, |c| {
+            c.speed = 3;
+            c.wisdom = 3;
+            c.constitution = 20;
+            c.life_force = 20;
+            c.strategy.alignment = align;
+            c.strategy.aggressive = true;
+        });
+        for (k, &(who, sq, al, aggr)) in others.iter().enumerate() {
+            ours(&mut a, k + 1, who, sq.0, sq.1, |c| {
+                c.speed = 0;
+                c.wisdom = 3;
+                c.constitution = 20;
+                c.life_force = 20;
+                c.strategy.alignment = al;
+                c.strategy.aggressive = aggr;
+            });
+        }
+        // Candidates in the look order: T, then the others by slot.
+        let mut cands = vec![((4, 4), fighter_rank(align, None))];
+        cands.extend(
+            others
+                .iter()
+                .map(|&(_, sq, al, aggr)| (sq, fighter_rank(align, Some((al, aggr))))),
+        );
+        let mut eng = vec![0u64; cands.len()];
+        for seed in 0..RUNS {
+            let mut g = game(&a, seed, tee(6), room(4, 4));
+            let (mut me, mut k) = (at, 0);
+            'run: for _ in 0..4 * TURNS {
+                for e in wait(&mut g) {
+                    match e {
+                        Event::CreatureTurn {
+                            region: 1, slot: 0, ..
+                        } => {
+                            let best = cands
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(i, &(sq, r))| r.map(|r| (r + steps(me, sq), i)))
+                                .min()
+                                .map(|(_, i)| i);
+                            if let Some(i) = best {
+                                eng[i] += 1;
+                            }
+                            k += 1;
+                            if k == TURNS {
+                                break 'run;
+                            }
+                        }
+                        Event::CreatureMoved {
+                            region: 1,
+                            slot: 0,
+                            to,
+                            ..
+                        } => me = to.xy(),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        let (cap_n, eng_n) = (cap.iter().sum::<u64>(), eng.iter().sum::<u64>());
+        let labels = std::iter::once("T").chain(others.iter().map(|o| o.0));
+        for ((label, &c), &e) in labels.zip(cap).zip(&eng) {
+            same_rate(
+                &format!("{name}: turns with {label} the goal"),
+                Sweep::Sample,
+                c,
+                cap_n,
+                e,
+                eng_n,
+            );
+        }
+    }
+}
+
+/// capture.md 10.50 `e1`, `e2` (rr47, creatures 6.3, 6.4: a fighter enemy
+/// puts neutrals and thieves above an exit, as the numbers say, not the
+/// manual): EE, an aggressive enemy of Speed 3 owning no weapon, Wisdom 3,
+/// on 9,4, the portal on 7,4 two steps off (96 + 2), and a peaceful neutral
+/// on 9,6 (84 + 2) or an aggressive thief on 9,7 (80 + 3); T walks east
+/// through the portal, so EE's one turn has no player in the room. Its
+/// goal was the other in 32 of 32 runs each, never the portal; it ended its
+/// turn beside the neutral in 23 of 32, two steps from the thief in 28.
+/// Samples.
+#[test]
+fn a_fighter_enemy_goes_for_a_neutral_or_thief_before_an_exit() {
+    const RUNS: u64 = SEEDS / 4;
+    let cases = [
+        ("e1", (9, 6), Alignment::Neutral, false, 1, 23),
+        ("e2", (9, 7), Alignment::Thief, true, 2, 28),
+    ];
+    for (name, at, align, aggressive, near, cap) in cases {
+        let mut a = with_portal(DOOR, to_side());
+        ours(&mut a, 0, "EE", 9, 4, |c| {
+            c.wisdom = 3;
+            c.constitution = 20;
+            c.life_force = 20;
+            c.strategy.alignment = Alignment::Enemy;
+            c.strategy.aggressive = true;
+        });
+        ours(&mut a, 1, "XX", at.0, at.1, |c| {
+            c.speed = 0;
+            c.wisdom = 3;
+            c.constitution = 20;
+            c.life_force = 20;
+            c.strategy.alignment = align;
+            c.strategy.aggressive = aggressive;
+        });
+        let k = count(RUNS, |seed| {
+            let mut g = game(&a, seed, tee(6), room(4, 4));
+            let mut ev = Vec::new();
+            for _ in 0..3 {
+                ev.extend(g.apply(Command::Move { dir: Dir::E }));
+            }
+            assert!(took_door(&ev, side(2, 4)), "{name} seed {seed}: {ev:?}");
+            for _ in 0..4 {
+                if !turns_of(&ev, 0).is_empty() {
+                    break;
+                }
+                ev.extend(wait(&mut g));
+            }
+            let turns = turns_of(&ev, 0);
+            let turn = turns
+                .first()
+                .unwrap_or_else(|| panic!("{name} seed {seed}: EE took no turn: {ev:?}"));
+            assert!(!through(turn), "{name} seed {seed}: EE took the portal");
+            let end = turn.iter().fold((9, 4), |sq, e| match e {
+                Event::CreatureMoved {
+                    region: 1,
+                    slot: 0,
+                    to,
+                    ..
+                } => to.xy(),
+                _ => sq,
+            });
+            end.0.abs_diff(at.0) + end.1.abs_diff(at.1) == near
+        });
+        same_rate(
+            &format!("{name}: EE's turn ending {near} from the other"),
+            Sweep::Sample,
+            cap,
+            32,
+            k,
+            RUNS,
+        );
+    }
+}
+
 /// capture.md 10.40 (`rc-sw`, 32 runs from the map start, the random state
 /// set to 0, 8, .., 248 before the walk in; movement 7.2, creatures 3.2):
 /// RR, a random creature of Speed 0 at room chance 15 (75 %), appeared as

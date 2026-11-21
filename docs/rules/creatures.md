@@ -928,7 +928,21 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    89 of 91; 6.2's rule fitted 32 of 32 runs in each case, "always the
    player" 3, 32 and 2, "always the friend" 28, 1 and 30. [capture: rr35
    `g-f`, `g-t`, `g-a`, `scripts/goalcheck.py`, capture.md 10.39 item 2;
-   ours, no research pass, 2026-11-16] **Engine:** so.
+   ours, no research pass, 2026-11-16] So too for a fighter friend and a
+   fighter neutral (aggressive, Speed 3, no weapon) among the player and
+   others standing still, 6.3's rows: 6.2's rule fitted every run of 17
+   cases, 544 runs and 1,192 turns, with the two candidates' scores 1 or
+   2 apart either way or tied. A tie went to the one looked at first, the
+   player or else the lower slot, whatever the ranks (a fighter friend
+   took an aggressive neutral, rank 3, over an aggressive enemy, 0, at the
+   same score in 60 of 64 turns, the other 4 once it had wandered); a
+   fighter friend went for any foe before the player, rank 32, and for
+   the player only with none in the room (a peaceful neutral and a
+   peaceful friend are no candidates); a fighter neutral went for the
+   player at rank 1 against an aggressive friend at 0 or an aggressive
+   thief at 2 by the score. [capture: rr47 `f1a` to `f3n`, `n4a` to
+   `n6t`, `scripts/goalcheck.py`, capture.md 10.50; ours, no research
+   pass, 2026-11-20] **Engine:** so.
 3. **Ranks of individuals** by the creature's type (rows) and the other's
    alignment and setting (columns; A aggressive, P peaceful); lower is more
    wanted, "-" never: [research]
@@ -960,6 +974,11 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    player at 5 steps nearer. Where these differ from the manual's lists
    (a fighter enemy puts neutrals and thieves above an exit; a fighter
    neutral seeks players), the numbers are what the C64 does.
+   [capture] A fighter enemy two steps from a portal with no player in
+   the room went for a peaceful neutral (84 + 2) or an aggressive thief
+   (80 + 3) over the portal (96 + 2) in 32 of 32 runs each, never the
+   portal the manual's order would pick. [capture: rr47 `e1`, `e2`,
+   capture.md 10.50; ours, no research pass, 2026-11-20] **Engine:** so.
 5. **Each step** looks at the 4 squares beside the creature, in the order
    south, north, east, west, and takes a roll of 0 to 2 for each open one
    (5.1, 5.2). It steps to the open square with the lowest **3 x the steps
@@ -1289,7 +1308,12 @@ creatures replay exactly.
    treasure (6.5, 7.5), and for a fighter enemy going for the player
    (combat 2), and for a fighter enemy choosing between the player and a
    friend in reach (6.2: rank plus steps, a tie to the player; capture.md
-   10.39). Still open: other fighter types' goals among individuals.
+   10.39), and for fighter friends and neutrals among the player and
+   other individuals, ties to the first looked at, and a fighter enemy
+   taking a neutral or thief over an exit (6.2-6.4, capture.md 10.50).
+   Not run: a fighter enemy's gold (128) against an exit or a neutral
+   (the manual and the numbers agree there); fighter thieves have no
+   individual ranks.
 5. Paths: researched and captured (6.5: 4 squares, scored with a roll),
    and an exit's cost of 4 on the turn's first step (6.5, capture.md
    10.39); gold costing its rank / 32 on the first step too, 1 as the
