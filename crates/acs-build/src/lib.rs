@@ -40,7 +40,7 @@ impl Folder {
             .and_then(|t| t.parse::<Table>().ok())
             .and_then(|t| t.get("kit").and_then(Value::as_str).map(String::from));
         if let Some(k) = kit {
-            let path = dir.join(&k);
+            let path = kit_path(dir, &k)?;
             let kit = Folder::read_one(&path)
                 .map_err(|e| std::io::Error::new(e.kind(), format!("kit {}: {e}", path.display())))?;
             folder.kit = Some(Box::new(kit));
@@ -53,10 +53,11 @@ impl Folder {
             for e in std::fs::read_dir(dir)? {
                 let e = e?;
                 let path = e.path();
-                // A linked folder is not followed: a link back up the tree
-                // would recurse until the stack overflows.
+                // Links are skipped (content 4.2): a linked folder back up
+                // the tree would recurse until the stack overflows, and a
+                // link can reach any file of the disk.
                 let kind = e.file_type()?;
-                if kind.is_symlink() && path.is_dir() {
+                if kind.is_symlink() {
                     continue;
                 }
                 if kind.is_dir() {
@@ -68,6 +69,12 @@ impl Folder {
                         .map(|c| c.as_os_str().to_string_lossy())
                         .collect::<Vec<_>>()
                         .join("/");
+                    if e.metadata()?.len() > acs_bundle::ENTRY_MAX {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("{key}: larger than {} bytes", acs_bundle::ENTRY_MAX),
+                        ));
+                    }
                     out.insert(key, std::fs::read(&path)?);
                 }
             }
@@ -95,6 +102,32 @@ impl Folder {
         self.files.insert(path.into(), bytes);
         self
     }
+}
+
+/// The kit folder `adventure.toml` names (content 4.2): a relative path
+/// from the adventure's folder to a folder holding `kit.toml`, checked
+/// before anything of it is read.
+fn kit_path(dir: &Path, kit: &str) -> std::io::Result<std::path::PathBuf> {
+    use std::path::Component;
+    let refuse = |why: &str| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("adventure.toml: kit {kit:?} {why}"),
+        )
+    };
+    let rel = Path::new(kit);
+    if kit.is_empty()
+        || rel
+            .components()
+            .any(|c| matches!(c, Component::Prefix(_) | Component::RootDir))
+    {
+        return Err(refuse("should be a relative path from the adventure's folder"));
+    }
+    let path = dir.join(rel);
+    if !path.join("kit.toml").is_file() {
+        return Err(refuse("is not a kit folder (no kit.toml)"));
+    }
+    Ok(path)
 }
 
 /// Builds a folder into a bundle, or every problem found.

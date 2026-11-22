@@ -460,7 +460,13 @@ creatures are written by hand.
 ### 4.2 Using a kit
 
 `adventure.toml` names it: `kit = "../../kits/pirates"`, a path from the
-adventure's folder. Then:
+adventure's folder. The path must be relative (no drive or leading
+`/`) and lead to a folder holding `kit.toml`, or the build stops before
+reading it: a source folder from someone else can't have the build read
+an arbitrary folder of your disk. In the adventure's folder and the
+kit's alike, links (to files or folders) are skipped, and a file over
+64 MiB stops the build (the most the bundle reader takes for one entry).
+Then:
 
 - A kit entry (picture, thing or creature) is **taken** when its key
   appears as a value anywhere in the adventure's own files, or in a kit

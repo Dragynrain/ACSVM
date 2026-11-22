@@ -297,3 +297,55 @@ fn a_thing_stands_on_its_ground_and_hides_what_is_under_it() {
     assert_eq!(layers, vec![floor, pic("SAND"), pic("BARRELS")]);
     assert!(!layers.contains(&pic("CUTLASS")));
 }
+
+/// A fresh folder under the system's temporary folder for one test.
+fn scratch(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("acs-build-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("scratch folder");
+    dir
+}
+
+/// content.md 4.2: the kit path is relative and leads to a kit folder,
+/// checked before the build reads anything of it.
+#[test]
+fn a_kit_path_must_be_relative_and_lead_to_a_kit() {
+    let root = scratch("kitpath");
+    let adv = root.join("adventures/a");
+    std::fs::create_dir_all(&adv).unwrap();
+    std::fs::create_dir_all(root.join("kits/k")).unwrap();
+    std::fs::write(root.join("kits/k/kit.toml"), "name = \"k\"\n").unwrap();
+    std::fs::create_dir_all(root.join("elsewhere")).unwrap();
+    std::fs::write(root.join("elsewhere/private.txt"), "not for a bundle").unwrap();
+    let with = |kit: &str| {
+        // A TOML literal string: a Windows path's backslashes as they are.
+        std::fs::write(adv.join("adventure.toml"), format!("kit = '{kit}'\n")).unwrap();
+        Folder::read(&adv)
+    };
+    let ok = with("../../kits/k").expect("a kit beside the adventures");
+    assert!(ok.kit.expect("the kit").files.contains_key("kit.toml"));
+    for bad in [
+        "../../elsewhere",
+        "../..",
+        "",
+        "/",
+        &root.join("kits/k").display().to_string(),
+    ] {
+        let e = with(bad).expect_err(bad);
+        assert_eq!(e.kind(), std::io::ErrorKind::InvalidInput, "{bad}: {e}");
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// content.md 4.2: a file past the bundle reader's cap stops the build.
+#[test]
+fn an_oversized_source_file_stops_the_build() {
+    let root = scratch("oversize");
+    std::fs::write(root.join("adventure.toml"), "").unwrap();
+    let f = std::fs::File::create(root.join("big.png")).unwrap();
+    f.set_len(acs_bundle::ENTRY_MAX + 1).unwrap();
+    drop(f);
+    let e = Folder::read(&root).expect_err("over the cap");
+    assert_eq!(e.kind(), std::io::ErrorKind::InvalidData, "{e}");
+    let _ = std::fs::remove_dir_all(&root);
+}
