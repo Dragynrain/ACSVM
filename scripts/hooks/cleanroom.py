@@ -20,12 +20,15 @@ clean room. One mode per role, given as the first argument:
                read only its docs/, and no shell command that names it.
 
 The checks are a second line behind the instructions, not a sandbox: they
-look at paths in tool inputs and at path-like words in shell commands.
+look at paths in tool inputs and at path-like words in shell commands,
+with a shell word's wildcards resolved against the disk (names only).
 Test cases: scripts/hooks/test_cleanroom.py.
 """
 from __future__ import annotations
 
 import fnmatch
+import glob
+import itertools
 import json
 import os
 import re
@@ -42,7 +45,9 @@ SPEC_ONLY_AGENTS = ("engine-implementer",)
 
 RECURSIVE = re.compile(
     r"(^|[\s;|&(])(rg|find|tree|du|fd|git\s+grep)\b"
-    r"|\s-[a-zA-Z]*[rR][a-zA-Z]*\b|--recursive|-recurse\b|\s/s\b",
+    r"|\s-[a-zA-Z]*[rR][a-zA-Z]*\b|--recursive|-recurse\b|\s/s\b"
+    # PowerShell: -Depth N, and -s (Get-ChildItem's alias of -Recurse).
+    r"|\s-depth\b|\s-s\b",
     re.IGNORECASE,
 )
 
@@ -50,6 +55,8 @@ RECURSIVE = re.compile(
 def norm(p: str, cwd: str) -> str:
     """Absolute, lower case, forward slashes, d:/ drive form."""
     p = p.strip().strip("'\"").replace("\\", "/")
+    # Windows' long-path forms: //?/D:/... and //./D:/...
+    p = re.sub(r"^//[?.]/(?=[a-zA-Z]:/)", "", p)
     m = re.match(r"^/([a-zA-Z])(/|$)", p)  # Git Bash /d/...
     if m:
         p = m.group(1) + ":/" + p[3:]
@@ -76,8 +83,40 @@ def under(p: str, root: str) -> list[str] | None:
     return None
 
 
+def braces(pat: str) -> list[str]:
+    """A glob's {a,b} alternatives spelled out (fnmatch knows no braces)."""
+    m = re.search(r"\{([^{}]*)\}", pat)
+    if not m:
+        return [pat]
+    out: list[str] = []
+    for alt in m.group(1).split(","):
+        out.extend(braces(pat[: m.start()] + alt + pat[m.end():]))
+    return out
+
+
 def matches_notes(seg: str) -> bool:
-    return fnmatch.fnmatch("notes", seg) or seg == "notes"
+    return seg == "notes" or any(fnmatch.fnmatch("notes", s) for s in braces(seg))
+
+
+GLOB_CHARS = "*?["
+EXPAND_MAX = 2000
+
+
+def expand(p: str, cwd: str) -> list[str]:
+    """The real paths a wildcard path names, so a pattern can't hide a
+    name the checks look for (`ACSVM-r*`, a disk name cut short, `ACS.E*`).
+    Only names are listed, here in the hook; nothing is read."""
+    if not any(ch in p for ch in GLOB_CHARS + "{"):
+        return []
+    out: list[str] = []
+    for pat in braces(p):
+        if not any(ch in pat for ch in GLOB_CHARS):
+            out.append(norm(pat, cwd))
+            continue
+        # Git Bash's /d/... as d:/... for glob; relative to the cwd.
+        full = norm(pat, cwd)
+        out.extend(norm(f, cwd) for f in itertools.islice(glob.iglob(full), EXPAND_MAX))
+    return out
 
 
 def notes_risk(p: str, recursive: bool) -> str | None:
@@ -112,7 +151,8 @@ AMIGA_WHY = "EA's Amiga program files, its disks and the Kickstart ROM are for r
 # the builder sets, "... (Main Master).d64", "... (Master).d64") and a
 # blank Amiga disk. Matched on the lower-case, forward-slash text, with up to
 # three other characters between the words (`main\ master`, `main*master`).
-MASTER = re.compile(r"main\W{1,3}master|\(master\)\.d64")
+# Not a git range or refspec (`main..master`, `main:master`).
+MASTER = re.compile(r"main(?![.:]{1,3}master)\W{1,3}master|\(master\)\.d64")
 MASTER_WHY = "the corpus's Main Master disks are EA's own, for researcher sessions only"
 
 
@@ -148,10 +188,14 @@ def tool_paths(tool: str, ti: dict, cwd: str) -> list[tuple[str, bool]]:
     if tool == "Glob":
         pat = str(ti.get("pattern") or "")
         base = ti.get("path") or cwd
-        full = norm(pat if re.match(r"^([a-zA-Z]:|/)", pat) else str(base).rstrip("/\\") + "/" + pat, cwd)
-        if "**" in full:
-            return [(full.split("**")[0].rstrip("/"), True), (full, False)]
-        return [(full, False)]
+        out: list[tuple[str, bool]] = []
+        for one in braces(pat):
+            full = norm(one if re.match(r"^([a-zA-Z]:|/)", one) else str(base).rstrip("/\\") + "/" + one, cwd)
+            if "**" in full:
+                out += [(full.split("**")[0].rstrip("/"), True), (full, False)]
+            else:
+                out.append((full, False))
+        return out
     raw = [ti[f] for f in PATH_FIELDS if isinstance(ti.get(f), str) and ti.get(f)]
     if tool == "Grep" and not ti.get("path"):
         raw.append(cwd)
@@ -175,6 +219,11 @@ def check(mode: str, data: dict) -> str | None:
         toks = words(cmd)
         paths = [norm(t, cwd) for t in toks if "/" in t.replace("\\", "/") or t.lower().startswith(("d:", "notes"))]
         if mode in ("implementer", "spec-only"):
+            # What wildcards stand for, checked as if spelled out.
+            found = [f for t in toks for f in expand(t, cwd)]
+            low += "\n" + "\n".join(found)
+            paths += found
+            toks = toks + [f.rsplit("/", 1)[-1] for f in found]
             if "advcnst" in low:
                 return "EA's program disks (advcnst*) are for researcher sessions only"
             if MASTER.search(low):

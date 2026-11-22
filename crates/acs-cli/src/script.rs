@@ -133,6 +133,20 @@ pub fn sturdy(index: usize) -> PlayerSetup {
 
 /// Splits a line into words; `"..."` keeps spaces inside one word (and
 /// may sit after `key=`).
+/// `line` up to its first `#` outside quotes: a comment, so `name="A#1"`
+/// keeps its `#`.
+fn strip_comment(line: &str) -> &str {
+    let mut quoted = false;
+    for (i, c) in line.char_indices() {
+        match c {
+            '"' => quoted = !quoted,
+            '#' if !quoted => return &line[..i],
+            _ => {}
+        }
+    }
+    line
+}
+
 fn words(line: &str) -> Result<Vec<String>, String> {
     let mut out = Vec::new();
     let mut cur = String::new();
@@ -462,7 +476,7 @@ pub fn parse(text: &str, adv: &Adventure) -> Result<Script, String> {
     let mut steps: Vec<Step> = Vec::new();
     for (i, raw) in text.lines().enumerate() {
         let line = i + 1;
-        let body = raw.split('#').next().unwrap_or("").trim();
+        let body = strip_comment(raw).trim();
         if body.is_empty() {
             continue;
         }

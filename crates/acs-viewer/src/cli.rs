@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] [--ppp F] [--pad] [--screenshot OUT.png]`.
+//! Desktop command line: `acs-viewer [FILE] [--view V] [--size WxH] ... [--screenshot OUT.png]`
+//! (every flag in [`USAGE`]).
 //!
 //! `--screenshot` renders a few frames, writes the window as a PNG and exits;
 //! it is for documentation and checking the renderer at known window sizes.
@@ -84,10 +85,9 @@ pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args,
             }
             "--render" => {
                 let v = value("--render")?;
-                out.render = Some(
-                    crate::tiles::RenderMode::parse(&v)
-                        .ok_or(format!("unknown render mode {v:?} (original, smoothed, hd)"))?,
-                );
+                out.render = Some(crate::tiles::RenderMode::parse(&v).ok_or(format!(
+                    "unknown render mode {v:?} (original, smoothed, hd, native)"
+                ))?);
             }
             "--screenshot" => out.screenshot = Some(PathBuf::from(value("--screenshot")?)),
             "--seed" => {
@@ -152,7 +152,14 @@ fn parse_size(s: &str) -> Result<[f32; 2], String> {
     let (w, h) = s
         .split_once('x')
         .ok_or_else(|| format!("size {s:?} is not WxH"))?;
-    let n = |v: &str| v.parse::<f32>().map_err(|_| format!("size {s:?} is not WxH"));
+    // At least 1x1 and finite: a 0x0 window never reaches the size a
+    // screenshot run waits for.
+    let n = |v: &str| {
+        v.parse::<f32>()
+            .ok()
+            .filter(|n| n.is_finite() && *n >= 1.0)
+            .ok_or_else(|| format!("size {s:?} is not WxH (whole sizes of 1 or more)"))
+    };
     Ok([n(w)?, n(h)?])
 }
 
@@ -235,6 +242,8 @@ mod tests {
         assert!(p(&["--size", "big"]).is_err());
         assert_eq!(p(&["--ppp", "1.5"]).unwrap().ppp, Some(1.5));
         assert!(p(&["--ppp", "9"]).is_err());
+        assert!(p(&["--size", "0x0"]).is_err());
+        assert!(p(&["--size", "NaNx600"]).is_err());
         assert!(p(&["--ppp", "x"]).is_err());
         assert_eq!(
             p(&["--render", "Smoothed"]).unwrap().render,

@@ -51,7 +51,7 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
       their lowest-numbered player, each its players in number order and
       then its creatures ([encounters](encounters.md) 6.1). In a room
       region: the rooms that hold a living player (at most
-      4, in player order), and in each, its players in joining order, then
+      4, in player order), and in each, its players in number (slot) order (a newcomer in a reused slot goes by its slot: [characters](characters.md) 6.1), then
       the region's creatures standing there in slot order; nothing
       numbered between the players and the region's creatures (5 to 15)
       is ever on a room's list. Turns go in list order; the dead are

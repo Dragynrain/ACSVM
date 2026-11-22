@@ -269,6 +269,19 @@ fn script_errors_name_the_line() {
     // Names and numbers both name things; a trailing square is a target.
     let s = parse("use key 3 4\ndrop LOCKED DOOR e\nready 1\n", &adv).unwrap();
     assert_eq!(s.steps.len(), 3);
+    // A # inside quotes is the value's, not a comment.
+    let s = parse("player 1 name=\"A#1\" # the first\nwait\n", &adv).unwrap();
+    assert_eq!(s.players[0].1.name, "A#1");
+    assert_eq!(s.steps.len(), 1);
+}
+
+#[test]
+fn a_walk_onto_a_door_square_ends_where_the_door_leads() {
+    // play.md 3: a walk's target may be a door; taking it is reaching it,
+    // so the walk doesn't plan again for the same X,Y in the new room.
+    let adv = adventure();
+    let out = run(&adv, "walk 20 19\ngoto 1 1\nwalk 5 2\n", 1);
+    assert_eq!(out.failure, None, "{}", out.progress.join("\n"));
 }
 
 #[test]

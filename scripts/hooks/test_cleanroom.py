@@ -96,6 +96,30 @@ CASES = [
     ("implementer", dict(call("Read", file_path=FINDINGS), agent_type="capture-confirmer"), False),
     ("implementer", call("Glob", pattern="research/**/*.md", path=RES), True),
     ("implementer", call("Glob", pattern="research/combat/inputs/**", path=RES), False),
+    # brace globs, PowerShell's other recursive flags, long-path forms
+    ("implementer", call("Glob", pattern="research/combat/{notes,inputs}/*", path=RES), True),
+    ("implementer", call("Glob", pattern="research/combat/{findings.md,inputs/*}", path=RES), False),
+    ("implementer", call("PowerShell", command="Get-ChildItem -Depth 9 D:\\Projects\\ACSVM-research"), True),
+    ("implementer", call("PowerShell", command="Get-ChildItem -s D:\\Projects\\ACSVM-research\\research\\combat"), True),
+    ("implementer", call("Read", file_path="\\\\?\\" + NOTES), True),
+    # git ranges are not the Main Master folders
+    ("implementer", call("Bash", command="git log main..master"), False),
+    ("implementer", call("Bash", command="git push origin main:master"), False),
+]
+
+# Wildcards are resolved against the disk, so these need the research
+# folder (and a notes folder in it) on this machine.
+if any(Path(RES, "research").glob("*/notes")):
+    CASES += [
+        ("implementer", call("Bash", command="cat /d/Projects/ACSVM-r*/research/*/no*/*"), True),
+        ("implementer", call("Bash", command="cat /d/Projects/ACSVM-r*/research/encounters/findings.md"), False),
+    ]
+if Path(AMIGA).is_dir():
+    CASES += [
+        ("implementer", call("Bash", command="xxd /d/Projects/ACSVM-research/corpus/am*/Adv*/data/ACS.E*"), True),
+    ]
+
+CASES += [
     # researcher: read the repo's docs only, never write or run commands there
     ("researcher", call("Read", RES, file_path=REPO + "\\docs\\research\\encounters.md"), False),
     ("researcher", call("Read", RES, file_path=REPO + "\\crates\\acs-engine\\src\\step.rs"), True),

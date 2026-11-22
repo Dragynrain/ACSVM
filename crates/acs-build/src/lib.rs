@@ -51,8 +51,15 @@ impl Folder {
     fn read_one(dir: &Path) -> std::io::Result<Folder> {
         fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> std::io::Result<()> {
             for e in std::fs::read_dir(dir)? {
-                let path = e?.path();
-                if path.is_dir() {
+                let e = e?;
+                let path = e.path();
+                // A linked folder is not followed: a link back up the tree
+                // would recurse until the stack overflows.
+                let kind = e.file_type()?;
+                if kind.is_symlink() && path.is_dir() {
+                    continue;
+                }
+                if kind.is_dir() {
                     walk(root, &path, out)?;
                 } else {
                     let rel = path.strip_prefix(root).unwrap_or(&path);
@@ -384,7 +391,7 @@ impl<'a> Build<'a> {
         let regions: Vec<Region> = regions_first
             .iter()
             .enumerate()
-            .map(|(i, (f, t))| self.region(f, t, i as u8 + 1))
+            .map(|(i, (f, t))| self.region(f, t, u8::try_from(i + 1).unwrap_or(u8::MAX)))
             .collect();
         let endings = self.endings(&a, &things, &regions);
         a.done();
@@ -786,6 +793,13 @@ impl<'a> Build<'a> {
                 o.err(format!("message: no long message {message:?}"));
                 continue;
             };
+            // An ending names its message in one byte (the model's u8).
+            let Ok(message) = u8::try_from(message) else {
+                o.err(format!(
+                    "message: long message {message} is past 255, the last an ending can show"
+                ));
+                continue;
+            };
             let spell = match things.get(usize::from(thing) - 1).map(|t| &t.kind) {
                 Some(ThingKind::Space { access, .. } | ThingKind::Portal { access, .. }) => {
                     matches!(access, Access::InvokeSpell { .. })
@@ -818,7 +832,7 @@ impl<'a> Build<'a> {
                 region: r.region,
                 room: r.room,
                 thing,
-                message: message.min(255) as u8,
+                message,
             });
         }
         out
@@ -1534,7 +1548,7 @@ impl<'a> Build<'a> {
 
     fn room_places(&mut self, files: &[(&str, &Table)]) {
         for (i, (f, t)) in files.iter().enumerate() {
-            let region = i as u8 + 1;
+            let region = u8::try_from(i + 1).unwrap_or(u8::MAX);
             let rkey = t.get("key").and_then(Value::as_str).unwrap_or("");
             if !is_key(rkey) {
                 self.p.push(f, "", "key: missing or not a key");
@@ -1591,14 +1605,14 @@ impl<'a> Build<'a> {
             let door = to.bool("door");
             let number = if door {
                 let n = doors;
-                doors += 1;
+                doors = doors.saturating_add(1);
                 if n > 15 {
                     to.err("more than four door terrains (12..15, movement 4.4)");
                 }
                 n
             } else {
                 let n = ordinary;
-                ordinary += 1;
+                ordinary = ordinary.saturating_add(1);
                 if ordinary == 12 {
                     ordinary = 16;
                 }
@@ -1852,7 +1866,8 @@ impl<'a> Build<'a> {
                 }
             },
         };
-        if x == 0 || y == 0 || x + 1 >= r.width || y + 1 >= r.height {
+        // Widened: a square of 255 would wrap to 0 as a u8 and pass.
+        if x == 0 || y == 0 || x as u16 + 1 >= r.width as u16 || y as u16 + 1 >= r.height as u16 {
             o.err(format!("square: [{x}, {y}] is not inside {to}"));
         }
         Some(Destination::Room {
@@ -1875,6 +1890,14 @@ impl<'a> Build<'a> {
             let Some(st) = v.as_table() else { continue };
             let c = o.child(st, format!("store {}", i + 1));
             if let Some(p) = self.possession(&c) {
+                // Stores 6: the store screen has a shelf for things 1..80
+                // only, and the engine stocks no other (stores 2.3).
+                if p.thing > 80 {
+                    c.err(format!(
+                        "thing: thing {} has no shelf; a store stocks things 1..80 (stores 2.3, 6)",
+                        p.thing
+                    ));
+                }
                 store.push(p);
             }
             c.done();
@@ -1924,6 +1947,19 @@ impl<'a> Build<'a> {
                 "{} residents; limits.residents_per_region is {slots}",
                 residents.len()
             ));
+        }
+        // The per-room cap too (limits.creatures_per_room): the engine
+        // only refuses arrivals past it, so a room built over it would
+        // start the game over the cap.
+        let per_room = self.limits.creatures_per_room as usize;
+        for room in &rooms {
+            let here = residents.iter().filter(|c| c.room == room.number).count();
+            if here > per_room {
+                o.err(format!(
+                    "room {}: {here} residents; limits.creatures_per_room is {per_room}",
+                    room.number
+                ));
+            }
         }
         while residents.len() < slots {
             residents.push(blank_creature(residents.len() as u16 + 1));
@@ -1979,6 +2015,11 @@ impl<'a> Build<'a> {
         let (w, h) = (rows.first().map_or(0, Vec::len), rows.len());
         if w < 3 || h < 3 {
             r.err("map: a room is at least 3 x 3, walls included");
+        }
+        // Past 255 the u8 sizes below would wrap and slip under the limit
+        // check (limits::check sees only the stored size).
+        if w > 255 || h > 255 {
+            r.err(format!("map: {w} x {h} is past the largest room, 255 x 255"));
         }
         let info = RoomInfo {
             region,

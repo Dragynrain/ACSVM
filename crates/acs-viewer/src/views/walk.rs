@@ -111,7 +111,10 @@ fn plain(e: &Event, line: &str) -> Plain {
             ..
         }
         | Event::Music { .. }
-        | Event::Shot { .. } => Plain::Hidden,
+        | Event::Shot { .. }
+        // A creature turned by a spell or a theft: its new alignment and
+        // setting, which the board and the panel hide too (client 3.4).
+        | Event::CreatureTurned { .. } => Plain::Hidden,
         // What set off which spell: only its message, if it has one.
         Event::SpellTriggered { message, .. } => match message {
             Some(m) => Plain::Text(acs_engine::quoted(m.trim())),
@@ -396,6 +399,8 @@ pub struct Walk {
     /// screen reader region has had (client 7).
     trimmed: usize,
     announced: usize,
+    /// Resumes from the last save, for [`Walk::mark`].
+    resumes: u32,
     /// Characters out of play by retiring, and the ones saved.
     roster: Roster,
     /// The store screen: where the player stands on it, what it says.
@@ -476,6 +481,7 @@ impl Walk {
             cues: Vec::new(),
             trimmed: 0,
             announced: 0,
+            resumes: 0,
             roster,
             reflow,
             screen: store::Screen::default(),
@@ -630,10 +636,12 @@ impl Walk {
         self.joined_other.take()
     }
 
-    /// The seed and the number of commands played: what changes when the
-    /// game moves on or starts again.
-    pub fn mark(&self) -> (u64, usize) {
-        (self.game.seed(), self.game.log().len())
+    /// The seed, the number of commands played and the resumes: what
+    /// changes when the game moves on, starts again or goes back to a
+    /// save (a resume can land on the same number of commands as the
+    /// death it undoes).
+    pub fn mark(&self) -> (u64, usize, u32) {
+        (self.game.seed(), self.game.log().len(), self.resumes)
     }
 
     /// Says in the log that this is the game kept from last time.
@@ -642,6 +650,8 @@ impl Walk {
         // player chose to load, not for picking up the kept game.
         self.log
             .retain(|(_, line, _)| !line.starts_with("Loaded a save:"));
+        // The log is shorter by that line: the note after it is new.
+        self.announced = self.announced.min(self.trimmed + self.log.len());
         self.note(
             "Picked up where you left off: the last game is kept on this machine.              Restart, under Game options, starts a new one."
                 .into(),
@@ -743,6 +753,7 @@ impl Walk {
     /// Back to the last autosave (after a death, as in the original).
     /// The engine's button (`Command::Restore`) on the kept game.
     fn resume(&mut self) {
+        self.resumes += 1;
         self.game = self.restore_target().clone();
         self.cancel();
         self.note("Resumed from the last save.".into());
@@ -1615,9 +1626,16 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     // Long messages wrap as paragraphs (client 3); only a
                     // Classic one laid out as a picture keeps its lines.
                     let jump = walk.log_jump;
-                    let last = walk.log.len().saturating_sub(1);
+                    // The last line shown, not the last kept: a hidden
+                    // last line (details off, a filtered group) would
+                    // leave the jump to the bottom with nothing to aim at.
+                    let shown = |kind: &Kind, line: &String, plain: &Plain| {
+                        !kind.group().is_some_and(|g| walk.log_hidden[g])
+                            && plain.shown(line, doc.details).is_some()
+                    };
+                    let last = walk.log.iter().rposition(|(k, l, p)| shown(k, l, p));
                     for (i, (kind, line, plain)) in walk.log.iter().enumerate() {
-                        if kind.group().is_some_and(|g| walk.log_hidden[g]) {
+                        if !shown(kind, line, plain) {
                             continue;
                         }
                         let Some(line) = plain.shown(line, doc.details) else {
@@ -1644,7 +1662,7 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                         };
                         let align = match jump {
                             Some(LogJump::Top(n, _)) if n == walk.trimmed + i => Some(egui::Align::TOP),
-                            Some(LogJump::Bottom) if i == last => Some(egui::Align::BOTTOM),
+                            Some(LogJump::Bottom) if Some(i) == last => Some(egui::Align::BOTTOM),
                             _ => None,
                         };
                         if align == Some(egui::Align::TOP) {
@@ -2480,12 +2498,10 @@ fn inventory_panel(
     let a = g.adventure();
     let p = g.current_player();
     let (load, cap) = (p.load(a), p.capacity());
-    let state = if load > cap {
-        " · overloaded"
-    } else if load * 2 > cap {
-        " · over half: slowed"
-    } else {
-        ""
+    let state = match p.burden(a) {
+        acs_engine::inventory::Burden::Stopped => " · overloaded: no moves",
+        acs_engine::inventory::Burden::Slowed => " · over half: slowed",
+        acs_engine::inventory::Burden::Light => "",
     };
     ui.label(format!("Load {load} of {cap}{state}"));
     let name = |t: u16| {
@@ -2654,10 +2670,10 @@ fn creatures_panel(ui: &mut egui::Ui, g: &Game, details: bool) {
         } else {
             String::new()
         };
-        let wits = match c.wisdom {
-            w if w > 14 => "smart",
-            w if w < 6 => "dumb",
-            _ => "sometimes smart",
+        let wits = match acs_engine::view::wits(c.wisdom) {
+            acs_engine::view::Wits::Smart => "smart",
+            acs_engine::view::Wits::Dumb => "dumb",
+            acs_engine::view::Wits::Sometimes => "sometimes smart",
         };
         let spells = c
             .possessions

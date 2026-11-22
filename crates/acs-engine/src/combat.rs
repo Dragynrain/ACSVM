@@ -640,11 +640,13 @@ impl Game {
             let path = flight(dx, dy, deviation, side, ws.range.unwrap_or(0));
             // 8.8.3: a kill by a player's arrow ends the firing.
             let killed = self.missile_flies(by, from, &path, ws, ev);
-            if killed && matches!(by, Who::Player { .. }) {
-                break;
-            }
+            // 8.7 before 8.8.3: a weapon set to disappear goes after its
+            // first shot even when that shot kills.
             if goes {
                 self.lose(by, weapon, true, ev);
+                break;
+            }
+            if killed && matches!(by, Who::Player { .. }) {
                 break;
             }
         }

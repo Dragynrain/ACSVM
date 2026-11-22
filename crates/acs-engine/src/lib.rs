@@ -62,10 +62,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "on", rename_all = "snake_case")]
 pub enum Location {
-    /// A world map cell, 0..40 each way.
+    /// A world map cell, within the map's size (40 each way in Classic, up
+    /// to `Limits::world_size` in Extended).
     World { x: u8, y: u8 },
     /// A square in a room: `region` 1-based, `room` 0-based slot, `x`/`y`
-    /// counted from the room's top-left wall square.
+    /// counted from the room's top-left wall square. Region 0's rooms 1..4
+    /// are the world map's encounter areas (`Game::region(0)`).
     Room { region: u8, room: u8, x: u8, y: u8 },
 }
 

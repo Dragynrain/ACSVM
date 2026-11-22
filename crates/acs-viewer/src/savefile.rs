@@ -45,5 +45,13 @@ fn download(name: &str, text: &str) -> Result<(), wasm_bindgen::JsValue> {
     a.set_href(&url);
     a.set_download(name);
     a.click();
-    web_sys::Url::revoke_object_url(&url)
+    // Not revoked at once: some browsers (Firefox, Safari) start the
+    // download after the click returns, and a revoked URL cancels it.
+    let revoke = wasm_bindgen::closure::Closure::once_into_js(move || {
+        let _ = web_sys::Url::revoke_object_url(&url);
+    });
+    web_sys::window()
+        .ok_or("no window")?
+        .set_timeout_with_callback_and_timeout_and_arguments_0(revoke.unchecked_ref(), 10_000)?;
+    Ok(())
 }

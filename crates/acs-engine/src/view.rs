@@ -147,3 +147,25 @@ impl Player {
         mark(rating, self.rating(rating))
     }
 }
+
+/// How often a creature's smartness check passes (magic 6, the check
+/// before a creature casts): what a client labels instead of reading
+/// Wisdom against the thresholds itself (client 1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Wits {
+    /// Wisdom over 14: always.
+    Smart,
+    /// Wisdom under 6: never.
+    Dumb,
+    /// 6 to 14: (Wisdom - 5) x 10 percent of the time.
+    Sometimes,
+}
+
+/// The [`Wits`] of a creature with this Wisdom.
+pub fn wits(wisdom: u8) -> Wits {
+    match wisdom {
+        w if w > 14 => Wits::Smart,
+        w if w < 6 => Wits::Dumb,
+        _ => Wits::Sometimes,
+    }
+}

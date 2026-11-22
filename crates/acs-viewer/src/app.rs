@@ -321,7 +321,7 @@ pub struct Viewer {
     characters: Vec<views::walk::SavedCharacter>,
     /// The open file and the game's seed and command count when last
     /// kept, so an unchanged game isn't written again.
-    kept_mark: Option<(String, (u64, usize))>,
+    kept_mark: Option<(String, (u64, usize, u32))>,
 }
 
 impl Viewer {

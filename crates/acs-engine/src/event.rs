@@ -51,7 +51,7 @@ pub enum DropRefusal {
     /// A diagonal square: a drop goes on the own square or one of the four
     /// beside it (inventory 5.1).
     NotBeside,
-    /// A gold amount of 0 or more than one pile holds (255).
+    /// A gold amount of 0 or more than one pile holds (`inventory::PILE_LIMIT`).
     BadAmount,
 }
 
@@ -605,8 +605,9 @@ pub enum Event {
         creature: u16,
         at: Location,
     },
-    /// A summons found no free slot (a cast into a full region fails
-    /// before anything is spent, magic 3.2), or was made on the map.
+    /// A summons found no free slot (magic 3.2: at a cost above 0 the
+    /// Power is spent and the roll drawn first; at cost 0 nothing is), or
+    /// was made on the map.
     SummonUnanswered {
         creature: u16,
     },

@@ -630,7 +630,7 @@ impl Game {
     /// saves 1.4): at the start of a visit to a region other than the one
     /// visited before, or at the end of a round in which SAVE GAME was
     /// chosen, a player retired with Save or an Add Someone brought a
-    /// newcomer in from a roster (`Join`); 0 at the game's start. The
+    /// newcomer in from a roster (`Join`, `Rejoin`); 0 at the game's start. The
     /// later save wins.
     pub fn save_point(&self) -> usize {
         self.saved_at
@@ -921,7 +921,9 @@ impl Game {
         // Every round with a living player has one on its list, so this
         // ends; the guard is for safety only.
         for _ in 0..10_000 {
-            if self.over {
+            // Winning 4.2: the game is won at the player's own action; no
+            // one else's turn and no round's end follow it.
+            if self.over || self.pending_win.is_some() {
                 return;
             }
             if self.sched.pos >= self.sched.list.len() {
@@ -972,7 +974,7 @@ impl Game {
         // 2.2.7.3, characters 7.3: a Retire with Save saves at once, before
         // the add (a created newcomer is not in it). 2.2.7.4, characters
         // 6.2: then the add, and one more save if SAVE GAME was asked
-        // (2.2.7.2) or a roster newcomer (`Join`) came in; a created
+        // (2.2.7.2) or a roster newcomer (`Join`, `Rejoin`) came in; a created
         // newcomer or a refusal saves nothing. No add ends the visit.
         if self.take_retirement(ev) {
             self.save(None, ev);

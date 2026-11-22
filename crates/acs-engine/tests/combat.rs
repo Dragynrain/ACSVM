@@ -1324,8 +1324,14 @@ fn a_damaging_player_arrow_makes_section_7s_check_by_the_class() {
 /// (2,3) and TWO (Constitution and Life Force `life`, no armor) on (7,3),
 /// ONE to move with its full moves.
 fn archer_and_target(p: Platform, seed: u64, life: u8) -> Game {
+    archer_and_target_with(p, seed, life, |_| {})
+}
+
+/// `archer_and_target` with the adventure changed first.
+fn archer_and_target_with(p: Platform, seed: u64, life: u8, change: impl Fn(&mut Adventure)) -> Game {
     let mut a = adventure(p);
     plain_bow(&mut a);
+    change(&mut a);
     let (mut g, _) = Game::new(
         a,
         seed,
@@ -1429,6 +1435,43 @@ fn a_damaging_arrow_on_another_player_draws_the_roll_of_0_to_9_too() {
         }
         assert!(rolled_then_shot, "a shot after a damaging arrow");
         assert!(killed, "a killing arrow");
+    });
+}
+
+#[test]
+fn a_players_disappearing_bow_goes_even_when_its_first_arrow_kills() {
+    // 8.7 with 8.8.3: the kill ends the firing, and the bow set to
+    // disappear still goes after that first shot.
+    const TWO: Who = Who::Player { player: 1 };
+    both(|p| {
+        let mut killed = false;
+        for seed in 0..40 {
+            let mut g = archer_and_target_with(p, seed, 1, |a| {
+                if let ThingKind::MissileWeapon {
+                    disappears_after_use, ..
+                } = &mut a.things[BOW as usize - 1].kind
+                {
+                    *disappears_after_use = true;
+                }
+            });
+            let ev = g.apply(fire(Some((7, 3)), None));
+            let shots = ev
+                .iter()
+                .filter(|e| matches!(e, Event::Shot { by: ME, .. }))
+                .count();
+            assert_eq!(shots, 1, "seed {seed}: {ev:?}");
+            assert!(
+                ev.contains(&Event::Broke {
+                    who: ME,
+                    thing: BOW,
+                    used_up: true
+                }),
+                "seed {seed}: {ev:?}"
+            );
+            assert_eq!(g.players()[0].count(BOW), 0, "seed {seed}");
+            killed |= ev.iter().any(|e| matches!(e, Event::Died { who: TWO, .. }));
+        }
+        assert!(killed, "a first arrow that kills");
     });
 }
 

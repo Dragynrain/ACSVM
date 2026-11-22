@@ -310,10 +310,10 @@ impl Game {
         let Some((thing, is_spell)) = pick else {
             return Magic::None;
         };
-        let smart = match c.wisdom {
-            w if w > 14 => true,
-            w if w < 6 => false,
-            w => self.rng.percent((w - 5) * 10),
+        let smart = match crate::view::wits(c.wisdom) {
+            crate::view::Wits::Smart => true,
+            crate::view::Wits::Dumb => false,
+            crate::view::Wits::Sometimes => self.rng.percent((c.wisdom - 5) * 10),
         };
         if !smart {
             return Magic::None;
@@ -382,6 +382,12 @@ impl Game {
         let c = self.creature(region, slot)?;
         let r = self.room(region, c.room)?;
         let (w, h) = (r.width, r.height);
+        // A resident standing outside its room (bad data: the decoder and
+        // a model-JSON bundle don't check it) has no squares: no steps,
+        // no spell aimed from there.
+        if c.x >= w || c.y >= h {
+            return None;
+        }
         let over = creatures::load(&self.adv, c) > creatures::capacity(c);
         let mut grid = vec![Sq::Closed; w as usize * h as usize];
         let me = Who::Creature { region, slot };

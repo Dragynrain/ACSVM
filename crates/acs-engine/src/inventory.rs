@@ -74,12 +74,33 @@ pub fn capacity(strength: u8, constitution: u8, life_force: u8) -> i32 {
 /// slowdown up to half the capacity, then a straight line down to 0 at the
 /// full capacity, rounding down.
 pub fn slowed_speed(speed: u8, load: i32, capacity: i32) -> u8 {
+    match burden(load, capacity) {
+        Burden::Light => speed,
+        Burden::Stopped => 0,
+        Burden::Slowed => (speed as i32 * 2 * (capacity - load) / capacity) as u8,
+    }
+}
+
+/// How a load sits against the capacity, as 3.3's slowdown reads it: what
+/// a client shows instead of comparing the numbers itself (client 1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Burden {
+    /// Up to half the capacity: no slowdown.
+    Light,
+    /// Over half: fewer moves.
+    Slowed,
+    /// At the capacity or over (or no capacity): no moves.
+    Stopped,
+}
+
+/// 3.3's three cases, the same tests as [`slowed_speed`].
+pub fn burden(load: i32, capacity: i32) -> Burden {
     if load * 2 <= capacity {
-        speed
+        Burden::Light
     } else if load >= capacity || capacity <= 0 {
-        0
+        Burden::Stopped
     } else {
-        (speed as i32 * 2 * (capacity - load) / capacity) as u8
+        Burden::Slowed
     }
 }
 
@@ -104,6 +125,11 @@ impl Player {
     /// (Strength - floor((Constitution - Life Force) / 2)) x 100 (3.2).
     pub fn capacity(&self) -> i32 {
         capacity(self.strength, self.constitution, self.life_force)
+    }
+
+    /// The load against the capacity (3.3).
+    pub fn burden(&self, adv: &Adventure) -> Burden {
+        burden(self.load(adv), self.capacity())
     }
 
     /// Speed after the weight slowdown: where the bar starts (3.3).

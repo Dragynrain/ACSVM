@@ -75,8 +75,10 @@ and Look menus would.
 `--seed N --walk n,ne,e,...,wait` opens play mode and plays those steps first;
 steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
 `use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),
-`fire[:X:Y[:T]]` (at a square, with weapon T) and `retire[:save|destroy]` (T is a thing number; a target is `me`, `pN` for player
-N or `cS` for creature slot S in the player's region). `--place R:N:X:Y`
+`fire[:X:Y[:T]]` (at a square, with weapon T), `retire[:save|destroy]` and `add[:NAME]` (a new
+player joins) (T is a thing number; a target is `me`, `pN` for player
+N, `cS` for creature slot S in the player's region, both counted from 1,
+or `X:Y` for a square). `--place R:N:X:Y`
 starts the walk on a room square instead of the start (a tool shortcut that
 is not part of the replayable command log). `--save OUT.json` writes the
 walk's save file after the steps, and `--load SAVE.json` opens one.

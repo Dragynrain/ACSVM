@@ -44,7 +44,8 @@ pub enum Command {
         #[serde(default)]
         dir: Option<Dir>,
     },
-    /// Drops one pile of `amount` (1..=255) gold pieces (inventory 5.8).
+    /// Drops one pile of `amount` (1..=`inventory::PILE_LIMIT`, 25,000) gold
+    /// pieces (inventory 5.8).
     DropGold {
         amount: u16,
         #[serde(default)]
@@ -99,7 +100,8 @@ pub enum Command {
     /// The death message's button (creatures 2.2.6), played on the game
     /// rebuilt at [`Game::restore_point`](crate::Game::restore_point): the saved state comes back as it
     /// was when saved, the visit ends and a new cycle begins from the
-    /// restored places. Ignored while nobody is in play.
+    /// restored places. While nobody is in play it is accepted only on the
+    /// game at an all-dead save (creatures 2.2.7), and ignored otherwise.
     Restore,
 }
 

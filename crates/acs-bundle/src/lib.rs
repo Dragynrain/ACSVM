@@ -236,9 +236,64 @@ fn entry(zip: &mut ZipArchive<Cursor<&[u8]>>, name: &'static str) -> Result<Opti
         Err(zip::result::ZipError::FileNotFound) => return Ok(None),
         Err(e) => return Err(bad(name, e)),
     };
+    // A cap on what an entry may grow to: a small deflated entry can
+    // expand a thousandfold (a zip bomb), and the browser has one tab's
+    // memory. The declared size is checked first, the bytes read anyway
+    // (a declared size can lie).
+    if f.size() > ENTRY_MAX {
+        return Err(bad(name, format!("larger than {ENTRY_MAX} bytes unpacked")));
+    }
     let mut out = Vec::new();
-    f.read_to_end(&mut out).map_err(|e| bad(name, e))?;
+    (&mut f)
+        .take(ENTRY_MAX + 1)
+        .read_to_end(&mut out)
+        .map_err(|e| bad(name, e))?;
+    if out.len() as u64 > ENTRY_MAX {
+        return Err(bad(name, format!("larger than {ENTRY_MAX} bytes unpacked")));
+    }
     Ok(Some(out))
+}
+
+/// The most any one entry may hold unpacked: 64 MiB, far past any
+/// adventure (an Extended model and a full atlas are a few MiB).
+pub const ENTRY_MAX: u64 = 64 << 20;
+
+/// What the engine and the viewer index without checking, beyond the
+/// counts [`limits::check`] covers: each picture's pixels fill its
+/// rows (at most 16 by 16, a pixel 1 or 2 wide), and each resident
+/// stands inside its room.
+fn shape(adv: &Adventure) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, p) in adv.pictures.iter().enumerate() {
+        let ok = (1..=16).contains(&p.width)
+            && (1..=16).contains(&p.height)
+            && matches!(p.pixel_aspect, 1 | 2)
+            && p.pixels.len() == p.width as usize * p.height as usize;
+        if !ok {
+            out.push(format!(
+                "picture {}: {}x{} (pixel {} wide) with {} pixels",
+                i + 1,
+                p.width,
+                p.height,
+                p.pixel_aspect,
+                p.pixels.len()
+            ));
+        }
+    }
+    for r in &adv.regions {
+        for c in r.residents.iter().filter(|c| c.in_use) {
+            let room = r.rooms.iter().find(|room| room.number == c.room && !room.deleted);
+            if let Some(room) = room {
+                if c.x >= room.width || c.y >= room.height {
+                    out.push(format!(
+                        "region {} resident {} at {},{}: outside room {} ({}x{})",
+                        r.number, c.number, c.x, c.y, room.number, room.width, room.height
+                    ));
+                }
+            }
+        }
+    }
+    out
 }
 
 fn adventure(bytes: &[u8]) -> Result<Adventure, BundleError> {
@@ -274,6 +329,10 @@ fn adventure(bytes: &[u8]) -> Result<Adventure, BundleError> {
     if !violations.is_empty() {
         let list: Vec<String> = violations.iter().map(ToString::to_string).collect();
         return Err(bad(ADVENTURE, format!("over its limits: {}", list.join("; "))));
+    }
+    let shapes = shape(&adv);
+    if !shapes.is_empty() {
+        return Err(bad(ADVENTURE, format!("malformed: {}", shapes.join("; "))));
     }
     Ok(adv)
 }

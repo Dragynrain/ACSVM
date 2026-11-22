@@ -802,6 +802,7 @@ impl Driver<'_> {
             if cmds.is_empty() {
                 return Ok(Some(last));
             }
+            let place = place_key(self.at(me));
             let n = cmds.len();
             for (i, cmd) in cmds.into_iter().enumerate() {
                 let mine = matches!(cmd, Command::Move { .. });
@@ -817,6 +818,12 @@ impl Driver<'_> {
                 }
                 if i + 1 == n {
                     if matches!(goal, Goal::Door(..)) {
+                        return Ok(Some(last));
+                    }
+                    // A square goal that was a door (or drew the player
+                    // into an encounter area) is reached by being taken:
+                    // planning again would read its X,Y in the new place.
+                    if matches!(goal, Goal::Square(..)) && place_key(self.at(me)) != place {
                         return Ok(Some(last));
                     }
                     break;
@@ -1364,11 +1371,15 @@ impl Driver<'_> {
                 if me >= self.game.players().len() {
                     return Some(self.report(step, None, &format!("player {} is not in the game", me + 1)));
                 }
-                let result = self.step_for(me, &step.action);
+                let mut result = self.step_for(me, &step.action);
                 if !self.deaths.is_empty() && !matches!(step.action, Action::Expect(_)) {
                     let names: Vec<String> = self.deaths.iter().map(|&d| self.me_name(d)).collect();
                     if next_expects_death {
+                        // The death stopped the step where it came (a walk's
+                        // "died on the way", a fight's "is dead"): that is
+                        // the step's end the script expects, not a failure.
                         self.deaths.clear();
+                        result = Ok(());
                     } else {
                         let why = match &result {
                             Err(e) => format!("{} died ({e})", names.join(", ")),
@@ -1477,6 +1488,16 @@ fn doors(game: &Game, from: (u8, u8)) -> Vec<Edge> {
         .iter()
         .filter_map(|i| {
             let to = if area && i.thing == ThingId::from(AREA_DOOR_THING) {
+                // The engine takes the square's first exit-door item
+                // (Game::area_door); a later one on the same square leads
+                // nowhere.
+                let first = room
+                    .items
+                    .iter()
+                    .find(|j| j.thing == i.thing && (j.x, j.y) == (i.x, i.y))?;
+                if !std::ptr::eq(first, i) {
+                    return None;
+                }
                 // None is the start point, on the world map.
                 match game.area_door_destination(i.parameter) {
                     None | Some(Location::World { .. }) => (0, 0),

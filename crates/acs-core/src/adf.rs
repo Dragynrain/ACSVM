@@ -20,6 +20,9 @@ pub const BLOCK: usize = 512;
 /// Double density (880 KB) and high density (1.76 MB) disks.
 pub const SIZES: [usize; 2] = [901_120, 1_802_240];
 
+/// Folders nested deeper than this are refused (a crafted disk could nest
+/// one per block and overflow the stack walking them).
+const DEPTH_MAX: usize = 32;
 const T_HEADER: u32 = 2;
 const T_LIST: u32 = 16;
 const ST_ROOT: u32 = 1;
@@ -112,6 +115,11 @@ impl<'a> Disk<'a> {
     }
 
     fn walk(&self, dir: &[u8], prefix: &str, out: &mut Vec<Entry>, seen: &mut [bool]) -> Result<()> {
+        // Folders nested past any real disk's: a crafted chain of them
+        // would otherwise recurse once per block.
+        if prefix.matches('/').count() > DEPTH_MAX {
+            return Err(Error::NotAnAdventure("the disk's folders nest too deep".into()));
+        }
         let mut subdirs = Vec::new();
         for slot in 0..HASH_SIZE {
             let mut next = Self::long(dir, HASH_TABLE + slot * 4) as usize;
@@ -142,6 +150,13 @@ impl<'a> Disk<'a> {
 
     /// The bytes of `entry`.
     pub fn read(&self, entry: &Entry) -> Result<Vec<u8>> {
+        // The size is the disk's own field: no file outgrows the disk.
+        if entry.size > self.blocks() * BLOCK {
+            return Err(Error::NotAnAdventure(format!(
+                "{} claims {} bytes, more than the disk holds",
+                entry.path, entry.size
+            )));
+        }
         let mut out = Vec::with_capacity(entry.size);
         let mut list = self.block(entry.header)?;
         let mut hops = 0;

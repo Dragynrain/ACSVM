@@ -13,16 +13,16 @@ use std::fmt;
 
 /// The `format` field of every save (saves 2).
 pub const SAVE_FORMAT: &str = "acsvm-save";
-/// The save format version this engine writes (saves 2.1). Version 4 has
-/// `restore`, the death message's button (creatures 2.2.6), logged where
-/// play resumed. Version 3 is read as it is: it has no `restore`, and its
-/// commands mean the same. Version 3 has
+/// The save format version this engine writes (saves 2.1). Version 5 has
+/// `rejoin` (characters 3.1) and an optional `picture` on a created
+/// player (characters 2.4). Version 4 has `restore`, the death message's
+/// button (creatures 2.2.6), logged where play resumed. Version 3 has
 /// `save_game` (which ends no turn) and the autosave of creatures 2.2.7.
-/// Version 2 is read as it
-/// is: its commands mean the same, and its `autosave` (made at the door
-/// step) is kept as written. Version 1 is still read: its `fire` (the old
-/// refusal, no move, nothing drawn) is mapped to `leave_store`, which does
-/// the same to the game.
+/// Versions 2 to 4 are read as they are: their commands mean the same,
+/// and a version 2 `autosave` (made at the door step) is kept as
+/// written. Version 1 is still read: its `fire` (the old refusal, no
+/// move, nothing drawn) is mapped to `leave_store`, which does the same
+/// to the game.
 pub const SAVE_VERSION: u32 = 5;
 
 /// A tool placement (`Game::place`): made after `after` commands.

@@ -173,7 +173,7 @@ pub fn describe(game: &Game, ev: &Event) -> String {
                 DropRefusal::OwnerOnly => "only its owner can use it".to_string(),
                 DropRefusal::Wall => "there is a wall there".to_string(),
                 DropRefusal::Thing { thing: o } => format!("{} is in the way", thing(o)),
-                DropRefusal::BadAmount => "one pile holds 1 to 255".to_string(),
+                DropRefusal::BadAmount => format!("one pile holds 1 to {}", crate::inventory::PILE_LIMIT),
                 DropRefusal::NotBeside => "only the own square or one beside it".to_string(),
             };
             format!("{} can't drop {}: {why}.", who(player), thing(*t))
@@ -779,7 +779,8 @@ fn action_text(game: &Game, a: SpellAction) -> String {
         ChangeLifeForce => format!("Life Force {}", signed(p)),
         Give => format!("give {}", thing(p)),
         LongMessage => format!("message {p}"),
-        PlayMusic => format!("music {}", p + 1),
+        // As the Music event numbers it: from the parameter's low byte.
+        PlayMusic => format!("music {}", (p as u8).saturating_add(1)),
         RidRoomOf => format!("rid the room of {}", thing(p)),
         AddToRoom => format!("add {}", thing(p)),
         ActivateAll => "activate everything here".into(),

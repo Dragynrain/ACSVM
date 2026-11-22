@@ -642,8 +642,9 @@ spell included: it vanishes instead of landing
    of fighters only.)
 3. A smart creature casts only when its Power is at least its Wisdom, on the
    goal it has chosen if that goal is an individual, with its lowest-numbered
-   appropriate spell. [manual] **Engine:** at the start of its turn, after
-   the overburdened drop and readying, the creature chooses its goal as
+   appropriate spell. [manual] **Engine:** at the start of its turn,
+   before the overburdened drop and readying (a creature that casts
+   doesn't ready: combat 6.2, creatures 8.1.2), the creature chooses its goal as
    usual (creatures 6); if the goal is an individual anywhere in the room and
    the creature has a fitting spell, it casts it (section 4.1 chance and
    cost) and its turn ends. On the C64 an aggressive enemy of Wisdom 20

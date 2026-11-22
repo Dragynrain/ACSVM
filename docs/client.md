@@ -149,7 +149,8 @@ Explore always shows everything. Off:
 - The log leaves out the chance of each blow, dodge and cast ("misses
   SHORE CRAB." for "misses SHORE CRAB (30%)."), a creature's moves in its
   turn line, and these lines entirely: a creature's Life Force or Power
-  changing, Play Music's cue numbers, a shot's spread, and what set off
+  changing, a creature's new alignment and setting when a spell or a
+  theft turns it, Play Music's cue numbers, a shot's spread, and what set off
   which spell ("sets off obstacle NOTICE: message 1."), whose message,
   if it has one, shows alone. The player's own ratings, their changes
   and damage done stay.

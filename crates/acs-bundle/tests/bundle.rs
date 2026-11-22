@@ -187,6 +187,41 @@ fn limits_are_checked() {
 }
 
 #[test]
+fn a_picture_whose_pixels_dont_fill_it_is_refused() {
+    // The viewer indexes a picture's pixels by its width and height.
+    let mut b = bundle(false);
+    b.adventure.pictures.push(acs_core::graphics::Picture {
+        width: 16,
+        height: 16,
+        pixel_aspect: 1,
+        pixels: vec![],
+    });
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("malformed") && e.contains("picture"), "{e}");
+}
+
+#[test]
+fn an_entry_past_the_size_cap_is_refused() {
+    // A zip bomb: a few KB packed, past ENTRY_MAX unpacked.
+    let (m, _) = parts(&bundle(false));
+    let mut z = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    z.start_file(MANIFEST, zip::write::SimpleFileOptions::default())
+        .unwrap();
+    z.write_all(&m).unwrap();
+    let deflated = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .large_file(true);
+    z.start_file(ADVENTURE, deflated).unwrap();
+    let chunk = vec![b' '; 1 << 20];
+    for _ in 0..=(acs_bundle::ENTRY_MAX >> 20) {
+        z.write_all(&chunk).unwrap();
+    }
+    let bytes = z.finish().unwrap().into_inner();
+    let e = read(&bytes).unwrap_err().to_string();
+    assert!(e.contains("larger than"), "{e}");
+}
+
+#[test]
 fn art_out_of_range_is_refused() {
     let mut b = bundle(true);
     b.art.as_mut().unwrap().places.insert(1, 9);

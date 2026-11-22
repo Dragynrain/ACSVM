@@ -1041,7 +1041,7 @@ impl Game {
         }
     }
 
-    /// The healing die at a turn's top (5.3.2): one draw, a 6 heals one.
+    /// The healing die at a turn's top (5.3.2): one draw, a 2 (`HEAL_FACE`) heals one.
     pub(crate) fn turn_die(&mut self, who: Who, ev: &mut Vec<Event>) {
         if !self.alive(who) {
             return;
@@ -1128,7 +1128,13 @@ impl Game {
                 self.reversals.remove(i);
             }
             if to == 0 {
+                // The death forgets every reversal of the dead (forget_vitals),
+                // the ones already passed among them: step back over those, so
+                // the next one due isn't skipped (5.2: every due reversal
+                // takes its step).
+                let before = self.reversals[..i].iter().filter(|e| e.who == r.who).count();
                 self.kill(r.who, ev);
+                i -= before;
             }
         }
     }

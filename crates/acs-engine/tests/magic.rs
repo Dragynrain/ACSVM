@@ -2968,6 +2968,35 @@ fn an_endings_trigger_wins_after_its_spell_and_play_stops() {
 }
 
 #[test]
+fn a_win_on_the_last_move_starts_no_one_elses_turn() {
+    // Winning 4.2: a Speed 1 player steps onto the trigger with its only
+    // move. The turn's end is the command's last turn event: no creature
+    // turn, no other player's turn, no round's end after the win.
+    both(|p| {
+        let mut a = adventure(p);
+        put_item(&mut a, 0, 3, 1, TUNE, 0);
+        a.endings = vec![acs_core::model::Ending {
+            region: 1,
+            room: 0,
+            thing: TUNE,
+            message: 7,
+        }];
+        let one = PlayerSetup { speed: 1, ..setup() };
+        let mut g = start(a, 2, 1, one);
+        let ev = mv(&mut g, Dir::E);
+        assert_eq!(ev.last(), Some(&Event::AdventureWon { ending: 0, player: 0 }));
+        let ended = ev.iter().position(|e| matches!(e, Event::TurnEnded { .. }));
+        assert!(ended.is_some(), "{ev:?}");
+        assert!(
+            ev[ended.unwrap() + 1..]
+                .iter()
+                .all(|e| matches!(e, Event::AdventureWon { .. })),
+            "{ev:?}"
+        );
+    });
+}
+
+#[test]
 fn an_ending_under_activate_all_wins_but_not_in_another_room() {
     // Winning 4.2: a trigger an Activate All above it runs counts; the
     // same thing set off in a room the ending doesn't name doesn't.

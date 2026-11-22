@@ -109,9 +109,9 @@ enum Command {
         /// The game's seed.
         #[arg(long)]
         seed: u64,
-        /// Players in the game (at least those the script's header names).
-        #[arg(long, default_value_t = 1)]
-        players: usize,
+        /// Players in the game, 1 to 4 (at least those the script's header names).
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=4))]
+        players: u8,
         /// Save file written at the end (also after a failure).
         #[arg(long)]
         save: PathBuf,
@@ -307,7 +307,7 @@ fn run(cli: Cli) -> AnyResult<ExitCode> {
             let decoded = load(&file, platform)?;
             let text = std::fs::read_to_string(&script)?;
             let script = script::parse(&text, &decoded.adventure)?;
-            let out = play::play(&decoded.adventure, &script, seed, players);
+            let out = play::play(&decoded.adventure, &script, seed, players.into());
             for line in &out.progress {
                 println!("{line}");
             }

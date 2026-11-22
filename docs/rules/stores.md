@@ -335,8 +335,13 @@ Counts cover all 15 corpus adventures (222 regions).
 
 The bitmap limit (2.3) and one store per region are Classic limits. An
 Extended adventure stores stock as a list of thing ids and counts, still one
-store per region, so any carriable thing can be stocked. More stores per
-region, or per-store stock, would be a rule feature with its own spec.
+store per region. **Engine:** an Extended stock still holds things 1..80
+only, as Classic's: the store screen (3.3) has a shelf place for those
+alone, so nothing else could be shown or bought, and a sale or restock of
+a higher thing doesn't join the stock; `acs build` refuses one in a
+region's `[[store]]`. [choice: ours, November 2026] A larger screen for
+higher things, more stores per region, or per-store stock, would be a
+rule feature with its own spec.
 
 ## Captures needed
 

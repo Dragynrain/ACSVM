@@ -94,7 +94,11 @@ named in the bundle's `features` list (`endings`, content 2). Decided for
    stepped on, bumped or passed: the spell sources space, custom space,
    obstacle, custom obstacle and portal, in that room), the game is won:
    after the command's own events, the stack's included, the engine
-   emits `AdventureWon` with the ending's index and the player. A trigger
+   emits `AdventureWon` with the ending's index and the player. The
+   command stops at the player's own action: a step that ends the turn
+   (the last move, a door) starts no one else's turn and no round's
+   end, so creatures don't move after the win and the board stays as the
+   player left it (6). [choice: ours, November 2026] A trigger
    with no spell never fires, and a creature setting it off doesn't win.
    A trigger lower in a stack that an Activate All above it runs counts
    (it runs as the space or obstacle it is), so the trigger may sit
