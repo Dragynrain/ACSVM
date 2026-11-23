@@ -260,8 +260,10 @@ pub const ENTRY_MAX: u64 = 64 << 20;
 
 /// What the engine and the viewer index without checking, beyond the
 /// counts [`limits::check`] covers: each picture's pixels fill its
-/// rows (at most 16 by 16, a pixel 1 or 2 wide), and each resident
-/// stands inside its room.
+/// rows (at most 16 by 16, a pixel 1 or 2 wide), the world map's rows
+/// are all as wide as its first, each room's number is its place in its
+/// region's list (rooms are looked up by place), and each resident stands
+/// inside its room.
 fn shape(adv: &Adventure) -> Vec<String> {
     let mut out = Vec::new();
     for (i, p) in adv.pictures.iter().enumerate() {
@@ -280,9 +282,25 @@ fn shape(adv: &Adventure) -> Vec<String> {
             ));
         }
     }
+    let tiles = &adv.world.tiles;
+    let width = tiles.first().map_or(0, Vec::len);
+    if let Some(y) = tiles.iter().position(|row| row.len() != width) {
+        out.push(format!(
+            "world map row {y}: {} squares wide, the first {width}",
+            tiles[y].len()
+        ));
+    }
     for r in &adv.regions {
+        for (i, room) in r.rooms.iter().enumerate() {
+            if room.number as usize != i {
+                out.push(format!(
+                    "region {} room {i} numbered {}: rooms go by their place in the list",
+                    r.number, room.number
+                ));
+            }
+        }
         for c in r.residents.iter().filter(|c| c.in_use) {
-            let room = r.rooms.iter().find(|room| room.number == c.room && !room.deleted);
+            let room = r.rooms.get(c.room as usize).filter(|room| !room.deleted);
             if let Some(room) = room {
                 if c.x >= room.width || c.y >= room.height {
                     out.push(format!(

@@ -142,6 +142,29 @@ mod tests {
         assert_eq!(tiles.get(0).unwrap().size(), [64, 64]);
     }
 
+    /// A bundle's pictures need not all be the first one's size: each is
+    /// smoothed at its own (content 2).
+    #[test]
+    fn pictures_of_other_sizes_smooth_at_their_own() {
+        use crate::tiles::{RenderMode, Tiles};
+        let mut adventure = decode(&crate::test_fixture::Fixture::new(Platform::Pc).build())
+            .expect("decodes")
+            .adventure;
+        adventure.pictures.push(acs_core::graphics::Picture {
+            width: 8,
+            height: 16,
+            pixel_aspect: 1,
+            pixels: vec![1; 8 * 16],
+        });
+        let last = adventure.pictures.len() as u16 - 1;
+        let ctx = egui::Context::default();
+        let mut tiles = Tiles::new(&ctx, &adventure);
+        assert_eq!(tiles.size, [16, 16]);
+        tiles.set_mode(&ctx, RenderMode::Smoothed);
+        assert_eq!(tiles.get(last).unwrap().size(), [32, 64]);
+        assert_eq!(tiles.get(0).unwrap().size(), [64, 64]);
+    }
+
     #[test]
     fn saves_are_told_from_adventures() {
         assert!(save_text(br#" {"format": "acsvm-save", "version": 1}"#).is_some());

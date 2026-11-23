@@ -135,7 +135,6 @@ impl Tiles {
             return;
         }
         if mode != RenderMode::Original && self.smoothed.is_none() {
-            let [w, h] = self.size.map(|v| v as usize);
             let options = TextureOptions {
                 mipmap_mode: Some(TextureFilter::Linear),
                 ..TextureOptions::LINEAR
@@ -143,15 +142,14 @@ impl Tiles {
             let made = self
                 .pixels
                 .iter()
+                .zip(&self.textures)
                 .enumerate()
-                .map(|(i, px)| {
-                    // A picture of another size (none so far) stays as it is.
-                    let (big, side) = if px.len() == w * h {
-                        (crate::smooth::scale4x(px, w, h), [4 * w, 4 * h])
-                    } else {
-                        (px.clone(), [w, h])
-                    };
-                    let image = ColorImage::from_rgba_unmultiplied(side, big.as_flattened());
+                .map(|(i, (px, original))| {
+                    // Each picture at its own size: a bundle's need not
+                    // all match the first (content 2).
+                    let [w, h] = original.size();
+                    let big = crate::smooth::scale4x(px, w, h);
+                    let image = ColorImage::from_rgba_unmultiplied([4 * w, 4 * h], big.as_flattened());
                     ctx.load_texture(format!("smooth-{i}"), image, options)
                 })
                 .collect();

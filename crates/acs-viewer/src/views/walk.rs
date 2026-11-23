@@ -2850,7 +2850,9 @@ fn draw_map(
             let Some((mx, my)) = win.square(i as i16, j as i16) else {
                 continue;
             };
-            let t = map.tiles[my as usize][mx as usize];
+            let Some(&t) = map.tiles.get(my as usize).and_then(|row| row.get(mx as usize)) else {
+                continue;
+            };
             let pic = map.terrain.get(t as usize).map(|t| t.picture);
             tiles.paint(&painter, pic, grid.cell_rect(i, j));
         }

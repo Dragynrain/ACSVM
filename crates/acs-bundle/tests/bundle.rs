@@ -201,6 +201,25 @@ fn a_picture_whose_pixels_dont_fill_it_is_refused() {
 }
 
 #[test]
+fn a_world_map_with_uneven_rows_is_refused() {
+    // The viewer draws the map as wide as its first row.
+    let mut b = bundle(false);
+    b.adventure.world.tiles[1].pop();
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("malformed") && e.contains("world map row 1"), "{e}");
+}
+
+#[test]
+fn a_room_numbered_out_of_place_is_refused() {
+    // The engine and the viewer find a room by its place in the list.
+    let mut b = bundle(false);
+    let r = &mut b.adventure.regions[0];
+    r.rooms[0].number = 1;
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(e.contains("malformed") && e.contains("numbered 1"), "{e}");
+}
+
+#[test]
 fn an_entry_past_the_size_cap_is_refused() {
     // A zip bomb: a few KB packed, past ENTRY_MAX unpacked.
     let (m, _) = parts(&bundle(false));

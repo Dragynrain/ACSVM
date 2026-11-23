@@ -89,7 +89,11 @@ manifest's format, version and features, the model's version, the
 profile (`extended`; a Classic model in a bundle is refused, since
 Classic means decoded from an original file), the limits
 (`limits::check` against the model's own `limits`, and those limits
-within `Limits::EXTENDED`), and the art (atlas decodes, tile divides
+within `Limits::EXTENDED`), the model's shape (each picture 1 to 16
+square with its pixels filling it, though pictures need not share a
+size; every world map row as wide as the first; each room numbered by
+its place in its region's list, which is how rooms are found; each
+resident inside its room), and the art (atlas decodes, tile divides
 it, every place and picture number in range). Each failure is one
 message naming the entry; nothing loads in part.
 
