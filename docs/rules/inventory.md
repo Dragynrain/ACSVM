@@ -46,7 +46,7 @@ tagged **[designer]**. Counts cover all 15 corpus adventures.
    **Engine:** the thing is taken, the
    character stays put, and the take spends one step (a heavy one ends
    the turn, 3.5). Gold piles are taken
-   the same way. [unknown for gold]
+   the same way (2.5). [unknown: a heavy take of a pile, 3.5]
 2. **At the limit.** If the character already owns as many of that thing as
    allowed, a message says they can't carry more of those, and they must drop
    one first if they need to pass. [manual] So the move is refused, and it

@@ -278,6 +278,9 @@ impl Gamepads {
             self.pads.stick(id, s, now, player, &mut out);
         }
         out.feed(raw);
+        // Fire lasts one frame: one the board didn't take (a title page,
+        // Explore) must not fire later.
+        ctx.data_mut(|d| d.remove_temp::<bool>(fire_id()));
         if out.fire {
             ctx.data_mut(|d| d.insert_temp(fire_id(), true));
         }

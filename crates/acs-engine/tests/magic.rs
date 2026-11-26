@@ -1396,6 +1396,35 @@ fn summons_go_unanswered_in_a_full_region() {
 }
 
 #[test]
+fn a_trait_past_its_maximum_is_never_pulled_down_to_it() {
+    // magic 3.5-3.6: Constitution has 6 bits, so 40 is a real value; an
+    // increase leaves it, a decrease takes 1 from it (not down to 31).
+    let mut a = adventure(Platform::Pc);
+    put_item(&mut a, 0, 2, 1, STAT, 0); // Constitution +1
+    put_item(&mut a, 0, 3, 1, LOWER, 0); // Constitution -1
+    let setup = PlayerSetup {
+        constitution: 40,
+        life_force: 40,
+        ..setup()
+    };
+    let mut g = start(a, 1, 1, setup);
+    let changed = |ev: &[Event]| {
+        ev.iter()
+            .filter_map(|e| match e {
+                Event::StatChanged { stat, from, to, .. } => Some((*stat, *from, *to)),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let up = changed(&mv(&mut g, Dir::E));
+    assert!(
+        up.iter().all(|&(s, _, to)| s != Stat::Constitution || to == 40),
+        "{up:?}"
+    );
+    assert_eq!(changed(&mv(&mut g, Dir::E)), vec![(Stat::Constitution, 40, 39)]);
+}
+
+#[test]
 fn stats_magic_defense_give_messages_music_rid_and_add() {
     both(|p| {
         let mut a = adventure(p);

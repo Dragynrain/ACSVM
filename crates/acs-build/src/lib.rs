@@ -618,6 +618,17 @@ impl<'a> Build<'a> {
             rgba,
             places: BTreeMap::new(),
         };
+        // Refused before any tile is cut: each key copies a whole tile. A
+        // kit lists more than an adventure takes, so the cap is Extended's;
+        // the adventure's own limit is checked on what it takes.
+        let most = Limits::EXTENDED.pictures;
+        if list.len() > usize::from(most) {
+            o.err(format!(
+                "{} pictures, past the most any adventure holds, {most}",
+                list.len()
+            ));
+            return None;
+        }
         let mut out = Vec::new();
         for (key, v) in list {
             let at = format!("picture {key}");
@@ -679,7 +690,7 @@ impl<'a> Build<'a> {
         let rows = chosen.len().div_ceil(PER_ROW).max(1);
         let (width, height) = (PER_ROW as u32 * tile, rows as u32 * tile);
         let row = (tile * 4) as usize;
-        let mut rgba = vec![0u8; (width * height * 4) as usize];
+        let mut rgba = vec![0u8; width as usize * height as usize * 4];
         let mut places = BTreeMap::new();
         let mut pictures = vec![Picture {
             width: 16,
@@ -947,6 +958,17 @@ impl<'a> Build<'a> {
         r
     }
 
+    /// A thing a door or terrain opens to its owners (or non-owners) of:
+    /// one a player can carry, or nobody ever owns it.
+    fn owned_ref(&self, o: &Obj, field: &str, k: &str) -> Option<(u16, Type)> {
+        let r = self.thing_ref(o, field, k)?;
+        if !r.1.carriable() {
+            o.err(format!("{field}: {k:?} can't be carried, so nobody owns it"));
+            return None;
+        }
+        Some(r)
+    }
+
     fn things(&mut self, list: &[Entry], a: &Obj) -> Vec<Thing> {
         let mut out: BTreeMap<u16, Thing> = BTreeMap::new();
         let mut table_index = 0u8;
@@ -961,8 +983,11 @@ impl<'a> Build<'a> {
             let name = o.need_str("name").unwrap_or_default().to_string();
             let may_add = o.int_or("may_add", 0, 15, 0) as u8;
             let flags_index = if matches!(ty, Type::MagicItem | Type::Missile | Type::Melee | Type::Armor) {
-                table_index = table_index.wrapping_add(1);
-                table_index - 1
+                // Past 255 the build has failed already (too many
+                // carriable things); the index just stops growing.
+                let i = table_index;
+                table_index = table_index.saturating_add(1);
+                i
             } else {
                 0
             };
@@ -1285,10 +1310,10 @@ impl<'a> Build<'a> {
             Some(Value::Table(t)) if t.len() == 1 => {
                 let a = o.child(t, format!("{} access", o.at));
                 let r = if let Some(k) = a.str("owners_of") {
-                    self.thing_ref(&a, "owners_of", k)
+                    self.owned_ref(&a, "owners_of", k)
                         .map(|(n, _)| Access::OwnersOf { thing: n })
                 } else if let Some(k) = a.str("non_owners_of") {
-                    self.thing_ref(&a, "non_owners_of", k)
+                    self.owned_ref(&a, "non_owners_of", k)
                         .map(|(n, _)| Access::NonOwnersOf { thing: n })
                 } else {
                     a.raw("spell").map(|v| Access::InvokeSpell {
@@ -1628,7 +1653,10 @@ impl<'a> Build<'a> {
         let mut keys: HashMap<String, (u8, bool)> = HashMap::new();
         let (mut ordinary, mut doors) = (0u8, 12u8);
         for v in o.array("terrain") {
-            let Some(tt) = v.as_table() else { continue };
+            let Some(tt) = v.as_table() else {
+                o.err("terrain: should be a list of tables");
+                continue;
+            };
             let key = tt.get("key").and_then(Value::as_str).unwrap_or("");
             let to = o.child(tt, format!("terrain {key}"));
             to.raw("key");
@@ -1659,7 +1687,7 @@ impl<'a> Build<'a> {
                     let r = if let Some(k) = po.str("owners_of") {
                         (
                             Passability::OwnersOf,
-                            self.thing_ref(&po, "owners_of", k).map_or(0, |x| x.0),
+                            self.owned_ref(&po, "owners_of", k).map_or(0, |x| x.0),
                         )
                     } else if let Some(k) = po.str("spell") {
                         (
@@ -1770,7 +1798,10 @@ impl<'a> Build<'a> {
 
         let mut doors_out = Vec::new();
         for (i, v) in o.array("door").iter().enumerate() {
-            let Some(dt) = v.as_table() else { continue };
+            let Some(dt) = v.as_table() else {
+                o.err("door: should be a list of tables");
+                continue;
+            };
             let d = o.child(dt, format!("door {}", i + 1));
             let at = d.point("at", 255);
             let dest = self.destination(&d, None);
@@ -1817,7 +1848,10 @@ impl<'a> Build<'a> {
 
         let mut encounters = Vec::new();
         for (i, v) in o.array("encounter").iter().enumerate() {
-            let Some(et) = v.as_table() else { continue };
+            let Some(et) = v.as_table() else {
+                o.err("encounter: should be a list of tables");
+                continue;
+            };
             let e = o.child(et, format!("encounter {}", i + 1));
             let creature = e.need_str("creature").and_then(|k| self.master(&e, k));
             let terrain_n = e.need_str("terrain").and_then(|k| {
@@ -1920,7 +1954,10 @@ impl<'a> Build<'a> {
         let name = o.need_str("name").unwrap_or_default().to_string();
         let mut store = Vec::new();
         for (i, v) in o.array("store").iter().enumerate() {
-            let Some(st) = v.as_table() else { continue };
+            let Some(st) = v.as_table() else {
+                o.err("store: should be a list of tables");
+                continue;
+            };
             let c = o.child(st, format!("store {}", i + 1));
             if let Some(p) = self.possession(&c) {
                 // Stores 6: the store screen has a shelf for things 1..80
@@ -1955,7 +1992,10 @@ impl<'a> Build<'a> {
         let mut residents: Vec<Creature> = Vec::new();
         let mut rooms = Vec::new();
         for (n, v) in o.array("room").iter().enumerate() {
-            let Some(rt) = v.as_table() else { continue };
+            let Some(rt) = v.as_table() else {
+                o.err("room: should be a list of tables");
+                continue;
+            };
             let key = rt.get("key").and_then(Value::as_str).unwrap_or("");
             let full = format!("{rkey}.{key}");
             let r = o.child(rt, format!("room {full}"));
@@ -2338,8 +2378,9 @@ fn through_wall(a: &RoomInfo, dx: u8, dy: u8, b: &RoomInfo) -> Option<(u8, u8)> 
     if a.region != b.region {
         return None;
     }
-    let (w, h) = (a.width, a.height);
-    let (sx, sy): (i32, i32) = match (dx, dy) {
+    // In i32: a door on row or column 255 must not overflow.
+    let (w, h) = (i32::from(a.width), i32::from(a.height));
+    let (sx, sy): (i32, i32) = match (i32::from(dx), i32::from(dy)) {
         (0, y) if y > 0 && y + 1 < h => (-1, 0),
         (x, y) if x + 1 == w && y > 0 && y + 1 < h => (1, 0),
         (x, 0) if x > 0 && x + 1 < w => (0, -1),
@@ -2405,6 +2446,7 @@ fn decode_png(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), String> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
     let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+    acs_bundle::png_fits(reader.info())?;
     let mut buf = vec![0; reader.output_buffer_size()];
     let frame = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
     let px = &buf[..frame.buffer_size()];

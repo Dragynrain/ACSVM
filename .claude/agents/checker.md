@@ -13,7 +13,7 @@ failure so the report covers all of them:
 2. `cargo clippy --all-targets -- -D warnings`
 3. `cargo test`
 4. `ACSVM_CORPUS='D:\projects\ACSVM-research\corpus' cargo test --test corpus`
-5. `cargo build -p acs-core -p acs-engine --target wasm32-unknown-unknown`
+5. `cargo build -p acs-core -p acs-engine -p acs-bundle --target wasm32-unknown-unknown`
 6. `cargo clippy -p acs-viewer --target wasm32-unknown-unknown -- -D warnings`
 7. `python scripts/hooks/test_cleanroom.py`
 8. `scripts/check-forbidden-files.sh --all`

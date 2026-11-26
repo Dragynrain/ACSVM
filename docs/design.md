@@ -1,6 +1,6 @@
 # ACSVM: Open Source Engine Design
 
-> Snapshot of the living design doc: https://claude.ai/artifact/RxNSzwZ9jfzxDfBfCHaVKD (exported 2026-11-10; the living doc was brought up to this copy on 2026-11-12, roadmap image included). Diagrams are PNG snapshots in docs/images/. Licensed CC BY 4.0.
+> Snapshot of the living design doc: https://claude.ai/artifact/RxNSzwZ9jfzxDfBfCHaVKD (exported 2026-11-10; the living doc was brought up to this copy on 2026-11-12, roadmap image included; this copy has had later edits, and where it disagrees with client.md, content.md or the code, those win). Diagrams are PNG snapshots in docs/images/. Licensed CC BY 4.0.
 
 Nov 10, 2026 · @Dragyn
 
@@ -198,7 +198,7 @@ The reasons:
 | Mode | Works on | How |
 | --- | --- | --- |
 | Original | Every adventure | Original pixels, nearest-neighbor integer scaling, original palette, optional CRT filter |
-| Smoothed | Every adventure | A pixel-art upscaler (xBRZ-style) runs on the original tiles once at load. No new art needed |
+| Smoothed | Every adventure | A pixel-art upscaler (Scale2x twice, client.md 5) runs on the original tiles once at load. No new art needed |
 | HD pack | Tiles the pack covers | Replacement art matched by a hash of the original tile's pixels, like emulator texture packs. Unmatched tiles fall back to Smoothed |
 | Native HD | Our own adventures | The extended adventure format stores 128 px art directly |
 
@@ -208,10 +208,10 @@ Most fan adventures were built from the three builder sets, so the same tiles re
 
 The client's spec and Phase 5's plan are in [client.md](client.md). It stays on eframe/egui, which the viewer already uses on the desktop and in the browser, instead of macroquad.
 
-- macroquad loads tiles into texture atlases: nearest-neighbor filtering for Original mode, linear filtering with mipmaps for HD.
+- Tiles are egui textures: nearest-neighbor filtering for Original mode, linear for HD (client.md 5).
 - Tile size is recomputed from the window size every frame: whole-number multiples in Original mode, any size in the HD modes. Resizing, fullscreen, zoom and high-DPI screens all come from that one calculation. egui scales its panels to the display's pixel ratio.
 - The layout puts the map or room in the center, with side panels for status, inventory and the message log. On narrow screens the panels collapse into drawers, and touch works on tablets.
-- The upscaled tiles from Smoothed mode are cached per adventure in the browser's IndexedDB, together with the user's loaded files.
+- Smoothed mode upscales the tiles at load (Scale2x twice); nothing is cached between sessions, so the IndexedDB cache first planned here isn't needed (client.md 5).
 
 ### AI art pipeline
 
@@ -349,13 +349,13 @@ The numbers keep Classic's proportions: residents are stored per region, but tur
 - **One validator** checks a file against its profile, shared by the importer and the future editor.
 - **Replays and online sync** record the profile and limits with the seed.
 
-**Timing:** limits and wider ids during Phase 2, while they are cheap; the bundle and RGBA pictures with Native HD in Phase 5. Our own sample adventures exercise the raised limits first, the editor later.
+**Timing:** limits and wider ids during Phase 2, while they are cheap; the bundle and RGBA pictures with Native HD in Phase 6 (content.md 2). Our own sample adventures exercise the raised limits first, the editor later.
 
-Open question: the bundle's name and file extension, which must avoid the ACS trademark.
+Settled: the bundle is an Extended bundle, `.advx` (content.md 2).
 
 ## Play options
 
-Settings the player picks, separate from the adventure's profile: any adventure, Classic or Extended, plays under any of them. The default is always the original behaviour. Nice to have some day, after 1.0; nothing here is scheduled.
+Settings the player picks, separate from the adventure's profile: any adventure, Classic or Extended, plays under any of them. The default is always the original behaviour. Nice to have some day, after 1.0; nothing here is scheduled but Turn-based mode, which shipped (below).
 
 - **Turn-based mode.** The movement bar never drains: the game waits for the player's command however long they take, like a classic roguelike. Nothing else changes (creatures still move in the same order and roll the same dice), so a run in this mode is the same sequence of commands as one at original speed, and replays and the golden tests are unaffected. In online play it is the "off" choice of the host's turn timer (see Multiplayer). **November 2026:** in the viewer's walk mode as the Turn-based box; the original's drain is the default there, sent to the engine as `Idle` commands so it is in the replay log (movement 2.4).
 
@@ -415,8 +415,8 @@ Nineteen pieces in total. Most are routine. The rules engine (#7), behavior capt
 | 13 | Behavior capture harness | Scripted VICE and DOSBox-X runs that log original outcomes for comparison | L |
 | 14 | Audio | 30 original cues (12 effects, 18 themes, 4 looping) for the Play Music action; optionally the original audio read from the user's own ACS disk | M |
 | 15 | Packaging | Web build with drag-and-drop loading and IndexedDB storage, desktop builds, accessibility options (font size, color-blind palettes, screen reader for the log) | M |
-| 16 | Render modes | Original, Smoothed (xBRZ-style upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
-| 17 | Original asset kits | The pirate starter kit for 1.0 (about 110 tiles, more where an adventure declares a higher picture limit), UI font, title art, sample adventures; the fantasy, spy and mystery and sci-fi kits after 1.0 | L |
+| 16 | Render modes | Original, Smoothed (Scale2x upscaling), hash-matched HD packs, native HD; coverage report per adventure | M |
+| 17 | Original asset kits | The pirate starter kit for 1.0 (202 pictures in `kits/pirates`, more where an adventure declares a higher picture limit), UI font, title art, sample adventures; the fantasy, spy and mystery and sci-fi kits after 1.0 | L |
 | 18 | Online co-op | Relay server, room codes, lockstep sync, desync check, reconnect, turn timer | M |
 | 19 | Extended format | Classic and Extended profiles, a limits block and feature list, wider typed ids, the zip bundle, one validator | M |
 
@@ -581,7 +581,7 @@ Starting combat before the harness would mean writing formulas twice, once as a 
 
 **Open questions:**
 
-- Final public name. License is decided (GPL-3.0-or-later); ACSVM is the working name, to be confirmed before going public.
+- Final public name. License is decided (GPL-3.0-or-later); ACSVM is the working name, still to be confirmed (the repository is already public under it).
 - Reference platform for the rules: PC (best documented) or C64 (largest fan library)? The proposal is PC first, with C64 close behind.
 - Faithful mode only, or also an "enhanced" mode with tweaks such as a fixed store UI and difficulty options?
 - Is Dan Boris interested in collaborating? Any notes he kept on the unknown bytes would save time, and so would the `Adventure_File_Format.html` that ACS Viewer 2.0's release notes mention.

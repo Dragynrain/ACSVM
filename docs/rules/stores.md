@@ -144,7 +144,7 @@ Counts cover all 15 corpus adventures (222 regions).
    any weight) is never offered: its place says out of stock, whatever
    the stock holds, and the stock count is kept as stored. [unknown: the
    engine keeps both marks here until a shelf capture splits them] A thing of value 0 otherwise
-   sells for 0 like any price (4.1). (Superseded: the engine's earlier
+   is offered and bought for 0 like any price (4.1). (Superseded: the engine's earlier
    choice of leaving value-0 things off the map's shelves.) Buying and selling pay and take as
    in a room (4.3, 4.4, 5.1, 5.2), but in region 0 neither changes the
    stock, so every shelf stays as it was.
@@ -167,7 +167,7 @@ Counts cover all 15 corpus adventures (222 regions).
 ## 3. The store screen
 
 1. How a player gets into a store isn't described in the manual. [manual]
-   On the C64, bumping the store opens a **separate screen** with no
+   On the C64, stepping onto the store opens a **separate screen** with no
    walls: the player among the stock drawn as things, its gold shown ("T
    has 500 to spend"), the button to sell (section 5) and the stick to
    browse. [capture: look, capture.md 10.17] As the project owner

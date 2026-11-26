@@ -137,7 +137,8 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   acs-core. The engine sees only the `Adventure` in a bundle.
 - `crates/acs-build`: `acs build`, a source folder of TOML to a bundle
   (content.md 3): keys to numbers, every reference and limit checked;
-  `acs_core::encode` writes things' property bytes.
+  `acs_core::encode` writes things' property bytes. acs-build and acs-cli
+  need Rust 1.88 too, through acs-bundle.
 - `adventures/`: our own adventures' source folders (content.md 3, 6),
   CC BY-SA 4.0, each with a `walkthrough.txt` a test plays to the end.
 - `kits/`: starter kits (content.md 4): atlas, picture list, things,
@@ -164,7 +165,7 @@ Write CLI output and viewer screenshots for real adventures outside the repo
   at 1.85. `tiles.rs` computes the integer tile scale from the window in
   physical pixels each frame; `views/` holds one file per view; `views/walk.rs` is play mode
   (keys, clicks and the touch pad to engine commands, events to the log;
-  no rules in the viewer); `audio/` plays Play Music's cues through cpal
-  (placeholders made in code, client.md 6).
+  no rules in the viewer); `audio/` plays our 30 Play Music cues through
+  cpal (scores in `music.rs`, rendered by `synth.rs`; client.md 6).
 - Repo: public at github.com/Dragynrain/ACSVM; Pages deploys `target/web` on
   every push to main. Commits use the GitHub noreply address.

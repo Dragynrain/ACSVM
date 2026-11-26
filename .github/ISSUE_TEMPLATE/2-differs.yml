@@ -17,7 +17,7 @@ body:
     id: adventure
     attributes:
       label: Adventure
-      description: Its name and platform (C64 .d64, PC), and where in it (region, room).
+      description: Its name and platform (C64 .d64, Amiga .adf, PC), and where in it (region, room).
     validations:
       required: true
   - type: textarea

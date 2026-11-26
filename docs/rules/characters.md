@@ -468,8 +468,9 @@ holds Constitution with magic defense in the top two bits.
    3 runs: Life Force 3 and 4 under Constitution 11 saved as 11, Power 5
    under Wisdom 13 kept, gold 777, the blade held, the mail worn and four
    possessions in the roster's first entry, a room square kept]
-   **Engine:** the same when rosters come; until then the front end keeps
-   the saved character. When rosters come, a save to a full roster leaves
+   **Engine:** the engine reads the disk's roster but never writes one
+   (3.1), so the front end keeps the saved character. If roster writing
+   comes, a save to a full roster leaves
    the character in play with its Life Force as it was (not raised: the
    raise goes with a save, and none is made), writes nothing and takes no
    restore point. A Retire with Save is also one of the engine's

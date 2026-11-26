@@ -458,14 +458,20 @@ impl Game {
                 let Some(stat) = Stat::from_spell_parameter(p) else {
                     return;
                 };
-                let now = self.stat(s.target, stat).unwrap_or(0) as i16;
+                let now = self.stat(s.target, stat).unwrap_or(0);
                 let step = if stat.is_skill() { 5 } else { 1 };
+                // A value already past the maximum (a Constitution of 40,
+                // which its 6 bits allow) is never pulled down to it.
                 let to = if s.action.kind == IncreaseStat {
-                    now + step
+                    if now >= stat.max() {
+                        now
+                    } else {
+                        now.saturating_add(step).min(stat.max())
+                    }
                 } else {
-                    now - step
+                    now.saturating_sub(step)
                 };
-                self.change_stat(s.target, stat, to.clamp(0, stat.max() as i16) as u8, ev);
+                self.change_stat(s.target, stat, to, ev);
             }
             ChangePower => {
                 let now = self.stat(s.target, Stat::Power).unwrap_or(0) as i16;
@@ -604,15 +610,9 @@ impl Game {
         if let Some(reg) = self.region_mut(region) {
             reg.residents[slot] = c;
         }
-        let who = Who::Creature { region, slot };
-        // Creatures 2.4: a summons clears the slot's random mark.
+        // Creatures 2.4: a summons clears the slot's random mark; no turn
+        // in this round (a dead creature's slot may still be listed).
         self.fill_slot(region, slot, false);
-        // No turn in this round: a dead creature's slot may still be
-        // listed further on.
-        let pos = self.sched.pos.min(self.sched.list.len());
-        let mut rest = self.sched.list.split_off(pos);
-        rest.retain(|&w| w != who);
-        self.sched.list.extend(rest);
         ev.push(Event::CreatureSummoned {
             region,
             slot,

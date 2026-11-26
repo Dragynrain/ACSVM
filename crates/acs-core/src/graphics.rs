@@ -135,7 +135,7 @@ impl MasterPalette {
 
 /// A decoded picture: `width * height` colour indices (0..=3, Amiga 0..=31),
 /// row-major.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Picture {
     pub width: u8,
     pub height: u8,
@@ -143,8 +143,31 @@ pub struct Picture {
     pub pixel_aspect: u8,
     /// One string per row, one base-32 digit per pixel (`0`-`9`, `a`-`v`;
     /// PC and C64 pictures use only `0`-`3`).
-    #[serde(serialize_with = "ser_rows", deserialize_with = "de_rows", rename = "rows")]
+    #[serde(deserialize_with = "de_rows", rename = "rows")]
     pub pixels: Vec<u8>,
+}
+
+/// By hand so each row is `width` pixels: a bundle's pictures need not be
+/// 16 tall (content.md 2).
+impl Serialize for Picture {
+    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let rows: Vec<String> = self
+            .pixels
+            .chunks(usize::from(self.width).max(1))
+            .map(|r| {
+                r.iter()
+                    .map(|&p| char::from_digit(u32::from(p), 32).unwrap_or('?'))
+                    .collect()
+            })
+            .collect();
+        let mut st = s.serialize_struct("Picture", 4)?;
+        st.serialize_field("width", &self.width)?;
+        st.serialize_field("height", &self.height)?;
+        st.serialize_field("pixel_aspect", &self.pixel_aspect)?;
+        st.serialize_field("rows", &rows)?;
+        st.end()
+    }
 }
 
 impl Picture {
@@ -179,21 +202,6 @@ impl Picture {
     pub fn is_blank(&self) -> bool {
         self.pixels.windows(2).all(|w| w[0] == w[1])
     }
-}
-
-fn ser_rows<S: Serializer>(pixels: &[u8], s: S) -> std::result::Result<S::Ok, S::Error> {
-    // Width is not available here, so rows are re-derived from the length:
-    // pictures are always 16 rows tall.
-    let w = pixels.len() / 16;
-    let rows: Vec<String> = pixels
-        .chunks(w.max(1))
-        .map(|r| {
-            r.iter()
-                .map(|&p| char::from_digit(u32::from(p), 32).unwrap_or('?'))
-                .collect()
-        })
-        .collect();
-    rows.serialize(s)
 }
 
 fn de_rows<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::Error> {

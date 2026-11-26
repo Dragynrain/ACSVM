@@ -777,7 +777,7 @@ fn action_text(game: &Game, a: SpellAction) -> String {
         DecreaseStat => format!("lower {}", stat(p)),
         ChangePower => format!("Power {}", signed(p)),
         ChangeLifeForce => format!("Life Force {}", signed(p)),
-        Give => format!("give {}", thing(p)),
+        Give => format!("give {}", thing(if p == 0 { crate::magic::GIVE_ZERO } else { p })),
         LongMessage => format!("message {p}"),
         // As the Music event numbers it: from the parameter's low byte.
         PlayMusic => format!("music {}", (p as u8).saturating_add(1)),

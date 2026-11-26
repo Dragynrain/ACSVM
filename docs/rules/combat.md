@@ -48,13 +48,13 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    a positive one never grows. [research] Mail of -30: -30 at Armor skill
    0, -10 at 20, in the wearer's parry and counter-blow hit chances.
    [capture: mail-parry, mail-skill, 32 runs, capture.md 10.16]
+6. **Class** of an individual: a player, or a creature's alignment with
+   Aggressive or Peaceful. A creature is a **fighter** or a **slinker** as
+   in [creatures](creatures.md) 4.2.
 7. **Beside** means on one of the 4 squares sharing a side with it
    (north, south, east, west), never diagonally: for firing (8.1),
    readying (6.2) and the halving of a turn's moves ([creatures](creatures.md)
    2.6) alike. [research: third pass, run and traced; capture]
-6. **Class** of an individual: a player, or a creature's alignment with
-   Aggressive or Peaceful. A creature is a **fighter** or a **slinker** as
-   in [creatures](creatures.md) 4.2.
 
 ## 2. Who attacks whom
 
@@ -85,8 +85,8 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
 4. **The goal's own square** costs 1 when it is open; other individuals'
    squares keep their table cost. So attacking "others it meets on the
    way" ([manual]) is no separate decision: any individual beside a fighter
-   whose square isn't closed can win the step score; a neutral or a thief
-   (cost 3) loses to a floor square unless the distance or the roll favours
+   whose square isn't closed can win the step score; an individual whose
+   table cost is 3 (2.2) loses to a floor square unless the distance or the roll favours
    it. [research] Only attacks on the goal have been seen run.
 5. **Attacking ends the turn.** The blows (3.1) cost no moves; at the
    first, the attacker's moves left go to 0. [research; capture]
@@ -135,8 +135,10 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    the turn went on (the bar then ran out as usual). [capture: rr31
    `p-nowpn`, `nw-none`, one run each, nothing random, capture.md 10.35;
    ours, no research pass, 2026-11-15] **Engine:** the menu is the front end's; `Game` readies the
-   lowest-numbered melee weapon owned, then attacks. On the world map
-   there are no creatures to attack yet (movement 7.1).
+   lowest-numbered melee weapon owned, then attacks. Players may share an
+   open world map square, and a step onto another player there is no
+   attack; creatures on the map are met in encounter
+   areas, which are rooms ([encounters](encounters.md)).
 
 ## 3. A melee attack
 
@@ -288,8 +290,9 @@ Constitution (capture.md 10.39, run rr35, 2026-11-16, no research pass).
    Each reading taken the other way round fits 6 of 32 runs. [capture: rr31
    `mb-mail`, `mb-mmail`, 32 runs each, capture.md 10.35; ours, no research
    pass, 2026-11-15] **Engine:** the table as it stands.
-2. **Armor that disappears after use** goes after the first blow that
-   reaches it, and the attack goes on: the next blow hit the unarmored
+2. **Armor that disappears after use** goes after the first blow with
+   damage above 0 that it takes part in (5.1), even one weaker than the
+   armor that draws no break roll, and the attack goes on: the next blow hit the unarmored
    wearer for the full 10. [research: third pass] Its break roll is drawn
    first, as for any armor (at break chance 0 here): without that roll
    one of our 16 runs goes wrong. [capture: mail-once, 16 runs, the mail

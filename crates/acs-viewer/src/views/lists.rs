@@ -69,7 +69,7 @@ pub fn things(doc: &mut Doc, ui: &mut egui::Ui) {
                         if let Some(m) = m {
                             let text = adv
                                 .short_messages
-                                .get(m.slot as usize - 1)
+                                .get((m.slot as usize).wrapping_sub(1))
                                 .map(|s| s.as_str())
                                 .unwrap_or("?");
                             let hidden = if m.shown { "" } else { " (hidden)" };

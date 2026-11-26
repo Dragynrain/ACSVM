@@ -9,7 +9,7 @@ your first change.
 Never commit, attach or paste:
 
 - disk images or adventure files (`.d64`, `.dsk`, `.adf`, `.fpy`, `.hrd`,
-  `.prg`, `.t64`, `.crt`, `.zip`), including EA's built-in adventures and the
+  `.prg`, `.t64`, `.crt`, `.zip`, or a built `.advx` bundle), including EA's built-in adventures and the
   ACS program disks and the Amiga version's program files;
 - Amiga Kickstart ROMs (`.rom`) or any other system ROM;
 - bytes copied out of such files, including as test fixtures or hex dumps;

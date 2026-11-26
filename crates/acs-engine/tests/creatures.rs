@@ -809,6 +809,48 @@ fn a_speed_0_thief_takes_gold_beside_it() {
 }
 
 #[test]
+fn a_creature_placed_mid_round_waits_for_the_next_round() {
+    // 2.2.3: nobody added during a round takes a turn in it, even in the
+    // slot of a creature that died with its turn still ahead.
+    both(|p| {
+        let mut a = adventure(p);
+        let mut c = a.regions[0].residents[0].clone();
+        c.in_use = true;
+        c.name = "C0".into();
+        (c.room, c.x, c.y, c.speed) = (0, 2, 5, 3);
+        c.strategy.alignment = Alignment::Neutral;
+        c.strategy.aggressive = false;
+        a.regions[0].residents[0] = c.clone();
+        c.name = "RANDO".into();
+        a.regions[0].random_creatures[2] = c;
+        a.regions[0].rooms[1].random_chance = 100;
+        a.regions[0].rooms[1].random_creature = 2;
+        let mut g = start(a, 0, 8, 3);
+        // C0 dies before its turn, as a banish space would do it.
+        g.creature_mut(1, 0).unwrap().in_use = false;
+        let ev = g.apply(Command::Move { dir: Dir::E });
+        let placed = ev
+            .iter()
+            .position(|e| matches!(e, Event::RoomEncounter { slot: Some(0), .. }))
+            .expect("the random creature takes slot 0");
+        let acted = ev[placed..]
+            .iter()
+            .take_while(|e| !matches!(e, Event::TurnStarted { .. }))
+            .any(|e| {
+                matches!(
+                    e,
+                    Event::CreatureTurn {
+                        region: 1,
+                        slot: 0,
+                        ..
+                    }
+                )
+            });
+        assert!(!acted, "{ev:?}");
+    });
+}
+
+#[test]
 fn random_creatures_appear_on_an_empty_square_and_go_when_left_behind() {
     both(|p| {
         let mut a = adventure(p);

@@ -42,7 +42,7 @@ PHASES = [
         "Message log, panels, touch and accessibility; Smoothed and HD pack render modes.",
         "30 original sound and music cues; desktop builds."],
      "Gate: no layout breaks on laptop, 4K and tablet; HD packs load with a coverage report"),
-    ("Phase 6 \u00b7 Original content and 1.0", "next", [
+    ("Phase 6 \u00b7 Original content and 1.0", "now", [
         "The pirate starter kit, UI font, title art, CC BY-SA sample adventures in bundles.",
         "Public playtest with long-time ACS players."],
      "Gate: 1.0 release, playable in the browser with no EA files bundled"),
@@ -51,7 +51,7 @@ PHASES = [
         "Built on the deterministic engine and the command log from Phase 4."],
      "Gate: a 4-player online game reaches the end with no desync"),
 ]
-LATER = "Later \u00b7 More starter kits, Apple II and Amiga support, then the adventure editor (2.0)"
+LATER = "Later \u00b7 More starter kits, Apple II support, then the adventure editor (2.0)"
 
 W, X0, X1 = 1344, 42, 1302
 BOX_H, GAP = 128, 98

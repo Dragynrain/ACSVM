@@ -220,6 +220,18 @@ fn a_room_numbered_out_of_place_is_refused() {
 }
 
 #[test]
+fn a_region_numbered_out_of_place_is_refused() {
+    // The engine finds a region by its number, and 0 is the world map's.
+    let mut b = bundle(false);
+    b.adventure.regions[0].number = 0;
+    let e = read(&write(&b).unwrap()).unwrap_err().to_string();
+    assert!(
+        e.contains("malformed") && e.contains("region 1 numbered 0"),
+        "{e}"
+    );
+}
+
+#[test]
 fn an_entry_past_the_size_cap_is_refused() {
     // A zip bomb: a few KB packed, past ENTRY_MAX unpacked.
     let (m, _) = parts(&bundle(false));

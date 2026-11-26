@@ -24,7 +24,7 @@ body:
     id: adventure
     attributes:
       label: Adventure
-      description: First Voyage, or the adventure's name and platform (C64 .d64, PC).
+      description: First Voyage, or the adventure's name and platform (C64 .d64, Amiga .adf, PC).
   - type: textarea
     id: what
     attributes:

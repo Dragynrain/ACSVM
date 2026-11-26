@@ -90,6 +90,7 @@ impl Pack {
                 m.format, m.version
             )));
         }
+        acs_bundle::png_fits(reader.info()).map_err(|e| broken(&e))?;
         let mut buf = vec![0; reader.output_buffer_size()];
         let frame = reader.next_frame(&mut buf).map_err(|e| broken(&e))?;
         let (w, h) = (frame.width, frame.height);

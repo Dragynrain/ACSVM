@@ -55,8 +55,8 @@ enum Command {
     Pictures {
         file: PathBuf,
         outdir: PathBuf,
-        /// Integer upscale factor.
-        #[arg(short, long, default_value_t = 1)]
+        /// Integer upscale factor, 1 to 64.
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=64))]
         scale: u32,
         #[arg(long, value_enum)]
         platform: Option<PlatformArg>,
@@ -138,10 +138,14 @@ type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn load(file: &Path, platform: Option<PlatformArg>) -> AnyResult<Decoded> {
     let name = file.to_string_lossy();
-    if name
-        .to_ascii_lowercase()
-        .ends_with(&format!(".{}", acs_bundle::EXTENSION))
-    {
+    // By extension or zip signature, as the viewer does.
+    let head = {
+        use std::io::Read;
+        let mut b = [0u8; 4];
+        let n = File::open(file)?.read(&mut b)?;
+        b[..n].to_vec()
+    };
+    if acs_bundle::is_bundle(&name, &head) {
         let bundle = acs_bundle::read(&std::fs::read(file)?)?;
         return Ok(Decoded {
             adventure: bundle.adventure,
@@ -350,7 +354,7 @@ fn upscale(rgba: &[u8], w: u32, h: u32, s: u32) -> Vec<u8> {
     if s == 1 {
         return rgba.to_vec();
     }
-    let mut out = Vec::with_capacity((w * h * s * s * 4) as usize);
+    let mut out = Vec::with_capacity(w as usize * h as usize * (s * s) as usize * 4);
     for y in 0..h {
         let row: Vec<u8> = (0..w)
             .flat_map(|x| {
@@ -378,7 +382,12 @@ fn write_png(path: &Path, w: u32, h: u32, rgba: &[u8]) -> AnyResult<()> {
 /// All pictures on one sheet, 16 per row, with a 1-pixel grey grid.
 fn write_sheet(adv: &Adventure, path: &Path, scale: u32) -> AnyResult<()> {
     const COLS: u32 = 16;
-    let (tw, th) = adv.pictures.first().map(|p| p.display_size()).unwrap_or((16, 16));
+    // Each cell fits the largest picture; a bundle's need not match.
+    let (tw, th) = adv
+        .pictures
+        .iter()
+        .map(|p| p.display_size())
+        .fold((1, 1), |(w, h), (pw, ph)| (w.max(pw), h.max(ph)));
     let (tw, th) = (tw * scale, th * scale);
     let rows = (adv.pictures.len() as u32).div_ceil(COLS);
     let (w, h) = (COLS * (tw + 1) + 1, rows * (th + 1) + 1);
@@ -386,11 +395,12 @@ fn write_sheet(adv: &Adventure, path: &Path, scale: u32) -> AnyResult<()> {
     for (n, pic) in adv.pictures.iter().enumerate() {
         let (pw, ph) = pic.display_size();
         let tile = upscale(&pic.to_rgba(&adv.palette), pw, ph, scale);
+        let (pw, ph) = (pw * scale, ph * scale);
         let (ox, oy) = ((n as u32 % COLS) * (tw + 1) + 1, (n as u32 / COLS) * (th + 1) + 1);
-        for y in 0..th {
-            let src = (y * tw * 4) as usize;
+        for y in 0..ph {
+            let src = (y * pw * 4) as usize;
             let dst = (((oy + y) * w + ox) * 4) as usize;
-            img[dst..dst + (tw * 4) as usize].copy_from_slice(&tile[src..src + (tw * 4) as usize]);
+            img[dst..dst + (pw * 4) as usize].copy_from_slice(&tile[src..src + (pw * 4) as usize]);
         }
     }
     write_png(path, w, h, &img)
@@ -516,6 +526,7 @@ fn read_atlas(path: &Path, tile: u32, pictures: usize) -> AnyResult<acs_bundle::
     let mut decoder = png::Decoder::new(std::io::BufReader::new(File::open(path)?));
     decoder.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
     let mut reader = decoder.read_info()?;
+    acs_bundle::png_fits(reader.info()).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut buf = vec![0; reader.output_buffer_size()];
     let frame = reader.next_frame(&mut buf)?;
     if frame.color_type != png::ColorType::Rgba {
@@ -526,7 +537,10 @@ fn read_atlas(path: &Path, tile: u32, pictures: usize) -> AnyResult<acs_bundle::
         )
         .into());
     }
-    if tile == 0 || frame.width % tile != 0 || frame.height % tile != 0 {
+    if !(16..=512).contains(&tile) {
+        return Err(format!("--tile {tile} is outside 16 to 512").into());
+    }
+    if frame.width % tile != 0 || frame.height % tile != 0 {
         return Err(format!(
             "tile {tile} doesn't divide the {} x {} atlas",
             frame.width, frame.height

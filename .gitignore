@@ -18,6 +18,7 @@
 *.crt
 *.CRT
 *.zip
+*.advx
 *.ZIP
 
 # --- Build output ---

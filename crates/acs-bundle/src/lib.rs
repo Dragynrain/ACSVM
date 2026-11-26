@@ -144,7 +144,7 @@ fn bad(entry: &'static str, message: impl ToString) -> BundleError {
 }
 
 /// The four bytes every zip file starts with.
-const ZIP_MAGIC: [u8; 4] = *b"PK";
+const ZIP_MAGIC: [u8; 4] = *b"PK\x03\x04";
 
 /// Whether a file a user handed over is a bundle: its extension, or for a
 /// name without it (a browser drop, a renamed file) the zip signature. No
@@ -258,6 +258,26 @@ fn entry(zip: &mut ZipArchive<Cursor<&[u8]>>, name: &'static str) -> Result<Opti
 /// adventure (an Extended model and a full atlas are a few MiB).
 pub const ENTRY_MAX: u64 = 64 << 20;
 
+/// The most a PNG may hold once decoded to RGBA: 256 MiB (8192 x 8192).
+/// A PNG's header names its size, so a file of a few bytes can ask for
+/// gigabytes; [`png_fits`] refuses that before anything is allocated.
+pub const DECODED_MAX: u64 = 256 << 20;
+
+/// Refuses a PNG whose decoded RGBA would pass [`DECODED_MAX`]. Call it
+/// after `read_info` and before sizing the frame buffer.
+pub fn png_fits(info: &png::Info) -> Result<(), String> {
+    let bytes = u64::from(info.width) * u64::from(info.height) * 4;
+    if bytes > DECODED_MAX {
+        return Err(format!(
+            "{} x {} pixels is past the {} MiB a picture may decode to",
+            info.width,
+            info.height,
+            DECODED_MAX >> 20
+        ));
+    }
+    Ok(())
+}
+
 /// What the engine and the viewer index without checking, beyond the
 /// counts [`limits::check`] covers: each picture's pixels fill its
 /// rows (at most 16 by 16, a pixel 1 or 2 wide), the world map's rows
@@ -289,6 +309,15 @@ fn shape(adv: &Adventure) -> Vec<String> {
             "world map row {y}: {} squares wide, the first {width}",
             tiles[y].len()
         ));
+    }
+    for (i, r) in adv.regions.iter().enumerate() {
+        if r.number as usize != i + 1 {
+            out.push(format!(
+                "region {} numbered {}: regions go by their place in the list, from 1",
+                i + 1,
+                r.number
+            ));
+        }
     }
     for r in &adv.regions {
         for (i, room) in r.rooms.iter().enumerate() {
@@ -395,6 +424,7 @@ fn art(m: &ArtManifest, png_bytes: &[u8], adv: &Adventure) -> Result<Art, Bundle
     let mut decoder = png::Decoder::new(Cursor::new(png_bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = decoder.read_info().map_err(|e| bad(ART, e))?;
+    png_fits(reader.info()).map_err(|e| bad(ART, e))?;
     let mut buf = vec![0; reader.output_buffer_size()];
     let frame = reader.next_frame(&mut buf).map_err(|e| bad(ART, e))?;
     let px = &buf[..frame.buffer_size()];
@@ -416,7 +446,10 @@ fn art(m: &ArtManifest, png_bytes: &[u8], adv: &Adventure) -> Result<Art, Bundle
         other => return Err(bad(ART, format!("colour type {other:?}"))),
     };
     let (width, height) = (frame.width, frame.height);
-    if !(16..=512).contains(&m.tile) || width % m.tile != 0 || height % m.tile != 0 {
+    if !(16..=512).contains(&m.tile) {
+        return Err(bad(MANIFEST, format!("tile {} is outside 16 to 512", m.tile)));
+    }
+    if width % m.tile != 0 || height % m.tile != 0 {
         return Err(bad(
             ART,
             format!("tile {} doesn't divide the {width} x {height} atlas", m.tile),

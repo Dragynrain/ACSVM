@@ -200,7 +200,8 @@ role shares (section 3). Vail's house guards must read apart from Duroc's
 deserted navy marines, since the story turns on who serves Vail.
 
 **The named characters (re-briefed November 2026).** The roles come from the
-adventure's story design (the maintainer's working doc, not yet in the repo:
+adventure's story design (the maintainer's working doc, kept in its own private project,
+content.md 6:
 premise, rivals, finale and script). The first briefs, from 12 November,
 guessed roles from the asset list without it and got every role wrong; five
 of the eight pictures have to be made again, and three can be edited. These
@@ -778,8 +779,11 @@ outlined atlas for text over pictures (`font-outline.png`, 1 px `outline0`),
 
 ## 13. Mood ramps
 
-**First version (November 2026).** Section 1 says darkness comes from the
-engine. A mood is a colour table, one entry for each of the 56 kit colours
+**First version (November 2026).** Sections 13 to 16 are art made ahead
+of the client: nothing in `crates/` reads moods, emissive layers, normal
+maps or animation frames yet, and the bundle (content.md 2) carries only
+`art/pictures.png`. "The engine draws" below says what a client would do.
+Section 1 says darkness comes from the engine. A mood is a colour table, one entry for each of the 56 kit colours
 ([pirates-moods.json](pirates-moods.json)), so recolouring a region is a
 lookup, with no filter and no new art. `scripts/mood.py` computes the tables
 in OKLab from a few parameters per mood (lightness scale, contrast,

@@ -370,9 +370,14 @@ impl Viewer {
                 .storage
                 .and_then(|s| eframe::get_value(s, KEPT))
                 .unwrap_or_default();
-            // The command line's options win over the kept ones.
-            if let (Some(a), None, false) = (kept.access, start.text_size, start.colour_blind) {
-                v.access = a;
+            // The command line's options win over the kept ones, field by
+            // field, so a flag doesn't reset the rest (kept on save).
+            if let Some(a) = kept.access {
+                v.access = crate::access::Access {
+                    text: start.text_size.unwrap_or(a.text),
+                    colour_blind: start.colour_blind || a.colour_blind,
+                    ..a
+                };
             }
             v.kept_sound = kept.sound;
             v.kept_game = kept.game;
@@ -633,6 +638,7 @@ impl Viewer {
                         doc.go(View::Walk);
                         // A loaded save goes straight to the board (client 3.3).
                         doc.opening = None;
+                        doc.creating = None;
                         None
                     }
                     Err(e) => Some(format!("{}: {e}", file.name)),
@@ -664,6 +670,11 @@ impl Viewer {
                 if let Some(art) = &art {
                     doc.tiles.set_native(ctx, art);
                     doc.tiles.set_mode(ctx, crate::tiles::RenderMode::NativeHd);
+                }
+                // Keep the game being replaced as it is now, not as the
+                // last autosave (up to 5 s ago) left it.
+                if self.keep {
+                    let _ = self.kept();
                 }
                 self.resume_kept(&mut doc);
                 self.doc = Some(doc);
@@ -1157,7 +1168,8 @@ impl Viewer {
             };
             // Not over the adventure's title, intro or new character: it
             // waits for the board (client 7.3).
-            if doc.opening.is_some() || doc.creating.is_some() {
+            // In Explore the opening screens never show, so nothing waits.
+            if doc.view == View::Walk && (doc.opening.is_some() || doc.creating.is_some()) {
                 return;
             }
             let name = doc.decoded.adventure.name.trim().to_string();

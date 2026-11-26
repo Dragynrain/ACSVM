@@ -6,8 +6,8 @@ short introduction. Licensed CC BY 4.0.
 
 ## Building
 
-Requires Rust (stable; 1.85 or newer for the core and inspector, 1.95 or newer
-for the viewer).
+Requires Rust (stable; 1.85 or newer for acs-core and acs-engine, 1.88 for
+the `acs` inspector and bundles, 1.95 or newer for the viewer).
 
 ```bash
 cargo build --release
@@ -38,7 +38,8 @@ the window, with C64 pixels twice as wide as tall.
 
 **Play mode** (Play in the top bar) puts a player at the adventure's start.
 Move with the arrow keys or WASD, diagonally with Q E Z C (or Home, PgUp,
-End, PgDn, or the numpad), and press Space to end a turn. The log below the board
+End, PgDn, or the numpad) when Diagonal moves is ticked under Game options
+(off by default, as in the original), and press Space to end a turn. The log below the board
 lists what the rules engine reports: steps, blocked moves with the designer's
 messages, doors, pick-ups, spells and what they did, random encounters, and
 each creature's turn. The panel shows Life Force, Power and the other
@@ -66,12 +67,12 @@ save, so a save can go with a bug report.
 
 `acs-viewer FILE --view room:1:0 --size 1280x800 --screenshot out.png` renders
 one view and saves it as PNG (views: `world`, `region:R`, `room:R:N`, `things`,
-`creatures`, `messages`, `diagnostics`, `pack`, and `play`, the New
-character screen; R counts from 1, N from 0). `--size WxH` and `--ppp F`
+`creatures`, `messages`, `diagnostics`, `pack`, and `play`, play mode's
+title page; R counts from 1, N from 0). `--size WxH` and `--ppp F`
 set the window and its pixels per point; `--render original|smoothed|hd|native`,
 `--pack PACK.png`, `--text-size PCT` (75 to 200), `--colour-blind`, `--pad`
 (the touch pad) and `--details` (Show more details) set what the Options
-and Look menus would.
+and Look menus and Game options would.
 `--seed N --walk n,ne,e,...,wait` opens play mode and plays those steps first;
 steps can also be `idle` (one step of the bar drained), `ready:T`, `drop:T[:dir]`, `gold:N[:dir]`, `cast:T[:target]`,
 `use:T[:target]`, `buy:T`, `sell:T`, `leave` (a store), `save` (SAVE GAME),

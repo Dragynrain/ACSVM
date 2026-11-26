@@ -568,6 +568,9 @@ impl Game {
                 && c.strategy.alignment == Friend
                 && self.friend_drop(region, slot, ev)
             {
+                // 7.3: the gift uses a move and ends the turn; what is
+                // left idles as after any other ending action.
+                *left = left.saturating_sub(1);
                 return Stepped::Ended;
             }
         }
@@ -1313,8 +1316,16 @@ impl Game {
         if let Some(cm) = self.creature_mut(region, slot) {
             take_possession(cm, thing);
         }
-        // Magic 3: one used up by its drop spell never lands.
-        let vanishes = self.used_up_by_drop(thing);
+        // The same action as the overburdened drop (7.3): a treasure that
+        // disappears when dropped, or one used up by its drop spell (magic
+        // 3), never lands.
+        let vanishes = matches!(
+            self.thing(thing).map(|t| &t.kind),
+            Some(ThingKind::Treasure {
+                disappears_when_dropped: true,
+                ..
+            })
+        ) || self.used_up_by_drop(thing);
         if !vanishes {
             self.put_on_top(region, c.room, spot.0, spot.1, thing, 1);
         }

@@ -138,8 +138,8 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    options).
 5. With one character and no creatures in the room, the same character moves
    again when the bar refills. With several players, or creatures in the room,
-   each gets a turn first. [manual] **Engine:** players take turns in order;
-   creatures get no turns until the AI exists.
+   each gets a turn first. [manual] **Engine:** players and creatures take
+   turns in the order of [creatures](creatures.md) 2.2.
 6. Players exploring different regions get several turns in a row. [manual]
    How many is not given. On the C64 each region gets visits of up to 10
    rounds in turn ([creatures](creatures.md) 2.2). [research, capture] A
@@ -150,8 +150,9 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
 7. Effective Speed is lowered by carrying too much and by standing next to an
    aggressive, unfriendly individual. [manual] By how much the manual
    does not give; capture has settled both (below; capture.md 10.39 item
-   4, 10.41 item 2). **Engine:** the bar starts at Speed after the weight slowdown
-   ([inventory](inventory.md) 3.3), set after the top-of-turn healing die
+   4, 10.41 item 2). **Engine:** the bar starts at Speed, halved first
+   when hindered (below), then lowered by the weight slowdown
+   ([inventory](inventory.md) 3.3, 3.4; creatures 2.6), set after the top-of-turn healing die
    from the Life Force it leaves (inventory 3.4; [capture: capture.md
    10.39 item 4]); adjacency halves the moves, rounding up, at the
    turn's start only, as in [creatures](creatures.md) 2.6 ([capture:
@@ -231,7 +232,7 @@ Counts below come from all 15 corpus adventures unless they say otherwise.
    individual on the square, another player too, makes the move an attack
    when the player holds or owns a melee weapon, and owning none nothing
    happens and no move is used ([combat](combat.md) 2.7). [research,
-   unconfirmed] **Engine:** so: an attack (`Attacked`), or `BumpedCreature`
+   capture: combat 2.7, capture.md 10.14.10, 10.24] **Engine:** so: an attack (`Attacked`), or `BumpedCreature`
    / `BumpedPlayer` at no cost.
 5. What the top thing does when moved onto:
 
@@ -467,10 +468,9 @@ These need the AI and are listed so the movement code leaves room for them.
 
 ## 9. What later rules need from movement
 
-- **Combat:** melee is done in [combat.md](combat.md) (moving into an
-  individual attacks it, 5.4). Still to come: missile range counts squares
-  including diagonals and stops at obstacles. Death on the map loses
-  carried things.
+- **Combat:** done in [combat.md](combat.md): melee (moving into an
+  individual attacks it, 5.4 here), firing (combat 8) and death
+  ([magic](magic.md) 7).
 - **Magic:** done in [magic.md](magic.md): every spell found here (terrain,
   portals, spaces, custom spaces, obstacles, picked-up items) now takes
   effect, including *Activate All Things* running the rest of the stack top
@@ -479,10 +479,12 @@ These need the AI and are listed so the movement code leaves room for them.
 - **Inventory:** done in [inventory.md](inventory.md): pick-up limits,
   weight and capacity slowing the bar, dropping (also onto "when dropped
   here" custom spaces and on the map).
-- **AI:** turn order with creatures, creatures following through doors,
-  creature door rules, random creature placement on an empty square and
-  periodic removal, the 16-creature region limit.
-- **Stores:** specced in [stores.md](stores.md) (bumping opens a store room).
+- **AI:** done in [creatures.md](creatures.md): turn order with
+  creatures, creatures following through doors, creature door rules,
+  random creature placement and periodic removal, the 16-creature region
+  limit.
+- **Stores:** done in [stores.md](stores.md) (an ordinary step onto the
+  store opens its screen, stores 3.2).
 - **Saves:** the save point of 6.6 (creatures 2.2.7), resume after death;
   save files in [saves.md](../saves.md).
 
@@ -505,8 +507,9 @@ In priority order, for the behaviour-capture harness:
    3.2, capture.md 10.40: random over the inside, never the player's).
    Still open: the square of each random state, draw by draw.
 6. Real-time drain rate of the bar (captured: about 354 frames per point of
-   Speed); extra turns for players in other regions.
-7. Stores: bump or step on.
+   Speed); extra turns for players in other regions (captured: 2.6,
+   creatures 2.2, capture.md 10.29).
+7. Stores: bump or step on (captured: a step on, stores 3.2).
 8. Moves carried through a door into another room (2.3): captured (not
    halved beside an enemy, [creatures](creatures.md) 2.6; the idle healing
    roll keeps the door turn's range, [magic](magic.md) 5.3.1; room doors

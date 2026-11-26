@@ -653,7 +653,7 @@ impl Walk {
         // The log is shorter by that line: the note after it is new.
         self.announced = self.announced.min(self.trimmed + self.log.len());
         self.note(
-            "Picked up where you left off: the last game is kept on this machine.              Restart, under Game options, starts a new one."
+            "Picked up where you left off: the last game is kept on this machine. Restart, under Game options, starts a new one."
                 .into(),
         );
     }
@@ -1447,7 +1447,9 @@ pub fn show(doc: &mut Doc, ui: &mut egui::Ui) {
                     &mut click,
                 );
                 creatures_panel(ui, g, doc.details);
-            } else {
+            } else if !won {
+                // After a win the engine takes no more commands, so no
+                // one joins (client 3.2).
                 roster_panel(ui, g, &walk.roster, &mut click);
                 others_panel(ui, g, walk.fingerprint(), &walk.others, walk.pending_other.as_ref(), &mut other);
                 ui.separator();
@@ -1875,7 +1877,7 @@ fn store_window(ctx: &egui::Context, g: &Game, click: &mut Option<Command>) {
     let p = &g.players()[offers.player];
     let name = |t: u16| {
         a.things
-            .get(t as usize - 1)
+            .get((t as usize).wrapping_sub(1))
             .map(|t| t.name.trim().to_string())
             .unwrap_or_else(|| format!("thing {t}"))
     };
@@ -2180,13 +2182,13 @@ fn actions_panel(
     let p = g.current_player();
     let missile = |t: u16| {
         matches!(
-            a.things.get(t as usize - 1).map(|t| &t.kind),
+            a.things.get((t as usize).wrapping_sub(1)).map(|t| &t.kind),
             Some(ThingKind::MissileWeapon { .. })
         )
     };
     let name = |t: u16| {
         a.things
-            .get(t as usize - 1)
+            .get((t as usize).wrapping_sub(1))
             .map(|t| t.name.trim().to_string())
             .unwrap_or_else(|| format!("thing {t}"))
     };
@@ -2279,7 +2281,7 @@ fn roster_panel(ui: &mut egui::Ui, g: &Game, roster: &Roster, click: &mut Option
             let b = ui
                 .add_enabled(room && !waiting, egui::Button::new("Rejoin").small())
                 .on_hover_text(
-                    "Joins at the end of the round as saved: where it retired, with its gear readied                      (at the start point if that square is taken now).",
+                    "Joins at the end of the round as saved: where it retired, with its gear readied (at the start point if that square is taken now).",
                 )
                 .on_disabled_hover_text(if waiting {
                     "Someone is already joining this round."
@@ -2506,7 +2508,7 @@ fn inventory_panel(
     ui.label(format!("Load {load} of {cap}{state}"));
     let name = |t: u16| {
         a.things
-            .get(t as usize - 1)
+            .get((t as usize).wrapping_sub(1))
             .map(|t| t.name.trim().to_string())
             .unwrap_or_else(|| format!("thing {t}"))
     };
@@ -2535,7 +2537,7 @@ fn inventory_panel(
         ui.label(RichText::new("Carrying nothing.").weak());
     }
     for t in things {
-        let kind = a.things.get(t as usize - 1).map(|t| &t.kind);
+        let kind = a.things.get((t as usize).wrapping_sub(1)).map(|t| &t.kind);
         ui.horizontal_wrapped(|ui| {
             let count = p.count(t);
             let mut label = if count > 1 {

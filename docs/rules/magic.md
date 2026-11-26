@@ -193,9 +193,12 @@ The parameter layout is the format draft's; numbers below are corpus counts.
 5. **Increase the victim's** trait or skill (parameter 0..9: Constitution,
    Strength, Dexterity, Speed, Wisdom, Dodge, Parry, Armor, Melee, Missile).
    Traits rise by 1, skills by 5, permanently. [manual] **Engine:** traits
-   stop at 31 (Speed at 15), skills at 127 (the manual's maxima); a
-   parameter above 9 does nothing (3 corpus magic items hold 32). [data]
+   stop at 31 (Speed at 15), skills at 127 (the manual's maxima); one
+   already past its maximum (a Constitution of 40, which its 6 bits
+   allow) is left as it is, never lowered to it [unknown]; a parameter
+   above 9 does nothing (3 corpus magic items hold 32). [data]
 6. **Decrease the victim's** trait or skill: as above, down to 0. [manual]
+   **Engine:** from the value as it is, even one past the maximum.
 7. **Change Power by** -63..+63 (bits 0-5 the amount, bit 7 negative).
    Power always drifts back toward Wisdom, so the temporary/permanent bit
    (bit 6) makes no difference. [manual] **Engine:** Power stays within
@@ -399,7 +402,9 @@ spell included: it vanishes instead of landing
    (inventory 4.3); using spends two steps, and ends the turn when
    fewer are left. A refused command costs nothing.
 4. Magic spells can't be dropped (inventory 5.2), so a spell is only lost by
-   disappearing after use, by banishment or by death.
+   disappearing after use, by banishment (creatures only: players are
+   never banished, 3.2), by death, or by a Destroy in a room
+   ([characters](characters.md) 7.5.1).
 
 ## 5. Power, Life Force and healing over time
 
@@ -408,7 +413,8 @@ spell included: it vanishes instead of landing
    up or down, stopping at Wisdom, every time. [capture: drift, Power 10
    and 30 against Wisdom 20, 3 runs each, the profile read every turn: both
    reached 20 after 10 turn ends in every run] It takes no roll, and
-   comes just after the bar is refilled. [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] The moves themselves
+   comes just after the bar is refilled (superseded by the Engine line
+   below and 5.3.2: before the moves). [research: random-rolls second pass, 2026-11-12, `docs/research/random-rolls.md`] The moves themselves
    are set from the Life Force after the healing die for a player, before
    it for a creature (5.3.2, [inventory](inventory.md) 3.4). [capture:
    capture.md 10.39 item 4, 10.43 item 9] A creature drifts before it
@@ -560,7 +566,8 @@ spell included: it vanishes instead of landing
    byte 0x0C), skips the catch-up on its first turn and only notes the
    round; that is why a first entry into a room shows none. Drift and
    healing (5.1, 5.3) follow as usual; their order with the catch-up does
-   not change the result. Players never catch up. [research: characters
+   not change Power or Life Force; where the catch-up falls against the
+   bar is open ([creatures](creatures.md) 2.5). Players never catch up. [research: characters
    second pass, 2026-11-14, `docs/research/characters.md`; capture: rr19
    `catch-B`, capture.md 10.23: the byte set to 7 values (39, 38, 30, 24,
    10, 200 for the wrap, and 0) before a Speed 0 creature's first turn,

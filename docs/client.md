@@ -27,6 +27,7 @@ arithmetic in the client. The queries so far:
 | `Game::cast_chance` | A spell's chance for a player's Power now (magic 4.1) |
 | `Game::residents_in` | The live creatures in a room, with their slots |
 | `Player::rating`, `Player::mark` | A profile rating and its mark (characters 4) |
+| `view::wits` | A creature's wits from its Wisdom, for Show more details (creatures 6) |
 
 ## 2. Layout
 
@@ -36,7 +37,7 @@ narrower than 900 points is **narrow** (`NARROW`, `app.rs`).
 
 | Area | Wide | Narrow |
 | --- | --- | --- |
-| Top bar | Menu and Info toggles, Open, Play, Back, the adventure | The same; it wraps |
+| Top bar | Menu and Info toggles, Open, Options, Help, Play, Back, Look, the adventure, Fullscreen | The same; it wraps |
 | Menu (left) | Shown; in play mode only from 1500 points wide, so the board keeps its room | Hidden until toggled; opening it closes Info |
 | Board (centre) | The map or room, the tile scale fitted to what is left | The same |
 | Info column (right) | Shown, 200 to 480 points and at most about a third of the window; long lines and rows of buttons wrap; scrolls when taller than the window | Hidden until toggled; opening it closes the Menu |
@@ -162,7 +163,7 @@ shows. [choice: a presentation, not a rule; the maintainer, November
 
 ## 4. Input
 
-- **Keyboard** (now): the original's eight directions and its commands
+- **Keyboard**: the original's eight directions and its commands
   (`key_commands`, walk.rs: every press in a frame, in order).
 - **Mouse and taps** on the board (a tap is a click). What a click on a
   square does depends on what is waiting:
@@ -180,9 +181,10 @@ shows. [choice: a presentation, not a rule; the maintainer, November
   the player is in a room; it raises the same cursor as FIRE, moved by
   the direction keys, sent with Space or Enter, cancelled with Escape.
 - **Touch**: an on-screen pad in its own strip along the bottom of the
-  window, under the thumbs and never over the board: eight arrows round
-  a Rest key on the left (the menu's REST, magic 5.6; OK while a drop
-  or cursor waits for it), each 52 points; on the right, while a drop or
+  window, under the thumbs and never over the board: arrows round a Rest
+  key on the left (the menu's REST, magic 5.6; OK while a drop or cursor
+  waits for it), eight while diagonal moves are on or a cursor waits and
+  four otherwise, each 52 points; on the right, while a drop or
   a cursor waits, a Cancel key, and on the map or holding a missile
   weapon, a Fire key. It shows when the last input was a touch, and
   hides on the next key press; the info column's "On-screen pad" option
@@ -246,9 +248,10 @@ what the original's bottom line says, with buttons for its answers:
 Beyond the original, for a modern pointer: a click on a shelf or exit
 across the store offers it as if walked to, the pointer over a stocked
 shelf shows its name, price and count, a **Sell your goods** button
-starts selling from any prompt (the original sells only before the
-player first moves), and Escape or **Leave the store** leaves from
-anywhere. Walking about the store sends nothing to the engine: only Buy,
+on the welcome prompt starts selling at any time (the original sells
+only before the player first moves; every other prompt's Not now or OK
+goes back to the welcome), **Leave the store** there leaves, and Escape
+leaves from anywhere. Walking about the store sends nothing to the engine: only Buy,
 Sell and LeaveStore (stores 3.8). [choice]
 
 ### 4.2 A new character
@@ -283,7 +286,7 @@ store, as the engine has it.
 
 | Mode | What it draws |
 | --- | --- |
-| Original | The adventure's pixels, whole-number scaling (now) |
+| Original | The adventure's pixels, whole-number scaling |
 | Smoothed | The original tiles upscaled 4x once at load (Scale2x twice), drawn with linear filtering and mipmaps at any scale |
 | HD pack | Replacement art for tiles whose hash a pack lists; the rest Smoothed |
 | Native HD | An Extended bundle's own art (content.md 2), keyed by picture number; the rest Smoothed. The default for a bundle with art. A room square is drawn in layers (`scene::layers`): wall or floor, the nearest space under the top thing (the ground it stands on), the top thing, then a resident, so art with transparent parts stands on its ground; anything else in the stack stays hidden, as in the original |
@@ -355,8 +358,9 @@ number and its hash. "Copy missing" copies the missing pictures as
 manifest entries (hash, `at` left 0, the picture number in `note`), the
 start of a pack for an artist.
 
-`scripts/hdpack.py ATLAS.png MANIFEST.json OUT.png` writes a pack from
-an atlas and a manifest; `--check` reads one back.
+`scripts/hdpack.py build ATLAS.png MANIFEST.json OUT.png` writes a pack
+from an atlas and a manifest; `check PACK.png` reads one back; `hashes
+DUMP.json` lists an adventure's picture hashes.
 
 ## 6. Audio
 
@@ -536,7 +540,8 @@ Phase 5's gate is met (10); next is Phase 6, original content and 1.0.
 3. Mouse targeting and the touch pad (4). Done November 2026
    (`--pad` shows the pad for screenshots).
 4. Audio: the cue player with placeholder cues (done November 2026;
-   `crates/acs-viewer/src/audio`), then our 30 (6). Two ignored tests
+   `crates/acs-viewer/src/audio`), then our 30 (6; done November 2026,
+   content.md 9 item 5). Two ignored tests
    help by ear: `plays_a_cue_on_the_default_output`, and
    `write_cues_as_wav` with `ACSVM_CUES_DIR` set.
 5. Smoothed mode (5). Done November 2026 (`smooth.rs`, `tiles.rs`);

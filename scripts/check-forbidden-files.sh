@@ -12,9 +12,10 @@
 set -eu
 
 # Disk and tape images (C64, Amiga, PC), emulator snapshots (a VICE .vsf
-# holds the program in memory), ROMs and archives; and by name, the Amiga
+# holds the program in memory), ROMs, bundles (.advx is build output; its
+# sources are in the repo, content.md 2) and archives; and by name, the Amiga
 # version's program files and its extensionless adventure file.
-PATTERN='\.(d64|d71|d81|g64|x64|dsk|adf|adz|dms|ipf|hdf|fpy|hrd|prg|t64|crt|vsf|rom|zip|7z|rar|lha|lzh|gz|tar)$'
+PATTERN='\.(d64|d71|d81|g64|x64|dsk|adf|adz|dms|ipf|hdf|fpy|hrd|prg|t64|crt|vsf|rom|advx|zip|7z|rar|lha|lzh|gz|tar)$'
 NAMES='(^|/)(adventure|acs\.exe|acs\.[1-4]|acs\.dat|acs\.master|acs\.msgs)$'
 
 # Paths unquoted: with quoting on, git writes a non-ASCII path as

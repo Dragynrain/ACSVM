@@ -2,7 +2,8 @@
 
 Our own adventures and everything they need: the Extended bundle they
 ship in, a way to write them without an editor, the starter kits, the 30
-cues, the two sample adventures, a front door for the browser build, the
+cues, the sample adventures (*First Voyage*, and *The King's Pardon* if
+it is published, 6), a front door for the browser build, the
 playtest and the 1.0 release. Phase 6's plan and the spec of the bundle
 and the source format; each section is written before its code, like
 `docs/rules/` and `client.md`. Licensed CC BY 4.0.
@@ -91,8 +92,9 @@ Classic means decoded from an original file), the limits
 (`limits::check` against the model's own `limits`, and those limits
 within `Limits::EXTENDED`), the model's shape (each picture 1 to 16
 square with its pixels filling it, though pictures need not share a
-size; every world map row as wide as the first; each room numbered by
-its place in its region's list, which is how rooms are found; each
+size; every world map row as wide as the first; each region numbered
+by its place in the list, from 1; each room numbered by its place in
+its region's list, which is how rooms are found; each
 resident inside its room), and the art (atlas decodes, tile divides
 it, every place and picture number in range). Each failure is one
 message naming the entry; nothing loads in part.
@@ -657,7 +659,8 @@ in the repository posts anything.
    signature); the viewer's Look menu gains **Native HD**, the default
    for a bundle with art (`--render native`). `acs bundle MODEL.json -o
    OUT.advx [--art ATLAS.png --tile N]` wraps an Extended model, place N
-   of the atlas holding picture N: a stopgap until `acs build`.
+   of the atlas holding picture N; kept for wrapping a model JSON directly,
+   while adventures are written as source folders (`acs build`, item 2).
 2. The source format and `acs build` (3). Done November 2026:
    `crates/acs-build` (`tests/build.rs` builds a two-room adventure
    written in the test, loads its bundle and walks it in the engine),

@@ -203,12 +203,19 @@ impl Game {
     /// 2.4 (engine choice): a creature put into a slot sets the slot's
     /// random mark when it is a random room creature or a map-encounter
     /// copy, and clears it for anything else (a summons). The slot's
-    /// carried moves (5.4) were the last creature's and go.
+    /// carried moves (5.4) were the last creature's and go, and so does
+    /// any turn of theirs still ahead in this round's list: nobody added
+    /// during a round takes a turn in it (2.2.3).
     pub(crate) fn fill_slot(&mut self, region: u8, slot: usize, random: bool) {
         self.random.retain(|&r| r != (region, slot));
         if random {
             self.random.push((region, slot));
         }
+        let who = Who::Creature { region, slot };
+        let pos = self.sched.pos.min(self.sched.list.len());
+        let mut rest = self.sched.list.split_off(pos);
+        rest.retain(|&w| w != who);
+        self.sched.list.extend(rest);
         self.creature_carried
             .retain(|c| (c.region, c.slot) != (region, slot));
         self.forget_vitals(Who::Creature { region, slot });

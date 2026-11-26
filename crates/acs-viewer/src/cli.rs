@@ -47,7 +47,7 @@ pub struct Args {
 }
 
 pub const USAGE: &str = "usage: acs-viewer [FILE] [--view play|world|region:R|room:R:N|things|creatures|messages|diagnostics|pack] \
-[--size WxH] [--ppp F] [--pad] [--details] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view play opens the New character screen; --seed, --place and --walk start a game; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the game's save file after the steps; --load opens a save over FILE (docs/saves.md).";
+[--size WxH] [--ppp F] [--pad] [--details] [--render original|smoothed|hd|native] [--pack PACK.png] [--text-size PCT] [--colour-blind] [--screenshot OUT.png] [--seed N] [--place R:N:X:Y] [--walk n,ne,e,...,wait,cast:T[:me|pN|cS],use:T,add[:NAME]] [--save OUT.json] [--load SAVE.json]\n  R is the region number as listed (1-based), N the room slot (0-based).\n  --view play opens play mode on the title page (client 3.3); --seed, --place and --walk start a game; --place puts the player on that square first\n  (a tool shortcut, not a replayable command), then the steps are played.\n  --save writes the game's save file after the steps; --load opens a save over FILE (docs/saves.md).";
 
 pub fn parse(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args, String> {
     let mut out = Args::default();

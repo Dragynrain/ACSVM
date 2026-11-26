@@ -838,9 +838,13 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    a player (owners of / non-owners of, with the needed thing used up if the
    door destroys it); an "invoke spell" door is closed to creatures when the
    spell is Activate All, Rid Room or Add to Room. Other spell doors let them
-   pass and the spell goes off for them ([magic](magic.md) 6.6). [unknown]
-   (Reachable, not yet run: a portal of ours with another spell, put in
-   the room; capture.md 10.44.)
+   pass and the spell goes off for them ([magic](magic.md) 6.6). A
+   summoning portal: a creature walked through it and a second copy
+   appeared [capture: rr38 `sn-dro`, capture.md 10.42 item 1]; the copy
+   was seen two rounds later on a square beside the portal, so the square
+   it was made on is not pinned (the engine uses the portal's). Other spell
+   kinds: [unknown] (reachable, not yet run: a portal of ours with another
+   spell, put in the room; capture.md 10.44).
    An encounter area's door item is not a door to creatures: they never
    step onto it ([encounters](encounters.md) 6.4). [capture]
 4. **Taking a door** costs one step and ends the creature's turn. It arrives
@@ -1088,9 +1092,11 @@ step choice (6.5, combat 2), and the attack itself is combat 3 to 7.
    never on the player's other neighbours. [capture: rr33 `g5`, `g7`, 64
    runs each, capture.md 10.37 item 6; ours] **Engine:** its
    lowest-numbered magic item, else its lowest-numbered treasure (gold
-   never), onto the square 8.1.1 chooses around the giver, using a move;
-   a giver that arrives beside the player with a move left gives in the
-   same turn. A drop
+   never), onto the square 8.1.1 chooses around the giver, using a move
+   (one that disappears when dropped vanishes, as in 8.1.2); a giver that
+   arrives beside the player with a move left gives in the same turn, and
+   the gift ends its turn, any moves left idling (2.7.4). [unknown: the
+   captures fit the gift's own draws, not what follows it] A drop
    spell then acts on whoever stands on that square, else on the friend
    itself ([magic](magic.md) 2.3). [unknown] (Reachable, not yet run: a
    gift with a drop spell; capture.md 10.44.)

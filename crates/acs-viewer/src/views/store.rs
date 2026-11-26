@@ -10,6 +10,7 @@
 
 use super::*;
 use acs_engine::stores::{self, StoreSquare};
+use acs_engine::StoreRefusal;
 
 /// What the line at the bottom of the store screen says.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,9 +113,9 @@ impl Walk {
 
     /// A push toward `(x, y)` from where the player stands (3.5).
     fn push_to(&mut self, x: i16, y: i16) {
-        let Some(visit) = self.game.store_visit() else {
+        if self.game.store_visit().is_none() {
             return;
-        };
+        }
         let sq = u8::try_from(x)
             .ok()
             .zip(u8::try_from(y).ok())
@@ -126,12 +127,17 @@ impl Walk {
                 self.screen.at = (x, y);
                 Prompt::Welcome
             }
-            Some((_, _, StoreSquare::Shelf(t))) if self.game.on_shelf(visit.region, t) > 0 => {
-                Prompt::Offer(t)
-            }
+            // Only what the engine offers (stores 2.7): a stocked thing it
+            // won't sell reads as out of stock.
+            Some((_, _, StoreSquare::Shelf(t))) if self.buy_offer(t).is_some() => Prompt::Offer(t),
             Some((_, _, StoreSquare::Exit)) => Prompt::Exit,
             _ => Prompt::OutOfStock,
         };
+    }
+
+    /// The engine's offer of this thing, if it sells it now (client 1).
+    fn buy_offer(&self, t: u16) -> Option<acs_engine::view::BuyOffer> {
+        self.game.store_offers()?.buy.into_iter().find(|b| b.thing == t)
     }
 
     /// Acts on one of the store screen's asks.
@@ -172,11 +178,14 @@ impl Walk {
                         p.name,
                         self.thing_name(thing)
                     )),
-                    Event::StoreRefused { .. } => Some(format!(
-                        "{} does not have enough gold for the {}.",
-                        p.name,
-                        self.thing_name(thing)
-                    )),
+                    Event::StoreRefused { reason, .. } => Some(match reason {
+                        StoreRefusal::NotEnoughGold => format!(
+                            "{} does not have enough gold for the {}.",
+                            p.name,
+                            self.thing_name(thing)
+                        ),
+                        _ => "That item is out of stock.".into(),
+                    }),
                     _ => None,
                 });
                 self.screen.prompt = Prompt::Said(said.unwrap_or_default());
@@ -214,20 +223,19 @@ impl Walk {
     /// The line at the bottom of the store screen.
     pub(super) fn prompt_text(&self) -> String {
         let p = self.game.current_player();
-        let adv = self.game.adventure();
         match &self.screen.prompt {
             Prompt::Welcome => format!("{} has {} gold to spend.", p.name, p.gold),
             Prompt::Offer(t) => {
-                let price = stores::buy_price(adv, *t).unwrap_or(0);
-                let mut s = format!("Purchase the {} for {price}?", self.thing_name(*t));
-                let region = self.game.store_visit().map_or(0, |v| v.region);
-                let n = self.game.on_shelf(region, *t);
-                if n > 1 {
-                    s.push_str(&format!(" ({n} in stock)"));
+                let Some(o) = self.buy_offer(*t) else {
+                    return "That item is out of stock.".into();
+                };
+                let mut s = format!("Purchase the {} for {}?", self.thing_name(*t), o.price);
+                if o.count > 1 {
+                    s.push_str(&format!(" ({} in stock)", o.count));
                 }
-                if p.count(*t) >= acs_engine::inventory::limit(*t) {
+                if !o.kept {
                     s.push_str(" You carry as many as you can: another would be lost.");
-                } else if (p.gold as i32) < price {
+                } else if o.refusal == Some(StoreRefusal::NotEnoughGold) {
                     s.push_str(&format!(" {} has only {} gold.", p.name, p.gold));
                 }
                 s
@@ -237,7 +245,11 @@ impl Walk {
             Prompt::Selling { thing, .. } => {
                 let n = p.count(*thing);
                 let name = self.thing_name(*thing);
-                let offer = stores::value(adv, *thing).map_or(0, |v| stores::sell_offer(v, p.wisdom));
+                let offer = self
+                    .game
+                    .store_offers()
+                    .and_then(|o| o.sell.iter().find(|s| s.thing == *thing).map(|s| s.offer))
+                    .unwrap_or(0);
                 if n > 1 {
                     format!("{} has {n} {}. Sell one for {offer}?", p.name, plural(&name))
                 } else {
@@ -310,9 +322,11 @@ pub(super) fn draw_store(tiles: &crate::tiles::Tiles, ui: &mut egui::Ui, walk: &
     let hover = hovered_cell(&resp, &grid);
     if let Some((x, y)) = hover {
         if let Some(StoreSquare::Shelf(t)) = stores::square(x as u8, y as u8) {
-            let n = g.on_shelf(region, t);
-            if n > 0 {
-                let price = stores::buy_price(a, t).unwrap_or(0);
+            let offer = g
+                .store_offers()
+                .and_then(|o| o.buy.into_iter().find(|b| b.thing == t));
+            if let Some(o) = offer {
+                let (price, n) = (o.price, o.count);
                 outline(
                     &painter,
                     grid.cell_rect(x, y),

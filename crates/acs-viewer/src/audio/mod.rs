@@ -70,6 +70,11 @@ impl Audio {
     }
 
     fn open(&mut self) {
+        // A stream that broke (a device unplugged) is dropped, so this
+        // cue opens the default output again.
+        if BROKEN.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            self.out = None;
+        }
         if self.out.is_some() || self.failed {
             return;
         }
@@ -83,6 +88,9 @@ impl Audio {
     }
 }
 
+/// Set by a stream's error callback: the next cue reopens the output.
+static BROKEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// The default output device, playing a fresh player's samples.
 fn open_output() -> Result<(cpal::Stream, Arc<Mutex<Player>>), String> {
     let device = cpal::default_host()
@@ -95,6 +103,11 @@ fn open_output() -> Result<(cpal::Stream, Arc<Mutex<Player>>), String> {
         cpal::SampleFormat::F32 => build::<f32>(&device, config.into(), player.clone()),
         cpal::SampleFormat::I16 => build::<i16>(&device, config.into(), player.clone()),
         cpal::SampleFormat::U16 => build::<u16>(&device, config.into(), player.clone()),
+        cpal::SampleFormat::I8 => build::<i8>(&device, config.into(), player.clone()),
+        cpal::SampleFormat::U8 => build::<u8>(&device, config.into(), player.clone()),
+        cpal::SampleFormat::I32 => build::<i32>(&device, config.into(), player.clone()),
+        cpal::SampleFormat::U32 => build::<u32>(&device, config.into(), player.clone()),
+        cpal::SampleFormat::F64 => build::<f64>(&device, config.into(), player.clone()),
         other => return Err(format!("sample format {other} not supported")),
     }?;
     stream.play().map_err(|e| e.to_string())?;
@@ -117,7 +130,10 @@ fn build<T: SizedSample + FromSample<f32>>(
                     frame.iter_mut().for_each(|s| *s = v);
                 }
             },
-            |e| log::warn!("sound: {e}"),
+            |e| {
+                log::warn!("sound: {e}");
+                BROKEN.store(true, std::sync::atomic::Ordering::Relaxed);
+            },
             None,
         )
         .map_err(|e| e.to_string())
