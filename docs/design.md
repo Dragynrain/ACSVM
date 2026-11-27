@@ -503,7 +503,7 @@ These adventures are fine as a **private test corpus** on a developer's machine,
 ### Path to sample content
 
 1. **Make our own.** One small tutorial adventure and one mid-size one, with original art, text and music, released under CC BY-SA 4.0. They also serve as test fixtures.
-2. **Ask authors.** Creators can relicense adventures they made entirely themselves. That excludes ones built on builder-set art or other people's characters.
+2. **Ask authors.** Creators can relicense adventures they made entirely themselves. One built on builder-set art can still be offered as a remake, with our kit art in place of the stock pictures; one built on other people's characters can't. [sharing.md](sharing.md) has the permission and remake steps.
 3. **Grow a new library.** Once the engine works, invite new adventures under Creative Commons licenses, with the project's original starter kits as their base.
 
 ## Licensing and repository

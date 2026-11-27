@@ -153,6 +153,17 @@ Please don't attach saves or screenshots of EA's or other people's
 adventures to a public issue. The forms explain how to describe them
 instead.
 
+## Sharing old adventures
+
+Did you make an ACS adventure back then? We'd like to offer the old
+adventures for download, with their authors' permission. Most were
+built on EA's stock pictures, which an author can't give away, so we
+remake those with our own art in place of the stock pictures and keep
+everything the author made: the story, map, rooms, messages and their
+own pictures. An adventure the author drew entirely themselves can be
+shared as it is. [docs/sharing.md](docs/sharing.md) explains how it
+works and what we'd need from you.
+
 ## Running it yourself
 
 The easiest way is the [browser version](https://dragynrain.github.io/ACSVM/),
