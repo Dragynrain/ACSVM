@@ -706,7 +706,8 @@ fn when_dropped_here_spaces_make_vending_machines() {
             ev[2],
             Event::ThingUsedUp {
                 player: 0,
-                thing: GOLD
+                thing: GOLD,
+                amount: Some(1)
             }
         );
         assert_eq!(g.current_player().gold, 9);

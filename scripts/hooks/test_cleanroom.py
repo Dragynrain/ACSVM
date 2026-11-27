@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Cases for the clean-room hook. Run: python scripts/hooks/test_cleanroom.py"""
+"""Cases for the clean-room hook. Run: python scripts/hooks/test_cleanroom.py
+
+Local only, not in CI: a few cases expand wildcards against the real
+research folder, which only the maintainer's machine has."""
 from __future__ import annotations
 
 import sys

@@ -212,6 +212,12 @@ impl SaveFile {
                         p.player
                     )));
                 }
+                if !game.is_square(p.at) {
+                    return Err(SaveError::Damaged(format!(
+                        "placement after {i} commands at {:?}, not a square of this adventure",
+                        p.at
+                    )));
+                }
                 game.place(p.player, p.at);
             }
             if i == self.autosave {

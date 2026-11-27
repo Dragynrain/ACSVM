@@ -64,8 +64,12 @@ fn action_code(a: &SpellAction) -> Result<u8, EncodeError> {
     })
 }
 
-fn byte(v: u16, what: &str) -> Result<u8, EncodeError> {
-    u8::try_from(v).map_err(|_| format!("{what} {v} doesn't fit a byte"))
+/// A number's low byte: a spell parameter or thing number past 255 (an
+/// Extended adventure's) keeps only that in the property bytes, as a
+/// picture past 63 keeps its low six bits; the model's field is the number,
+/// and it is what the engine reads (content.md 3.4).
+fn low(v: u16) -> u8 {
+    (v & 0xFF) as u8
 }
 
 /// Weight multiplier index (bits 5-6: x1, x-1, x20, x-20), the weight
@@ -105,13 +109,9 @@ fn carriable(code: u8, once: bool, c: &Carry, b3: u8) -> Result<[u8; 4], EncodeE
 fn access(a: &Access) -> Result<(u8, u8, u8), EncodeError> {
     Ok(match a {
         Access::Anyone => (0, 0, 0),
-        Access::InvokeSpell { action } => (
-            1,
-            action_code(action)?,
-            byte(action.parameter, "spell parameter")?,
-        ),
-        Access::OwnersOf { thing } => (2, 0, byte(*thing, "thing")?),
-        Access::NonOwnersOf { thing } => (3, 0, byte(*thing, "thing")?),
+        Access::InvokeSpell { action } => (1, action_code(action)?, low(action.parameter)),
+        Access::OwnersOf { thing } => (2, 0, low(*thing)),
+        Access::NonOwnersOf { thing } => (3, 0, low(*thing)),
     })
 }
 
@@ -193,7 +193,7 @@ pub fn thing_props(kind: &ThingKind, flags: PropFlags) -> Result<[u8; 4], Encode
                 6 | (*disappears_after_use as u8) << 4,
                 *power,
                 action_code(action)?,
-                byte(action.parameter, "spell parameter")?,
+                low(action.parameter),
             ]
         }
         ThingKind::Portal {
@@ -228,10 +228,8 @@ pub fn thing_props(kind: &ThingKind, flags: PropFlags) -> Result<[u8; 4], Encode
                 CustomTrigger::OpenToOwnersOf => 2,
                 CustomTrigger::OpenToNonOwnersOf => 3,
             };
-            let p = byte(action.parameter, "spell parameter")?;
-            if p > 0x7F {
-                return Err(format!("a custom space's spell parameter is 0..127, not {p}"));
-            }
+            // Seven bits here, as the decoder reads them.
+            let p = (action.parameter & 0x7F) as u8;
             [
                 9 | once << 4 | choice << 7,
                 pic(*picture) | trig << 6,
@@ -247,13 +245,13 @@ pub fn thing_props(kind: &ThingKind, flags: PropFlags) -> Result<[u8; 4], Encode
             10 | once << 4,
             pic(*picture) | (*bump_invokes_spell as u8) << 6,
             action_code(action)?,
-            byte(action.parameter, "spell parameter")?,
+            low(action.parameter),
         ],
         ThingKind::CustomObstacle { picture, action } => [
             11 | once << 4 | (flags.placed_parameter as u8) << 7,
             pic(*picture) | (flags.bump as u8) << 6,
             action_code(action)?,
-            byte(action.parameter, "spell parameter")?,
+            low(action.parameter),
         ],
         ThingKind::Store { picture } => [12, pic(*picture), 0, 0],
         ThingKind::Undefined => [15, 0, 0, 0],
@@ -296,5 +294,35 @@ mod tests {
         assert_eq!(raw, [11 | 0x10 | 0x80, (70 & 0x3F) | 0x40, 9, 3]);
         let back = PropFlags::from_raw(&raw);
         assert_eq!((back.once, back.bump, back.placed_parameter), (true, true, true));
+    }
+
+    #[test]
+    fn parameters_past_a_byte_keep_their_low_bits_on_every_kind() {
+        // content.md 3.4: an Extended long message 300 builds on a magic
+        // spell as on a magic item; the model keeps the number.
+        let action = SpellAction {
+            kind: SpellActionKind::LongMessage,
+            parameter: 300,
+        };
+        let spell = ThingKind::MagicSpell {
+            disappears_after_use: false,
+            power: 5,
+            action,
+        };
+        assert_eq!(
+            thing_props(&spell, PropFlags::default()).unwrap()[3],
+            300u16 as u8
+        );
+        let space = ThingKind::CustomSpace {
+            picture: 1,
+            placement_choice: PlacementChoice::Thing,
+            trigger: CustomTrigger::WhenMovedOnto,
+            action,
+            destroy_needed_thing: false,
+        };
+        assert_eq!(
+            thing_props(&space, PropFlags::default()).unwrap()[3],
+            (300 & 0x7F) as u8
+        );
     }
 }

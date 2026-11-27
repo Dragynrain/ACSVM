@@ -415,7 +415,11 @@ impl Viewer {
         if let (Some(doc), Some((seed, commands))) = (&mut v.doc, start.walk) {
             let mut walk = views::walk::Walk::new(&doc.decoded.adventure, seed, Default::default());
             if let Some(at) = start.place {
-                walk.place(at);
+                if walk.game.is_square(at) {
+                    walk.place(at);
+                } else {
+                    v.error = Some(format!("--place: {at:?} is not a square of this adventure"));
+                }
             }
             for c in commands {
                 walk.apply(c);

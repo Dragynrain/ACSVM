@@ -178,7 +178,12 @@ pub fn describe(game: &Game, ev: &Event) -> String {
             };
             format!("{} can't drop {}: {why}.", who(player), thing(*t))
         }
-        Event::ThingUsedUp { player, thing: t } => {
+        Event::ThingUsedUp {
+            player,
+            thing: t,
+            amount: Some(n),
+        } => format!("{}'s {n} {} is used up.", who(player), thing(*t)),
+        Event::ThingUsedUp { player, thing: t, .. } => {
             format!("{}'s {} is used up.", who(player), thing(*t))
         }
         Event::ObstacleVanished { thing: t, .. } => format!("{} vanishes.", thing(*t)),

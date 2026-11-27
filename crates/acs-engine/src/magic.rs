@@ -738,6 +738,7 @@ impl Game {
                         ev.push(Event::ThingUsedUp {
                             player,
                             thing: needed,
+                            amount: None,
                         });
                     }
                 }

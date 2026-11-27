@@ -144,8 +144,9 @@ dropped file is recognised by its `format` field, not its name.
    - The adventure's **name** matches; otherwise refused ("this save is for
      NAME").
    - `autosave` and every placement's `after` are within the command list,
-     and every placement's player exists when it is made; otherwise
-     refused as damaged.
+     every placement's player exists when it is made, and its `at` is a
+     square of the adventure (the map, or inside a room that isn't
+     deleted); otherwise refused as damaged.
    - The adventure's **fingerprint** matches. A mismatch with the same
      name is loaded anyway with a warning: the file may be another copy or
      platform of the adventure, or our decoder may have changed.

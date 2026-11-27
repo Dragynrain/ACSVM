@@ -142,8 +142,8 @@ def main():
     missing = [c for c in chars if c not in glyphs]
     assert not missing, f"missing glyphs: {missing}"
     bold = embolden(glyphs)
-    write_ttf({c: glyphs[c] for c in chars}, h, out / "font.ttf", "ACSVM Pirates", "Regular")
-    write_ttf({c: bold[c] for c in chars}, h, out / "font-bold.ttf", "ACSVM Pirates", "Bold")
+    write_ttf({c: glyphs[c] for c in chars}, h, out / "font.ttf", "Pirate Kit", "Regular")
+    write_ttf({c: bold[c] for c in chars}, h, out / "font-bold.ttf", "Pirate Kit", "Bold")
     if a.ttf_only:
         print(len(chars), "glyphs, height", h, "-> font.ttf, font-bold.ttf in", out)
         return

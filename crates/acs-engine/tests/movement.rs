@@ -914,7 +914,8 @@ fn locked_door_needs_and_destroys_the_key() {
             ev[0],
             Event::ThingUsedUp {
                 player: 0,
-                thing: KEY
+                thing: KEY,
+                amount: None
             }
         );
         assert!(matches!(ev[1], Event::TookDoor { .. }));
@@ -1363,6 +1364,25 @@ fn creature_keeps_off_the_door(a: &Adventure, beside: (u8, u8), door: (u8, u8)) 
 fn a_creature_never_takes_the_areas_door() {
     let a = encounter_adventure(&[(4, 15, 3)]);
     creature_keeps_off_the_door(&a, (1, 5), (0, 5));
+}
+
+/// Encounters 3.4, 7.2: a portal among an area's items is a way out like
+/// its exit door, and the area closes behind the last player.
+#[test]
+fn an_area_left_through_a_portal_closes() {
+    let a = encounter_adventure_with(
+        &[(4, 15, 0)],
+        &[(1, vec![(0, 3, 82, 0), (6, 6, ONE_WAY as u8, 1)])],
+    );
+    let (mut g, _) = pulled_in(&a);
+    g.place(0, area(1, 5, 6));
+    let ev = mv(&mut g, Dir::E);
+    assert_ne!(g.players()[0].at.room(), Some((0, 1)), "{ev:?}");
+    assert!(
+        ev.iter().any(|e| matches!(e, Event::AreaClosed { area: 1 })),
+        "{ev:?}"
+    );
+    assert_eq!(g.area_entrance(1), None);
 }
 
 /// Encounters 3.4, 3.5, 7.1, 7.2: the area's items are its list's; the
@@ -2058,6 +2078,24 @@ fn saves_check_the_adventure_and_the_state() {
     let mut nobody = save.clone();
     nobody.placements[0].player = 3;
     assert!(matches!(nobody.restore(&a), Err(SaveError::Damaged(_))));
+    // A placement off every square (a room that isn't there, or past a
+    // room's edge) is damage, not a game to play.
+    for at in [
+        hall(200, 1),
+        Location::Room {
+            region: 9,
+            room: 0,
+            x: 1,
+            y: 1,
+        },
+    ] {
+        let mut nowhere = save.clone();
+        nowhere.placements[0].at = at;
+        assert!(
+            matches!(nowhere.restore(&a), Err(SaveError::Damaged(_))),
+            "{at:?}"
+        );
+    }
     assert!(matches!(SaveFile::from_json("{}"), Err(SaveError::NotASave(_))));
     assert!(matches!(
         SaveFile::from_json(r#"{"format":"acsvm-save","version":99}"#),

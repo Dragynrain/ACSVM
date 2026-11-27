@@ -260,8 +260,10 @@ from 129 if `limits.things` allows. Unused numbers are empty slots.
 The four property bytes (`Thing::raw`) are written from the fields as
 the decoder reads them (`acs_core::encode::thing_props`), so what the
 engine reads from them (movement 5.5, 5.8, 5.9) matches the fields. A
-picture number past 63 keeps only its low six bits there; the model's
-field is the number. A weapon's or magic item's byte 3 (its index in a
+picture number past 63 keeps only its low six bits there, and a spell
+parameter or owner-access thing past 255 its low byte (a custom space's
+parameter its low seven bits); the model's field is the number, and it is
+what the engine reads. A weapon's or magic item's byte 3 (its index in a
 table the model doesn't keep) is its order among such things. [choice]
 
 ### 3.5 Spells

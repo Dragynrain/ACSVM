@@ -284,8 +284,11 @@ pub struct Game {
     /// whose creatures take the round's creature phase.
     #[serde(default)]
     pub(crate) turn_rooms: Vec<(u8, u8)>,
-    /// Doors players left a room by this round: region, room, door square
-    /// (creatures 6.4).
+    /// Doors players left a room by this round: region, room, door square.
+    /// No rule reads it (creatures choose exits by rank, creatures 6.4);
+    /// it stays because it is in the game's JSON, so dropping it would
+    /// change every save's state fingerprint and flag each as diverged
+    /// (saves 3.2). Drop it with the next save format change.
     #[serde(default)]
     pub(crate) turn_exits: Vec<(u8, u8, u8, u8)>,
     /// Temporary Life Force and turn counts per individual (magic 5).

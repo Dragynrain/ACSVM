@@ -2920,7 +2920,8 @@ fn activate_all_uses_up_a_needed_thing_and_takes_what_disappears() {
         assert_eq!(given(&ev), vec![AMULET, GEM, GEM]);
         assert!(ev.contains(&Event::ThingUsedUp {
             player: 0,
-            thing: CLAW
+            thing: CLAW,
+            amount: None
         }));
         assert!(!g.current_player().owns(CLAW));
         assert_eq!(gone(&ev), vec![IDOL_X, NEED, VGIFT, VDOALL]);

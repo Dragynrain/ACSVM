@@ -372,7 +372,10 @@ capture.md 10.36 (runs rr32, 2026-11-15; our own, no research pass).
    10 and over-long lists: 3.4.) **Engine:** every item of thing 82 stays
    (as 3.5, any of them is a door), every other item is deleted;
    `AreaClosed`. The engine drops deleted items from the room rather than
-   keeping their entries; nothing in play can tell the difference.
+   keeping their entries; nothing in play can tell the difference. A
+   player who leaves any other way (a portal among the area's items,
+   3.4) closes it the same way when the last one goes. [unknown: no
+   capture has an area with a portal]
 3. **The creatures dying does not end the area**; only its last player
    leaving, dying or retiring does (7.4, 7.6). [research, traced]
    [capture: capture.md 10.36 item 7: with the only copy killed the area

@@ -229,10 +229,13 @@ pub enum Event {
         #[serde(flatten)]
         reason: DropRefusal,
     },
-    /// A door, space or "when dropped here" space destroyed the needed thing.
+    /// A door, space or "when dropped here" space destroyed the needed
+    /// thing; for a pile of gold, `amount` says how much went.
     ThingUsedUp {
         player: usize,
         thing: ThingId,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        amount: Option<u16>,
     },
     /// A thing with the disappearing bit (an obstacle or custom obstacle
     /// at a bump, a space or custom space at a step, any of them under

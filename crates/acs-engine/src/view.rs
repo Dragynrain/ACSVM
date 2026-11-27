@@ -9,7 +9,7 @@ use crate::game::{Game, Player};
 use crate::inventory;
 use crate::magic::cast_chance;
 use crate::stores::{buy_price, offered, sell_offer, value};
-use crate::StoreRefusal;
+use crate::{Location, StoreRefusal};
 use acs_core::model::{Creature, ThingId, ThingKind};
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +52,17 @@ pub struct StoreOffers {
 }
 
 impl Game {
+    /// Whether `at` is a square a player can stand on: on the world map, or
+    /// inside a room that exists and isn't deleted (for tool placements).
+    pub fn is_square(&self, at: Location) -> bool {
+        match at {
+            Location::World { x, y } => self.on_map(x, y),
+            Location::Room { region, room, x, y } => self
+                .room(region, room)
+                .is_some_and(|r| x < r.width && y < r.height),
+        }
+    }
+
     /// The open store's shelves and offers, or `None` when no store is open.
     pub fn store_offers(&self) -> Option<StoreOffers> {
         let visit = self.store_visit()?;

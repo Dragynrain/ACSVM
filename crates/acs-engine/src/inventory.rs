@@ -274,6 +274,7 @@ impl Game {
         at: (u8, u8, u8, u8),
         top: &Option<RoomItem>,
         thing: ThingId,
+        amount: Option<u16>,
         ev: &mut Vec<Event>,
     ) -> bool {
         let Some(it) = top else { return false };
@@ -317,6 +318,7 @@ impl Game {
             ev.push(Event::ThingUsedUp {
                 player: self.current,
                 thing,
+                amount,
             });
         }
         destroy_needed_thing
@@ -471,7 +473,7 @@ impl Game {
                 y,
                 top,
             } => {
-                if self.dropped_on_custom_space((region, room, x, y), &top, thing, ev) {
+                if self.dropped_on_custom_space((region, room, x, y), &top, thing, None, ev) {
                     return;
                 }
                 if matches!(
@@ -549,7 +551,7 @@ impl Game {
                 y,
                 top,
             } => {
-                if self.dropped_on_custom_space((region, room, x, y), &top, GOLD, ev) {
+                if self.dropped_on_custom_space((region, room, x, y), &top, GOLD, Some(amount), ev) {
                     return;
                 }
                 let vanishes = matches!(

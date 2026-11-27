@@ -614,7 +614,8 @@ impl Game {
                         }
                     }
                     self.use_up(p, used_up, ev);
-                    // Creatures 6.4: creatures left behind chase through it.
+                    // Read by nothing; kept for the state fingerprint
+                    // (`Game::turn_exits`).
                     self.turn_exits.push((region, room, nx, ny));
                     self.travel(p, from, item.destination, Some(item.thing), ev);
                     // 2.3, creatures 2.2.4: a room door into another room
@@ -772,7 +773,11 @@ impl Game {
     fn use_up(&mut self, p: usize, thing: Option<ThingId>, ev: &mut Vec<Event>) {
         let Some(thing) = thing else { return };
         if self.take_one(p, thing) {
-            ev.push(Event::ThingUsedUp { player: p, thing });
+            ev.push(Event::ThingUsedUp {
+                player: p,
+                thing,
+                amount: None,
+            });
         }
     }
 
@@ -851,6 +856,14 @@ impl Game {
 
     /// Region and room changes after a jump, and the room's encounter roll.
     pub(crate) fn arrive(&mut self, p: usize, from: Location, to: Location, ev: &mut Vec<Event>) {
+        // Encounters 7.2: an area left any way (a portal among its items,
+        // a door into a deleted room) closes once no living player is in
+        // it, as through its exit door.
+        if let Some((0, area)) = from.room() {
+            if to.room() != from.room() {
+                self.close_if_empty(area, ev);
+            }
+        }
         let (old, new) = (from.region(), to.region());
         if old != new {
             if old != 0 {

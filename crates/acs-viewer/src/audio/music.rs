@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The scores below are compositions of the ACSVM project, also under
+// The scores below are compositions of this project, also under
 // CC BY-SA 4.0 (docs/content.md 5). Nothing is taken from the original's
 // music.
 
